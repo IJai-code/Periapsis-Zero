@@ -347,6 +347,22 @@ const ENTRY = [
     wide: true,
   },
   {
+    key: 'enBank',
+    label: 'Bank / command',
+    get: () =>
+      mission.entry.guided
+        ? `${((ship.bankAngle * 180) / Math.PI).toFixed(0)}° / ${((ship.bankCommand * 180) / Math.PI).toFixed(0)}°`
+        : '—',
+  },
+  {
+    key: 'enCross',
+    label: 'Cross-range',
+    get: () =>
+      mission.entry.guided
+        ? `${(mission.entry.crossRange / 1e3).toFixed(0)} km · ${mission.entry.bankReversals} rev`
+        : '—',
+  },
+  {
     key: 'enChute',
     label: 'Canopy',
     get: () =>

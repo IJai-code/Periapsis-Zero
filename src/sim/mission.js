@@ -49,6 +49,8 @@ const _vInf = new Vector3() // required hyperbolic excess velocity
 const _vInfHat = new Vector3()
 const _burnDir = new Vector3() // where the craft must be to depart correctly
 const _ei = new Vector3()
+const _entryNormal = new Vector3()
+const _bankSign = { value: 1 }
 const _retro = new Vector3()
 
 const DEG = Math.PI / 180
@@ -151,6 +153,36 @@ export const PROFILE = {
   smSepAltitude: 120e3,
   /** Entry interface, m — where the air starts to matter. */
   entryInterface: 122e3,
+
+  /* --- Guided entry --- */
+  /**
+   * Deceleration the entry autopilot flies to, in g.
+   *
+   * Not a limit that is avoided but a target that is *held*. Diving to a chosen
+   * load and staying there spreads the deceleration across a long plateau, and
+   * a plateau at 6.5 g peaks lower than a ballistic spike does — which is the
+   * whole reason a capsule with an offset centre of mass is worth building.
+   */
+  entryTargetG: 6.5,
+  /** Band below the target over which lift-up demand ramps in, g. */
+  entryGBand: 2.5,
+  /** Altitude rate at which lift-down demand starts, m/s. Full once level. */
+  entrySkipRate: 150,
+  /**
+   * Bank flown when neither hazard is active, as a vertical lift fraction.
+   * 0.5 is a 60 deg bank — the nominal Apollo held, and enough lateral
+   * component that the reversals have something to reverse.
+   */
+  entryNominalLift: 0.5,
+  /** Roll rate the capsule manages on RCS, rad/s. Apollo's was about 20 deg/s. */
+  entryRollRate: 0.35,
+  /** Cross-range that triggers a bank reversal, m. */
+  entryCrossRange: 60e3,
+  /** Minimum seconds between reversals, so the deadband cannot chatter. */
+  entryReversalDwell: 15,
+  /** Lift-to-drag override; 0 flies it ballistically, for comparison. */
+  entryLiftToDrag: null,
+
   /**
    * Warp during entry, as an index.
    *
@@ -284,6 +316,12 @@ export const mission = {
     splashdownSpeed: 0,
     splashdownVertical: 0,
     splashdownTime: 0,
+    /** Guided-entry telemetry. */
+    bankReversals: 0,
+    lastReversal: 0,
+    crossRange: 0,
+    peakCrossRange: 0,
+    guided: false,
   },
 }
 
@@ -690,6 +728,143 @@ function aimEntryAttitude() {
   )
   if (_aim.lengthSq() < 1) return aimThrust(_up)
   aimThrust(_aim)
+}
+
+/**
+ * Entry guidance: the capsule's one control loop.
+ *
+ * A blunt body flies a fixed trimmed angle of attack, so lift magnitude is not
+ * available as a control — only its direction is. Rolling about the relative
+ * wind decides how much of a fixed lift vector points up against gravity and
+ * how much points down into the air, and that single number is the entire
+ * authority the vehicle has over where it ends up and how hard it gets there.
+ *
+ * Two terms, and they do different jobs:
+ *
+ * **Track the target load, do not merely avoid it.** The g term is
+ * proportional to `g - target`, so below the target the command rolls *toward*
+ * lift-down and digs in. That looks wrong until you consider what minimises the
+ * peak: flying lift-up throughout keeps the capsule high and fast, and it then
+ * has to shed all that energy lower down where the air is thick — which is a
+ * bigger spike, later. Diving to the target load and holding it spreads the
+ * deceleration across a plateau, and a plateau at 6.5 g peaks lower than a
+ * ballistic entry's 12 g does.
+ *
+ * **Damp on altitude rate.** A pure g loop rings: the vehicle is a lightly
+ * damped phugoid at these speeds, and correcting only on the load error
+ * overshoots into a skip and then back into a dive. The `hdot` term is what
+ * turns that oscillation into a settled plateau, and it doubles as the
+ * skip guard the moment the trajectory starts climbing.
+ *
+ * The commanded bank is rate-limited, because a capsule rolls on RCS at
+ * something like 20 deg/s rather than instantly. That limit is deliberately not
+ * the autopilot's 0.15 rad/s slew: that figure is a thrust-vector rate for
+ * pointing an engine, and a capsule with no engine rolls faster.
+ */
+function updateEntryGuidance() {
+  const en = mission.entry
+  ship.liftToDrag = PROFILE.entryLiftToDrag
+  en.guided = (ship.liftToDrag ?? SHIP.stages[ship.stage]?.drag?.ld ?? 0) > 0
+  if (!en.guided) return // ballistic: no lift to point, so nothing to command
+
+  /**
+   * Two demands, blended about a nominal bank. Positive is lift up.
+   *
+   * This is a *demand* law, not an error law, and the difference is not
+   * cosmetic. Tracking `g - target` proportionally looks equivalent and is not:
+   * below the target it commands lift *down* to build load, so from an
+   * interface where g is still zero it rolls to full dive and holds there until
+   * the load arrives — by which time the capsule is deep, fast, and the loop
+   * has no authority left to arrest it. Measured, that law peaked at **149 g**
+   * against the ballistic entry's 12.
+   *
+   * What the vehicle actually wants is to sit at a nominal bank and be pushed
+   * off it by whichever hazard is closer: rising load pushes toward lift up,
+   * an incipient skip pushes toward lift down. Neither demand does anything
+   * until its hazard is real, so the entry begins by flying the corridor it was
+   * already targeted onto rather than fighting it.
+   */
+  const T = PROFILE.entryTargetG
+  const B = PROFILE.entryGBand
+  const S = PROFILE.entrySkipRate
+
+  // Lift-up demand: nothing until the load is within a band of the target.
+  let gDemand = (live.decelG - (T - B)) / B
+  if (gDemand < 0) gDemand = 0
+  else if (gDemand > 1) gDemand = 1
+
+  // Lift-down demand: nothing while descending briskly, full once level.
+  let skipDemand = (live.elements.vertical + S) / S
+  if (skipDemand < 0) skipDemand = 0
+  else if (skipDemand > 1) skipDemand = 1
+
+  const nominal = PROFILE.entryNominalLift
+  let vertical = nominal + gDemand * (1 - nominal) - skipDemand * (1 + nominal)
+  if (vertical > 1) vertical = 1
+  else if (vertical < -1) vertical = -1
+
+  /**
+   * Cross-range, and why the bank has a sign at all.
+   *
+   * Only |cos(bank)| is set by the loop above; the sign of sin(bank) is free,
+   * and it steers laterally. Left unmanaged the capsule would fly a long arc
+   * out of its entry plane, so the sign is flipped whenever the accumulated
+   * cross-range runs past a deadband — which is exactly the bank reversal
+   * Apollo flew, for exactly this reason. The plane is fixed at the interface
+   * and the error measured against it.
+   */
+  const st = live.sim.state
+  const o = INDEX.ship * 6
+  const e = INDEX.earth * 6
+  _sr.set(st[o] - st[e], st[o + 1] - st[e + 1], st[o + 2] - st[e + 2])
+  const cross = _sr.dot(_entryNormal)
+  en.crossRange = cross
+  if (Math.abs(cross) > Math.abs(en.peakCrossRange)) en.peakCrossRange = cross
+
+  /**
+   * Reverse when the error is past the deadband *and still growing*.
+   *
+   * Stated on the rate rather than on the bank's sign, which is the robust
+   * form: whether a positive bank drives cross-range positive or negative
+   * depends on how the lateral axis was constructed, and an earlier version
+   * that reasoned from that convention had it backwards and never reversed at
+   * all — the capsule simply flew 194 km off plane. Asking whether the vehicle
+   * is currently moving further out cannot be got backwards.
+   *
+   * The dwell stops it chattering at the deadband, where the error hovers and
+   * the rate flickers sign every few frames.
+   */
+  _sv.set(st[o + 3] - st[e + 3], st[o + 4] - st[e + 4], st[o + 5] - st[e + 5])
+  const crossRate = _sv.dot(_entryNormal)
+  const sinceReversal = mission.t - en.lastReversal
+  if (
+    Math.abs(cross) > PROFILE.entryCrossRange &&
+    cross * crossRate > 0 &&
+    sinceReversal > PROFILE.entryReversalDwell
+  ) {
+    _bankSign.value = -_bankSign.value
+    en.bankReversals += 1
+    en.lastReversal = mission.t
+  }
+
+  const target = Math.acos(vertical) * _bankSign.value
+  ship.bankCommand = target
+
+  /**
+   * Rate limit: roll toward the command at the vehicle's actual authority.
+   *
+   * On **simulated** seconds, not the wall clock. `control()` is handed the
+   * wall delta — correct for the pad countdown, which is a real-time hold — but
+   * a vehicle rolling in the world has to roll at the rate the world is
+   * advancing, or at 60x it turns sixty times too slowly relative to its own
+   * trajectory. Entry runs at warp 0 today, so the two are equal and nothing
+   * would show; it would appear the moment anyone raised `entryWarp`.
+   */
+  let delta = target - ship.bankAngle
+  const maxStep = PROFILE.entryRollRate * live.simDtLastFrame
+  if (delta > maxStep) delta = maxStep
+  else if (delta < -maxStep) delta = -maxStep
+  ship.bankAngle += delta
 }
 
 /** Peak loads through entry. Measured per frame, never predicted. */
@@ -1658,6 +1833,26 @@ const PHASES = [
       mission.lastSeparations = ship.separations
       mission.entry.interfaceSpeed = live.elements.speed
       mission.entry.interfaceTime = mission.t
+
+      /**
+       * Freeze the entry plane here, at separation, and measure cross-range
+       * against it for the rest of the descent. It has to be captured once
+       * rather than recomputed: the whole point of a bank reversal is to
+       * correct drift away from the plane the vehicle arrived on, and a normal
+       * recomputed each frame would follow the drift instead of resisting it.
+       */
+      const st = live.sim.state
+      const o = INDEX.ship * 6
+      const e = INDEX.earth * 6
+      _sr.set(st[o] - st[e], st[o + 1] - st[e + 1], st[o + 2] - st[e + 2])
+      _sv.set(st[o + 3] - st[e + 3], st[o + 4] - st[e + 4], st[o + 5] - st[e + 5])
+      _entryNormal.crossVectors(_sr, _sv).normalize()
+      _bankSign.value = 1
+      mission.entry.bankReversals = 0
+      mission.entry.lastReversal = mission.t
+      mission.entry.peakCrossRange = 0
+      ship.bankAngle = 0
+      ship.bankCommand = 0
     },
     control: aimEntryAttitude,
     done: () => mission.phaseT > 2,
@@ -1671,6 +1866,7 @@ const PHASES = [
       mission.warpRequest = PROFILE.entryWarp
     },
     control() {
+      updateEntryGuidance()
       aimEntryAttitude()
       trackEntryPeaks()
     },

@@ -176,11 +176,11 @@ const checks = [
   ['vacuum perigee within 10 km of target',
    Math.abs(rec.interfacePerigee - PROFILE.entryPerigee) < 10e3],
   ['entry speed 10.5 .. 11.5 km/s', rec.interfaceSpeed > 10.5e3 && rec.interfaceSpeed < 11.5e3],
-  // A *ballistic* lunar return, so this is not Apollo's 6.5 g: that figure comes
-  // from flying a lifting entry at L/D ~ 0.3, which stretches the deceleration
-  // out. With no lift term in the drag model the honest comparison is a
-  // ballistic entry, which for lunar return is a 12-16 g event.
-  ['peak deceleration 8 .. 16 g (ballistic)', en.peakG > 8 && en.peakG < 16],
+  // The capsule now flies lifting, so this is the guided band rather than the
+  // ballistic one. The ballistic case is still reachable and is measured
+  // side-by-side in verify-entry-guidance.mjs, where it comes out at 12.17 g.
+  ['peak deceleration held near the 6.5 g target', en.peakG > 4 && en.peakG < 9],
+  ['guidance was active', en.guided],
   ['no chute-opening spike over 15 g', rec.peakChuteG < 15],
   ['descent rate under 10 m/s', rec.splashVert > 0 && rec.splashVert < 10],
   ['service module discarded', ship.stage === SHIP.stages.length - 1],

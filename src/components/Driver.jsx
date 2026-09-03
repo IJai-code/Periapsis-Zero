@@ -192,6 +192,8 @@ export function Driver() {
 
     applyThrust(dt, simDt, live.sim.extAccel)
     live.sim.dragK[0] = live.sim.extAccel.dragK ?? 0 // slot 0 is the ship
+    live.sim.liftK[0] = live.sim.extAccel.liftK ?? 0
+    live.sim.bank[0] = live.sim.extAccel.bank ?? 0
 
     live.stepsLastFrame = paused ? 0 : live.sim.advance(simDt, live.maxDt)
 

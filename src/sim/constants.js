@@ -141,7 +141,17 @@ export const SHIP = {
       propellant: 0,
       thrust: 0,
       isp: 1, // never used — no propellant, so no mass flow
-      drag: { cd: 1.25, area: 7.385 },
+      /**
+       * `ld` is the trimmed lift-to-drag ratio. Apollo flew about 0.30 and
+       * Orion is similar, both achieved the same way: the centre of mass is
+       * deliberately offset from the axis of symmetry, so the capsule trims at
+       * a non-zero angle of attack and generates lift without any control
+       * surface. The consequence is the one that shapes the whole entry — the
+       * magnitude of lift is fixed by the vehicle's shape and mass
+       * distribution, and the only thing the flight computer can change is
+       * which way it points.
+       */
+      drag: { cd: 1.25, area: 7.385, ld: 0.3 },
     },
   ],
 

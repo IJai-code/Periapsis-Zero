@@ -56,6 +56,18 @@ export const ship = {
   chuteTarget: 0,
   chuteTau: 1,
 
+  /**
+   * Bank angle of the lift vector about the relative wind, rad.
+   *
+   * 0 is lift straight up, pi straight down, +-pi/2 purely lateral. This is the
+   * capsule's *only* control authority during entry, and it is a rate-limited
+   * state rather than a setpoint because a vehicle cannot roll instantly.
+   */
+  bankAngle: 0,
+  bankCommand: 0,
+  /** Override for the stage's trimmed L/D; null uses the vehicle's own. */
+  liftToDrag: null,
+
   /** Index of the burning stage. Everything below it has been discarded. */
   stage: 0,
   /** Remaining propellant per stage, kg. */
@@ -116,6 +128,8 @@ export function resetShip() {
   ship.chuteCdA = 0
   ship.chuteTarget = 0
   ship.chuteTau = 1
+  ship.bankAngle = 0
+  ship.bankCommand = 0
   ship.stage = 0
   ship.separations = 0
   SHIP.stages.forEach((s, i) => (ship.stageProp[i] = s.propellant))
@@ -257,7 +271,19 @@ export function applyThrust(dt, simDt, extAccel) {
 
   // The chute's Cd·A adds to the vehicle's own; dragCoefficient() folds in the
   // 1/2m, so the two areas are summed before it rather than after.
-  extAccel.dragK = (0.5 * (d.cd * d.area + ship.chuteCdA)) / ship.mass
+  const bodyK = (0.5 * (d.cd * d.area)) / ship.mass
+  extAccel.dragK = bodyK + (0.5 * ship.chuteCdA) / ship.mass
+
+  /**
+   * Lift follows the *body*, never the canopy.
+   *
+   * A capsule under parachutes is hanging, not flying: it has no trimmed angle
+   * of attack any more and the chute contributes drag only. Deriving liftK from
+   * the combined Cd·A would hand the vehicle a lift force ninety times its own
+   * once the mains inflate.
+   */
+  extAccel.liftK = ship.chuteCdA > 0 ? 0 : bodyK * (ship.liftToDrag ?? d.ld ?? 0)
+  extAccel.bank = ship.bankAngle
 }
 
 /* ---------------------------------------------------------------- *

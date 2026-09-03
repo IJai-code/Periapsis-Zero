@@ -65,6 +65,27 @@ export class RK4NBody {
      * dynamics are stiffest.
      */
     this.dragK = new Float64Array(Math.max(0, this.n - massiveCount))
+
+    /**
+     * Aerodynamic lift, per test particle.
+     *
+     * `liftK` is (Cl * A) / 2m, the same shape as `dragK`, and `bank` is the
+     * roll angle of the lift vector about the relative wind — 0 for lift
+     * straight up, pi for straight down, +-pi/2 for purely lateral.
+     *
+     * The split between them is the split between plant and control, and it is
+     * the same one thrust already makes. `liftK` is a property of the vehicle
+     * and the lift force is recomputed inside every RK4 stage, because it
+     * depends on position through density and on velocity quadratically — the
+     * same reasoning that keeps drag out of the zero-order hold. `bank` is a
+     * *command*, held constant across the four stages, because a control input
+     * that varied within a step would not correspond to anything the flight
+     * computer could actually issue.
+     *
+     * Zero `liftK` recovers the ballistic capsule exactly.
+     */
+    this.liftK = new Float64Array(Math.max(0, this.n - massiveCount))
+    this.bank = new Float64Array(Math.max(0, this.n - massiveCount))
     /** State-vector slot of the body with an atmosphere, or -1. */
     this.dragBody = -1
     this.dragBodyRadius = 0
@@ -189,6 +210,66 @@ export class RK4NBody {
             out[op + 3] -= k * vx
             out[op + 4] -= k * vy
             out[op + 5] -= k * vz
+
+            /**
+             * Lift, perpendicular to the relative wind.
+             *
+             * A blunt capsule flies a fixed trimmed angle of attack, set by an
+             * offset centre of mass, so the *magnitude* of lift is not a
+             * control at all — only its direction is. Rolling about the wind
+             * vector is the entire control authority the vehicle has.
+             *
+             * The frame is built on the wind rather than on the position, which
+             * matters at entry speeds: the air is turning at 400 m/s and the
+             * lift acts on the flow the vehicle actually meets, not on its
+             * inertial velocity. From v-hat, the local vertical projected
+             * perpendicular to it gives "up"; their cross product gives the
+             * lateral axis; and the bank angle rotates lift between them.
+             */
+            const kl = this.liftK[p - M]
+            if (kl !== 0 && speed > 1) {
+              const inv = 1 / speed
+              const vhx = vx * inv
+              const vhy = vy * inv
+              const vhz = vz * inv
+
+              // Local vertical. `alt` already carries the radius, so no sqrt.
+              const rlen = alt + this.dragBodyRadius
+              const rhx = rx / rlen
+              const rhy = ry / rlen
+              const rhz = rz / rlen
+
+              // Component of "up" perpendicular to the wind.
+              const dot = rhx * vhx + rhy * vhy + rhz * vhz
+              let ux = rhx - dot * vhx
+              let uy = rhy - dot * vhy
+              let uz = rhz - dot * vhz
+              const ulen = Math.sqrt(ux * ux + uy * uy + uz * uz)
+
+              // Degenerate only if flying exactly radially, where "up" relative
+              // to the wind is undefined and lift genuinely has no vertical
+              // sense to resolve.
+              if (ulen > 1e-9) {
+                const uinv = 1 / ulen
+                ux *= uinv
+                uy *= uinv
+                uz *= uinv
+
+                // Lateral axis completes the triad: w = v x u.
+                const wx = vhy * uz - vhz * uy
+                const wy = vhz * ux - vhx * uz
+                const wz = vhx * uy - vhy * ux
+
+                const sig = this.bank[p - M]
+                const cs = Math.cos(sig)
+                const sn = Math.sin(sig)
+                const aL = kl * rho * speed * speed
+
+                out[op + 3] += aL * (cs * ux + sn * wx)
+                out[op + 4] += aL * (cs * uy + sn * wy)
+                out[op + 5] += aL * (cs * uz + sn * wz)
+              }
+            }
           }
         }
       }

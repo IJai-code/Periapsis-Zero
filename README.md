@@ -55,7 +55,7 @@ is measured from an actual run, not estimated.
 | `EI_SOLVE` | pointing < 0.005 rad | Gauss-Newton, 11 iterations |
 | `EI_BURN` | burnout mass | **23.02 m/s** |
 | `SM_SEP` | 2 s | ESM discarded at 120 km |
-| `RE_ENTRY` | 8 km **and** subsonic | 10.533 km/s at the interface, peak **12.2 g** |
+| `RE_ENTRY` | 8 km **and** subsonic | 10.533 km/s at the interface, guided to **6.28 g** |
 | `DROGUE` | 3 km | Mach 0.50, 155 m/s |
 | `MAIN_CHUTES` | surface | 53 m/s at deployment |
 | `SPLASHDOWN` | — | **8.44 m/s descent rate** |
@@ -839,14 +839,78 @@ because it is 10 t light.
 | **peak total flux** | **390 W/cm² at 59.3 km** | |
 | integrated heat load | 17.6 kJ/cm² over 181 s | |
 
-The 12.2 g is not a disagreement with Apollo's 6.5 g, it is a different entry.
-Apollo flew a *lifting* entry at L/D ≈ 0.3 and banked to stretch the
-deceleration out; the drag model here has no lift and no angle-of-attack term, so
-this is the ballistic case, which for lunar return is a 12–16 g event — the
-figure Apollo's own ballistic-abort mode carried. Attitude is therefore
-presentation rather than dynamics: the capsule is aimed into the relative wind so
-it is *drawn* flying correctly, but its orientation does not enter its
-trajectory.
+Those are the *ballistic* figures, and they are reproducible on demand by setting
+`PROFILE.entryLiftToDrag = 0`. The capsule now flies lifting, which is the next
+section — and which brings 12.17 g down to 6.28.
+
+### Lift, and the one control a capsule has
+
+A blunt body trims at a fixed angle of attack because its centre of mass is
+deliberately offset from the axis of symmetry. So lift *magnitude* is not a
+control at all: at L/D = 0.3 the capsule makes the lift it makes, and the only
+authority the flight computer has is **which way it points**.
+
+```
+a_lift = liftK rho v_rel^2 (cos(sigma) u + sin(sigma) w)
+u = local vertical, projected perpendicular to the relative wind
+w = v x u                          sigma = 0 up, pi down, +-pi/2 lateral
+```
+
+The frame is built on the *wind*, not the position — the air is turning at
+400 m/s and lift acts on the flow the vehicle meets. And the split between force
+and command mirrors the one thrust already makes: `liftK` is a vehicle property
+and the force is recomputed inside every RK4 stage, because it depends on
+position through density and on velocity quadratically; `bank` is a command, held
+constant across the four stages, because a control input that varied inside a
+step corresponds to nothing a flight computer could issue.
+
+This is the first time attitude is **dynamics** rather than presentation. Before
+it, the capsule's orientation was drawn and ignored.
+
+### The autopilot is a demand law, not an error law
+
+Two demands blended about a nominal 60° bank: rising load pushes toward lift up,
+an incipient skip pushes toward lift down, and neither does anything until its
+hazard is real.
+
+The obvious alternative is worth recording because it fails spectacularly.
+Tracking `g − target` proportionally looks equivalent, and is not: *below* the
+target it commands lift-down to build load, so from an interface where g is still
+zero it rolls to full dive and holds there until the load arrives — by which time
+the capsule is deep, fast, and the loop has no authority left. Measured, that law
+peaked at **149 g** against ballistic's 12.
+
+Cross-range is managed by reversing the bank's sign, which is free — the loop
+only sets |cos σ|. The reversal test is stated on the cross-range *rate*, not on
+the bank's sign, deliberately: whether a positive bank drives cross-range
+positive depends on how the lateral axis was constructed, and a version that
+reasoned from that convention had it backwards and never reversed at all,
+flying 194 km off plane. Asking whether the vehicle is currently moving further
+out cannot be got backwards.
+
+### What lift actually buys, and what it costs
+
+Same trajectory, same corridor, the only difference being L/D:
+
+| | ballistic | guided |
+| --- | --- | --- |
+| lift-to-drag | 0 | 0.30 |
+| **peak deceleration** | **12.17 g** at 44.2 km | **6.28 g** at 54.5 km |
+| peak dynamic pressure | 50.1 kPa | 25.9 kPa |
+| peak total flux | 390 W/cm² | 373 W/cm² |
+| **integrated flux** | **17.6 kJ/cm²** | **20.3 kJ/cm²** |
+| seconds within 1 g of target | 20 | 30 |
+| bank reversals | 0 | 15 |
+| peak cross-range | — | −133 km |
+| splashdown | 8.44 m/s | 8.44 m/s |
+
+Peak load halves and lands within 0.22 g of the 6.5 g target. Peak pressure
+halves. But the integrated flux goes **up**, by 15%, and that is not a defect —
+it is the trade. Lift holds the capsule high, which lowers the instantaneous
+rate and lengthens the exposure, so the shield sees a gentler fire for longer and
+absorbs more total energy. It is why a lifting re-entry vehicle carries a thick
+ablator rather than a thin one, and it is the sort of result that only falls out
+of flying both cases through the same integrator.
 
 ### Heating is two terms, and the larger one is radiation
 
@@ -1203,6 +1267,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-return.mjs` | departure, corridor trim, entry loads and splashdown |
 | `verify-tei-timing.mjs` | when the corridor trim is cheapest |
 | `verify-heating.mjs` | convective against radiative, down the whole entry |
+| `verify-entry-guidance.mjs` | lifting entry against ballistic, same trajectory |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer

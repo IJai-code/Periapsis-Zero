@@ -117,6 +117,8 @@ export function frame(delta = FRAME) {
 
   applyThrust(dt, simDt, live.sim.extAccel)
   live.sim.dragK[0] = live.sim.extAccel.dragK ?? 0
+  live.sim.liftK[0] = live.sim.extAccel.liftK ?? 0
+  live.sim.bank[0] = live.sim.extAccel.bank ?? 0
 
   live.stepsLastFrame = live.sim.advance(simDt, live.maxDt)
   if (isClamped()) applyClamp()
@@ -225,6 +227,81 @@ export function restore(snap) {
     cutoff: '',
     ignited: false,
   })
+  /**
+   * The return blocks get the same treatment, and for a sharper version of the
+   * same reason.
+   *
+   * A snapshot taken in lunar orbit predates all of this, so none of it is in
+   * the file — but these are live module singletons, and a second run in the
+   * same process inherits whatever the first one left. `ei.solved` is the
+   * dangerous one: `TRANS_EARTH.done()` branches on it, so a stale `true` makes
+   * the second run skip the corridor trim entirely and fly the *untrimmed*
+   * departure, which has a perigee 1,528 km below the surface. That arrives at
+   * the interface descending at 5.5 km/s on a 30 degree path, and the entry
+   * autopilot — correctly — cannot save it. The failure looks exactly like a
+   * guidance bug and is not one.
+   */
+  Object.assign(mission.tei, {
+    vInfRequired: 0,
+    c3Target: 0,
+    c3: 0,
+    deltaVEstimate: 0,
+    burnEstimate: 0,
+    timeToWindow: Infinity,
+    outOfPlane: 0,
+    pointingError: Math.PI,
+    burnStart: 0,
+    burnEnd: 0,
+    burnDuration: 0,
+    deltaVDelivered: 0,
+    startMass: 0,
+    predictedPerigee: 0,
+    solved: false,
+    cutoff: '',
+    ignited: false,
+  })
+  Object.assign(mission.ei, {
+    solved: false,
+    converged: false,
+    rejected: false,
+    magnitude: 0,
+    targetMass: 0,
+    predicted: 0,
+    before: 0,
+    iterations: 0,
+    pointingError: Math.PI,
+  })
+  Object.assign(mission.entry, {
+    interfaceSpeed: 0,
+    interfaceTime: 0,
+    peakG: 0,
+    peakQ: 0,
+    peakHeatFlux: 0,
+    peakRadFlux: 0,
+    peakTotalFlux: 0,
+    peakGAltitude: 0,
+    peakTotalAltitude: 0,
+    drogueAltitude: 0,
+    mainAltitude: 0,
+    splashdownSpeed: 0,
+    splashdownVertical: 0,
+    splashdownTime: 0,
+    bankReversals: 0,
+    lastReversal: 0,
+    crossRange: 0,
+    peakCrossRange: 0,
+    guided: false,
+  })
+
+  // Aerodynamic control state, likewise: a run that reached the water would
+  // otherwise hand the next one a fully inflated main canopy in lunar orbit.
+  ship.chuteCdA = 0
+  ship.chuteTarget = 0
+  ship.chuteTau = 1
+  ship.bankAngle = 0
+  ship.bankCommand = 0
+  ship.liftToDrag = null
+
   mission.resumeDone = false
 
   flight.warp = snap.flight.warp
