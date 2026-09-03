@@ -84,8 +84,24 @@ function fly(ld) {
     if (Math.abs(trace[i].g - PROFILE.entryTargetG) < 1.0) dwell += trace[i].t - trace[i - 1].t
   }
 
+  /**
+   * Exposure duration, which is the mechanism behind the integrated load.
+   *
+   * Measured two ways because they answer different questions: how long the
+   * entry phase itself lasted, and how long the shield was above a meaningful
+   * flux. Quoting the integrated load without either would leave the *reason*
+   * for it inferred rather than shown.
+   */
+  const entryDuration = trace.length ? trace[trace.length - 1].t - trace[0].t : 0
+  let hotTime = 0
+  for (let i = 1; i < trace.length; i++) {
+    if (trace[i].flux > 50e4) hotTime += trace[i].t - trace[i - 1].t // above 50 W/cm2
+  }
+
   return {
     ld,
+    entryDuration,
+    hotTime,
     reached: currentPhase().id,
     peakG,
     peakGAlt,
@@ -119,6 +135,8 @@ row('peak dynamic pressure, kPa', ball.peakQ / 1e3, lift.peakQ / 1e3, f2)
 row('peak total flux, W/cm2', ball.peakTotalFlux / 1e4, lift.peakTotalFlux / 1e4, f0)
 row('integrated flux, kJ/cm2', ball.heatLoadProxy / 1e7, lift.heatLoadProxy / 1e7, f2)
 row('seconds within 1 g of target', ball.dwell, lift.dwell, f0)
+row('entry phase duration, s', ball.entryDuration, lift.entryDuration, f0)
+row('seconds above 50 W/cm2', ball.hotTime, lift.hotTime, f0)
 row('bank reversals', ball.reversals, lift.reversals, f0)
 row('peak cross-range, km', ball.peakCross / 1e3, lift.peakCross / 1e3, f2)
 row('splashdown descent, m/s', ball.splashVert, lift.splashVert, f2)
@@ -147,6 +165,10 @@ const checks = [
   ['cross-range bounded under 150 km', Math.abs(lift.peakCross) < 150e3],
   ['bank reversals happened', lift.reversals > 0],
   ['descent rate still under 10 m/s', lift.splashVert > 0 && lift.splashVert < 10],
+  // The stated mechanism for the higher integrated load: longer exposure. If
+  // the guided entry were not in fact hotter for longer, the explanation in the
+  // README would be wrong even though the integral is right.
+  ['guided entry is exposed longer', lift.hotTime > ball.hotTime],
 ]
 let pass = true
 for (const [label, ok] of checks) {

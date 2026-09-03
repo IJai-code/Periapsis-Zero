@@ -899,6 +899,8 @@ Same trajectory, same corridor, the only difference being L/D:
 | peak dynamic pressure | 50.1 kPa | 25.9 kPa |
 | peak total flux | 390 W/cm² | 373 W/cm² |
 | **integrated flux** | **17.6 kJ/cm²** | **20.3 kJ/cm²** |
+| entry phase duration | 257 s | 404 s |
+| seconds above 50 W/cm² | 88 s | 112 s |
 | seconds within 1 g of target | 20 | 30 |
 | bank reversals | 0 | 15 |
 | peak cross-range | — | −133 km |
@@ -906,11 +908,15 @@ Same trajectory, same corridor, the only difference being L/D:
 
 Peak load halves and lands within 0.22 g of the 6.5 g target. Peak pressure
 halves. But the integrated flux goes **up**, by 15%, and that is not a defect —
-it is the trade. Lift holds the capsule high, which lowers the instantaneous
-rate and lengthens the exposure, so the shield sees a gentler fire for longer and
-absorbs more total energy. It is why a lifting re-entry vehicle carries a thick
-ablator rather than a thin one, and it is the sort of result that only falls out
-of flying both cases through the same integrator.
+it is the trade.
+
+The mechanism is measured rather than asserted, because the integral alone does
+not establish it. Lift holds the capsule high, so the entry phase runs **257 s →
+404 s** and the time above 50 W/cm² runs **88 s → 112 s**: 27% more time in the
+fire at a lower rate, netting 15% more total energy absorbed. That is why a
+lifting re-entry vehicle carries a thick ablator rather than a thin one, and it
+is the sort of result that only falls out of flying both cases through the same
+integrator.
 
 ### Heating is two terms, and the larger one is radiation
 
