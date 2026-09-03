@@ -169,6 +169,17 @@ const checks = [
   // the guided entry were not in fact hotter for longer, the explanation in the
   // README would be wrong even though the integral is right.
   ['guided entry is exposed longer', lift.hotTime > ball.hotTime],
+  /**
+   * And the trade-off itself, which is the README's headline claim about
+   * lifting entry and was previously only *reported*.
+   *
+   * Asserted on direction rather than on the 15% this trajectory happens to
+   * produce. The physics is that trading peak rate for exposure costs total
+   * energy; the magnitude belongs to one corridor and one set of gains, and
+   * pinning it would turn a legitimate retune into a failure.
+   */
+  ['lower peak rate is paid for in total energy',
+   lift.peakTotalFlux < ball.peakTotalFlux && lift.heatLoadProxy > ball.heatLoadProxy],
 ]
 let pass = true
 for (const [label, ok] of checks) {
