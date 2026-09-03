@@ -1,0 +1,5 @@
+# Fetched assets — reproducible with `npm run textures:fetch`, so they are not
+# worth committing. The app runs fully without them on the procedural set.
+*
+!.gitignore
+!README.md

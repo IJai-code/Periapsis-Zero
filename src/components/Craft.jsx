@@ -1,0 +1,75 @@
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
+import { live } from '../sim/live.js'
+import { ship } from '../sim/ship.js'
+import { INDEX } from '../sim/system.js'
+import { CRAFT } from '../sim/constants.js'
+import { useModel } from '../gfx/models.js'
+import { useUi } from '../sim/store.js'
+import { Placeholder } from './Placeholders.jsx'
+
+/**
+ * One spacecraft: position from the integrator, hull from either a loaded glTF
+ * or the procedural placeholder.
+ *
+ * Uncontrolled craft are held in the local-vertical/local-horizontal attitude
+ * real satellites fly — nose along the velocity vector, one face to the ground.
+ * The controllable ship uses its own flight-model quaternion instead.
+ */
+const _fwd = new THREE.Vector3()
+const _up = new THREE.Vector3()
+const _right = new THREE.Vector3()
+const _basis = new THREE.Matrix4()
+
+export function Craft({ id }) {
+  const group = useRef()
+  const spec = CRAFT[id]
+
+  const modelId = useUi((s) => s.modelFor[id])
+  const source = useModel(modelId)
+
+  // Clone per craft: the same catalogue entry can be bound to more than one
+  // vehicle, and an Object3D cannot occupy two places in the scene graph.
+  // three's clone shares geometry and materials, so this is cheap.
+  const model = useMemo(() => {
+    if (!source) return null
+    const instance = source.clone(true)
+    instance.scale.setScalar(spec.visual / source.userData.longest)
+    return instance
+  }, [source, spec.visual])
+
+  // Direction only, so the raw SI difference is fine: every display transform
+  // here is a uniform scale, which leaves directions untouched.
+  const offsets = useMemo(() => ({ craft: INDEX[id] * 6, earth: INDEX.earth * 6 }), [id])
+
+  useFrame(() => {
+    const g = group.current
+    if (!g) return
+    g.position.copy(live.pos[id])
+
+    if (id === 'ship') {
+      g.quaternion.copy(ship.quaternion)
+      return
+    }
+
+    const s = live.sim.state
+    const { craft, earth } = offsets
+    _fwd.set(s[craft + 3] - s[earth + 3], s[craft + 4] - s[earth + 4], s[craft + 5] - s[earth + 5])
+    _up.set(s[craft] - s[earth], s[craft + 1] - s[earth + 1], s[craft + 2] - s[earth + 2])
+    if (_fwd.lengthSq() === 0) return
+
+    _fwd.normalize()
+    _up.normalize()
+    _right.crossVectors(_up, _fwd).normalize()
+    _up.crossVectors(_fwd, _right).normalize() // re-orthogonalise; the orbit is not exactly circular
+    _basis.makeBasis(_right, _up, _fwd)
+    g.quaternion.setFromRotationMatrix(_basis)
+  }, -2)
+
+  return (
+    <group ref={group}>
+      {model ? <primitive object={model} /> : <Placeholder id={id} size={spec.visual} />}
+    </group>
+  )
+}

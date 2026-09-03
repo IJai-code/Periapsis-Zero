@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Downloaded assets, not sources.
+#
+# `public/models` is 1.1 GB of NASA public-domain meshes and `public/textures`
+# 13 MB of imagery; both are fetched by scripts in this repo rather than authored
+# in it, and both are optional at runtime — the app synthesises every texture
+# procedurally and falls back to compound placeholder hulls. The READMEs that
+# document the expected file names are kept, and so is the generated catalogue,
+# because `src/gfx/modelsManifest.js` is what the HUD selector reads.
+public/models/*
+!public/models/README.md
+public/textures/*
+!public/textures/README.md
+public/draco/

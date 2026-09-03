@@ -1,0 +1,286 @@
+import { G } from './constants.js'
+import { ATMOSPHERE_TOP, density } from './atmosphere.js'
+
+/**
+ * Classical Runge-Kutta 4th-order N-body integrator, in two tiers.
+ *
+ * State is one flat Float64Array laid out as [x, y, z, vx, vy, vz] per body,
+ * in SI units. Every buffer is allocated once in the constructor: `step()` runs
+ * on every animation frame and must not produce garbage.
+ *
+ * Bodies below `massiveCount` interact fully and pair-symmetrically. Bodies at
+ * or above it are **test particles**: they read gravity from the massive set,
+ * exert none in return, and ignore each other. That is the restricted N-body
+ * formulation, and it does two things a zero-mass entry in the full pair loop
+ * would not. It drops the cost from O(N^2/2) to O(M^2/2 + P*M), and it makes it
+ * structurally impossible for a spacecraft to perturb a planet — the massive
+ * bodies' accelerations never read a test particle's slot at all.
+ *
+ * Accelerations come straight from Newton's law of universal gravitation with
+ * no softening term. The massive bodies never approach each other closely
+ * enough for the 1/r^2 singularity to bite, and adding softening would quietly
+ * falsify the orbits. Test particles get a floor on r^2 instead, since a
+ * spacecraft really can fly into a planet.
+ */
+export class RK4NBody {
+  /**
+   * @param {number[]} masses in kilograms, in the same order as the state vector
+   * @param {Float64Array} initial flat state, length 6 * masses.length
+   * @param {number} massiveCount how many leading bodies are gravitationally active
+   */
+  constructor(masses, initial, massiveCount = masses.length) {
+    this.n = masses.length
+    this.massiveCount = massiveCount
+    this.masses = Float64Array.from(masses)
+    this.state = Float64Array.from(initial)
+    this.t = 0 // seconds since epoch
+
+    const len = this.n * 6
+    this.k1 = new Float64Array(len)
+    this.k2 = new Float64Array(len)
+    this.k3 = new Float64Array(len)
+    this.k4 = new Float64Array(len)
+    this.tmp = new Float64Array(len)
+
+    /**
+     * World-space non-gravitational acceleration per test particle — thrust.
+     * Written once per frame by the driver and held constant across all four
+     * RK4 stages: a zero-order hold on the control input, which is how discrete
+     * control is modelled in real avionics. RK4 integrates a constant
+     * acceleration *exactly*, so a steady burn costs no integration error.
+     */
+    this.extAccel = new Float64Array(Math.max(0, this.n - massiveCount) * 3)
+
+    /**
+     * Aerodynamic drag, per test particle.
+     *
+     * `dragK` is (Cd * A) / 2m — everything in the drag term that belongs to the
+     * vehicle rather than to the state — so the inner loop multiplies rather
+     * than reconstructs it. Zero disables drag for that particle.
+     *
+     * Unlike thrust, drag is *not* a zero-order hold. It depends on position
+     * (through density) and on velocity (quadratically), so it has to be
+     * evaluated inside every RK4 stage rather than frozen for the step. Freezing
+     * it would drop the whole integration back to first order exactly where the
+     * dynamics are stiffest.
+     */
+    this.dragK = new Float64Array(Math.max(0, this.n - massiveCount))
+    /** State-vector slot of the body with an atmosphere, or -1. */
+    this.dragBody = -1
+    this.dragBodyRadius = 0
+    /** Angular velocity of that body, rad/s — the air co-rotates with it. */
+    this.omega = new Float64Array(3)
+
+    /**
+     * Step ceiling, in seconds. Lives on the instance rather than only at the
+     * call site because a caller who forgets it silently gets the 900 s
+     * planetary default — which is eight steps per revolution for a low orbit,
+     * enough to tear a satellite off the planet. Refreshed each frame from the
+     * fastest craft in flight.
+     */
+    this.maxDt = 900
+
+    /**
+     * Floor on r^2 for test particles only, in square metres.
+     *
+     * A *floor* rather than an additive softening term: adding biases gravity
+     * everywhere, and at a plausible floor of a quarter Earth radius that is an
+     * 8% error at 400 km — enough to lift a circular orbit by 78 km per
+     * revolution. Clamping instead has exactly zero effect outside the
+     * threshold and, since the numerator keeps the true separation vector,
+     * decays acceleration smoothly to zero at the centre.
+     */
+    this.testSoftening2 = 0
+
+    this.initialEnergy = this.energy()
+  }
+
+  /**
+   * dy/dt for the whole system. Pair-symmetric: each interaction is evaluated
+   * once and applied to both bodies with opposite sign, which halves the work
+   * and makes momentum conservation exact to floating point.
+   */
+  derivative(y, out) {
+    const { n, massiveCount: M, masses: m, extAccel, testSoftening2: soft2 } = this
+
+    for (let i = 0; i < n; i++) {
+      const o = i * 6
+      out[o] = y[o + 3]
+      out[o + 1] = y[o + 4]
+      out[o + 2] = y[o + 5]
+      out[o + 3] = 0
+      out[o + 4] = 0
+      out[o + 5] = 0
+    }
+
+    // Tier 1 — massive against massive. Each interaction is evaluated once and
+    // applied to both bodies with opposite sign, which halves the work and
+    // makes momentum conservation exact to floating point.
+    for (let i = 0; i < M; i++) {
+      const oi = i * 6
+      for (let j = i + 1; j < M; j++) {
+        const oj = j * 6
+        const dx = y[oj] - y[oi]
+        const dy = y[oj + 1] - y[oi + 1]
+        const dz = y[oj + 2] - y[oi + 2]
+
+        const r2 = dx * dx + dy * dy + dz * dz
+        const invR3 = 1 / (r2 * Math.sqrt(r2))
+
+        const ai = G * m[j] * invR3 // acceleration of i, toward j
+        const aj = G * m[i] * invR3 // acceleration of j, toward i
+
+        out[oi + 3] += ai * dx
+        out[oi + 4] += ai * dy
+        out[oi + 5] += ai * dz
+
+        out[oj + 3] -= aj * dx
+        out[oj + 4] -= aj * dy
+        out[oj + 5] -= aj * dz
+      }
+    }
+
+    // Tier 2 — test particles. One-way gravity, plus thrust.
+    for (let p = M; p < n; p++) {
+      const op = p * 6
+      for (let j = 0; j < M; j++) {
+        const oj = j * 6
+        const dx = y[oj] - y[op]
+        const dy = y[oj + 1] - y[op + 1]
+        const dz = y[oj + 2] - y[op + 2]
+
+        const raw = dx * dx + dy * dy + dz * dz
+        const r2 = raw < soft2 ? soft2 : raw
+        const a = (G * m[j]) / (r2 * Math.sqrt(r2))
+
+        out[op + 3] += a * dx
+        out[op + 4] += a * dy
+        out[op + 5] += a * dz
+      }
+
+      const e = (p - M) * 3
+      out[op + 3] += extAccel[e]
+      out[op + 4] += extAccel[e + 1]
+      out[op + 5] += extAccel[e + 2]
+
+      // Aerodynamic drag against the co-rotating atmosphere.
+      const k0 = this.dragK[p - M]
+      if (k0 > 0 && this.dragBody >= 0) {
+        const ob = this.dragBody * 6
+        const rx = y[op] - y[ob]
+        const ry = y[op + 1] - y[ob + 1]
+        const rz = y[op + 2] - y[ob + 2]
+        const alt = Math.sqrt(rx * rx + ry * ry + rz * rz) - this.dragBodyRadius
+
+        if (alt < ATMOSPHERE_TOP) {
+          const rho = density(alt)
+          if (rho > 0) {
+            // The air turns with the planet, so the wind a craft feels is its
+            // velocity minus the local surface velocity omega x r. At the
+            // equator that is 465 m/s — 6% of orbital speed, and the difference
+            // between a prograde and a retrograde reentry.
+            const w = this.omega
+            const vx = y[op + 3] - y[ob + 3] - (w[1] * rz - w[2] * ry)
+            const vy = y[op + 4] - y[ob + 4] - (w[2] * rx - w[0] * rz)
+            const vz = y[op + 5] - y[ob + 5] - (w[0] * ry - w[1] * rx)
+
+            const speed = Math.sqrt(vx * vx + vy * vy + vz * vz)
+            const k = k0 * rho * speed // the |v| of the |v| v term
+            out[op + 3] -= k * vx
+            out[op + 4] -= k * vy
+            out[op + 5] -= k * vz
+          }
+        }
+      }
+    }
+  }
+
+  /** One RK4 step of `dt` seconds. `dt` may be negative (back-propagation). */
+  step(dt) {
+    const { state: y, k1, k2, k3, k4, tmp } = this
+    const len = y.length
+    const h2 = dt * 0.5
+    const h6 = dt / 6
+
+    this.derivative(y, k1)
+    for (let a = 0; a < len; a++) tmp[a] = y[a] + h2 * k1[a]
+
+    this.derivative(tmp, k2)
+    for (let a = 0; a < len; a++) tmp[a] = y[a] + h2 * k2[a]
+
+    this.derivative(tmp, k3)
+    for (let a = 0; a < len; a++) tmp[a] = y[a] + dt * k3[a]
+
+    this.derivative(tmp, k4)
+    for (let a = 0; a < len; a++) {
+      y[a] += h6 * (k1[a] + 2 * k2[a] + 2 * k3[a] + k4[a])
+    }
+
+    this.t += dt
+  }
+
+  /**
+   * Advance by `seconds` of simulated time, subdividing so no single step
+   * exceeds `maxDt`. The substep count is capped so that an extreme time warp
+   * degrades accuracy gracefully instead of stalling the frame.
+   */
+  advance(seconds, maxDt = this.maxDt, maxSubsteps = 2048) {
+    if (seconds === 0) return 0
+    const steps = Math.min(maxSubsteps, Math.max(1, Math.ceil(Math.abs(seconds) / maxDt)))
+    const dt = seconds / steps
+    for (let s = 0; s < steps; s++) this.step(dt)
+    return steps
+  }
+
+  /**
+   * Total mechanical energy of the **massive** bodies, in joules.
+   *
+   * Test particles are excluded deliberately. A thrusting spacecraft adds
+   * energy to the system by design, so including it would turn the HUD's drift
+   * readout from a measure of integrator quality into a measure of how hard the
+   * pilot is burning. Restricted to the massive set, the figure keeps meaning
+   * what it has always meant.
+   */
+  energy() {
+    const { massiveCount: n, masses: m, state: y } = this
+    let kinetic = 0
+    let potential = 0
+    for (let i = 0; i < n; i++) {
+      const o = i * 6
+      const vx = y[o + 3]
+      const vy = y[o + 4]
+      const vz = y[o + 5]
+      kinetic += 0.5 * m[i] * (vx * vx + vy * vy + vz * vz)
+      for (let j = i + 1; j < n; j++) {
+        const oj = j * 6
+        const dx = y[oj] - y[o]
+        const dy = y[oj + 1] - y[o + 1]
+        const dz = y[oj + 2] - y[o + 2]
+        potential -= (G * m[i] * m[j]) / Math.sqrt(dx * dx + dy * dy + dz * dz)
+      }
+    }
+    return kinetic + potential
+  }
+
+  /**
+   * Fractional drift of total energy since t=0. This is the honest measure of
+   * how much the integrator is lying to you; RK4 at these step sizes holds it
+   * around 1e-11, so the HUD reports it in parts per billion.
+   */
+  energyDrift() {
+    return (this.energy() - this.initialEnergy) / Math.abs(this.initialEnergy)
+  }
+
+  /**
+   * Copy of the current state, for back-propagating trails without disturbing
+   * it. The clone's `extAccel` starts at zero, so a trail seeded from it is
+   * ballistic — which is what you want, since replaying the current thrust
+   * backwards through history would be meaningless.
+   */
+  clone() {
+    const copy = new RK4NBody(this.masses, this.state, this.massiveCount)
+    copy.testSoftening2 = this.testSoftening2
+    copy.maxDt = this.maxDt
+    return copy
+  }
+}

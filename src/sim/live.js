@@ -1,0 +1,312 @@
+import { Vector3 } from 'three'
+import { createSimulation, INDEX, simDate } from './system.js'
+import { toScene, VISUAL_RADIUS } from './scale.js'
+import { BODIES, ORDER, BODY_ORDER, TEST_PARTICLES, AU } from './constants.js'
+import {
+  computeElements,
+  computeLunarElements,
+  elements,
+  lunarElements,
+  MU_MOON,
+  resetShip,
+  timestepLimit,
+} from './ship.js'
+import { computeLagrange } from './lagrange.js'
+import { density, speedOfSound } from './atmosphere.js'
+
+/** Sutton-Graves constant in SI, and the capsule's heat-shield curvature. */
+const SUTTON_GRAVES = 1.7415e-4
+/**
+ * Orion's real heat-shield radius of curvature, m.
+ *
+ * The capsule's *aerodynamic* area is scaled to hold the true ballistic
+ * coefficient rather than the true diameter (see constants.js), so its
+ * trajectory through the atmosphere is Orion's. The nose radius is quoted as
+ * Orion's too, so the flux this reports can be compared with published figures
+ * for the vehicle whose trajectory it is being evaluated on.
+ */
+const NOSE_RADIUS = 6.03
+import { BODIES as B } from './constants.js'
+
+/**
+ * The live simulation, and the derived values every frame needs.
+ *
+ * Deliberately a mutable singleton rather than React state: these fields change
+ * 60 times a second and nothing that reads them should ever trigger a re-render.
+ * The HUD samples this on a timer instead.
+ */
+export const live = {
+  sim: createSimulation(),
+
+  /**
+   * Absolute display-space positions, in scene units — the old, un-rebased
+   * frame. Kept because anything reasoning about the system as a whole (the
+   * Lagrange solver, and eventually world-space scattering) wants coordinates
+   * that do not shift under the camera.
+   */
+  abs: Object.fromEntries(BODY_ORDER.map((id) => [id, new Vector3()])),
+
+  /**
+   * Rendered positions: absolute minus `origin`. This is what every component
+   * binds to, so the whole scene graph is rebased by one subtraction.
+   */
+  pos: Object.fromEntries(BODY_ORDER.map((id) => [id, new Vector3()])),
+
+  /**
+   * Floating origin, in absolute scene units.
+   *
+   * Pinned to whatever the camera is looking at, so the focused body sits at
+   * exactly (0,0,0) and everything nearby has a small magnitude. three already
+   * computes modelViewMatrix on the CPU in float64, so this is not about mesh
+   * jitter — it is about world-space maths done *inside* shaders, where
+   * `cameraPosition` at Earth's 118 units quantises in steps of 42 m. Rebased
+   * onto the focus body that becomes about 41 mm.
+   */
+  origin: new Vector3(),
+
+  /** How far the origin moved this frame. The camera must be shifted to match. */
+  originDelta: new Vector3(),
+
+  /** Live osculating elements of the craft. Same object, refreshed in place. */
+  elements,
+
+  /**
+   * The same elements taken about the Moon. Meaningless outside the lunar
+   * sphere of influence, where Earth is the dominant attractor and the
+   * osculating selenocentric conic is a fiction — `insideLunarSOI` says when to
+   * believe it.
+   */
+  lunar: lunarElements,
+
+  /** Selenocentric range, m, and the sphere-of-influence radius it is judged against. */
+  lunarRange: Infinity,
+  lunarSOI: 0,
+  insideLunarSOI: false,
+
+  /**
+   * Integrator step ceiling for this frame, self-tuned from the craft's local
+   * circular period. See ship.js — a low orbit needs a far tighter step than
+   * the planets do.
+   */
+  maxDt: 900,
+
+  /** Unit vector from Earth toward the Sun, world space. Drives night + atmosphere. */
+  sunDir: new Vector3(1, 0, 0),
+
+  /** Real, unscaled separations in metres — what the HUD reports. */
+  metric: {
+    sunEarth: 0,
+    earthMoon: 0,
+    earthSpeed: 0,
+    moonSpeed: 0,
+  },
+
+  eclipse: null, // null | 'solar' | 'lunar'
+  date: simDate(createSimulation()),
+  stepsLastFrame: 0,
+  /** Simulated seconds advanced last frame. Trails use it to judge resolution. */
+  simDtLastFrame: 0,
+  /** Dynamic pressure on the ship, Pa, and the peak seen so far. */
+  dynamicPressure: 0,
+  maxQ: 0,
+  /** Mach number against the co-rotating air. Gates parachute deployment. */
+  mach: 0,
+  /** Aerodynamic deceleration, in g. The load the vehicle actually feels. */
+  decelG: 0,
+  /**
+   * Stagnation-point convective heat flux, W/m^2, by the Sutton-Graves
+   * correlation:  q = k sqrt(rho / Rn) v^3,  k = 1.7415e-4 in SI.
+   *
+   * A reported diagnostic, not a driver — nothing in the integrator reads it.
+   * It is here because the headline number of a lunar-return entry is how hard
+   * it heats, and a re-entry that reports only deceleration is missing half of
+   * what makes it hard.
+   */
+  heatFlux: 0,
+  fps: 0,
+}
+
+/**
+ * Sphere-of-influence exponent, (m_moon / m_earth)^(2/5).
+ *
+ * Laplace's radius, scaled by the live separation rather than frozen: it comes
+ * out at 66,100 km at the mean distance and swings by several thousand
+ * kilometres over a month, because the Moon's orbit here is emergent.
+ */
+const SOI_RATIO = Math.pow(B.moon.mass / B.earth.mass, 0.4)
+
+const _rel = new Vector3()
+const _axis = new Vector3()
+const _perp = new Vector3()
+const _newOrigin = new Vector3()
+
+/**
+ * @param {string|null} originBody  body to pin the origin to
+ * @param {import('three').Vector3|null} originOffset  for free camera: the
+ *   orbit target's offset from the current origin
+ */
+export function refreshDerived(originBody = null, originOffset = null) {
+  const { sim, abs, pos } = live
+
+  // Pass one: absolute scene positions.
+  for (const id of BODY_ORDER) toScene(id, sim.state, INDEX[id], INDEX.earth, abs[id])
+
+  // Pass two: choose the origin, record how far it moved, rebase everything.
+  if (originBody && abs[originBody]) _newOrigin.copy(abs[originBody])
+  else if (originOffset) _newOrigin.copy(live.origin).add(originOffset)
+  else _newOrigin.copy(live.origin)
+
+  live.originDelta.subVectors(_newOrigin, live.origin)
+  live.origin.copy(_newOrigin)
+
+  for (const id of BODY_ORDER) pos[id].subVectors(abs[id], live.origin)
+
+  live.sunDir.copy(pos.sun).sub(pos.earth).normalize()
+
+  const s = sim.state
+  const e = INDEX.earth * 6
+  const u = INDEX.sun * 6
+  const m = INDEX.moon * 6
+  live.metric.sunEarth = Math.hypot(s[e] - s[u], s[e + 1] - s[u + 1], s[e + 2] - s[u + 2])
+  live.metric.earthMoon = Math.hypot(s[m] - s[e], s[m + 1] - s[e + 1], s[m + 2] - s[e + 2])
+  live.metric.earthSpeed = Math.hypot(s[e + 3], s[e + 4], s[e + 5])
+  live.metric.moonSpeed = Math.hypot(s[m + 3] - s[e + 3], s[m + 4] - s[e + 4], s[m + 5] - s[e + 5])
+
+  computeElements(sim.state, INDEX.ship * 6, INDEX.earth * 6)
+  computeLunarElements(sim.state, INDEX.ship * 6, INDEX.moon * 6)
+
+  // Sphere of influence, from the live separation rather than a constant: the
+  // Moon's radius here is emergent and swings some 45,000 km over a month.
+  //   r_SOI = d (m_moon / m_earth)^(2/5)
+  live.lunarSOI = live.metric.earthMoon * SOI_RATIO
+  live.lunarRange = live.lunar.radius
+  live.insideLunarSOI = live.lunarRange < live.lunarSOI
+
+  // The step ceiling is set by the *fastest* craft in flight, not by the one we
+  // happen to be flying — adding a lower satellite would otherwise silently
+  // under-resolve it. "Fastest" means about *either* attractor: a craft in low
+  // lunar orbit is 400,000 km from Earth, where the geocentric limit is the
+  // 900 s planetary default and 7.9 steps per lunar revolution.
+  const eo = INDEX.earth * 6
+  const mo = INDEX.moon * 6
+  let closest = Infinity
+  let limit = 900
+  for (const id of TEST_PARTICLES) {
+    const o = INDEX[id] * 6
+    const r = Math.hypot(
+      sim.state[o] - sim.state[eo],
+      sim.state[o + 1] - sim.state[eo + 1],
+      sim.state[o + 2] - sim.state[eo + 2],
+    )
+    if (r < closest) closest = r
+    const rm = Math.hypot(
+      sim.state[o] - sim.state[mo],
+      sim.state[o + 1] - sim.state[mo + 1],
+      sim.state[o + 2] - sim.state[mo + 2],
+    )
+    const le = timestepLimit(r)
+    const lm = timestepLimit(rm, MU_MOON)
+    if (le < limit) limit = le
+    if (lm < limit) limit = lm
+  }
+  // Orbital period sets the baseline step, but drag can be far stiffer than
+  // gravity low down: a craft at 100 km sheds velocity in seconds, and a step
+  // sized for a 92-minute orbit would integrate straight through the entry.
+  // Take whichever limit is tighter.
+  const rho = density(closest - B.earth.radius)
+  if (rho > 0) {
+    const o = INDEX.ship * 6
+    const speed = Math.hypot(
+      sim.state[o + 3] - sim.state[eo + 3],
+      sim.state[o + 4] - sim.state[eo + 4],
+      sim.state[o + 5] - sim.state[eo + 5],
+    )
+    let maxDragK = 0
+    for (let i = 0; i < sim.dragK.length; i++) maxDragK = Math.max(maxDragK, sim.dragK[i])
+    const accel = maxDragK * rho * speed * speed
+    // Hold the velocity change per step under about 2 percent.
+    if (accel > 0) limit = Math.min(limit, Math.max(0.02, (0.02 * speed) / accel))
+  }
+  live.maxDt = limit
+  sim.maxDt = limit
+
+  // Dynamic pressure, from the same relative wind the drag term uses — so on
+  // the pad, where the clamp gives the vehicle exactly the local surface
+  // velocity, q reads zero by construction.
+  {
+    const o = INDEX.ship * 6
+    const rx = sim.state[o] - sim.state[eo]
+    const ry = sim.state[o + 1] - sim.state[eo + 1]
+    const rz = sim.state[o + 2] - sim.state[eo + 2]
+    const w = sim.omega
+    const vx = sim.state[o + 3] - sim.state[eo + 3] - (w[1] * rz - w[2] * ry)
+    const vy = sim.state[o + 4] - sim.state[eo + 4] - (w[2] * rx - w[0] * rz)
+    const vz = sim.state[o + 5] - sim.state[eo + 5] - (w[0] * ry - w[1] * rx)
+    const alt = Math.hypot(rx, ry, rz) - B.earth.radius
+    const rhoLocal = density(alt)
+    const vRel2 = vx * vx + vy * vy + vz * vz
+    live.dynamicPressure = 0.5 * rhoLocal * vRel2
+    if (live.dynamicPressure > live.maxQ) live.maxQ = live.dynamicPressure
+
+    // Everything below is the same relative wind, so a capsule's Mach, load and
+    // heating all agree with the drag the integrator actually applied.
+    const vRel = Math.sqrt(vRel2)
+    live.mach = vRel / speedOfSound(alt)
+    // a = dragK * rho * |v|^2, with dragK = Cd A / 2m — the integrator's own form.
+    live.decelG = (sim.dragK[0] * rhoLocal * vRel2) / 9.80665
+    live.heatFlux =
+      rhoLocal > 0 ? SUTTON_GRAVES * Math.sqrt(rhoLocal / NOSE_RADIUS) * vRel * vRel * vRel : 0
+  }
+
+  computeLagrange(sim.state, INDEX.earth * 6, INDEX.moon * 6, pos.earth)
+
+  live.date = simDate(sim)
+  live.eclipse = detectEclipse()
+}
+
+/**
+ * Shadow geometry, evaluated in *display* space rather than SI.
+ *
+ * That is the right frame for this: what the HUD announces has to agree with
+ * what the shadow map actually draws on screen, and the renderer only ever sees
+ * the exaggerated geometry. Because the light is a point source the umbra
+ * diverges with distance, so the shadow radius grows along the axis.
+ */
+function detectEclipse() {
+  const { sun, earth, moon } = live.pos
+  const Re = VISUAL_RADIUS.earth
+  const Rm = VISUAL_RADIUS.moon
+
+  // Lunar: is the Moon inside the cone Earth casts away from the Sun?
+  _axis.copy(earth).sub(sun)
+  const sunEarth = _axis.length()
+  _axis.divideScalar(sunEarth)
+  _rel.copy(moon).sub(earth)
+  const along = _rel.dot(_axis)
+  if (along > 0) {
+    _perp.copy(_rel).addScaledVector(_axis, -along)
+    if (_perp.length() < Re * ((sunEarth + along) / sunEarth) + Rm) return 'lunar'
+  }
+
+  // Solar: does the Moon's shadow reach the Earth's disc?
+  _axis.copy(moon).sub(sun)
+  const sunMoon = _axis.length()
+  _axis.divideScalar(sunMoon)
+  _rel.copy(earth).sub(sun)
+  const t = _rel.dot(_axis)
+  if (t > sunMoon) {
+    _perp.copy(_rel).addScaledVector(_axis, -t)
+    if (_perp.length() < Re + Rm * (t / sunMoon)) return 'solar'
+  }
+  return null
+}
+
+export function resetSimulation() {
+  live.sim = createSimulation()
+  resetShip()
+  live.maxQ = 0
+  refreshDerived()
+}
+
+export { INDEX, BODIES, AU }
+refreshDerived()

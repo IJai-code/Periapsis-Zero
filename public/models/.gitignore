@@ -1,0 +1,4 @@
+# Downloaded assets — the app runs fully without them.
+*
+!.gitignore
+!README.md
