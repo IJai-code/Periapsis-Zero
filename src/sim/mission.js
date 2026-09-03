@@ -5,6 +5,7 @@ import { INDEX } from './system.js'
 import { LAUNCH_SITES, clampToSite, rotationBonus } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
 import { projectPerigee, solveMidCourse, solveReturnCorridor } from './targeting.js'
+import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 
 /**
@@ -183,6 +184,19 @@ export const PROFILE = {
   /** Lift-to-drag override; 0 flies it ballistically, for comparison. */
   entryLiftToDrag: null,
 
+  /* --- Near-rectilinear halo orbit --- */
+  /**
+   * How often the halo is maintained, s.
+   *
+   * An NRHO is *unstable*: the along-track error grows exponentially with a
+   * time constant of days, so unlike every other orbit in this simulation it
+   * does not simply persist. Roughly weekly is what real NRHO station-keeping
+   * plans use, at a fraction of a m/s each time.
+   */
+  nrhoKeepInterval: 6 * 86400,
+  /** How long a maintenance pass holds before handing back to the coast, s. */
+  nrhoKeepDuration: 120,
+
   /**
    * Warp during entry, as an index.
    *
@@ -298,6 +312,23 @@ export const mission = {
     before: 0, // m, what it was before the correction
     iterations: 0,
     pointingError: Math.PI,
+  },
+
+  /**
+   * Halo-orbit maintenance. The first phase pair in this sequencer that is a
+   * *cycle* rather than a step, because the orbit it holds is unstable and
+   * therefore never finished.
+   */
+  nrho: {
+    cycles: 0, // completed coast + maintenance pairs
+    lastKeep: 0, // mission time of the last maintenance pass
+    perilune: Infinity, // m, closest to the Moon this revolution
+    apolune: 0, // m, furthest
+    lastPerilune: 0, // the revolution just completed
+    lastApolune: 0,
+    synodicR: 0, // m, current distance from the Moon
+    /** Out-of-plane excursion in the synodic frame — the halo's defining feature. */
+    synodicZ: 0,
   },
 
   /** Re-entry and descent. Peaks are tracked, not predicted. */
@@ -867,6 +898,28 @@ function updateEntryGuidance() {
   ship.bankAngle += delta
 }
 
+/**
+ * Halo diagnostics, in the frame the halo is actually periodic in.
+ *
+ * Perilune and apolune are what identify *which* NRHO this is — the family is
+ * usually quoted by its perilune altitude and its resonance with the lunar
+ * period — and the out-of-plane excursion is what makes it a halo rather than a
+ * planar orbit. All read from the synodic frame, all scalars, no allocation.
+ */
+function trackHalo() {
+  const nr = mission.nrho
+  craftSynodic(live.sim.state)
+
+  // Distance from the Moon, which sits at (1-MU, 0, 0) x separation.
+  const mx = synodic.separation * (1 - MU_MASS)
+  const dx = craftR.x - mx
+  const r = Math.sqrt(dx * dx + craftR.y * craftR.y + craftR.z * craftR.z)
+  nr.synodicR = r
+  nr.synodicZ = craftR.z
+  if (r < nr.perilune) nr.perilune = r
+  if (r > nr.apolune) nr.apolune = r
+}
+
 /** Peak loads through entry. Measured per frame, never predicted. */
 function trackEntryPeaks() {
   const en = mission.entry
@@ -1013,6 +1066,8 @@ function solveTEICutoff() {
 
 const MU_EARTH = G * BODIES.earth.mass
 const MU_MOON = G * BODIES.moon.mass
+/** Moon's mass fraction, for locating it in the synodic frame. */
+const MU_MASS = BODIES.moon.mass / (BODIES.earth.mass + BODIES.moon.mass)
 const TWO_PI = Math.PI * 2
 
 /** Geocentric state of the ship and the Moon, into the scratch vectors. */
@@ -1923,6 +1978,63 @@ const PHASES = [
     control: aimEntryAttitude,
     done: () => false,
   },
+
+  /* ---------------------------------------------------------------- *
+   * Halo-orbit maintenance — a cycle, not a step
+   * ---------------------------------------------------------------- */
+  {
+    id: 'NRHO_COAST',
+    label: 'NRHO coast',
+    enter() {
+      ship.throttle = 0
+      mission.warpRequest = 3
+      // Carry the revolution just finished before starting a fresh extremum
+      // search, or the figures read as Infinity/0 to anything that samples them
+      // just after a transition — which is exactly when a test would.
+      if (Number.isFinite(mission.nrho.perilune)) {
+        mission.nrho.lastPerilune = mission.nrho.perilune
+        mission.nrho.lastApolune = mission.nrho.apolune
+      }
+      mission.nrho.perilune = Infinity
+      mission.nrho.apolune = 0
+    },
+    control() {
+      aimLunarPrograde()
+      trackHalo()
+    },
+    done: () => mission.phaseT >= PROFILE.nrhoKeepInterval,
+    // Named explicitly, as every successor is.
+    next: () => INDEX_OF.NRHO_STATION_KEEP,
+  },
+  {
+    id: 'NRHO_STATION_KEEP',
+    label: 'NRHO maintenance',
+    enter() {
+      ship.throttle = 0
+      mission.warpRequest = 0
+      mission.nrho.lastKeep = mission.t
+    },
+    control() {
+      aimLunarPrograde()
+      trackHalo()
+    },
+    /**
+     * Return a **routing key** rather than `true`.
+     *
+     * The pair is a closed cycle, and saying so here rather than in a `next()`
+     * that would have to re-derive it is the point of the key. The cycle count
+     * is incremented on the way out, so it is the transition being counted and
+     * not the number of frames the phase happened to run for.
+     *
+     * Nothing about this depends on where either phase sits in the array. A
+     * routing key names a phase; it never means "the next one along".
+     */
+    done() {
+      if (mission.phaseT < PROFILE.nrhoKeepDuration) return false
+      mission.nrho.cycles += 1
+      return 'NRHO_COAST'
+    },
+  },
 ]
 
 const INDEX_OF = Object.fromEntries(PHASES.map((p, i) => [p.id, i]))
@@ -1969,6 +2081,20 @@ export const isClamped = () => Boolean(PHASES[mission.index].clamped)
  * so the ascent is unchanged. The driver clamps the step regardless — that is
  * the structural guarantee; this only stops the situation arising.
  */
+/**
+ * Enter the halo-maintenance cycle.
+ *
+ * Separate from the linear mission for now: the corrector that would actually
+ * place the vehicle on a halo is not written yet, so this establishes the
+ * *control structure* — an indefinitely repeating pair — against which the
+ * targeting can be built. Called from a test or the HUD, never automatically.
+ */
+export function enterNrhoCycle() {
+  setPhase(INDEX_OF.NRHO_COAST)
+  mission.nrho.cycles = 0
+  return true
+}
+
 export function beginCountdown() {
   mission.running = true
   mission.warpRequest = 1
@@ -2041,11 +2167,37 @@ export function updateMission(dt, simDt = dt) {
   }
 
   phase.control(dt)
-  // Every successor is named explicitly. Falling through to index + 1 lets the
-  // array's *layout* encode control flow, which is how STAGING — an interrupt,
-  // not a step — ended up wedged between the gravity turn and cutoff.
-  if (phase.done() && phase.next) {
-    setPhase(phase.next(), phase.id === 'STAGING' && !mission.resumeDone)
+
+  /**
+   * Transition. `done()` may answer in two ways.
+   *
+   * `true` hands over to the phase's own `next()`. A **string** names the
+   * successor directly, which is for the case where `done()` has already worked
+   * out where to go and `next()` would only re-derive it from state one of them
+   * has to remember — the wart `STAGING` still carries in `resumeDone`.
+   *
+   * What it explicitly cannot do is fall through to `index + 1`. That lets the
+   * array's *layout* encode control flow, which is how `STAGING` — an
+   * interrupt, not a step — once wedged itself between the gravity turn and
+   * cutoff and ping-ponged forever. A routing key that names nothing is a
+   * programming error and says so, rather than silently going nowhere or, worse,
+   * somewhere adjacent.
+   *
+   * Cycles need none of this: a phase whose `next()` names an earlier phase is
+   * already a loop, which is how `TRANS_EARTH` is flown twice. The routing key
+   * makes a loop's exit condition readable, not possible.
+   */
+  const verdict = phase.done()
+  if (verdict) {
+    if (typeof verdict === 'string') {
+      const target = INDEX_OF[verdict]
+      if (target === undefined) {
+        throw new Error(`${phase.id}.done() routed to unknown phase "${verdict}"`)
+      }
+      setPhase(target)
+    } else if (phase.next) {
+      setPhase(phase.next(), phase.id === 'STAGING' && !mission.resumeDone)
+    }
   }
 }
 

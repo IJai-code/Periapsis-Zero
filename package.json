@@ -17,6 +17,7 @@
     "verify:return": "node scripts/verify-return.mjs",
     "verify:heating": "node scripts/verify-heating.mjs",
     "verify:guidance": "node scripts/verify-entry-guidance.mjs",
+    "verify:nrho": "node --expose-gc scripts/verify-nrho-cycle.mjs",
     "verify:alloc": "node --expose-gc scripts/verify-allocation.mjs"
   },
   "dependencies": {

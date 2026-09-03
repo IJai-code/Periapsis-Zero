@@ -154,6 +154,16 @@ is bit-identical with the fleet aboard — verified, max difference exactly `0`.
 early, from the rocket equation. A burn applied entirely after apoapsis raises
 periapsis on one side only and leaves the orbit lopsided.
 
+**Successors are named, never implied — and a cycle is still a named successor.**
+`done()` may return `true`, which hands over to the phase's own `next()`, or a
+**string** naming the successor directly, for the case where `done()` has already
+worked out where to go and `next()` would only re-derive it. What it cannot do is
+fall through to `index + 1`; a routing key that names nothing throws rather than
+going somewhere adjacent. Holding an unstable orbit is a loop rather than a step,
+and `NRHO_COAST ⇄ NRHO_STATION_KEEP` is the first one — but loops needed no new
+mechanism, since a `next()` naming an earlier phase was always a cycle. That is
+how `TRANS_EARTH` is flown twice.
+
 **Successors are named, never implied.** `phase.next()` is explicit on every
 phase. Falling through to `index + 1` lets array *layout* encode control flow,
 which is how `STAGING` — an interrupt, not a step — once wedged itself between
@@ -1274,6 +1284,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-tei-timing.mjs` | when the corridor trim is cheapest |
 | `verify-heating.mjs` | convective against radiative, down the whole entry |
 | `verify-entry-guidance.mjs` | lifting entry against ballistic, same trajectory |
+| `verify-nrho-cycle.mjs` | the sequencer's first cycle, and that it does not leak |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer
