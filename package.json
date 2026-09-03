@@ -15,6 +15,7 @@
     "verify:anomalies": "node scripts/verify-anomalies.mjs",
     "verify:warp": "node scripts/verify-warp.mjs",
     "verify:return": "node scripts/verify-return.mjs",
+    "verify:heating": "node scripts/verify-heating.mjs",
     "verify:alloc": "node --expose-gc scripts/verify-allocation.mjs"
   },
   "dependencies": {

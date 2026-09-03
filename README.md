@@ -834,7 +834,10 @@ because it is 10 t light.
 | flight-path angle | −6.322° | Apollo corridor −6.5 ± 0.5 |
 | peak deceleration | **12.17 g** at 44.2 km | ballistic — see below |
 | peak dynamic pressure | 50.1 kPa | |
-| peak convective flux | 156 W/cm² | Sutton-Graves, no radiative term |
+| peak convective flux | 156 W/cm² at 52.7 km | Sutton-Graves |
+| peak radiative flux | 256 W/cm² at 59.8 km | Tauber-Sutton |
+| **peak total flux** | **390 W/cm² at 59.3 km** | |
+| integrated heat load | 17.6 kJ/cm² over 181 s | |
 
 The 12.2 g is not a disagreement with Apollo's 6.5 g, it is a different entry.
 Apollo flew a *lifting* entry at L/D ≈ 0.3 and banked to stretch the
@@ -845,9 +848,56 @@ presentation rather than dynamics: the capsule is aimed into the relative wind s
 it is *drawn* flying correctly, but its orientation does not enter its
 trajectory.
 
-The heat flux is convective only. Sutton-Graves carries no radiative term, and at
-11 km/s radiation is a large share of the real total, so 156 W/cm² understates
-what the shield actually sees.
+### Heating is two terms, and the larger one is radiation
+
+Sutton-Graves gives the convective flux out of the boundary layer. At orbital
+speeds that is the whole story, which is why it is usually the only term modelled.
+At 10.5 km/s it is not: the shock layer *radiates*, and by the Tauber-Sutton
+correlation that term is the bigger one.
+
+```
+q_conv = k sqrt(rho/Rn) v^3            k = 1.7415e-4
+q_rad  = C Rn^a rho^b f(V)             C = 4.736e4, b = 1.22
+         a = 1.072e6 V^-1.88 rho^-0.325, capped at 1
+```
+
+The two peak in different places, and that is the point of carrying them
+separately rather than summing into one number:
+
+| altitude | convective | radiative | total | ratio |
+| --- | --- | --- | --- | --- |
+| 90 km | 15.4 | 5.4 | 20.8 | 0.35 |
+| 80 km | 36.4 | 44.1 | 80.5 | 1.21 |
+| 70 km | 76.6 | 128.2 | 204.8 | 1.67 |
+| **60 km** | 132.0 | **255.6** | **387.7** | 1.94 |
+| 55 km | 153.2 | 163.1 | 316.3 | 1.06 |
+| 50 km | 150.9 | 0.0 | 150.9 | — |
+
+Radiation peaks **higher and earlier**, where the craft is still fast and the air
+still thin, because it goes as ρ^1.22·f(V) against convection's √ρ·v³ — and f(V)
+climbs roughly as the ninth power of velocity. Convection peaks lower and later,
+in the thick air. Neither peak is where the *total* peaks.
+
+Three honest caveats, none of them cosmetic:
+
+- **The zero below 9 km/s is the fit's floor, not physics.** Tauber-Sutton is
+  tabulated from 9 to 16 km/s and has nothing to say underneath, so radiation is
+  reported as zero there rather than extrapolated off the bottom of a very steep
+  curve. The integrated load is therefore a slight underestimate; the peak is
+  not, since it happens at 10 km/s.
+- **The nose radius is outside the correlation's range.** It is fitted for
+  roughly 0.3–3 m and Orion's heat shield is 6.03 m. The exponent cap at 1 is
+  the paper's own acknowledgement that the R_n dependence saturates once the
+  shock layer goes optically thick, which is the regime a 6 m radius is in, but
+  this is an extrapolation and is flagged as one.
+- **390 W/cm² belongs to *this* corridor.** Flux climbs steeply with entry angle,
+  so a steeper lunar return would be materially hotter. The figure is not a
+  general lunar-return constant.
+
+The control case makes the case for carrying the term at all: the same capsule
+returning from low Earth orbit at 7.8 km/s sees **zero** radiative flux by this
+correlation — off the bottom of the fit entirely. An orbital-entry model can omit
+radiation. A lunar-return one cannot.
 
 ### Parachutes open, they do not appear
 
@@ -1152,6 +1202,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-warp.mjs` | the ascent from every warp level, and a pilot meddling mid-count |
 | `verify-return.mjs` | departure, corridor trim, entry loads and splashdown |
 | `verify-tei-timing.mjs` | when the corridor trim is cheapest |
+| `verify-heating.mjs` | convective against radiative, down the whole entry |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer

@@ -156,7 +156,10 @@ console.log(`  vacuum perigee flown        ${(rec.interfacePerigee / 1e3).toFixe
 console.log('\n=== entry loads ===')
 console.log(`  peak deceleration           ${en.peakG.toFixed(2)} g at ${(en.peakGAltitude / 1e3).toFixed(1)} km`)
 console.log(`  peak dynamic pressure       ${(en.peakQ / 1e3).toFixed(1)} kPa`)
-console.log(`  peak heat flux              ${(en.peakHeatFlux / 1e4).toFixed(0)} W/cm2`)
+console.log(`  peak convective flux        ${(en.peakHeatFlux / 1e4).toFixed(0)} W/cm2   (Sutton-Graves)`)
+console.log(`  peak radiative flux         ${(en.peakRadFlux / 1e4).toFixed(0)} W/cm2   (Tauber-Sutton)`)
+console.log(`  peak total flux             ${(en.peakTotalFlux / 1e4).toFixed(0)} W/cm2 at ${(en.peakTotalAltitude / 1e3).toFixed(1)} km`)
+console.log(`  radiative / convective      ${(en.peakRadFlux / en.peakHeatFlux).toFixed(2)}x`)
 
 console.log('\n=== descent ===')
 console.log(`  drogues at                  ${(en.drogueAltitude / 1e3).toFixed(2)} km, Mach ${rec.drogueMach.toFixed(2)}, ${rec.drogueRel.toFixed(0)} m/s`)
@@ -182,6 +185,10 @@ const checks = [
   ['descent rate under 10 m/s', rec.splashVert > 0 && rec.splashVert < 10],
   ['service module discarded', ship.stage === SHIP.stages.length - 1],
   ['trim stayed within its cap', ei.magnitude <= PROFILE.eiMaxDeltaV],
+  // At lunar-return speed radiation should dominate: this is the whole reason
+  // a convective-only figure understates the shield's problem. If it came out
+  // below convective, the correlation is being fed something wrong.
+  ['radiative flux exceeds convective', en.peakRadFlux > en.peakHeatFlux],
 ]
 console.log('')
 let pass = true

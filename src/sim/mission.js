@@ -274,7 +274,10 @@ export const mission = {
     interfaceTime: 0, // mission time there
     peakG: 0,
     peakQ: 0, // Pa
-    peakHeatFlux: 0, // W/m^2
+    peakHeatFlux: 0, // W/m^2, convective
+    peakRadFlux: 0, // W/m^2, radiative
+    peakTotalFlux: 0, // W/m^2 — peaks at its own moment, not at either of theirs
+    peakTotalAltitude: 0,
     peakGAltitude: 0,
     drogueAltitude: 0,
     mainAltitude: 0,
@@ -697,7 +700,16 @@ function trackEntryPeaks() {
     en.peakGAltitude = live.elements.altitude
   }
   if (live.dynamicPressure > en.peakQ) en.peakQ = live.dynamicPressure
+  // Three separate peaks, because they do not coincide: convective goes as
+  // sqrt(rho) v^3 and radiative as roughly rho^1.2 f(v), so radiation peaks
+  // higher and earlier where the craft is still fast, convection lower and
+  // later where the air is thick. The total peaks at neither.
   if (live.heatFlux > en.peakHeatFlux) en.peakHeatFlux = live.heatFlux
+  if (live.radiativeFlux > en.peakRadFlux) en.peakRadFlux = live.radiativeFlux
+  if (live.totalFlux > en.peakTotalFlux) {
+    en.peakTotalFlux = live.totalFlux
+    en.peakTotalAltitude = live.elements.altitude
+  }
 }
 
 /** Selenocentric characteristic energy, m^2/s^2. Negative while still bound. */
@@ -1789,6 +1801,8 @@ export function resetMission() {
   mission.entry.peakG = 0
   mission.entry.peakQ = 0
   mission.entry.peakHeatFlux = 0
+  mission.entry.peakRadFlux = 0
+  mission.entry.peakTotalFlux = 0
   mission.entry.splashdownSpeed = 0
   mission.resumeDone = false
   mission.loi.bestEccentricity = Infinity

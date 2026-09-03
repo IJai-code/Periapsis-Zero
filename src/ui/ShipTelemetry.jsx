@@ -328,11 +328,21 @@ const ENTRY = [
     get: () => (live.heatFlux > 1e3 ? `${(live.heatFlux / 1e4).toFixed(0)} W/cm²` : '—'),
   },
   {
+    key: 'enRad',
+    label: 'Radiative flux',
+    get: () => (live.radiativeFlux > 1e3 ? `${(live.radiativeFlux / 1e4).toFixed(0)} W/cm²` : '—'),
+  },
+  {
+    key: 'enTotal',
+    label: 'Total flux',
+    get: () => (live.totalFlux > 1e3 ? `${(live.totalFlux / 1e4).toFixed(0)} W/cm²` : '—'),
+  },
+  {
     key: 'enPeak',
     label: 'Peak load / flux',
     get: () =>
       mission.entry.peakG > 0
-        ? `${mission.entry.peakG.toFixed(1)} g · ${(mission.entry.peakHeatFlux / 1e4).toFixed(0)} W/cm²`
+        ? `${mission.entry.peakG.toFixed(1)} g · ${(mission.entry.peakTotalFlux / 1e4).toFixed(0)} W/cm² total`
         : '—',
     wide: true,
   },

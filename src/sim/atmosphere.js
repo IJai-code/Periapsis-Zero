@@ -106,6 +106,71 @@ export function dragCoefficient(cd, area, mass) {
  *
  * At 8 km this gives 308 m/s against the standard table's 308.1.
  */
+/**
+ * Stagnation-point *radiative* heat flux, W/m^2, by the Tauber-Sutton
+ * correlation (Tauber & Sutton, J. Spacecraft & Rockets 28(1), 1991).
+ *
+ *     q_rad = C R_n^a rho^b f(V)      C = 4.736e4, b = 1.22
+ *     a     = 1.072e6 V^-1.88 rho^-0.325,  capped at 1
+ *
+ * This is the other half of entry heating and at lunar-return speeds it is the
+ * larger half. Sutton-Graves gives the convective flux from the boundary layer;
+ * this gives what the shock layer *radiates*, which scales as roughly the ninth
+ * power of velocity through `f` and therefore switches on abruptly somewhere
+ * around 9 km/s. Orbital entry can ignore it. An 11 km/s return cannot.
+ *
+ * Three things about it are worth stating plainly rather than burying.
+ *
+ * **The units are mixed, and that is the correlation's own convention, not a
+ * slip.** V is in m/s inside the exponent `a` and in km/s inside `f`, rho is in
+ * kg/m^3, R_n in metres, and the result is W/cm^2 — converted here to W/m^2 so
+ * it can be summed with the convective term. Feeding km/s to the exponent gives
+ * a ~ 10^5 and a meaningless answer.
+ *
+ * **`f(V)` is tabulated, not analytic**, so this is an empirical fit with a
+ * validity range: 9 to 16 km/s, and nose radii of roughly 0.3 to 3 m. Our
+ * capsule's 6.03 m heat shield is *outside* that range, so the R_n term is an
+ * extrapolation — flagged rather than hidden, because the exponent cap at 1 is
+ * exactly the paper's acknowledgement that the R_n dependence saturates as the
+ * shock layer goes optically thick, and a 6 m radius is well into that regime.
+ *
+ * **Below 9 km/s it returns zero.** Not because radiation vanishes, but because
+ * the fit has nothing to say there and a linear extrapolation off the bottom of
+ * a curve this steep would be invention.
+ */
+const TS_V = Float64Array.from([
+  9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5,
+  15.0, 15.5, 16.0,
+])
+const TS_F = Float64Array.from([
+  1.5, 4.3, 9.7, 19.5, 35.0, 55.0, 81.0, 115.0, 151.0, 238.0, 359.0, 495.0, 660.0, 850.0, 1065.0,
+  1313.0, 1550.0, 1780.0, 2040.0,
+])
+const TS_LAST = TS_V.length - 1
+
+export function radiativeFlux(rho, v, noseRadius) {
+  if (!(rho > 0) || !(v > 0)) return 0
+  const vk = v / 1000
+  if (vk < TS_V[0]) return 0
+
+  let f
+  if (vk >= TS_V[TS_LAST]) {
+    f = TS_F[TS_LAST]
+  } else {
+    let i = 0
+    while (i < TS_LAST - 1 && vk >= TS_V[i + 1]) i++
+    const t = (vk - TS_V[i]) / (TS_V[i + 1] - TS_V[i])
+    f = TS_F[i] + t * (TS_F[i + 1] - TS_F[i])
+  }
+
+  // V in m/s here, km/s in the table above — the correlation's own convention.
+  let a = 1.072e6 * Math.pow(v, -1.88) * Math.pow(rho, -0.325)
+  if (a > 1) a = 1
+
+  // 4.736e4 R_n^a rho^1.22 f, in W/cm^2; x1e4 to W/m^2.
+  return 1e4 * 4.736e4 * Math.pow(noseRadius, a) * Math.pow(rho, 1.22) * f
+}
+
 export function speedOfSound(h) {
   const km = h / 1000
   let T

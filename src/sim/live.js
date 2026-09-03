@@ -12,7 +12,7 @@ import {
   timestepLimit,
 } from './ship.js'
 import { computeLagrange } from './lagrange.js'
-import { density, speedOfSound } from './atmosphere.js'
+import { density, radiativeFlux, speedOfSound } from './atmosphere.js'
 
 /** Sutton-Graves constant in SI, and the capsule's heat-shield curvature. */
 const SUTTON_GRAVES = 1.7415e-4
@@ -123,6 +123,17 @@ export const live = {
    * what makes it hard.
    */
   heatFlux: 0,
+  /**
+   * Stagnation-point *radiative* flux, W/m^2 — Tauber-Sutton.
+   *
+   * The other half of entry heating, and at 11 km/s the larger half. Kept as its
+   * own scalar rather than folded into `heatFlux`, because the two come from
+   * different physics with different validity ranges and reporting a single
+   * summed number would hide which one is being extrapolated.
+   */
+  radiativeFlux: 0,
+  /** Convective plus radiative. What the shield actually has to survive. */
+  totalFlux: 0,
   fps: 0,
 }
 
@@ -256,6 +267,8 @@ export function refreshDerived(originBody = null, originOffset = null) {
     live.decelG = (sim.dragK[0] * rhoLocal * vRel2) / 9.80665
     live.heatFlux =
       rhoLocal > 0 ? SUTTON_GRAVES * Math.sqrt(rhoLocal / NOSE_RADIUS) * vRel * vRel * vRel : 0
+    live.radiativeFlux = radiativeFlux(rhoLocal, vRel, NOSE_RADIUS)
+    live.totalFlux = live.heatFlux + live.radiativeFlux
   }
 
   computeLagrange(sim.state, INDEX.earth * 6, INDEX.moon * 6, pos.earth)
