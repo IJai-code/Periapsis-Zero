@@ -1288,6 +1288,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-cr3bp.mjs` | the halo corrector, against full-period closure |
 | `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
 | `verify-nrho-ephemeris.mjs` | the CR3BP seed in the real field, and how fast it diverges |
+| `verify-nrho-keeping.mjs` | station-keeping: held vs lost, and what it costs |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer

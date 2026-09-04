@@ -416,3 +416,94 @@ export function solveMidCourse(targetRadius, opts = {}) {
 export function solveReturnCorridor(targetRadius, opts = {}) {
   return solveImpulse(targetRadius, { project: projectPerigee, tolerance: 200, ...opts })
 }
+
+/**
+ * Fly forward to the Nth perilune and return its radius.
+ *
+ * The objective a halo station-keeping burn is aimed at. An NRHO's error grows
+ * about x2 per revolution — measured, not assumed, in
+ * scripts/verify-nrho-ephemeris.mjs — so a correction has to look at least one
+ * revolution ahead to see what it is correcting, and perilune radius is the
+ * scalar that instability shows up in first.
+ *
+ * Two differences from the lunar-approach projector above, both forced by the
+ * geometry. The step is scaled harder, because perilune is the fastest part of a
+ * near-rectilinear orbit and the answer is decided entirely there. And the
+ * minimum is refined by fitting a parabola through the three bracketing samples,
+ * which is exact to second order for a smooth minimum: sampling alone biases the
+ * result high by half the curvature times a half-step squared, which at these
+ * speeds is kilometres.
+ *
+ * Perilunes are counted rather than taking the first, so the caller can target
+ * further ahead where authority is cheaper.
+ */
+export function projectPerilune(dvx = 0, dvy = 0, dvz = 0, revolutions = 1, maxSeconds = 40 * 86400) {
+  seed(dvx, dvy, dvz)
+
+  let elapsed = 0
+  let steps = 0
+  let seen = 0
+  let prev = Infinity
+  let prevPrev = Infinity
+  let falling = false
+
+  while (elapsed < maxSeconds && steps < 400000) {
+    const dx = scratch.state[SHIP] - scratch.state[MOON]
+    const dy = scratch.state[SHIP + 1] - scratch.state[MOON + 1]
+    const dz = scratch.state[SHIP + 2] - scratch.state[MOON + 2]
+    const range = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+    if (range < prev) falling = true
+    else if (falling && range > prev) {
+      seen++
+      if (seen >= revolutions) {
+        // Parabola through (prevPrev, prev, range); vertex is the true minimum.
+        const denom = prevPrev - 2 * prev + range
+        if (denom > 0) {
+          const shift = (0.5 * (prevPrev - range)) / denom
+          const refined = prev - 0.25 * ((prevPrev - range) * shift)
+          if (refined > 0 && refined <= prev) return refined
+        }
+        return prev
+      }
+      falling = false
+    }
+
+    prevPrev = prev
+    prev = range
+
+    const vx = scratch.state[SHIP + 3] - scratch.state[MOON + 3]
+    const vy = scratch.state[SHIP + 4] - scratch.state[MOON + 4]
+    const vz = scratch.state[SHIP + 5] - scratch.state[MOON + 5]
+    const closing = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1
+
+    const dt = Math.min(900, Math.max(0.5, (range / closing) * 0.02))
+    scratch.step(dt)
+    elapsed += dt
+    steps++
+  }
+  return Infinity
+}
+
+/**
+ * Solve the smallest impulse that puts the Nth perilune at `targetRadius`.
+ *
+ * Minimum-norm through the same Gauss-Newton engine the corrections use, with a
+ * far finer probe: a station-keeping burn is a fraction of a m/s, and the 0.05
+ * probe sized for a 74 m/s mid-course correction would be most of the answer.
+ *
+ * An impulse is the honest model here, unlike every other burn in this mission.
+ * At a few tenths of a m/s on the service module's 25.7 kN the engine runs for
+ * well under a second, so there is no arc to straddle and no gravity loss to
+ * absorb — the reason the injection and capture burns needed closed-loop cutoffs
+ * simply does not arise.
+ */
+export function solveStationKeeping(targetRadius, revolutions = 1, opts = {}) {
+  return solveImpulse(targetRadius, {
+    project: (a, b, c) => projectPerilune(a, b, c, revolutions),
+    probe: 0.005,
+    tolerance: 2000,
+    iterations: 20,
+    ...opts,
+  })
+}

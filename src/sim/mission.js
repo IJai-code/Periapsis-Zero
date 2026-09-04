@@ -4,7 +4,12 @@ import { activeStage, separate, ship, totalMass } from './ship.js'
 import { INDEX } from './system.js'
 import { LAUNCH_SITES, clampToSite, rotationBonus } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
-import { projectPerigee, solveMidCourse, solveReturnCorridor } from './targeting.js'
+import {
+  projectPerigee,
+  solveMidCourse,
+  solveReturnCorridor,
+  solveStationKeeping,
+} from './targeting.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 
@@ -196,6 +201,20 @@ export const PROFILE = {
   nrhoKeepInterval: 6 * 86400,
   /** How long a maintenance pass holds before handing back to the coast, s. */
   nrhoKeepDuration: 120,
+  /**
+   * Revolutions the station-keeping solve looks ahead.
+   *
+   * One, and that is a measured ceiling rather than a default. The instability
+   * that makes the correction necessary doubles an error every revolution, so
+   * over two it amplifies a finite-difference probe fourfold and over three
+   * eightfold; measured, the solver stops converging and drift reaches 2,000%.
+   * The control horizon is set by the Lyapunov time.
+   */
+  nrhoLookahead: 1,
+  /** Largest maintenance burn that will be executed, m/s. A sanity backstop. */
+  nrhoMaxDeltaV: 20,
+  /** Reference perilune radius to hold, m. Set on entry to the cycle. */
+  nrhoReference: 0,
 
   /**
    * Warp during entry, as an index.
@@ -322,6 +341,17 @@ export const mission = {
   nrho: {
     cycles: 0, // completed coast + maintenance pairs
     lastKeep: 0, // mission time of the last maintenance pass
+    /** Apolune detection, three samples of selenocentric range. */
+    prevRange: 0,
+    prevPrevRange: 0,
+    atApolune: false,
+    /** Last maintenance solve. */
+    deltaV: 0,
+    totalDeltaV: 0,
+    solved: false,
+    converged: false,
+    predicted: 0,
+    targetMass: 0,
     perilune: Infinity, // m, closest to the Moon this revolution
     apolune: 0, // m, furthest
     lastPerilune: 0, // the revolution just completed
@@ -918,6 +948,14 @@ function trackHalo() {
   nr.synodicZ = craftR.z
   if (r < nr.perilune) nr.perilune = r
   if (r > nr.apolune) nr.apolune = r
+
+  // Apolune is a local maximum in three consecutive selenocentric ranges. Read
+  // from live.lunarRange rather than the synodic distance, because the burn is
+  // aimed in the inertial frame and this is the quantity the projector targets.
+  const range = live.lunarRange
+  nr.atApolune = nr.prevRange > nr.prevPrevRange && nr.prevRange > range
+  nr.prevPrevRange = nr.prevRange
+  nr.prevRange = range
 }
 
 /** Peak loads through entry. Measured per frame, never predicted. */
@@ -2002,21 +2040,71 @@ const PHASES = [
       aimLunarPrograde()
       trackHalo()
     },
-    done: () => mission.phaseT >= PROFILE.nrhoKeepInterval,
-    // Named explicitly, as every successor is.
+    /**
+     * Hand over at **apolune**, not on a clock.
+     *
+     * That is the control point: the craft is slowest there, so a given impulse
+     * buys the most change in the next perilune — the Oberth argument run
+     * backwards, since what is wanted is a change of orbit *shape* rather than
+     * of energy. Measured, dr_p/dv is about 92 km per m/s at apolune.
+     *
+     * The interval remains as a floor, so a noisy range reading cannot fire two
+     * corrections in quick succession.
+     */
+    done() {
+      const nr = mission.nrho
+      if (!nr.atApolune) return false
+      return mission.phaseT >= Math.min(PROFILE.nrhoKeepInterval, 86400)
+    },
     next: () => INDEX_OF.NRHO_STATION_KEEP,
   },
   {
     id: 'NRHO_STATION_KEEP',
     label: 'NRHO maintenance',
+    /**
+     * Solve the correction, once, on entry — the established shape for every
+     * solver in this sequencer.
+     */
     enter() {
       ship.throttle = 0
       mission.warpRequest = 0
-      mission.nrho.lastKeep = mission.t
+      const nr = mission.nrho
+      nr.lastKeep = mission.t
+      nr.solved = false
+      nr.converged = false
+      nr.deltaV = 0
+
+      if (!(PROFILE.nrhoReference > 0)) return
+      const sol = solveStationKeeping(PROFILE.nrhoReference, PROFILE.nrhoLookahead)
+      nr.solved = true
+      nr.predicted = sol.approach
+      nr.converged = sol.converged && sol.magnitude <= PROFILE.nrhoMaxDeltaV
+      nr.deltaV = sol.magnitude
+      if (nr.converged && sol.magnitude > 1e-6) {
+        _ei.set(sol.world[0], sol.world[1], sol.world[2]).normalize()
+        mission.ei.direction.copy(_ei)
+        const stage = activeStage()
+        nr.targetMass = stage
+          ? totalMass() * Math.exp(-sol.magnitude / (stage.isp * G0))
+          : totalMass()
+      }
     },
     control() {
-      aimLunarPrograde()
+      const nr = mission.nrho
+      // Point at the solution if there is one to fly, otherwise hold the coast
+      // attitude. The burn itself is a few seconds at most.
+      if (nr.converged && nr.deltaV > 1e-6) {
+        aimThrust(mission.ei.direction)
+        nr.pointingError = ship.forward.angleTo(mission.ei.direction)
+        if (nr.pointingError < PROFILE.eiPointTolerance) ship.throttle = 1
+      } else {
+        aimLunarPrograde()
+      }
       trackHalo()
+      if (ship.thrust > 0 && totalMass() <= nr.targetMass) {
+        ship.throttle = 0
+        nr.totalDeltaV += nr.deltaV
+      }
     },
     /**
      * Return a **routing key** rather than `true`.
@@ -2030,8 +2118,13 @@ const PHASES = [
      * routing key names a phase; it never means "the next one along".
      */
     done() {
+      const nr = mission.nrho
+      // Done when the burn is complete, or when there was nothing to fly, but
+      // never before the minimum hold so the event is visible.
+      const burning = ship.thrust > 0
+      if (burning) return false
       if (mission.phaseT < PROFILE.nrhoKeepDuration) return false
-      mission.nrho.cycles += 1
+      nr.cycles += 1
       return 'NRHO_COAST'
     },
   },
@@ -2089,9 +2182,15 @@ export const isClamped = () => Boolean(PHASES[mission.index].clamped)
  * *control structure* — an indefinitely repeating pair — against which the
  * targeting can be built. Called from a test or the HUD, never automatically.
  */
-export function enterNrhoCycle() {
+export function enterNrhoCycle(referenceRadius = 0) {
   setPhase(INDEX_OF.NRHO_COAST)
-  mission.nrho.cycles = 0
+  const nr = mission.nrho
+  nr.cycles = 0
+  nr.totalDeltaV = 0
+  nr.prevRange = live.lunarRange
+  nr.prevPrevRange = live.lunarRange
+  nr.atApolune = false
+  PROFILE.nrhoReference = referenceRadius
   return true
 }
 
