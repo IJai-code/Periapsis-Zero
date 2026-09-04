@@ -1290,6 +1290,8 @@ phase can be re-flown without re-flying the mission:
 | `verify-nrho-ephemeris.mjs` | the CR3BP seed in the real field, and how fast it diverges |
 | `verify-nrho-keeping.mjs` | station-keeping: held vs lost, and what it costs |
 | `verify-director.mjs` | the camera director cuts on phases, not on frames |
+| `record-attitude.mjs` | captures real attitude through the hardest phases to film |
+| `verify-camera-filter.mjs` | replays it through both follow filters, and measures |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer
