@@ -1286,6 +1286,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-entry-guidance.mjs` | lifting entry against ballistic, same trajectory |
 | `verify-nrho-cycle.mjs` | the sequencer's first cycle, and that it does not leak |
 | `verify-cr3bp.mjs` | the halo corrector, against full-period closure |
+| `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer

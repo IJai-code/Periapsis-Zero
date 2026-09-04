@@ -498,3 +498,245 @@ export function orbitExtremes(x, z, vy, period, { baseStep = 2e-4 } = {}) {
   }
   return { perilune: minR, apolune: maxR, maxZ }
 }
+
+/* ---------------------------------------------------------------- *
+ * Family continuation
+ * ---------------------------------------------------------------- */
+
+const _J2 = new Float64Array(6) // 2x3: rows [d(vx)/dX, d(vz)/dX]
+const _F2 = new Float64Array(2)
+const _F2p = new Float64Array(2)
+const _tan = new Float64Array(3)
+const _prevTan = new Float64Array(3)
+
+/** Physics residual only — [vx, vz] at the crossing. Returns the half period. */
+function residual2(out, x, z, vy) {
+  seedState(_state, x, z, vy)
+  const t = propagateToCrossing(_state)
+  if (t < 0) return -1
+  out[0] = _state[3]
+  out[1] = _state[5]
+  return t
+}
+
+/** Finite-difference the 2x3 Jacobian at X. Returns the half period, or -1. */
+function jacobian2(x, z, vy, probe) {
+  const t = residual2(_F2, x, z, vy)
+  if (t < 0) return -1
+  const vars = [x, z, vy]
+  for (let c = 0; c < 3; c++) {
+    const saved = vars[c]
+    vars[c] += probe
+    if (residual2(_F2p, vars[0], vars[1], vars[2]) < 0) return -1
+    _J2[c] = (_F2p[0] - _F2[0]) / probe
+    _J2[3 + c] = (_F2p[1] - _F2[1]) / probe
+    vars[c] = saved
+  }
+  return t
+}
+
+/**
+ * The family direction, as the null space of the 2x3 Jacobian.
+ *
+ * Periodicity imposes two conditions on three unknowns, so the solutions form a
+ * one-parameter family and its tangent is whatever direction J cannot see. For
+ * a 2x3 matrix that null space is one-dimensional and is simply the **cross
+ * product of the two rows** — no decomposition, no library, exact. Stepping
+ * along it is a predictor that stays on the manifold to first order, which is
+ * why the corrector afterwards has almost nothing to do.
+ */
+function familyTangent(out) {
+  const a0 = _J2[0]
+  const a1 = _J2[1]
+  const a2 = _J2[2]
+  const b0 = _J2[3]
+  const b1 = _J2[4]
+  const b2 = _J2[5]
+  out[0] = a1 * b2 - a2 * b1
+  out[1] = a2 * b0 - a0 * b2
+  out[2] = a0 * b1 - a1 * b0
+  const n = Math.hypot(out[0], out[1], out[2])
+  if (!(n > 0)) return false
+  out[0] /= n
+  out[1] /= n
+  out[2] /= n
+  return true
+}
+
+/**
+ * Minimum-norm correction back onto the family.
+ *
+ *     dX = -J^T (J J^T)^-1 F
+ *
+ * The *right* pseudo-inverse, which is the one an underdetermined system takes.
+ * The left form -(J^T J)^-1 J^T is for overdetermined least squares and is
+ * simply undefined here: J^T J is 3x3 of rank 2, singular.
+ *
+ * Minimum-norm is the correct choice for continuation specifically. The square
+ * pinned system is better for *finding* a member from an arbitrary guess, but
+ * during continuation the predictor has already chosen where on the family to
+ * go, and what is wanted from the corrector is the least motion that restores
+ * periodicity — anything larger risks sliding along the family and, near a fold
+ * where the pinned parameter stops being monotonic, jumping to a different
+ * branch entirely.
+ *
+ * J J^T is 2x2, so the inverse is closed form.
+ */
+function correctMinNorm(x, z, vy, { maxIter = 20, probe = 1e-8, tol = 1e-11 } = {}) {
+  let halfPeriod = -1
+  for (let iter = 0; iter < maxIter; iter++) {
+    halfPeriod = jacobian2(x, z, vy, probe)
+    if (halfPeriod < 0) return null
+    const err = Math.hypot(_F2[0], _F2[1])
+    if (err < tol) return { x, z, vy, halfPeriod, err, iter }
+
+    const a0 = _J2[0]
+    const a1 = _J2[1]
+    const a2 = _J2[2]
+    const b0 = _J2[3]
+    const b1 = _J2[4]
+    const b2 = _J2[5]
+    const g00 = a0 * a0 + a1 * a1 + a2 * a2
+    const g01 = a0 * b0 + a1 * b1 + a2 * b2
+    const g11 = b0 * b0 + b1 * b1 + b2 * b2
+    const det = g00 * g11 - g01 * g01
+    if (!(Math.abs(det) > 1e-30)) return null
+
+    // w = (J J^T)^-1 F
+    const w0 = (g11 * _F2[0] - g01 * _F2[1]) / det
+    const w1 = (-g01 * _F2[0] + g00 * _F2[1]) / det
+    // dX = -J^T w
+    x -= a0 * w0 + b0 * w1
+    z -= a1 * w0 + b1 * w1
+    vy -= a2 * w0 + b2 * w1
+  }
+  return null
+}
+
+/**
+ * Walk the family, predictor along the tangent and minimum-norm corrector.
+ *
+ * `direction` is evaluated on the first step to pick which way along the tangent
+ * decreases perilune, and thereafter the sign is carried by requiring the new
+ * tangent to agree with the previous one. Without that continuity the tangent's
+ * sign — an arbitrary property of a cross product — flips at will and the walk
+ * reverses into orbits it has already visited.
+ *
+ * The step adapts: a corrector failure halves it and retries, a clean solve
+ * grows it slowly. That is what carries the walk through the region where the
+ * family turns sharply, which for the halo family is exactly where it becomes
+ * near-rectilinear.
+ */
+export function continueFamily(start, { target, steps = 400, ds = 2e-3, dsMin = 1e-6, dsMax = 1e-2 } = {}) {
+  let { x, z, vy } = start
+  const members = []
+
+  let cur = correctMinNorm(x, z, vy)
+  if (!cur) return { members, reason: 'seed did not correct' }
+  ;({ x, z, vy } = cur)
+  let ext = orbitExtremes(x, z, vy, cur.halfPeriod * 2)
+  members.push({ x, z, vy, period: cur.halfPeriod * 2, ...ext })
+
+  _prevTan[0] = 0
+  _prevTan[1] = 0
+  _prevTan[2] = 0
+  let step = ds
+
+  for (let i = 0; i < steps; i++) {
+    if (jacobian2(x, z, vy, 1e-8) < 0) return { members, reason: 'jacobian failed' }
+    if (!familyTangent(_tan)) return { members, reason: 'tangent degenerate' }
+
+    // Keep walking the same way: agree with the previous tangent, or on the
+    // first step pick whichever sign reduces perilune.
+    const dot = _tan[0] * _prevTan[0] + _tan[1] * _prevTan[1] + _tan[2] * _prevTan[2]
+    if (_prevTan[0] === 0 && _prevTan[1] === 0 && _prevTan[2] === 0) {
+      const probeFwd = correctMinNorm(x + step * _tan[0], z + step * _tan[1], vy + step * _tan[2])
+      if (probeFwd) {
+        const e = orbitExtremes(probeFwd.x, probeFwd.z, probeFwd.vy, probeFwd.halfPeriod * 2)
+        if (e.perilune > ext.perilune) {
+          _tan[0] = -_tan[0]
+          _tan[1] = -_tan[1]
+          _tan[2] = -_tan[2]
+        }
+      }
+    } else if (dot < 0) {
+      _tan[0] = -_tan[0]
+      _tan[1] = -_tan[1]
+      _tan[2] = -_tan[2]
+    }
+
+    const next = correctMinNorm(x + step * _tan[0], z + step * _tan[1], vy + step * _tan[2])
+    if (!next) {
+      step *= 0.5
+      if (step < dsMin) return { members, reason: 'step underflow' }
+      continue
+    }
+
+    _prevTan[0] = _tan[0]
+    _prevTan[1] = _tan[1]
+    _prevTan[2] = _tan[2]
+    ;({ x, z, vy } = next)
+    ext = orbitExtremes(x, z, vy, next.halfPeriod * 2)
+    members.push({ x, z, vy, period: next.halfPeriod * 2, ...ext })
+    step = Math.min(dsMax, step * 1.1)
+
+    if (target && ext.perilune <= target) return { members, reason: 'reached target' }
+  }
+  return { members, reason: 'steps exhausted' }
+}
+
+/**
+ * Classify a crossing state by its two-body energy **about the Moon**.
+ *
+ * This is the check whose absence let a wrong answer pass every other test. The
+ * corrector finds *periodic orbits*, and periodicity is not identity: a large
+ * orbit that merely swings past the Moon satisfies the same symmetry condition
+ * an NRHO does, closes over a full period to 1e-13, and is not a halo at all.
+ * The first family this module found had 2,207 m/s at perilune against a 940 m/s
+ * lunar escape speed — hyperbolic about the Moon, and only visible as wrong once
+ * something asked.
+ *
+ * At a polar perilune the rotating-frame velocity relates simply to the inertial
+ * one: omega x r for the craft and for the Moon differ only by the craft's
+ * in-plane offset, so v_rel = vy + (x - (1-mu)).
+ */
+export function lunarState(x, z, vy) {
+  const rx = x - (1 - MU)
+  const r = Math.hypot(rx, z)
+  const vRel = vy + rx
+  const v2 = vRel * vRel
+  const energy = v2 / 2 - MU / r
+  const bound = energy < 0
+  const a = bound ? -MU / (2 * energy) : Infinity
+  return {
+    radius: r,
+    speed: Math.abs(vRel),
+    escapeSpeed: Math.sqrt((2 * MU) / r),
+    energy,
+    bound,
+    semiMajor: a,
+    eccentricity: bound ? 1 - r / a : NaN,
+  }
+}
+
+/**
+ * A physically constructed NRHO seed.
+ *
+ * Built from what an NRHO *is* rather than from a series expansion: a near-polar,
+ * highly eccentric lunar orbit whose perilune sits on the x-z plane. Perilune
+ * radius and apolune radius give the two-body speed there, and at a polar
+ * perilune the rotating-frame vy equals that speed exactly, because the frame's
+ * omega x r term is identical for craft and Moon when the craft sits directly
+ * over the Moon.
+ *
+ * This is why Richardson's third-order expansion is not needed here. That series
+ * exists to seed halos near the libration point, where the linear solution is a
+ * Lissajous and the 1:1 resonance is a nonlinear effect. An NRHO is at the other
+ * end of the family entirely — so close to the Moon that a Keplerian
+ * approximation is a *better* starting point than a libration-point expansion.
+ */
+export function nrhoSeed(perilune, apolune) {
+  const a = (perilune + apolune) / 2
+  const vp = Math.sqrt(MU * (2 / perilune - 1 / a))
+  return { x: 1 - MU, z: -perilune, vy: vp }
+}
