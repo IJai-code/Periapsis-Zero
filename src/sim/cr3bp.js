@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import { BODIES } from './constants.js'
+import { BODIES, G } from './constants.js'
 import { INDEX } from './system.js'
 import { MU } from './lagrange.js'
 
@@ -739,4 +739,67 @@ export function nrhoSeed(perilune, apolune) {
   const a = (perilune + apolune) / 2
   const vp = Math.sqrt(MU * (2 / perilune - 1 / a))
   return { x: 1 - MU, z: -perilune, vy: vp }
+}
+
+/**
+ * Place a CR3BP family member into the live inertial state.
+ *
+ * The bridge between the two models, and it carries an assumption worth naming:
+ * the CR3BP is normalised to a *constant* separation, and the real one runs
+ * 362,558-406,733 km. Dimensionalising against the instantaneous separation
+ * therefore scales the orbit by whatever the Moon's distance happens to be at
+ * insertion — the pulsating-frame reading, and the same one the Lagrange solver
+ * already takes when it scales fixed normalised roots by the live separation.
+ *
+ * An orbit inserted at perigee of the lunar orbit is a slightly different
+ * physical orbit from the same member inserted at apogee. That is not an error
+ * in the transfer; it is the CR3BP having one fewer degree of freedom than the
+ * system it approximates, and it is precisely what the ephemeris continuation
+ * layer exists to absorb.
+ */
+/** Sum of the primaries' gravitational parameters — the CR3BP's mass unit. */
+const MU_SYSTEM = G * (BODIES.earth.mass + BODIES.moon.mass)
+
+export function insertMember(state, member, shipOffset, { separation = null } = {}) {
+  updateSynodicFrame(state)
+  const sep = separation ?? synodic.separation
+
+  /**
+   * The velocity unit is Keplerian, *not* `synodic.omega`.
+   *
+   * The CR3BP ties its time unit to its length unit through Kepler's third law:
+   * one time unit is 1/omega for a body circling at exactly one length unit. So
+   * converting a normalised velocity needs the omega that *belongs to this
+   * separation*, sqrt(mu_system / sep^3), and not the frame's instantaneous
+   * rotation rate.
+   *
+   * Those differ by 2% here and it is not a rounding matter. Position scales as
+   * sep and velocity must scale as sep^-1/2 to keep the orbit's shape; the
+   * instantaneous rate near lunar apogee is 2% below the circular value, so
+   * dimensionalising with it stretched the orbit and slowed it at once.
+   * Measured: a member with e = 0.9332 arrived as e = 0.8534, its apolune fell
+   * from 74,000 km to 42,000, and it left the lunar vicinity before completing
+   * one revolution. The seed was fine; the units were not.
+   */
+  const omegaKep = Math.sqrt(MU_SYSTEM / (sep * sep * sep))
+  const vu = sep * omegaKep
+
+  fromSynodic(
+    craftR,
+    craftV,
+    member.x * sep,
+    0,
+    member.z * sep,
+    0,
+    member.vy * vu,
+    0,
+  )
+
+  state[shipOffset] = craftR.x
+  state[shipOffset + 1] = craftR.y
+  state[shipOffset + 2] = craftR.z
+  state[shipOffset + 3] = craftV.x
+  state[shipOffset + 4] = craftV.y
+  state[shipOffset + 5] = craftV.z
+  return { separation: sep, velocityUnit: vu }
 }

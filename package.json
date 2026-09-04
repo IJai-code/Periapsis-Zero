@@ -20,6 +20,7 @@
     "verify:nrho": "node --expose-gc scripts/verify-nrho-cycle.mjs",
     "verify:cr3bp": "node scripts/verify-cr3bp.mjs",
     "verify:family": "node scripts/verify-nrho-family.mjs",
+    "verify:ephemeris": "node scripts/verify-nrho-ephemeris.mjs",
     "verify:alloc": "node --expose-gc scripts/verify-allocation.mjs"
   },
   "dependencies": {
