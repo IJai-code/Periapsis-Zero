@@ -8,6 +8,10 @@ npm install
 npm run dev
 ```
 
+Then open <http://localhost:5173> for the simulation, or
+<http://localhost:5173/landing.html> for the project overview — a standalone page
+carrying the headline results, with no build step and no requests of its own.
+
 The scene is entirely self-contained: every texture — Earth, Moon and the Milky
 Way skybox — is synthesised procedurally in a Web Worker at load (~4s), so there
 are no asset downloads and nothing to break offline.
