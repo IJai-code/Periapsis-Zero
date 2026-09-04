@@ -22,6 +22,7 @@
     "verify:family": "node scripts/verify-nrho-family.mjs",
     "verify:ephemeris": "node scripts/verify-nrho-ephemeris.mjs",
     "verify:keeping": "node scripts/verify-nrho-keeping.mjs",
+    "verify:director": "node --expose-gc scripts/verify-director.mjs",
     "verify:alloc": "node --expose-gc scripts/verify-allocation.mjs"
   },
   "dependencies": {

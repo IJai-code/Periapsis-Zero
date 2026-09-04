@@ -16,6 +16,7 @@ import {
   updateTLI,
 } from '../sim/mission.js'
 import { setUi, uiStore, useUi, WARP_LEVELS } from '../sim/store.js'
+import { director, updateDirector } from '../sim/director.js'
 
 /**
  * Steps the integrator once per frame, before anything reads a position.
@@ -56,6 +57,7 @@ export function Driver() {
   const three = useThree()
   const warpBeforeBurn = useRef(null)
   const lastWarpRequest = useRef(null)
+  const lastShotRequest = useRef(null)
 
   // Arm the sequencer once. Without this the opening phase's enter() never
   // runs, so the autopilot is never engaged and the vehicle would leave the pad
@@ -203,6 +205,25 @@ export function Driver() {
     // Same shape at the other end of the mission: once the capsule is down it
     // rides the surface instead of continuing through it.
     if (isSplashed()) applySplashdownHold()
+
+    /**
+     * The camera director, applied the way the warp ladder is: only when the
+     * request *changes*.
+     *
+     * That single rule is what makes it a director rather than a lock. `focus`
+     * is store state, so writing it re-runs the rig's effect and starts a fly-to
+     * — doing that every frame would restart the flight every frame and pin the
+     * camera immovably. Applied on change, a pilot who picks another view keeps
+     * it until the next phase boundary, which is the same bargain the sequencer
+     * already strikes over time warp.
+     */
+    updateDirector()
+    if (director.request !== null && director.request !== lastShotRequest.current) {
+      lastShotRequest.current = director.request
+      if (uiStore.get().focus !== director.request) setUi({ focus: director.request })
+    } else if (director.request === null) {
+      lastShotRequest.current = null
+    }
 
     // Rebase. The origin follows whatever the camera is looking at; in free
     // flight it follows the orbit target, which only moves when the user does.
