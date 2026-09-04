@@ -50,6 +50,14 @@
 
   .rule { letter-spacing: .26em; text-transform: uppercase; font-size: 10px; color: var(--hud-dim); }
 
+  /* Thin cyan rule under the wordmark, fading out — the app's own chrome. */
+  .accent { height: 1px; margin: 30px 0 0; max-width: 520px;
+            background: linear-gradient(90deg, var(--hud), rgba(111,227,245,0) 100%); }
+
+  /* Section index, set like a technical document rather than a brochure. */
+  .idx { display: flex; align-items: baseline; gap: 16px; margin: 0 0 8px; }
+  .idx span { font-size: 11px; letter-spacing: .22em; color: var(--hud-dim); }
+
   /* ---- hero ---- */
   header { padding: 118px 0 76px; }
   .brand { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
@@ -123,9 +131,10 @@
       <strong>18.81&nbsp;simulated days</strong> — ascent, translunar injection, lunar capture,
       departure and a guided re-entry, with nobody at the controls.
     </p>
-    <p class="lede" style="margin-top:14px">
-      Every figure on this page is measured from a run, not estimated. Each one has a script
-      behind it that fails if the physics drifts.
+    <div class="accent"></div>
+    <p class="lede" style="margin-top:26px">
+      Every figure on this page is measured from a run, not estimated — backed by
+      <strong>18 verification scripts</strong> that fail if the physics drifts.
     </p>
     <div class="cta">
       <a class="btn primary" href="/">Launch the simulation →</a>
@@ -141,7 +150,7 @@
   </div>
 
   <section id="profile">
-    <h2>The mission flies itself</h2>
+    <div class="idx"><span>01</span><h2>The mission flies itself</h2></div>
     <p class="sub">
       A flat state machine drives throttle and attitude from the pad onward. Successors are named
       explicitly, never implied by array order — that rule exists because falling through to
@@ -166,7 +175,7 @@
   </section>
 
   <section>
-    <h2>Correct, not merely plausible</h2>
+    <div class="idx"><span>02</span><h2>Correct, not merely plausible</h2></div>
     <p class="sub">
       Orbital mechanics derived from vis-viva, Kepler and the restricted three-body problem —
       then verified against an independent propagation before anything is claimed.
@@ -230,7 +239,7 @@
   </section>
 
   <section>
-    <h2>Everything is procedural</h2>
+    <div class="idx"><span>03</span><h2>Everything is procedural</h2></div>
     <p class="sub">
       Earth, Moon and the Milky Way skybox are synthesised in a Web Worker at load, so there are no
       asset downloads and nothing to break offline. Real NASA imagery is opt-in.
@@ -240,8 +249,9 @@
         <h3>Volumetric atmosphere</h3>
         <p>
           Single-scattering Rayleigh and Mie, raymarched in a shell mesh rather than a fullscreen
-          pass — so the GPU depth-tests it for free. Coefficients are real: β<sub>Rayleigh</sub>
-          (5.8, 13.5, 33.1)×10⁻⁶ m⁻¹, Mie asymmetry g = 0.758.
+          pass — so the GPU depth-tests it for free. Coefficients are real — Rayleigh
+          (5.8, 13.5, 33.1)×10⁻⁶ m⁻¹, Mie asymmetry g = 0.758 — so the limb is blue and
+          grazing light goes orange for the reason it actually does.
         </p>
       </div>
       <div class="card">
@@ -264,7 +274,7 @@
   </section>
 
   <section>
-    <h2>Run it</h2>
+    <div class="idx"><span>04</span><h2>Run it</h2></div>
     <p class="sub">No API keys, no accounts, no network calls after the first load.</p>
     <pre><code>npm install
 npm run dev</code></pre>
@@ -281,8 +291,8 @@ npm run dev</code></pre>
 
   <footer>
     Built with React Three Fiber and three.js. Physics in plain JavaScript over
-    <code>Float64Array</code>. Every mission figure on this page is reproducible with the
-    verification scripts in <code>scripts/</code>.
+    <code>Float64Array</code>, in SI units, with no game scaling anywhere the integrator can see
+    it. Every figure above is reproducible from <code>scripts/</code>.
   </footer>
 
 </div>
