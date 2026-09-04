@@ -85,6 +85,29 @@ export function clampToSite(state, t, site, earthOffset, shipOffset) {
   state[shipOffset + 5] = state[earthOffset + 5] + SPIN_RATE * (E3[0] * ry - E3[1] * rx)
 }
 
+/**
+ * Unit vector from Earth's centre to a site at time `t`, in the body-fixed frame
+ * the clamp and the drag model share.
+ *
+ * Split out of `clampToSite` because a ground camera needs the *direction*
+ * without the state write — and needs it to be the same direction, or the pad
+ * would drift relative to the vehicle standing on it.
+ */
+export function siteDirection(out, site, t) {
+  const phi = site.latitude * DEG
+  const theta = site.longitude * DEG + SPIN_RATE * t
+  const cosPhi = Math.cos(phi)
+  const sinPhi = Math.sin(phi)
+  const cosT = Math.cos(theta)
+  const sinT = Math.sin(theta)
+  out.set(
+    cosPhi * (cosT * E1[0] + sinT * E2[0]) + sinPhi * E3[0],
+    cosPhi * (cosT * E1[1] + sinT * E2[1]) + sinPhi * E3[1],
+    cosPhi * (cosT * E1[2] + sinT * E2[2]) + sinPhi * E3[2],
+  )
+  return out
+}
+
 /** Inclination reachable from a site at a given launch azimuth. */
 export function inclinationFor(site, azimuthDeg = site.azimuth) {
   return (

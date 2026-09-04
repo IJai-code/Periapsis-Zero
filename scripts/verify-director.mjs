@@ -59,9 +59,21 @@ function applyDirector() {
 
 const log = []
 let lastPhase = currentPhase().id
-let lastShot = ''
 let committed = false
 let frames = 0
+
+/**
+ * Seed the comparison from the *opening* shot, not from an empty string.
+ *
+ * PRE_LAUNCH is the starting phase and sets the camera once before any
+ * transition is logged. Starting `lastShot` empty made the first logged
+ * transition look like a cut whenever it shared the opening shot — which it now
+ * does, since the pad camera covers the count and the liftoff both. The store
+ * write count was right throughout; only the metric comparing against it moved.
+ */
+applyDirector()
+let lastShot = director.request
+const openingWrites = applied
 
 const gc = globalThis.gc
 
@@ -147,7 +159,7 @@ const holds = log.length - cuts
 console.log(`\n  phase transitions ${log.length}`)
 console.log(`  cuts              ${cuts}`)
 console.log(`  held through      ${holds}  (consecutive phases sharing a shot)`)
-console.log(`  store writes      ${appliedDuringMission}`)
+console.log(`  store writes      ${appliedDuringMission}  (${cuts} cuts + ${openingWrites} opening)`)
 console.log(`  frames            ${frames}`)
 
 /* ---- the pilot takes the camera, and keeps it ---- */
@@ -183,7 +195,8 @@ const checks = [
    * The invariant is that nothing else writes: any per-frame reassertion would
    * show up here immediately as a count in the hundreds of thousands.
    */
-  ['one store write per cut, plus the opening shot', appliedDuringMission === cuts + 1],
+  ['one store write per cut, plus the opening shot',
+   appliedDuringMission === cuts + openingWrites],
   ['cuts are far fewer than frames', cuts < frames / 1000],
   ['a pilot who takes the camera keeps it', heldByPilot],
   ['release hands the camera back', releasedRequest === null],

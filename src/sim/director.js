@@ -40,12 +40,18 @@ export const director = {
  *
  * `chase` rides the craft's own body frame, so it banks with a roll — which is
  * what makes the entry bank reversals legible rather than invisible.
+ *
+ * `pad` is world-fixed at the launch site and turns to follow, which is the one
+ * shot the body-frame chase cannot give: a vehicle leaving the ground only reads
+ * as *leaving* against something that stays put. It hands over at the gravity
+ * turn, by which point the vehicle is far enough downrange that a ground camera
+ * has nothing left to say.
  */
 const SHOTS = {
   /* --- ascent: the vehicle is the story --- */
-  PRE_LAUNCH: ['ship', 'On the pad'],
-  LIFTOFF: ['chase', 'Liftoff'],
-  PITCH_KICK: ['chase', 'Pitch kick'],
+  PRE_LAUNCH: ['pad', 'On the pad'],
+  LIFTOFF: ['pad', 'Liftoff'],
+  PITCH_KICK: ['pad', 'Pitch kick'],
   GRAVITY_TURN: ['chase', 'Gravity turn'],
   STAGING: ['chase', 'Separation'],
   MECO: ['chase', 'Cutoff'],

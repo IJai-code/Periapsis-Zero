@@ -44,6 +44,9 @@ const ORIGIN_BODY = {
   moon: 'moon',
   ship: 'ship',
   chase: 'ship',
+  // Ground camera: the origin belongs on the planet it is standing on, not on
+  // the vehicle it is watching leave.
+  pad: 'earth',
   iss: 'iss',
   hubble: 'hubble',
   free: null, // follows the orbit target instead
