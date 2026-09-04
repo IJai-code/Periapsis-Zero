@@ -61,6 +61,7 @@ export function Driver() {
   const warpBeforeBurn = useRef(null)
   const lastWarpRequest = useRef(null)
   const lastShotRequest = useRef(null)
+  const lastShotWarp = useRef(null)
 
   // Arm the sequencer once. Without this the opening phase's enter() never
   // runs, so the autopilot is never engaged and the vehicle would leave the pad
@@ -226,6 +227,27 @@ export function Driver() {
       if (uiStore.get().focus !== director.request) setUi({ focus: director.request })
     } else if (director.request === null) {
       lastShotRequest.current = null
+    }
+
+    /**
+     * A shot may also ask for a pace, on exactly the same terms.
+     *
+     * Applied on change and nothing else, so it is a request rather than a lock
+     * and the pilot keeps whatever they choose afterward. It has the weakest
+     * claim on the dial of anything here: the sequencer asks for physics
+     * reasons above, and the powered clamp further down overrides both by
+     * capping this frame's step where it is used — so a shot can slow the
+     * mission down but can never speed it past what is safe to integrate.
+     *
+     * It lands after the sequencer deliberately. Where both want the dial on the
+     * same frame the shot wins, and the only phases that state a warp are ones
+     * the sequencer is not laddering.
+     */
+    if (director.warp !== null && director.warp !== lastShotWarp.current) {
+      lastShotWarp.current = director.warp
+      if (uiStore.get().warp !== director.warp) setUi({ warp: director.warp })
+    } else if (director.warp === null) {
+      lastShotWarp.current = null
     }
 
     // Rebase. The origin follows whatever the camera is looking at; in free

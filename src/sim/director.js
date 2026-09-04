@@ -25,6 +25,16 @@ export const director = {
   forPhase: '',
   /** Human-readable label for the HUD. */
   shot: '',
+  /**
+   * Warp level this shot wants, or null to leave the pace alone.
+   *
+   * A *request*, with the weakest claim of anything that touches the dial. The
+   * sequencer asks for physics reasons, the pilot asks because they want to, and
+   * the powered clamp in the driver overrides both by capping the step directly
+   * where it is used — so this can only ever slow things down, never speed them
+   * past what is safe.
+   */
+  warp: null,
   /** Shots requested so far — the count a test can assert against frames. */
   cuts: 0,
 }
@@ -49,10 +59,25 @@ export const director = {
  */
 const SHOTS = {
   /* --- ascent: the vehicle is the story --- */
-  PRE_LAUNCH: ['pad', 'On the pad'],
-  LIFTOFF: ['pad', 'Liftoff'],
-  PITCH_KICK: ['pad', 'Pitch kick'],
-  GRAVITY_TURN: ['chase', 'Gravity turn'],
+  /**
+   * The third column is a warp request, and only the ascent uses it.
+   *
+   * Left at 60x the entire pad shot is over in 0.4 s of wall clock: the vehicle
+   * reaches the gravity turn at MET 24 s, and sixty of those pass every second.
+   * An altitude condition cannot fix that — the shot already runs to 2 km, and
+   * holding it longer would mean holding a *ground* camera past 50 km. The
+   * problem is temporal, so the fix is.
+   *
+   * `GRAVITY_TURN` states 60x explicitly rather than the director remembering
+   * what to restore. Remembering would mean carrying hidden state and deciding
+   * what to do when the pilot has intervened in between; naming it keeps the
+   * table a lookup and keeps the hand-back visible in the same place as the
+   * hand-over.
+   */
+  PRE_LAUNCH: ['pad', 'On the pad', null],
+  LIFTOFF: ['pad', 'Liftoff', 0],
+  PITCH_KICK: ['pad', 'Pitch kick', 0],
+  GRAVITY_TURN: ['chase', 'Gravity turn', 1],
   STAGING: ['chase', 'Separation'],
   MECO: ['chase', 'Cutoff'],
 
@@ -120,6 +145,7 @@ export function updateDirector() {
   if (!director.enabled) {
     director.request = null
     director.shot = ''
+    director.warp = null
     return director
   }
 
@@ -132,6 +158,7 @@ export function updateDirector() {
   director.forPhase = id
   director.request = shot[0]
   director.shot = shot[1]
+  director.warp = shot[2] ?? null
   director.cuts += 1
   return director
 }
@@ -142,6 +169,7 @@ export function releaseDirector() {
   director.request = null
   director.forPhase = ''
   director.shot = ''
+  director.warp = null
 }
 
 /** Resume automatic direction from the current phase. */

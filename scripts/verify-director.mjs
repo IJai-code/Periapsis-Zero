@@ -41,9 +41,11 @@ flight.warpBeforeBurn = null
 flight.pilotWarp = null
 beginCountdown()
 
-/** Mirror the driver's apply rule exactly. */
+/** Mirror the driver's apply rule exactly, for both channels. */
 let lastShotRequest = null
+let lastShotWarp = null
 let applied = 0
+let warpApplied = 0
 function applyDirector() {
   updateDirector()
   if (director.request !== null && director.request !== lastShotRequest) {
@@ -55,12 +57,33 @@ function applyDirector() {
   } else if (director.request === null) {
     lastShotRequest = null
   }
+
+  if (director.warp !== null && director.warp !== lastShotWarp) {
+    lastShotWarp = director.warp
+    if (uiStore.get().warp !== director.warp) {
+      uiStore.set({ warp: director.warp })
+      warpApplied++
+    }
+    /**
+     * Drive the harness's dial too, or the pacing is never actually exercised.
+     *
+     * `flight.mjs` mirrors the driver's frame loop but reads its own
+     * `flight.warp`; the store write above is invisible to it. Counting writes
+     * without this would verify the *discipline* of the request and say nothing
+     * about whether the shot gets the screen time it asked for — which is the
+     * entire reason the column exists.
+     */
+    flight.warp = director.warp
+  } else if (director.warp === null) {
+    lastShotWarp = null
+  }
 }
 
 const log = []
 let lastPhase = currentPhase().id
 let committed = false
 let frames = 0
+let padWall = 0
 
 /**
  * Seed the comparison from the *opening* shot, not from an empty string.
@@ -80,13 +103,16 @@ const gc = globalThis.gc
 for (let i = 0; i < 2_000_000; i++) {
   const id = currentPhase().id
   if (!committed && id === 'COAST') committed = commitTLI()
-  flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? 3 : 1
+  // A stated shot warp takes the dial; otherwise the sequencer, otherwise a pilot.
+  flight.pilotWarp =
+    director.warp !== null ? null : mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? 3 : 1
 
   frame()
   applyDirector()
   frames++
 
   const now = currentPhase().id
+  if (director.request === 'pad') padWall += 1 / 60
   if (now !== lastPhase) {
     // A cut is a change of *camera mode*, not of label. Comparing labels — which
     // are unique per phase by design — counts every transition as a cut and
@@ -96,6 +122,7 @@ for (let i = 0; i < 2_000_000; i++) {
       phase: now,
       shot: director.request,
       label: director.shot,
+      warp: director.warp,
       cut: director.request !== lastShot,
       focus: uiStore.get().focus,
     })
@@ -114,6 +141,7 @@ for (let i = 0; i < 2_000_000; i++) {
  * behaving correctly.
  */
 const appliedDuringMission = applied
+const warpDuringMission = warpApplied
 
 /**
  * Allocation, measured on the director alone.
@@ -150,7 +178,8 @@ console.log('\n=== the mission, as filmed ===')
 console.log('  phase                    camera    shot')
 for (const e of log) {
   console.log(
-    `  ${e.phase.padEnd(22)}${e.shot.padStart(8)}${(e.cut ? '  cut ' : '  held').padStart(7)}   ${e.label}`,
+    `  ${e.phase.padEnd(22)}${e.shot.padStart(8)}${(e.cut ? '  cut ' : '  held').padStart(7)}` +
+      `${(e.warp === null ? '' : `  warp ${e.warp}`).padEnd(9)}  ${e.label}`,
   )
 }
 
@@ -160,7 +189,11 @@ console.log(`\n  phase transitions ${log.length}`)
 console.log(`  cuts              ${cuts}`)
 console.log(`  held through      ${holds}  (consecutive phases sharing a shot)`)
 console.log(`  store writes      ${appliedDuringMission}  (${cuts} cuts + ${openingWrites} opening)`)
+const warpRows = log.filter((e) => e.warp !== null).length
+console.log(`  warp requests     ${warpDuringMission}  (${warpRows} phases state a warp)`)
 console.log(`  frames            ${frames}`)
+console.log(`  pad shot on screen ${padWall.toFixed(1)} s of wall clock` +
+  `  (0.4 s of it flight, before the warp column)`)
 
 /* ---- the pilot takes the camera, and keeps it ---- */
 const focusBefore = uiStore.get().focus
@@ -202,6 +235,16 @@ const checks = [
   ['release hands the camera back', releasedRequest === null],
   ['resume takes it again', resumedRequest !== null],
   ['director allocates nothing per frame', !gc || Math.abs(delta) < 64 * 1024],
+  /**
+   * The warp channel obeys the same once-per-change rule as the camera. It has
+   * the weakest claim on the dial of anything that touches it, so the failure
+   * that matters is not a wrong level but a *reasserted* one — which would pin
+   * the pace and take the dial away from the pilot and the sequencer alike.
+   */
+  ['warp requests are far fewer than frames', warpDuringMission < frames / 1000],
+  ['warp requested only where a shot states one', warpDuringMission <= warpRows + 1],
+  // The point of the column: the ascent's ground shot used to be 0.4 s.
+  ['the pad shot gets real screen time', padWall > 20],
 ]
 let pass = true
 for (const [label, ok] of checks) {
