@@ -111,6 +111,10 @@ const SHOTS = {
   LUNAR_ORBIT: ['moon', 'In lunar orbit'],
 
   /* --- halo maintenance --- */
+  /* A planned burn is the pilot's, so the camera rides the hull for it. */
+  NODE_ALIGN: ['chase', 'Node attitude'],
+  NODE_BURN: ['chase', 'Planned burn'],
+
   NRHO_COAST: ['moon', 'Halo coast'],
   NRHO_STATION_KEEP: ['chase', 'Station-keeping'],
 

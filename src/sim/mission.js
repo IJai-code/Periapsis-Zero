@@ -12,6 +12,7 @@ import {
 } from './targeting.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
+import { nodeMagnitude, pendingNode, resolveNode } from './nodes.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 
 /**
@@ -97,6 +98,16 @@ export const PROFILE = {
    * has closed, near-circular, where it was meant to.
    */
   insertionMargin: 20e3,
+
+  /**
+   * Pointing error a planned burn will ignite on, radians, and how long before
+   * ignition the sequencer takes the vehicle to orient. The same pair the
+   * capture burn uses and for the same reason — the slew has to be finished
+   * before the clock runs out, and the burn lights anyway if it is not, rather
+   * than sailing past the node in perfect attitude.
+   */
+  nodePointTolerance: 0.005,
+  nodeAlignMargin: 60,
   /**
    * Ascent shaping moved to the vessel — see SHIP.ascent in sim/vessels.js.
    *
@@ -277,6 +288,24 @@ export const mission = {
    * Used to skip the long ballistic coast without the pilot having to nurse it.
    */
   warpRequest: null,
+  /**
+   * The planned manoeuvre currently being flown, if any.
+   *
+   * `direction` is resolved once at ignition and then held inertially rather
+   * than re-derived each frame. A node is written as an impulse and the map
+   * draws it as one; chasing prograde through a finite burn would steer to a
+   * frame that is itself rotating because of the burn, which is a different
+   * manoeuvre from the one the pilot planned and the projection drew.
+   */
+  node: {
+    active: null,
+    direction: new Vector3(),
+    target: 0, // m/s asked for
+    delivered: 0, // m/s integrated from the applied acceleration
+    burnStart: 0,
+    pointingError: Math.PI, // rad between the nose and the commanded direction
+  },
+
   /** Lowest eccentricity seen during a circularisation burn. */
   bestEccentricity: Infinity,
   /** Whether the phase a staging interrupt preempted has met its own cutoff. */
@@ -673,10 +702,22 @@ function aimLunarPrograde() {
  * mass the second half never has to accelerate. Sizing the whole burn on the
  * first stage's numbers would put the ignition point out by tens of seconds.
  */
-function loiBurnDuration() {
-  const dv = live.lunar.captureDeltaV
+/**
+ * How long the stack needs to deliver `dv`, in seconds.
+ *
+ * Stage by stage, because each has its own exhaust velocity and because
+ * dropping a spent one changes the mass the next has to push. Within a stage
+ * the rocket equation inverts directly — m1 = m0 exp(-dv/ve), and the time is
+ * the propellant difference over the flow rate — and a stage that cannot
+ * finish the job hands the remainder to the one above it, minus its own
+ * structure.
+ *
+ * This was written out three times, once for capture, once for departure and
+ * once for a planned node, differing only in where `dv` came from. One of the
+ * three would eventually have been fixed alone.
+ */
+function burnTimeFor(dv) {
   if (!(dv > 0) || !Number.isFinite(dv)) return 0
-
   let m = totalMass()
   let togo = dv
   let t = 0
@@ -699,6 +740,8 @@ function loiBurnDuration() {
   }
   return t
 }
+
+const loiBurnDuration = () => burnTimeFor(live.lunar.captureDeltaV)
 
 /**
  * How early to light the engine, as a fraction of the burn ahead of periapsis.
@@ -849,30 +892,7 @@ function updateTEI() {
 export { updateTEI }
 
 /** Departure burn duration, walked stage by stage — same as the capture's. */
-function teiBurnDuration() {
-  const dv = mission.tei.deltaVEstimate
-  if (!(dv > 0) || !Number.isFinite(dv)) return 0
-  let m = totalMass()
-  let togo = dv
-  let t = 0
-  for (let i = ship.stage; i < SHIP.stages.length && togo > 0; i++) {
-    const st = SHIP.stages[i]
-    const prop = i === ship.stage ? ship.stageProp[i] : st.propellant
-    if (!(prop > 0)) continue
-    const ve = st.isp * G0
-    const mdot = st.thrust / ve
-    const full = ve * Math.log(m / (m - prop))
-    if (full >= togo) {
-      t += (m * (1 - Math.exp(-togo / ve))) / mdot
-      togo = 0
-    } else {
-      t += prop / mdot
-      togo -= full
-      m -= prop + st.dryMass
-    }
-  }
-  return t
-}
+const teiBurnDuration = () => burnTimeFor(mission.tei.deltaVEstimate)
 
 const teiIgnitionLead = () => teiBurnDuration() * PROFILE.teiLeadFraction
 
@@ -2205,6 +2225,80 @@ const PHASES = [
    * Halo-orbit maintenance — a cycle, not a step
    * ---------------------------------------------------------------- */
   {
+    /**
+     * Orient for a planned burn.
+     *
+     * An interrupt like STAGING, not a step in the script: a node can fall in
+     * any coast, so the sequencer preempts whatever is running, flies the
+     * manoeuvre, and resumes. That is what turns this from a director following
+     * a storyboard into a flight computer executing what it is handed.
+     */
+    id: 'NODE_ALIGN',
+    label: 'Node attitude',
+    enter() {
+      ship.throttle = 0
+      mission.warpRequest = WARP.x1
+      const node = mission.node.active
+      mission.node.target = node ? nodeMagnitude(node) : 0
+      mission.node.delivered = 0
+    },
+    control() {
+      const node = mission.node.active
+      if (!node) return aimPrograde()
+      // Re-resolved while aligning, because the craft is still coasting and the
+      // frame the node was written in is moving with it. Frozen at ignition.
+      resolveNode(node, live.sim.state, INDEX.ship * 6, INDEX.earth * 6, mission.node.direction)
+      if (mission.node.direction.lengthSq() === 0) return
+      mission.node.pointingError = ship.forward.angleTo(mission.node.direction)
+      aimThrust(mission.node.direction)
+    },
+    done() {
+      const node = mission.node.active
+      if (!node || !(mission.node.target > 0)) return true
+      const lead = burnTimeFor(mission.node.target) * 0.5
+      const togo = node.t - live.sim.t - lead
+      const pointed = mission.node.pointingError <= PROFILE.nodePointTolerance
+      // Ignite when the clock arrives and the vehicle is pointed, or when the
+      // clock has run a full margin past it regardless.
+      return (togo <= 0 && pointed) || togo <= -PROFILE.nodeAlignMargin
+    },
+    next: () => INDEX_OF.NODE_BURN,
+  },
+  {
+    id: 'NODE_BURN',
+    label: 'Planned burn',
+    enter() {
+      ship.throttle = 1
+      mission.warpRequest = WARP.x1
+      mission.node.burnStart = mission.t
+      mission.node.delivered = 0
+      // Freeze the direction: from here the attitude is inertial.
+      const node = mission.node.active
+      if (node) {
+        resolveNode(node, live.sim.state, INDEX.ship * 6, INDEX.earth * 6, mission.node.direction)
+      }
+    },
+    control() {
+      if (mission.node.direction.lengthSq() > 0) aimThrust(mission.node.direction)
+      mission.node.delivered += (ship.thrust / ship.mass) * live.simDtLastFrame
+    },
+    /**
+     * Cut off on delivered delta-v, integrated from the acceleration actually
+     * applied rather than from the clock. A burn that stages partway through
+     * changes both thrust and mass, and a stopwatch started at ignition would
+     * be wrong from that moment on.
+     */
+    done: () => mission.node.delivered >= mission.node.target || ship.thrust === 0,
+    exit() {
+      ship.throttle = 0
+      const node = mission.node.active
+      if (node) node.executed = true
+      mission.node.active = null
+      mission.warpRequest = null // hand time control back to the pilot
+    },
+    next: () => mission.resumeIndex,
+  },
+  {
     id: 'NRHO_COAST',
     label: 'NRHO coast',
     enter() {
@@ -2333,7 +2427,18 @@ export const PHASE_IDS = PHASES.map((p) => p.id)
  * Nothing needs restoring on the way back: the interrupt never touches throttle
  * or the warp request, and its `control` delegates to the phase it preempted.
  */
+/**
+ * Leave one phase and take up another.
+ *
+ * The machine had only an `enter` hook until now, and phases did their teardown
+ * either inline in `done()` or in whatever ran next — workable while every
+ * successor was known at the time of writing. A planned burn is not: it resumes
+ * whichever coast it interrupted, so it has nowhere to put "and mark the node
+ * flown" except on the way out. `exit` is called on the phase being left, and
+ * no existing phase defines one, so nothing else changes behaviour.
+ */
 function setPhase(next, resuming = false) {
+  if (next !== mission.index) PHASES[mission.index].exit?.()
   mission.index = next
   mission.phaseT = 0
   if (!resuming) PHASES[next].enter?.()
@@ -2447,6 +2552,27 @@ export function updateMission(dt, simDt = dt) {
   if (mission.index === 0 && !mission.running) {
     aimThrust(_up)
     return // held, count not started
+  }
+
+  /**
+   * A planned manoeuvre preempts the coast it falls in.
+   *
+   * Only from a phase that is not already flying one, and not from a staging
+   * interrupt, which is itself mid-preemption. `resumeIndex` is the phase to
+   * come back to — the same field STAGING uses, because this is the same shape
+   * of interruption.
+   */
+  if (phase.id !== 'NODE_ALIGN' && phase.id !== 'NODE_BURN' && phase.id !== 'STAGING') {
+    const node = pendingNode(live.sim.t)
+    if (node) {
+      const lead = burnTimeFor(nodeMagnitude(node)) * 0.5
+      if (live.sim.t >= node.t - lead - PROFILE.nodeAlignMargin) {
+        mission.node.active = node
+        mission.resumeIndex = mission.index
+        setPhase(INDEX_OF.NODE_ALIGN)
+        return
+      }
+    }
   }
 
   phase.control(dt)

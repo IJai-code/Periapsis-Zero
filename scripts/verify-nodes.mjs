@@ -25,7 +25,7 @@
 
 import { flight, frame } from './flight.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import { beginCountdown, currentPhase, resetMission } from '../src/sim/mission.js'
+import { beginCountdown, currentPhase, mission, resetMission } from '../src/sim/mission.js'
 import { INDEX } from '../src/sim/system.js'
 import { BODIES, G } from '../src/sim/constants.js'
 import { WARP } from '../src/sim/warp.js'
@@ -88,6 +88,13 @@ clearNodes()
 addNode(tBurn, { prograde: dvHohmann })
 project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
 
+/**
+ * Captured here, not read at the end. Later sections re-project with the sim
+ * advanced past the node, where a node in the past is correctly skipped — so
+ * checking `applied.length` after all of them measured the last projection
+ * rather than this one, and reported zero.
+ */
+const foldedIn = plan.applied.length
 const reachedAlt = (plan.apoapsis.radius - R) / 1e3
 const errAlt = plan.apoapsis.radius - r2
 console.log(`  projection gives ${reachedAlt.toFixed(2)} km apoapsis` +
@@ -165,6 +172,51 @@ console.log(`              closed form says apoapsis ${((radialApoExpected - R) 
   `, semi-major moves ${((aRadial - aCurrent)).toFixed(0)} m`)
 console.log(`  zero        identical to the ballistic path to ${zeroGap.toExponential(1)} m`)
 
+/* ---- and now let the sequencer actually fly it ---- */
+/**
+ * The loop the whole thing exists to close.
+ *
+ * The map says a 62.80 m/s prograde node puts apoapsis at 400 km. If the
+ * autopilot flies that node and ends up somewhere else, then the map and the
+ * flight computer are describing different vehicles, and it does not matter
+ * which of them is right.
+ *
+ * They will not agree exactly and should not: the projection applies the
+ * impulse instantaneously and the vehicle takes a finite time to deliver it,
+ * spending part of the burn off the ideal point. That loss is real physics,
+ * not disagreement, and the check is sized to admit it.
+ */
+clearNodes()
+project(live.sim, scratch, 'ship', 'earth', period, prediction)
+const tBurn2 = live.sim.t + prediction.periapsis.time
+const node = addNode(tBurn2, { prograde: dvHohmann })
+project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+const drawnApo = plan.apoapsis.radius
+
+let sawAlign = false
+let sawBurn = false
+let flownApo = 0
+for (let i = 0; i < 3_000_000; i++) {
+  frame()
+  const id = currentPhase().id
+  if (id === 'NODE_ALIGN') sawAlign = true
+  if (id === 'NODE_BURN') sawBurn = true
+  // Once the node is behind us and the coast has resumed, read the orbit.
+  if (node.executed && id !== 'NODE_BURN') {
+    flownApo = live.elements.apoapsisRadius
+    if (live.sim.t > node.t + 600) break
+  }
+}
+const flownErr = flownApo - drawnApo
+
+console.log('\n=== the sequencer flies the node ===')
+console.log(`  aligned          ${sawAlign}, burned ${sawBurn}, executed ${node.executed}`)
+console.log(`  delivered        ${mission.node.delivered.toFixed(2)} m/s of ${dvHohmann.toFixed(2)} asked`)
+console.log(`  map drew         ${((drawnApo - R) / 1e3).toFixed(2)} km apoapsis`)
+console.log(`  autopilot flew   ${((flownApo - R) / 1e3).toFixed(2)} km` +
+  `  — ${flownErr >= 0 ? '+' : ''}${(flownErr / 1e3).toFixed(2)} km against the map`)
+console.log(`  finite-burn loss is expected: the projection is an impulse, the burn is not`)
+
 /* ---- allocation ---- */
 const gc = globalThis.gc
 clearNodes()
@@ -192,7 +244,7 @@ console.log('\n=== what this establishes ===')
  */
 const checks = [
   ['a vis-viva transfer reaches its target apoapsis to 1 km', Math.abs(errAlt) < 1000],
-  ['the node was actually folded into the projection', plan.applied.length === 1],
+  ['the node was actually folded into the projection', foldedIn === 1],
   // Normal turns the plane and leaves the orbit's size alone.
   ['a normal burn turns the plane', planeTurn > 0.1],
   ['and barely moves the apsides', Math.abs(normalApo - before.apo) < 5000 &&
@@ -219,6 +271,16 @@ const checks = [
   ['a zero node changes nothing', zeroGap / r1 < 1e-9],
   ['a node carries its own magnitude', Math.abs(nodeMagnitude(nodes[0]) - dvHohmann) < 1e-9],
   ['projecting with nodes allocates nothing', !gc || Math.abs(delta) < 64 * 1024],
+  ['the sequencer preempted the coast to fly the node', sawAlign && sawBurn],
+  ['and marked it flown', node.executed],
+  ['it delivered what was asked, to 1 m/s', Math.abs(mission.node.delivered - dvHohmann) < 1],
+  /**
+   * Two kilometres on a 400 km target. The gap is the finite-burn loss — an
+   * impulse in the projection against 20-odd seconds of thrust in the flight —
+   * and it is the quantity that would grow if the two ever stopped agreeing
+   * about what a node means.
+   */
+  ['the flown orbit matches the one the map drew, to 2 km', Math.abs(flownErr) < 2000],
 ]
 let pass = true
 for (const [label, ok] of checks) {
