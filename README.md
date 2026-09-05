@@ -8,9 +8,14 @@ npm install
 npm run dev
 ```
 
-Then open <http://localhost:5173> for the simulation, or
-<http://localhost:5173/landing.html> for the project overview — a standalone page
-carrying the headline results, with no build step and no requests of its own.
+Then open <http://localhost:5173>. The front door is the simulation — the
+planet behind the text is the live scene at the real sun angle, and *Begin
+flight* hands you that camera rather than loading anything. <http://localhost:5173/#flight>
+goes straight in.
+
+There used to be a separate `landing.html`. It had to be found at its own URL,
+went stale whenever the scene changed, and made a promise the simulator then had
+to keep somewhere else.
 
 The scene is entirely self-contained: every texture — Earth, Moon and the Milky
 Way skybox — is synthesised procedurally in a Web Worker at load (~4s), so there

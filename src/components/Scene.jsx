@@ -30,6 +30,16 @@ const FLEET_TRAILS = [
 export function Scene({ textures }) {
   const bloom = useUi((s) => s.bloom)
   const trails = useUi((s) => s.trails)
+  /**
+   * The opening shot carries no instrumentation.
+   *
+   * Name tags and libration-point markers are the flight HUD reaching into the
+   * 3D scene, and on the front door they read as chrome over a photograph —
+   * "TERRA" labelling a planet the reader can see. Gated on the shot rather
+   * than on the `labels` toggle, because it is a property of what is being
+   * shown and not a preference to be restored later.
+   */
+  const cinematic = useUi((s) => s.focus === 'cinematic')
   const active = useActiveTextures(textures)
 
   return (
@@ -77,7 +87,7 @@ export function Scene({ textures }) {
         visible={trails}
       />
 
-      <Markers />
+      {!cinematic && <Markers />}
 
       {/* Tuned for weight rather than responsiveness: a slower rotate against
           0.05 damping makes the camera feel like it carries momentum, which is
@@ -93,7 +103,7 @@ export function Scene({ textures }) {
         panSpeed={0.45}
       />
       <CameraRig />
-      <LagrangeProjector />
+      {!cinematic && <LagrangeProjector />}
       <Effects enabled={bloom} />
     </>
   )

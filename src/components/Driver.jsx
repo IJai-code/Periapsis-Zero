@@ -49,6 +49,8 @@ const ORIGIN_BODY = {
   pad: 'earth',
   iss: 'iss',
   hubble: 'hubble',
+  /** The opening shot circles Earth, so the origin sits on it. */
+  cinematic: 'earth',
   free: null, // follows the orbit target instead
   /**
    * Free flight rides whatever it is nearest, resolved per frame — see below.

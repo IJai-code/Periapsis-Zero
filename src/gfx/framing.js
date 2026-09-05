@@ -30,6 +30,11 @@ export const FRAMING = {
   /** Free flight roams the system: a metre off a hull out to a few AU. */
   free: { distance: 0, min: 1, max: 1e12 },
   /**
+   * The opening shot. Driven entirely by the rig on a fixed path, so there is
+   * no orbit radius for these to bound either.
+   */
+  cinematic: { distance: 0, min: 0, max: 0 },
+  /**
    * Fly has no orbit radius to bound — the rig integrates the camera directly
    * and OrbitControls is switched off — so there is nothing for min and max to
    * clamp. Present so the table stays exhaustive over the focus modes.

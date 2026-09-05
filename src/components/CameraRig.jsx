@@ -69,6 +69,30 @@ const PITCH_LIMIT = Math.PI / 2 - 0.01
 /** How quickly the camera reaches the speed the keys are asking for. */
 const FLY_RESPONSE = 8
 
+/**
+ * The opening shot: a slow circle of Earth, with the terminator kept in frame.
+ *
+ * Deliberately the live simulation rather than a rendered loop. The bodies are
+ * where the integrator says they are, the lighting is the real sun angle, and
+ * pressing enter does not load anything — it hands this camera to the player.
+ * A pre-baked video would have to be re-rendered every time the scene changed,
+ * and would be a promise the simulator then had to keep.
+ */
+const CINEMATIC = {
+  /** Earth radii. Far enough for the whole disc plus limb. */
+  range: 4.2,
+  /** Seconds per revolution. Slow enough to read as drift, not rotation. */
+  period: 190,
+  /** Radians above the ecliptic, with a slow bob either side. */
+  elevation: 0.34,
+  bob: 0.13,
+  /**
+   * How far left of Earth the camera aims, in Earth radii, which pushes the
+   * planet right of frame and leaves the left third for text.
+   */
+  aimOffset: 1.15,
+}
+
 /** Exponential smoothing that is independent of frame rate. */
 const smooth = (dt, rate) => 1 - Math.exp(-dt * rate)
 
@@ -123,6 +147,7 @@ export function CameraRig() {
   const flyKeys = useRef(null)
   const flyLook = useRef({ yaw: 0, pitch: 0, dragging: false, pointer: null, x: 0, y: 0 })
   const flyTrim = useRef(1)
+  const cineT = useRef(0)
   if (flyKeys.current === null) flyKeys.current = new Set()
 
   /**
@@ -226,7 +251,8 @@ export function CameraRig() {
 
     // Chase drives the camera outright, so orbit input is handed back only when
     // leaving the mode.
-    controls.enabled = focus !== 'chase' && focus !== 'pad' && focus !== 'fly'
+    controls.enabled =
+      focus !== 'chase' && focus !== 'pad' && focus !== 'fly' && focus !== 'cinematic'
     // Panning moves the orbit target, which is meaningful only when the camera
     // is not already pinned to a body.
     controls.enablePan = focus === 'free'
@@ -267,6 +293,12 @@ export function CameraRig() {
         duration: CHASE_BLEND,
         fromOffset: scratch.offset.clone(),
       }
+      opening.current = false
+      return
+    }
+
+    if (focus === 'cinematic') {
+      flight.current = null
       opening.current = false
       return
     }
@@ -336,6 +368,32 @@ export function CameraRig() {
 
   useFrame((_, delta) => {
     if (!controls || focus === 'free') return
+
+    /* The opening shot. No input, no state beyond the clock. */
+    if (focus === 'cinematic') {
+      cineT.current += delta
+      const a = (cineT.current / CINEMATIC.period) * Math.PI * 2
+      const R = BODIES.earth.radius * CINEMATIC.range
+      const el = CINEMATIC.elevation + Math.sin(a * 0.37) * CINEMATIC.bob
+
+      scratch.desired.set(
+        Math.cos(a) * Math.cos(el) * R,
+        Math.sin(el) * R,
+        Math.sin(a) * Math.cos(el) * R,
+      )
+      camera.position.copy(live.pos.earth).add(scratch.desired)
+
+      // Aim to one side of the planet so it sits right of frame.
+      scratch.back.copy(scratch.desired).cross(WORLD_UP).normalize()
+      scratch.aim
+        .copy(live.pos.earth)
+        .addScaledVector(scratch.back, BODIES.earth.radius * CINEMATIC.aimOffset)
+
+      camera.up.set(0, 1, 0)
+      camera.lookAt(scratch.aim)
+      controls.target.copy(live.pos.earth)
+      return
+    }
 
     /**
      * Free flight: integrate the camera, do not solve for it.

@@ -1,18 +1,66 @@
-import { Suspense } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
 import { Scene } from './components/Scene.jsx'
 import { Hud } from './ui/Hud.jsx'
-import { Loading } from './ui/Loading.jsx'
+import { Landing } from './ui/Landing.jsx'
 import { useAssets } from './gfx/useAssets.js'
+import { releaseDirector, resumeDirector } from './sim/director.js'
+import { setUi } from './sim/store.js'
+
+/**
+ * Which half of the product is on screen, from the URL.
+ *
+ * The hash rather than a router: there are two views, they should be linkable
+ * and survive a reload, and adding a routing library to express that would be
+ * more moving parts than the thing it expresses. `#flight` is the simulator;
+ * anything else is the front door.
+ */
+const FLIGHT = '#flight'
+const isFlight = () => window.location.hash === FLIGHT
 
 export default function App() {
   const assets = useAssets()
+  const [flight, setFlight] = useState(isFlight)
+
+  useEffect(() => {
+    const onHash = () => setFlight(isFlight())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  /**
+   * The camera belongs to the opening shot until the player asks for it.
+   *
+   * The director would otherwise take it on the first frame — it has a shot for
+   * every mission phase and PRE_LAUNCH is one — so it is released while the
+   * front door is up and resumed on the way in. Same mechanism a pilot uses to
+   * take the camera by hand; the landing page is just another pilot.
+   */
+  useEffect(() => {
+    if (flight) {
+      resumeDirector()
+    } else {
+      releaseDirector()
+      setUi({ focus: 'cinematic', paused: false })
+    }
+  }, [flight])
+
+  const enter = useCallback(() => {
+    window.location.hash = FLIGHT
+    setFlight(true)
+  }, [])
 
   return (
     <div className="fixed inset-0 bg-black">
       <Canvas
-        dpr={[1, 2]}
+        /**
+         * Uncapped device pixel ratio on the front door, where the frame is a
+         * still-ish planet and the budget is spare, and capped at 2 in flight
+         * where a 3x retina panel would quadruple the fill cost of a scene that
+         * is already drawing an atmosphere shader per pixel.
+         */
+        dpr={flight ? [1, 2] : [1, 3]}
         /**
          * One scene unit is one metre, so the camera has to span from a
          * spacecraft hull to an astronomical unit — fourteen decades. The
@@ -40,7 +88,16 @@ export default function App() {
         <Suspense fallback={null}>{assets.ready && <Scene textures={assets.textures} />}</Suspense>
       </Canvas>
 
-      {assets.ready ? <Hud /> : <Loading progress={assets.progress} label={assets.label} />}
+      {flight ? (
+        assets.ready && <Hud />
+      ) : (
+        <Landing
+          ready={assets.ready}
+          progress={assets.progress}
+          label={assets.label}
+          onEnter={enter}
+        />
+      )}
     </div>
   )
 }
