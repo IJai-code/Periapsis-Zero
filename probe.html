@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SpxSim — depth probe</title>
+    <style>
+      body { margin: 0; background: #07090c; color: #cfe3ef; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      main { padding: 24px 28px; }
+      h1 { margin: 0 0 4px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #7fd4ff; }
+      p { margin: 0 0 18px; color: #64798a; max-width: 70ch; }
+      pre { margin: 0; white-space: pre; overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Depth probe</h1>
+      <p>Measured resolution of the true-scale camera (near 0.1 m, far 1e13 m) across fourteen decades, with a linear-buffer control.</p>
+      <pre id="out">running…</pre>
+    </main>
+    <script type="module" src="/src/probe/depth.js"></script>
+  </body>
+</html>
