@@ -464,9 +464,13 @@ export function ShipTelemetry() {
 
   return (
     <div ref={root} className="panel w-60 rounded-sm p-3.5">
-      <div className="rule mb-2.5 flex items-center justify-between border-b border-white/10 pb-2">
+      <div className="rule mb-1 flex items-center justify-between border-b border-white/10 pb-2">
         <span>Flight — {SHIP.name}</span>
         <span className={assist ? 'text-hud' : 'text-white/25'}>{assist ? 'SAS' : 'sas'}</span>
+      </div>
+      {/* The actual vehicle, which the mission name does not give away. */}
+      <div className="mb-2.5 text-[9px] leading-tight text-white/25">
+        {SHIP.vehicle} · {SHIP.era}
       </div>
 
       <div className="mb-3 space-y-1.5 border-b border-white/10 pb-3">

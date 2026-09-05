@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
@@ -26,7 +26,22 @@ export function Craft({ id }) {
   const group = useRef()
   const spec = CRAFT[id]
 
-  const modelId = useUi((s) => s.modelFor[id])
+  /**
+   * A staged vehicle changes shape as it flies, so the mesh and the length
+   * follow the *stage*, not the craft.
+   *
+   * Apollo 8 leaves the pad as a 110.6 m Saturn V, sheds two stages, coasts to
+   * the Moon as an 11 m CSM and comes home as a 3.47 m capsule — a factor of 32
+   * in length and 500 in mass, all of it previously drawn as one unchanging
+   * object. A user's explicit pick still wins: the dropdown is an override, and
+   * the stage is what it overrides.
+   */
+  const [stage, setStage] = useState(id === 'ship' ? ship.stage : 0)
+  const stageSpec = id === 'ship' ? (spec.stages?.[stage] ?? null) : null
+
+  const override = useUi((s) => s.modelFor[id])
+  const modelId = override ?? stageSpec?.model ?? null
+  const visual = stageSpec?.visual ?? spec.visual
   const source = useModel(modelId)
 
   /**
@@ -49,9 +64,9 @@ export function Craft({ id }) {
   const model = useMemo(() => {
     if (!source) return null
     const instance = source.clone(true)
-    instance.scale.setScalar(spec.visual / source.userData.longest)
+    instance.scale.setScalar(visual / source.userData.longest)
     return instance
-  }, [source, spec.visual])
+  }, [source, visual])
 
   // Direction only, so the raw SI difference is fine: every display transform
   // here is a uniform scale, which leaves directions untouched.
@@ -63,6 +78,9 @@ export function Craft({ id }) {
     g.position.copy(live.pos[id])
 
     if (id === 'ship') {
+      // Four transitions in a whole mission, so a compare-and-set here costs
+      // nothing and keeps the stage out of the store.
+      if (ship.stage !== stage) setStage(ship.stage)
       g.quaternion.copy(ship.quaternion)
       return
     }
@@ -83,7 +101,7 @@ export function Craft({ id }) {
 
   return (
     <group ref={group}>
-      {model ? <primitive object={model} /> : <Placeholder id={id} size={spec.visual} />}
+      {model ? <primitive object={model} /> : <Placeholder id={id} size={visual} />}
     </group>
   )
 }

@@ -65,15 +65,16 @@ const DEG = Math.PI / 180
 /** Ascent profile. Tuned so the programmed turn reaches orbit without iteration. */
 export const PROFILE = {
   countdown: 10, // s
-  kickAltitude: 600, // m — start tipping over
-  kickAngle: 3, // deg from vertical
-  turnStart: 2000, // m — altitude at which the programme takes over
-  targetSpeed: 7400, // m/s — pitch reaches horizontal here
-  turnExponent: 0.45, // lower pitches over sooner, which keeps the ascent flat
   targetPerigee: 150e3, // m — cut off once the orbit actually closes above the air
-  qThrottle: 22e3, // Pa — throttle down above this dynamic pressure
-  qThrottleLevel: 0.7, // the Max-Q bucket, as the RS-25s do
-  gLimit: 4 * 9.80665, // m/s^2 — structural acceleration ceiling
+  /**
+   * Ascent shaping moved to the vessel — see SHIP.ascent in sim/vessels.js.
+   *
+   * kickAltitude, kickAngle, turnStart, targetSpeed, turnExponent, qThrottle,
+   * qThrottleLevel and gLimit are all properties of a *vehicle*, not of a
+   * flight plan, and they only sat here while there was exactly one vehicle.
+   * Saturn V leaves the pad at a thrust-to-weight of 1.166 against SLS's 1.57
+   * and does not fly the same pitch programme.
+   */
   /** Eccentricity below which the orbit counts as circular. */
   circularTolerance: 1e-3,
   /** Rise in eccentricity that counts as "past the optimum", not numerical noise. */
@@ -462,19 +463,19 @@ function azimuthDirection(out, azimuthDeg) {
  * stage would be pulling well over 4 g.
  */
 function manageThrottle() {
-  let level = live.dynamicPressure > PROFILE.qThrottle ? PROFILE.qThrottleLevel : 1
+  let level = live.dynamicPressure > SHIP.ascent.qThrottle ? SHIP.ascent.qThrottleLevel : 1
 
   const accel = ship.thrust / ship.mass
-  if (accel > PROFILE.gLimit) level = Math.min(level, ship.throttle * (PROFILE.gLimit / accel))
+  if (accel > SHIP.ascent.gLimit) level = Math.min(level, ship.throttle * (SHIP.ascent.gLimit / accel))
 
   ship.throttle = Math.max(0.1, Math.min(1, level))
 }
 
 function aimPitchProgramme() {
   const v0 = rotationBonus(mission.site)
-  const span = PROFILE.targetSpeed - v0
+  const span = SHIP.ascent.targetSpeed - v0
   const tau = Math.min(1, Math.max(0, (live.elements.speed - v0) / span))
-  const pitch = (Math.PI / 2) * Math.pow(tau, PROFILE.turnExponent)
+  const pitch = (Math.PI / 2) * Math.pow(tau, SHIP.ascent.turnExponent)
 
   azimuthDirection(_aim, mission.site.azimuth)
   _aim.multiplyScalar(Math.sin(pitch)).addScaledVector(_up, Math.cos(pitch))
@@ -1257,7 +1258,7 @@ const PHASES = [
       manageThrottle()
       aimThrust(_up)
     },
-    done: () => live.elements.altitude > PROFILE.kickAltitude,
+    done: () => live.elements.altitude > SHIP.ascent.kickAltitude,
     next: () => INDEX_OF.PITCH_KICK,
   },
   {
@@ -1265,12 +1266,12 @@ const PHASES = [
     label: 'Pitch kick',
     control() {
       manageThrottle()
-      const a = PROFILE.kickAngle * DEG
+      const a = SHIP.ascent.kickAngle * DEG
       azimuthDirection(_aim, mission.site.azimuth)
       _aim.multiplyScalar(Math.sin(a)).addScaledVector(_up, Math.cos(a))
       aimThrust(_aim)
     },
-    done: () => live.elements.altitude > PROFILE.turnStart,
+    done: () => live.elements.altitude > SHIP.ascent.turnStart,
     next: () => INDEX_OF.GRAVITY_TURN,
   },
   {

@@ -9,8 +9,11 @@
  * orbiting. The scene is 1:1 in metres and there is no second set of numbers.
  */
 
+import { ACTIVE_VESSEL, VESSELS } from './vessels.js'
+
 /** Newtonian constant of gravitation, m^3 kg^-1 s^-2 (CODATA 2018). */
 export const G = 6.6743e-11
+
 
 export const AU = 1.495978707e11 // metres
 export const DAY = 86400 // seconds
@@ -70,134 +73,14 @@ export const G0 = 9.80665
  * 1.75 km/s of delta-v and about 0.4 g at full throttle on a full tank, which
  * makes orbital changes felt in seconds rather than minutes.
  */
-export const SHIP = {
-  name: 'Artemis',
-  /**
-   * Stages burn and separate in order. Numbers are close to the real Artemis
-   * stack above Earth orbit: the ICPS performs trans-lunar injection, then is
-   * discarded, leaving Orion's service module for everything after.
-   *
-   * A stage's `dryMass` is carried until it separates, so dropping a spent
-   * booster is a genuine step change in vehicle mass — which is the point of
-   * staging and shows up immediately in acceleration and in drag.
-   */
-  stages: [
-    // SLS Block 1. The boosters and core burn together off the pad, so the
-    // boost phase is modelled as one stage with the combined thrust and a
-    // flow-weighted effective Isp — the staging engine burns one stage at a
-    // time, and a parallel-burn model would buy accuracy this does not need.
-    {
-      name: 'SRB + Core',
-      dryMass: 190_000, // two spent five-segment boosters
-      propellant: 1_523_000, // booster load plus the core's share over 126 s
-      thrust: 39_440_000, // 2 x 16.0 MN + 4 x 1.86 MN at sea level
-      isp: 283, // flow-weighted across boosters and core
-      drag: { cd: 0.35, area: 90 }, // streamlined stack, continuum flow
-    },
-    {
-      name: 'Core',
-      dryMass: 85_000,
-      propellant: 718_000,
-      thrust: 9_120_000, // 4 x RS-25 in vacuum
-      isp: 452,
-      drag: { cd: 0.35, area: 55 },
-    },
-    {
-      name: 'ICPS',
-      dryMass: 3490,
-      propellant: 26_853,
-      thrust: 110_100,
-      isp: 462,
-      // Above the sensible atmosphere the flow is free-molecular, where a blunt
-      // body's drag coefficient is far higher than its streamlined value.
-      drag: { cd: 2.2, area: 20 },
-    },
-    {
-      name: 'Orion ESM',
-      // The service module's own structure only. The 6185 kg this used to carry
-      // was the whole Orion dry mass with no crew module in it — nothing to
-      // re-enter. Splitting it at the real ESM:CM ratio (6185 : 10387) is exact
-      // to the kilogram in total, so every result from the pad through lunar
-      // orbit is bit-identical; it just gives the capsule a mass of its own.
-      dryMass: 2308,
-      propellant: 8600,
-      thrust: 25_700,
-      isp: 316,
-      drag: { cd: 2.2, area: 20 },
-    },
-    /**
-     * The re-entry vehicle. No engine and no propellant: once the service
-     * module is gone the capsule is ballistic, and everything after that is
-     * aerodynamics.
-     *
-     * The area is chosen to hold the **ballistic coefficient**, not the
-     * diameter. Entry depends on beta = m / (Cd A) and on nothing else about
-     * mass and area separately — it is the only vehicle property in
-     * a = rho v^2 / (2 beta) — so preserving Orion's real 420 kg/m^2 against
-     * this lighter capsule reproduces the real deceleration and heating
-     * altitudes. Matching the 5.02 m diameter instead would give 157 kg/m^2,
-     * which brakes far too high and turns a lunar-return entry into a gentle
-     * one. 3877 / (1.25 x 7.385) = 420.0 kg/m^2.
-     */
-    {
-      name: 'Orion CM',
-      dryMass: 3877,
-      propellant: 0,
-      thrust: 0,
-      isp: 1, // never used — no propellant, so no mass flow
-      /**
-       * `ld` is the trimmed lift-to-drag ratio. Apollo flew about 0.30 and
-       * Orion is similar, both achieved the same way: the centre of mass is
-       * deliberately offset from the axis of symmetry, so the capsule trims at
-       * a non-zero angle of attack and generates lift without any control
-       * surface. The consequence is the one that shapes the whole entry — the
-       * magnitude of lift is fixed by the vehicle's shape and mass
-       * distribution, and the only thing the flight computer can change is
-       * which way it points.
-       */
-      drag: { cd: 1.25, area: 7.385, ld: 0.3 },
-    },
-  ],
-
-  /**
-   * Parachutes, as an *added* Cd·A on top of the capsule's own.
-   *
-   * Two stages because one is not survivable. Going straight to the main
-   * canopies at 8 km and Mach 0.8 would be about 390 g; real capsules deploy
-   * drogues first and then disreef the mains over several seconds, which is
-   * what `tau` models — a first-order opening rather than a step.
-   */
-  chutes: {
-    drogue: { cdA: 25, tau: 1.5, altitude: 8000, mach: 0.8 },
-    main: { cdA: 860, tau: 6.0, altitude: 3000 },
-  },
-  /** Isotropic, so Euler's gyroscopic term vanishes identically. */
-  inertia: 18000, // kg m^2
-  rcsTorque: 6000, // N m  -> about 0.33 rad/s^2 authority
-  /** How hard the stability assist fights residual rotation, as a fraction of RCS authority. */
-  assistGain: 2.2,
-  /** Fallback orbit, used when spawning in flight rather than on the pad. */
-  orbit: { altitude: 400e3, inclination: 28.5, phase: 0 },
-  /**
-   * Rendered length, in metres, like everything else the scene draws.
-   *
-   * SLS Block 1 stands 98.1 m from the mobile launcher to the top of the launch
-   * abort system. This used to read 0.022 — scene units, under a display scale
-   * that made the vehicle 27,000 km long, which is what allowed a camera to be
-   * framed against it from "500 m" that was really a hundred kilometres out.
-   *
-   * One number for the whole flight is still a simplification: the stack sheds
-   * most of this at staging and re-enters as a 3.3 m capsule. Per-stage lengths
-   * are worth having and are not here yet.
-   */
-  visual: 98.1,
-  /**
-   * Ballistic properties, for drag only. These craft remain gravitationally
-   * massless — a mass here says how hard the air pushes them, not how hard they
-   * pull on a planet.
-   */
-  drag: { cd: 2.2, area: 30 },
-}
+/**
+ * The vehicle being flown, chosen from the vessel library.
+ *
+ * A live binding rather than a literal: everything downstream reads `SHIP` and
+ * none of it writes, so swapping which vessel this points at is enough to
+ * change the vehicle. The stack itself lives in ./vessels.js with its sources.
+ */
+export const SHIP = VESSELS[ACTIVE_VESSEL]
 
 /**
  * Uncontrolled craft, flown as additional test particles. Real orbits: the ISS

@@ -2,6 +2,7 @@ import { Vector3 } from 'three'
 import { createSimulation, INDEX, readPosition, simDate } from './system.js'
 import { BODIES, CRAFT, ORDER, BODY_ORDER, TEST_PARTICLES, AU } from './constants.js'
 import {
+  activeStage,
   computeElements,
   computeLunarElements,
   elements,
@@ -161,11 +162,18 @@ const SOI_RATIO = Math.pow(B.moon.mass / B.earth.mass, 0.4)
  * Bounding radius of everything drawn, in metres — bodies by their real radius,
  * craft by half their length.
  *
- * Built once at load so the per-frame loop is arithmetic on a flat table.
+ * Built once at load so the per-frame loop is arithmetic on a flat table. The
+ * ship is the exception: it sheds most of its length as it stages, so its entry
+ * is read live. Getting that wrong matters, because this radius is the floor on
+ * the free-flight camera's speed — a capsule sized as a 110 m stack would let
+ * the camera barrel through it at 55 m/s.
  */
 const SURFACE_RADIUS = Object.fromEntries(
   BODY_ORDER.map((id) => [id, BODIES[id]?.radius ?? CRAFT[id].visual / 2]),
 )
+
+const radiusOf = (id) =>
+  id === 'ship' ? (activeStage()?.visual ?? CRAFT.ship.visual) / 2 : SURFACE_RADIUS[id]
 
 const _rel = new Vector3()
 const _axis = new Vector3()
@@ -367,7 +375,7 @@ export function updateNearestSurface(point) {
   let which = null
   for (const id of BODY_ORDER) {
     const p = live.pos[id]
-    const d = Math.hypot(point.x - p.x, point.y - p.y, point.z - p.z) - SURFACE_RADIUS[id]
+    const d = Math.hypot(point.x - p.x, point.y - p.y, point.z - p.z) - radiusOf(id)
     if (d < best) {
       best = d
       which = id
