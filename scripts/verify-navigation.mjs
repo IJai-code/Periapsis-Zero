@@ -15,6 +15,17 @@ import { live, refreshDerived, resetSimulation, updateNearestSurface } from '../
 import { INDEX } from '../src/sim/system.js'
 import { BODIES, CRAFT } from '../src/sim/constants.js'
 import { FRAMING, ZOOM_DETENTS, detentsIn, detentsToCross, zoomSpeedFor } from '../src/gfx/framing.js'
+import {
+  FLY_BOOST,
+  FLY_FINE,
+  FLY_FLOOR,
+  FLY_GAIN,
+  clampTrim,
+  flyAxisInput,
+  flyModifier,
+  flySpeed,
+  flyTime,
+} from '../src/gfx/fly.js'
 
 resetSimulation()
 refreshDerived('earth')
@@ -160,6 +171,106 @@ const signOnly = flick.length
 console.log(`\n  30-event trackpad flick (deltaY 12 each): ${flickDetents.toFixed(1)} detents` +
   `, against ${signOnly} if only the sign were read`)
 
+/* ---- the free-flight speed law ---- */
+const C = 299792458
+console.log('\n=== free-flight speed, by how much room there is ===')
+console.log('  clearance                      speed              as')
+const SPEEDS = [
+  { d: 0, what: 'touching a hull' },
+  { d: 40, what: '40 m off a hull' },
+  { d: 400e3, what: 'a 400 km orbit' },
+  { d: 3.844e8, what: 'lunar distance' },
+  { d: 1.496e11, what: 'one AU' },
+]
+for (const { d, what } of SPEEDS) {
+  const v = flySpeed(d)
+  const as = v >= 0.1 * C ? `${(v / C).toFixed(0)} c` : v >= 1e4 ? `${(v / 1e3).toFixed(0)} km/s` : `${v.toFixed(1)} m/s`
+  console.log(`  ${what.padEnd(30)}${v.toExponential(2).padStart(12)} m/s${as.padStart(12)}`)
+}
+
+/**
+ * Time to fly a journey, integrated at 60 Hz rather than taken from the closed
+ * form, because the floor makes the last metre linear and t = ln(r)/gain does
+ * not know that.
+ *
+ * The property worth checking is that these are *logarithmic* in the ratio, so
+ * a journey ten decades long costs about what a journey five decades long
+ * costs twice — the control does not saturate at either end.
+ */
+console.log('\n=== how long a journey takes ===')
+console.log('  journey                                decades      nominal     boosted        fine')
+const TRIPS = [
+  { from: 1.496e11, to: 10, what: 'one AU -> 10 m off a hull' },
+  { from: 3.844e8, to: 10, what: 'lunar distance -> 10 m' },
+  { from: 400e3, to: 10, what: '400 km orbit -> 10 m' },
+  { from: 1000, to: 10, what: '1 km -> 10 m' },
+]
+const trips = []
+for (const t of TRIPS) {
+  const nominal = flyTime(t.from, t.to)
+  const boosted = flyTime(t.from, t.to, FLY_BOOST)
+  const fine = flyTime(t.from, t.to, FLY_FINE)
+  const decades = Math.log10(t.from / t.to)
+  trips.push({ ...t, nominal, boosted, fine, decades })
+  console.log(
+    `  ${t.what.padEnd(38)}${decades.toFixed(1).padStart(8)}` +
+      `${nominal.toFixed(1).padStart(13)} s${boosted.toFixed(1).padStart(11)} s${fine.toFixed(0).padStart(11)} s`,
+  )
+}
+
+/** Seconds per decade, which the law says should be the same for every trip. */
+const perDecade = trips.map((t) => t.nominal / t.decades)
+const decadeSpread = Math.max(...perDecade) / Math.min(...perDecade)
+console.log(`\n  seconds per decade: ${perDecade.map((p) => p.toFixed(2)).join(', ')}` +
+  `  (spread ${decadeSpread.toFixed(3)}x)`)
+console.log(`  predicted ln(10)/gain = ${(Math.LN10 / FLY_GAIN).toFixed(3)} s`)
+
+/* ---- what the keys fold down to ---- */
+/**
+ * Checked here because it cannot be checked in a browser.
+ *
+ * Holding a key is the one input the tooling cannot produce: a dispatched
+ * KeyboardEvent does not reach the page's listeners at all, and the
+ * automation's key action completes press-and-release inside one task, so the
+ * key is never held across an animation frame. Sixty presses moved the camera
+ * zero metres, which is what that predicts and also what a broken listener
+ * would look like. Making the fold pure moves everything except the
+ * `addEventListener` line into reach — and that line is shared with the pointer
+ * handlers in the same effect, which were exercised live.
+ */
+console.log('\n=== key fold ===')
+console.log('  held                          direction          modifier')
+const KEYCASES = [
+  { keys: ['KeyW'], want: [0, 0, -1], mod: 1, what: 'W' },
+  { keys: ['KeyS'], want: [0, 0, 1], mod: 1, what: 'S' },
+  { keys: ['KeyA'], want: [-1, 0, 0], mod: 1, what: 'A' },
+  { keys: ['KeyD'], want: [1, 0, 0], mod: 1, what: 'D' },
+  { keys: ['KeyR'], want: [0, 1, 0], mod: 1, what: 'R' },
+  { keys: ['KeyF'], want: [0, -1, 0], mod: 1, what: 'F' },
+  { keys: ['KeyW', 'KeyD'], want: [1, 0, -1], mod: 1, what: 'W+D' },
+  // Opposing keys cancel by summing signs, not by precedence.
+  { keys: ['KeyW', 'KeyS'], want: [0, 0, 0], mod: 1, what: 'W+S (cancel)' },
+  { keys: ['KeyW', 'ShiftLeft'], want: [0, 0, -1], mod: FLY_BOOST, what: 'W+shift' },
+  { keys: ['KeyW', 'ControlLeft'], want: [0, 0, -1], mod: FLY_FINE, what: 'W+ctrl' },
+  // Boost wins when both modifiers are down, rather than multiplying to 1.
+  { keys: ['KeyW', 'ShiftLeft', 'ControlLeft'], want: [0, 0, -1], mod: FLY_BOOST, what: 'W+shift+ctrl' },
+  { keys: ['KeyQ', 'Enter', 'KeyI'], want: [0, 0, 0], mod: 1, what: 'ship keys only' },
+]
+const vec = { x: 0, y: 0, z: 0 }
+let foldOk = true
+for (const c of KEYCASES) {
+  const set = new Set(c.keys)
+  flyAxisInput(set, vec)
+  const mod = flyModifier(set)
+  const ok =
+    vec.x === c.want[0] && vec.y === c.want[1] && vec.z === c.want[2] && mod === c.mod
+  if (!ok) foldOk = false
+  console.log(
+    `  ${c.what.padEnd(30)}(${vec.x}, ${vec.y}, ${vec.z})`.padEnd(52) +
+      `x${mod}${ok ? '' : '   MISMATCH'}`,
+  )
+}
+
 /* ---- allocation ---- */
 const gc = globalThis.gc
 for (let i = 0; i < 20000; i++) updateNearestSurface(cam)
@@ -190,6 +301,28 @@ const checks = [
   ['a detent means a detent on mouse and trackpad alike', normalised],
   ['a trackpad flick is not read as one tick per event', Math.abs(flickDetents - 30) > 20],
   ['nearest surface allocates nothing', !gc || Math.abs(delta) < 64 * 1024],
+  // The speed law is only useful if it never stops and never inverts.
+  ['speed is positive everywhere, inside a body included',
+   [-1e9, 0, 1, 1e6, 1e12].every((d) => flySpeed(d) >= FLY_FLOOR)],
+  ['speed rises with clearance', SPEEDS.every((s, i, a) => i === 0 || flySpeed(s.d) >= flySpeed(a[i - 1].d))],
+  /**
+   * The property the whole design rests on: cost is logarithmic in distance,
+   * so every decade costs the same and neither end of the range saturates.
+   * ln(10)/gain seconds per decade, checked against the integrated times rather
+   * than asserted from the algebra.
+   */
+  ['a decade costs the same wherever it is', decadeSpread < 1.05],
+  ['seconds per decade matches ln(10)/gain',
+   Math.abs(perDecade[0] - Math.LN10 / FLY_GAIN) < 0.2],
+  ['ten decades cross in under a minute', trips[0].nominal < 60],
+  ['trim stays inside its band', clampTrim(1e9) <= 20 && clampTrim(-5) >= 0.05],
+  ['keys fold to the right direction and modifier', foldOk],
+  // The camera must not answer to the throttle and attitude keys.
+  ['the ship\'s own keys do not move the camera',
+   (() => {
+     flyAxisInput(new Set(['KeyQ', 'KeyE', 'KeyI', 'KeyJ', 'KeyK', 'KeyL', 'KeyZ', 'KeyX']), vec)
+     return vec.x === 0 && vec.y === 0 && vec.z === 0
+   })()],
 ]
 let pass = true
 for (const [label, ok] of checks) {

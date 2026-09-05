@@ -6,6 +6,7 @@ import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { LAUNCH_SITES, siteDirection } from '../sim/launchsite.js'
 import { BODIES, SHIP } from '../sim/constants.js'
 import { CHASE_OFFSET, FRAMING, detentsIn, zoomSpeedFor } from '../gfx/framing.js'
+import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
 import { mission } from '../sim/mission.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
@@ -53,6 +54,21 @@ const PAD_AIM_SETTLE = 0.45
 /** How long the cut out of the pad shot takes to blend into the chase. */
 const CHASE_BLEND = 1.5
 
+/**
+ * Free flight, in the craft-less sense: a viewpoint you steer rather than a
+ * target you orbit.
+ *
+ * Mouse drag looks, WASD translates in the view frame, R and F lift and drop.
+ * Yaw is taken about world up rather than the camera's own, which is what stops
+ * a long session accumulating roll — there is no horizon out here to tell you
+ * you have drifted, so the control has to refuse to drift.
+ */
+const LOOK_PER_PIXEL = 0.0025
+const PITCH_LIMIT = Math.PI / 2 - 0.01
+
+/** How quickly the camera reaches the speed the keys are asking for. */
+const FLY_RESPONSE = 8
+
 /** Exponential smoothing that is independent of frame rate. */
 const smooth = (dt, rate) => 1 - Math.exp(-dt * rate)
 
@@ -91,6 +107,9 @@ export function CameraRig() {
       siteDir: new THREE.Vector3(),
       east: new THREE.Vector3(),
       offset: new THREE.Vector3(),
+      flyVel: new THREE.Vector3(),
+      flyWant: new THREE.Vector3(),
+      flyEuler: new THREE.Euler(0, 0, 0, 'YXZ'),
       aim: new THREE.Vector3(),
       aimVel: new THREE.Vector3(),
       anchor: new THREE.Vector3(),
@@ -99,6 +118,12 @@ export function CameraRig() {
   )
   const baseFov = useRef(null)
   const zoomBase = useRef(1)
+  const focusRef = useRef(focus)
+  focusRef.current = focus
+  const flyKeys = useRef(null)
+  const flyLook = useRef({ yaw: 0, pitch: 0, dragging: false, pointer: null, x: 0, y: 0 })
+  const flyTrim = useRef(1)
+  if (flyKeys.current === null) flyKeys.current = new Set()
 
   /**
    * Scale `zoomSpeed` by how much the user actually scrolled, before
@@ -108,11 +133,87 @@ export function CameraRig() {
    * the same element fire in registration order regardless of the capture flag,
    * so being early requires being higher up the tree, not just capturing.
    */
+  /**
+   * Look and translate, bound only while the mode is active.
+   *
+   * Mounted per-mode rather than globally and gated: a listener that exists but
+   * declines to act still swallows the gesture, and W and S belong to the
+   * throttle the rest of the time.
+   */
+  useEffect(() => {
+    if (focus !== 'fly') return
+    const canvas = gl.domElement
+    const look = flyLook.current
+    const keys = flyKeys.current
+    keys.clear()
+
+    const onPointerDown = (e) => {
+      if (e.button !== 0) return
+      look.dragging = true
+      look.pointer = e.pointerId
+      look.x = e.clientX
+      look.y = e.clientY
+      canvas.setPointerCapture?.(e.pointerId)
+    }
+    const onPointerMove = (e) => {
+      if (!look.dragging || e.pointerId !== look.pointer) return
+      look.yaw -= (e.clientX - look.x) * LOOK_PER_PIXEL
+      look.pitch = THREE.MathUtils.clamp(
+        look.pitch - (e.clientY - look.y) * LOOK_PER_PIXEL,
+        -PITCH_LIMIT,
+        PITCH_LIMIT,
+      )
+      look.x = e.clientX
+      look.y = e.clientY
+    }
+    const onPointerUp = (e) => {
+      if (e.pointerId !== look.pointer) return
+      look.dragging = false
+      look.pointer = null
+      canvas.releasePointerCapture?.(e.pointerId)
+    }
+    const onKeyDown = (e) => {
+      if (!e.repeat) keys.add(e.code)
+    }
+    const onKeyUp = (e) => keys.delete(e.code)
+    // A key held while the window loses focus would otherwise stay held, and
+    // this camera has no drag to stop it.
+    const onBlur = () => keys.clear()
+
+    canvas.addEventListener('pointerdown', onPointerDown)
+    canvas.addEventListener('pointermove', onPointerMove)
+    canvas.addEventListener('pointerup', onPointerUp)
+    canvas.addEventListener('pointercancel', onPointerUp)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      canvas.removeEventListener('pointerdown', onPointerDown)
+      canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointerup', onPointerUp)
+      canvas.removeEventListener('pointercancel', onPointerUp)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+      keys.clear()
+      look.dragging = false
+      scratch.flyVel.set(0, 0, 0)
+      live.flySpeed = 0
+    }
+  }, [focus, gl, scratch])
+
   useEffect(() => {
     if (!controls) return
     const canvas = gl.domElement
     const host = canvas.parentElement ?? canvas
     const onWheel = (e) => {
+      // In free flight the wheel has no radius to change, so it trims speed —
+      // the same gesture, applied to the only scalar the mode has.
+      if (focusRef.current === 'fly') {
+        const step = Math.exp(detentsIn(e) * 0.35 * (e.deltaY < 0 ? 1 : -1))
+        flyTrim.current = clampTrim(flyTrim.current * step)
+        return
+      }
       controls.zoomSpeed = zoomBase.current * detentsIn(e)
     }
     host.addEventListener('wheel', onWheel, { capture: true, passive: true })
@@ -125,7 +226,7 @@ export function CameraRig() {
 
     // Chase drives the camera outright, so orbit input is handed back only when
     // leaving the mode.
-    controls.enabled = focus !== 'chase' && focus !== 'pad'
+    controls.enabled = focus !== 'chase' && focus !== 'pad' && focus !== 'fly'
     // Panning moves the orbit target, which is meaningful only when the camera
     // is not already pinned to a body.
     controls.enablePan = focus === 'free'
@@ -166,6 +267,20 @@ export function CameraRig() {
         duration: CHASE_BLEND,
         fromOffset: scratch.offset.clone(),
       }
+      opening.current = false
+      return
+    }
+
+    /**
+     * Entering free flight: adopt the camera's current orientation rather than
+     * imposing one, so the cut is a change of control and not of view.
+     */
+    if (focus === 'fly') {
+      scratch.flyEuler.setFromQuaternion(camera.quaternion, 'YXZ')
+      flyLook.current.yaw = scratch.flyEuler.y
+      flyLook.current.pitch = THREE.MathUtils.clamp(scratch.flyEuler.x, -PITCH_LIMIT, PITCH_LIMIT)
+      scratch.flyVel.set(0, 0, 0)
+      flight.current = null
       opening.current = false
       return
     }
@@ -221,6 +336,47 @@ export function CameraRig() {
 
   useFrame((_, delta) => {
     if (!controls || focus === 'free') return
+
+    /**
+     * Free flight: integrate the camera, do not solve for it.
+     *
+     * Speed comes from `live.nearest.distance` through `flySpeed`, so the
+     * control has no scale of its own — it borrows the scene's. Forty metres
+     * off a hull that is 0.5 m/s; between the planets it is a tenth of an AU a
+     * second. Crossing ten decades takes the same forty-seven seconds wherever
+     * those decades are.
+     */
+    if (focus === 'fly') {
+      const look = flyLook.current
+      const keys = flyKeys.current
+
+      scratch.flyEuler.set(look.pitch, look.yaw, 0, 'YXZ')
+      camera.quaternion.setFromEuler(scratch.flyEuler)
+      camera.up.set(0, 1, 0)
+
+      flyAxisInput(keys, scratch.flyWant)
+      if (scratch.flyWant.lengthSq() > 0) {
+        scratch.flyWant
+          .normalize()
+          .applyQuaternion(camera.quaternion)
+          .multiplyScalar(
+            flySpeed(live.nearest.distance, flyTrim.current * flyModifier(keys)),
+          )
+      }
+
+      // Ease, so a keypress is an acceleration rather than a teleport.
+      scratch.flyVel.lerp(scratch.flyWant, smooth(delta, FLY_RESPONSE))
+      camera.position.addScaledVector(scratch.flyVel, delta)
+      live.flySpeed = scratch.flyVel.length()
+
+      // Park the orbit target ahead of the camera so leaving for a free orbit
+      // has something plausible to swing around rather than the last body.
+      scratch.back.set(0, 0, -1).applyQuaternion(camera.quaternion)
+      controls.target
+        .copy(camera.position)
+        .addScaledVector(scratch.back, Math.max(live.nearest.distance, 10))
+      return
+    }
 
     /**
      * Pad: a camera bolted to the ground, turning to follow.

@@ -75,6 +75,9 @@ export const live = {
    */
   nearest: { distance: Infinity, id: null },
 
+  /** Free-flight camera speed, m/s. Written by the rig, read by the HUD. */
+  flySpeed: 0,
+
   /** Live osculating elements of the craft. Same object, refreshed in place. */
   elements,
 

@@ -29,6 +29,12 @@ export const FRAMING = {
   hubble: { distance: CRAFT.hubble.visual * 4.4, min: CRAFT.hubble.visual * 1.25, max: 1e9 },
   /** Free flight roams the system: a metre off a hull out to a few AU. */
   free: { distance: 0, min: 1, max: 1e12 },
+  /**
+   * Fly has no orbit radius to bound — the rig integrates the camera directly
+   * and OrbitControls is switched off — so there is nothing for min and max to
+   * clamp. Present so the table stays exhaustive over the focus modes.
+   */
+  fly: { distance: 0, min: 0, max: 0 },
 }
 
 /** Where the chase camera sits, in the craft's own body frame. Metres. */

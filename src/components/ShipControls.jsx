@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { input, separate, ship } from '../sim/ship.js'
-import { setUi } from '../sim/store.js'
+import { setUi, uiStore } from '../sim/store.js'
 
 /**
  * Keyboard bindings for the craft.
@@ -35,8 +35,18 @@ export function ShipControls() {
       for (const [axis, neg, pos] of AXES) {
         input[axis] = (held.has(neg) ? -1 : 0) + (held.has(pos) ? 1 : 0)
       }
-      input.throttleUp = held.has('KeyW')
-      input.throttleDown = held.has('KeyS')
+      /**
+       * W and S belong to the free-flight camera while it is active.
+       *
+       * That camera translates in the view frame and needs the whole WASD
+       * cluster; A, D, R and F are unclaimed, so W and S are the only overlap.
+       * Yielding them is better than binding the camera to something else,
+       * because the pair a hand reaches for is the pair a hand reaches for —
+       * and a detached observer is not flying the vehicle anyway.
+       */
+      const flying = uiStore.get().focus === 'fly'
+      input.throttleUp = !flying && held.has('KeyW')
+      input.throttleDown = !flying && held.has('KeyS')
     }
 
     const onDown = (e) => {
@@ -62,10 +72,14 @@ export function ShipControls() {
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
     window.addEventListener('blur', onBlur)
+    // Entering or leaving free flight mid-hold has to re-fold the axes, or a
+    // throttle key held across the change stays applied with nothing reading it.
+    const unsubscribe = uiStore.subscribe(refresh)
     return () => {
       window.removeEventListener('keydown', onDown)
       window.removeEventListener('keyup', onUp)
       window.removeEventListener('blur', onBlur)
+      unsubscribe()
       onBlur()
     }
   }, [])

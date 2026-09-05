@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FocusMenu } from './FocusMenu.jsx'
+import { FlyHud } from './FlyHud.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
 import { Toggles } from './Toggles.jsx'
@@ -18,6 +19,7 @@ const FOCUS_KEYS = {
   6: 'chase',
   7: 'iss',
   8: 'hubble',
+  9: 'fly',
 }
 
 function EclipseBanner() {
@@ -93,6 +95,13 @@ export function Hud() {
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2">
         <EclipseBanner />
+      </div>
+
+      {/* Outside the panel toggle on purpose: it is the mode's own instructions,
+          and a mode whose controls are only documented behind a hidden panel is
+          a mode nobody finds. */}
+      <div className="absolute bottom-4 left-4">
+        <FlyHud />
       </div>
 
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
