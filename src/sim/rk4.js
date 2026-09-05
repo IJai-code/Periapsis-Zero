@@ -364,4 +364,29 @@ export class RK4NBody {
     copy.maxDt = this.maxDt
     return copy
   }
+
+  /**
+   * Reset this integrator to another's state, without allocating.
+   *
+   * `clone()` builds a whole integrator — six state-sized buffers and the
+   * per-particle tables — which is right for the trail seeder, since that runs
+   * once per mount. It is wrong for anything that re-projects continuously: the
+   * map's forward prediction resets a scratch integrator several times a second
+   * and would otherwise hand the collector a new set of buffers each time.
+   *
+   * Ballistic on purpose, like `clone()`: thrust and lift are left at zero, so
+   * a projection shows where the craft goes if nothing further is commanded.
+   * Drag is kept, because it is a property of the vehicle and the air rather
+   * than of the pilot, and a projection through the atmosphere that ignored it
+   * would be confidently wrong exactly where it matters.
+   */
+  resetFrom(other) {
+    this.state.set(other.state)
+    this.t = other.t
+    this.extAccel.fill(0)
+    this.dragK.set(other.dragK)
+    if (this.liftK && other.liftK) this.liftK.set(other.liftK)
+    if (this.bank && other.bank) this.bank.set(other.bank)
+    return this
+  }
 }

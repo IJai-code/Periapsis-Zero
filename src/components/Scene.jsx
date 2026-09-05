@@ -8,6 +8,7 @@ import { Craft } from './Craft.jsx'
 import { ShipControls } from './ShipControls.jsx'
 import { LagrangeProjector } from './LagrangeProjector.jsx'
 import { Trail } from './Trail.jsx'
+import { Trajectory } from './Trajectory.jsx'
 import { Markers } from './Markers.jsx'
 import { CameraRig } from './CameraRig.jsx'
 import { Effects } from './Effects.jsx'
@@ -87,6 +88,7 @@ export function Scene({ textures }) {
         visible={trails}
       />
 
+      {!cinematic && <Trajectory />}
       {!cinematic && <Markers />}
 
       {/* Tuned for weight rather than responsiveness: a slower rotate against

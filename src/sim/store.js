@@ -52,6 +52,8 @@ export const uiStore = createStore({
   warp: WARP.x1,
   paused: true,
   trails: true,
+  /** The forward projection of where the craft is going. */
+  trajectory: true,
   labels: true,
   bloom: true,
   clouds: true,

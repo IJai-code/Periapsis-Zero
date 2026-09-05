@@ -25,6 +25,7 @@
     "verify:director": "node --expose-gc scripts/verify-director.mjs",
     "verify:geometry": "node scripts/verify-geometry.mjs",
     "verify:vessels": "node scripts/verify-vessels.mjs",
+    "verify:predict": "node --expose-gc scripts/verify-predict.mjs",
     "verify:navigation": "node --expose-gc scripts/verify-navigation.mjs",
     "verify:all": "node scripts/verify-anomalies.mjs && node scripts/verify-warp.mjs && node scripts/verify-cr3bp.mjs && node scripts/verify-geometry.mjs && node --expose-gc scripts/verify-navigation.mjs && node --expose-gc scripts/verify-director.mjs",
     "record:attitude": "node scripts/record-attitude.mjs",
