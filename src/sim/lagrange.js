@@ -1,6 +1,5 @@
 import { Vector3 } from 'three'
 import { BODIES } from './constants.js'
-import { MOON_BOOST, POSITION_SCALE } from './scale.js'
 
 /**
  * Earth-Moon libration points, derived live from the integrator's state.
@@ -87,8 +86,11 @@ const SIXTY = Math.PI / 3
 /**
  * Refresh all five points.
  *
- * They sit at Moon-scale distances, so they take the same MOON_BOOST the Moon
- * does — scaled any other way they would detach from the body that defines them.
+ * They sit at Moon-scale distances and are placed in metres from Earth's own
+ * rendered position, which is all that is needed now the scene is true scale.
+ * This used to apply the Moon's display boost so the points would not detach
+ * from the body defining them — one of three exaggerations that had to agree
+ * with each other by hand, and did not.
  *
  * @param {Float64Array} state
  * @param {number} earthOffset  Earth's slot in the state vector
@@ -117,22 +119,20 @@ export function computeLagrange(state, earthOffset, moonOffset, earthScene) {
   // instantaneous plane — inclination and precession included — for free.
   _normal.crossVectors(_rel, _vel).normalize()
 
-  const scale = MOON_BOOST * POSITION_SCALE
-
   for (let i = 0; i < 3; i++) {
     const fromEarth = (COLLINEAR[i] + MU) * r // signed: L3 lands on the far side
     lagrange.distance[i] = Math.abs(fromEarth)
-    lagrange.points[i].copy(earthScene).addScaledVector(_dir, fromEarth * scale)
+    lagrange.points[i].copy(earthScene).addScaledVector(_dir, fromEarth)
   }
 
   // L4 and L5 are exactly equilateral: the Earth-Moon vector turned +/-60
   // degrees about the orbit normal, +60 giving the leading point.
   _swing.copy(_rel).applyAxisAngle(_normal, SIXTY)
-  lagrange.points[3].copy(earthScene).addScaledVector(_swing, scale)
+  lagrange.points[3].copy(earthScene).add(_swing)
   lagrange.distance[3] = r
 
   _swing.copy(_rel).applyAxisAngle(_normal, -SIXTY)
-  lagrange.points[4].copy(earthScene).addScaledVector(_swing, scale)
+  lagrange.points[4].copy(earthScene).add(_swing)
   lagrange.distance[4] = r
 
   return lagrange

@@ -4,53 +4,57 @@ import * as THREE from 'three'
 import { live } from '../sim/live.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { LAUNCH_SITES, siteDirection } from '../sim/launchsite.js'
+import { AU, BODIES, CRAFT, SHIP } from '../sim/constants.js'
 import { mission } from '../sim/mission.js'
-import { SHIP_VISUAL_LENGTH, VISUAL_RADIUS } from '../sim/scale.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
 
 /**
  * How the camera frames each body when it locks on, and how close it may get.
+ * Metres, like everything else the scene draws.
+ *
+ * The multiples are the ones the exaggerated scene already used — they were
+ * always written against each body's rendered radius, so they survive the
+ * change to true scale by substitution and the framing is unchanged. Only the
+ * outer limits are new numbers, because the old ones were bounded by a scene
+ * 120 units wide per AU and had no meaning in metres.
+ *
  * Kept unexported: a non-component export from a component module disables
  * React Fast Refresh for the whole file.
  */
 const FRAMING = {
-  sun: { distance: VISUAL_RADIUS.sun * 4.6, min: VISUAL_RADIUS.sun * 1.35, max: 700 },
-  earth: { distance: VISUAL_RADIUS.earth * 5.2, min: VISUAL_RADIUS.earth * 1.25, max: 500 },
-  moon: { distance: VISUAL_RADIUS.moon * 6.0, min: VISUAL_RADIUS.moon * 1.3, max: 400 },
-  ship: {
-    distance: SHIP_VISUAL_LENGTH * 4.5,
-    min: SHIP_VISUAL_LENGTH * 1.1,
-    max: 300,
-  },
-  chase: { distance: SHIP_VISUAL_LENGTH * 4.5, min: 0, max: 0 },
+  sun: { distance: BODIES.sun.radius * 4.6, min: BODIES.sun.radius * 1.35, max: 2 * AU },
+  earth: { distance: BODIES.earth.radius * 5.2, min: BODIES.earth.radius * 1.25, max: 4e9 },
+  moon: { distance: BODIES.moon.radius * 6.0, min: BODIES.moon.radius * 1.3, max: 4e9 },
+  ship: { distance: SHIP.visual * 4.5, min: SHIP.visual * 1.1, max: 1e9 },
+  chase: { distance: SHIP.visual * 4.5, min: 0, max: 0 },
   pad: { distance: 0, min: 0, max: 0 },
-  iss: { distance: 0.13, min: 0.035, max: 300 },
-  hubble: { distance: 0.07, min: 0.02, max: 300 },
-  free: { distance: 0, min: 0.4, max: 900 },
+  iss: { distance: CRAFT.iss.visual * 4.4, min: CRAFT.iss.visual * 1.2, max: 1e9 },
+  hubble: { distance: CRAFT.hubble.visual * 4.4, min: CRAFT.hubble.visual * 1.25, max: 1e9 },
+  /** Free flight roams the system: a metre off a hull out to a few AU. */
+  free: { distance: 0, min: 1, max: 1e12 },
 }
 
-/** Where the chase camera sits, in the craft's own body frame. */
-const CHASE_OFFSET = { back: SHIP_VISUAL_LENGTH * 4.2, up: SHIP_VISUAL_LENGTH * 1.3 }
+/** Where the chase camera sits, in the craft's own body frame. Metres. */
+const CHASE_OFFSET = { back: SHIP.visual * 4.2, up: SHIP.visual * 1.3 }
 
 /**
- * Where the ground camera stands, in **visual** units rather than physical ones.
+ * Where the ground camera stands: 687 m across the launch azimuth, 147 m up.
  *
- * This looks like a cheat and is forced by the display scale. The vehicle is
- * drawn 0.022 scene units long, which in the x225-exaggerated altitude frame
- * corresponds to about 122 km — so a camera placed at a physically honest
- * 500 m from the pad would sit deep inside the rendered rocket. Framing has to
- * be chosen against the *rendered* size, which is what the real long-lens
- * tracking cameras end up imitating anyway: they are miles downrange precisely
- * so the vehicle fits in frame.
+ * These are now the distances they claim to be. Under the old display scale the
+ * vehicle was drawn 0.022 scene units long — about 27,000 km in the position
+ * frame — so framing had to be chosen against the *rendered* size, and a camera
+ * at a physically honest 500 m would have sat deep inside the rocket. The
+ * comment here used to apologise for that. There is nothing left to apologise
+ * for: a real tracking camera stands a few hundred metres out with a long lens
+ * on it, and so does this one.
  *
- * `lateral` is across the launch azimuth so the ascent crosses the frame rather
- * than receding straight down the lens, and `up` lifts the camera clear of a
- * sphere whose rendered radius is exactly 1.15.
+ * `lateral` is across the azimuth so the ascent crosses the frame rather than
+ * receding straight down the lens; `up` lifts the camera clear of the ground.
  */
 const PAD_OFFSET = {
-  lateral: SHIP_VISUAL_LENGTH * 7,
-  up: SHIP_VISUAL_LENGTH * 1.5,
+  lateral: SHIP.visual * 7,
+  up: SHIP.visual * 1.5,
 }
 
 /**
@@ -113,6 +117,7 @@ export function CameraRig() {
       desired: new THREE.Vector3(),
       siteDir: new THREE.Vector3(),
       east: new THREE.Vector3(),
+      offset: new THREE.Vector3(),
       aim: new THREE.Vector3(),
       aimVel: new THREE.Vector3(),
       anchor: new THREE.Vector3(),
@@ -151,20 +156,22 @@ export function CameraRig() {
 
     if (focus === 'chase') {
       /**
-       * Blend into the chase rather than snapping.
+       * Blend into the chase rather than snapping — in the *body frame*, from
+       * wherever the previous shot left the camera relative to the craft.
        *
        * Entering chase used to return here with no transition, and the frame
        * loop then snapped outright whenever the gap exceeded twelve hull
        * lengths — which a hand-off from a ground camera always does, since that
        * camera stands several hull lengths away by construction. The blend is
-       * timed rather than sprung because the chase target is itself moving;
-       * a spring pulled toward a receding point converges slowly and visibly.
+       * timed rather than sprung because the offset is being retargeted; a
+       * spring adds an overshoot the cut does not need.
        */
+      scratch.offset.subVectors(camera.position, live.pos.ship)
       flight.current = {
         chaseBlend: true,
         elapsed: 0,
         duration: CHASE_BLEND,
-        fromCamera: camera.position.clone(),
+        fromOffset: scratch.offset.clone(),
       }
       opening.current = false
       return
@@ -243,7 +250,7 @@ export function CameraRig() {
 
       scratch.anchor
         .copy(live.pos.earth)
-        .addScaledVector(scratch.siteDir, VISUAL_RADIUS.earth + PAD_OFFSET.up)
+        .addScaledVector(scratch.siteDir, BODIES.earth.radius + PAD_OFFSET.up)
         .addScaledVector(scratch.east, PAD_OFFSET.lateral)
       camera.position.copy(scratch.anchor)
 
@@ -261,7 +268,7 @@ export function CameraRig() {
       // Long lens: hold the vehicle at a roughly constant fraction of frame.
       const range = camera.position.distanceTo(live.pos.ship)
       const wanted =
-        (2 * Math.atan(SHIP_VISUAL_LENGTH / (PAD_FOV.fill * 2 * Math.max(range, 1e-6))) * 180) /
+        (2 * Math.atan(SHIP.visual / (PAD_FOV.fill * 2 * Math.max(range, 1e-6))) * 180) /
         Math.PI
       const fov = Math.min(PAD_FOV.max, Math.max(PAD_FOV.min, wanted))
       if (Math.abs(camera.fov - fov) > 1e-3) {
@@ -275,36 +282,48 @@ export function CameraRig() {
       return
     }
 
-    // Chase: ride behind and slightly above the craft, in its own body frame,
-    // so the view banks with a roll instead of staying stubbornly world-level.
+    /**
+     * Chase: ride behind and slightly above the craft, in its own body frame,
+     * so the view banks with a roll instead of staying stubbornly world-level.
+     *
+     * The filter is applied to the **offset**, not to the world position. Those
+     * were the same thing at display scale and are not the same thing now. The
+     * offset is a body-frame vector 412 m long, so it only ever changes when the
+     * craft *rotates*; the craft's translation is followed rigidly, which is
+     * what a camera bolted to a vehicle does.
+     *
+     * Filtering the world position instead meant chasing 7.8 km/s of orbital
+     * motion with a 1/6 s lag. Under the old exaggeration that motion was
+     * 0.0152 chase-offsets per second and invisible; at true scale it is 18.9,
+     * about 1,240x harder, and the measured framing error went from under 1.5
+     * degrees to 103. The vehicle did not change — the frame the filter ran in
+     * did, and only one of the two frames was ever the right one.
+     *
+     * Two things fall out. There is no longer a snap threshold, because a
+     * body-frame offset cannot diverge from its target however fast the craft
+     * moves; and the time-compression case that motivated the snap — a craft
+     * lapping its orbit several times a second — stops being a special case at
+     * all.
+     */
     if (focus === 'chase') {
       scratch.back.set(0, 0, -1).applyQuaternion(ship.quaternion)
       scratch.up.set(0, 1, 0).applyQuaternion(ship.quaternion)
       scratch.desired
-        .copy(live.pos.ship)
+        .set(0, 0, 0)
         .addScaledVector(scratch.back, CHASE_OFFSET.back)
         .addScaledVector(scratch.up, CHASE_OFFSET.up)
 
-      // Under time compression the craft can lap its orbit several times a
-      // second, and a smoothed follow simply falls behind. Snap when the gap
-      // has grown past a few hull lengths, damp when it has not.
-      // Blending in from another shot: ease from where the camera was toward a
-      // target that is itself moving, rather than snapping or springing.
       const blend = flight.current
       if (blend?.chaseBlend) {
         blend.elapsed += delta
         const t = easeInOutCubic(Math.min(1, blend.elapsed / blend.duration))
-        camera.position.lerpVectors(blend.fromCamera, scratch.desired, t)
+        scratch.offset.lerpVectors(blend.fromOffset, scratch.desired, t)
         if (blend.elapsed >= blend.duration) flight.current = null
-        camera.up.lerp(scratch.up, smooth(delta, 4))
-        camera.lookAt(live.pos.ship)
-        controls.target.copy(live.pos.ship)
-        return
+      } else {
+        scratch.offset.lerp(scratch.desired, smooth(delta, 6))
       }
 
-      const gap = camera.position.distanceTo(scratch.desired)
-      if (gap > SHIP_VISUAL_LENGTH * 12) camera.position.copy(scratch.desired)
-      else camera.position.lerp(scratch.desired, smooth(delta, 6))
+      camera.position.copy(live.pos.ship).add(scratch.offset)
       camera.up.lerp(scratch.up, smooth(delta, 4))
       camera.lookAt(live.pos.ship)
       controls.target.copy(live.pos.ship)

@@ -12,7 +12,7 @@
  *                   sits and where the body-frame offset says it should — this
  *                   is what a viewer perceives as the vehicle sliding off-axis
  *   position error  the same thing in hull lengths, which is what decides
- *                   whether the existing snap threshold fires
+ *                   how far the offset ever lags, in hull lengths
  *   lag             the frame offset that best aligns the filtered track with
  *                   the desired one, found by minimising RMS over shifts
  *
@@ -27,7 +27,7 @@
 import { readFileSync } from 'node:fs'
 import { Quaternion, Vector3 } from 'three'
 import { expFollow, omegaForSettling, rateForSettling, springFollow } from '../src/gfx/follow.js'
-import { SHIP_VISUAL_LENGTH } from '../src/sim/scale.js'
+import { SHIP } from '../src/sim/constants.js'
 
 const path = process.argv[2]
 if (!path) {
@@ -37,8 +37,8 @@ if (!path) {
 const segments = JSON.parse(readFileSync(path, 'utf8'))
 
 /** The rig's own chase geometry. */
-const BACK = SHIP_VISUAL_LENGTH * 4.2
-const UP = SHIP_VISUAL_LENGTH * 1.3
+const BACK = SHIP.visual * 4.2
+const UP = SHIP.visual * 1.3
 
 /**
  * Matched aggression, so the comparison is of *filter shape* and not of tuning.
@@ -69,19 +69,29 @@ function upAt(seg, i, out) {
   return out.set(0, 1, 0).applyQuaternion(q)
 }
 
-/** Rebuild the desired chase point for sample i, exactly as the rig does. */
-function desiredAt(seg, i, out) {
+/**
+ * The desired chase *offset* for sample i, exactly as the rig computes it.
+ *
+ * A body-frame vector, not a world point. This used to return the world point
+ * and the filter ran on that — which made the filter responsible for tracking
+ * the craft's translation as well as its rotation. At display scale the
+ * translation was 0.0152 offsets per second and the distinction did not show;
+ * at true scale it is 18.9 and peak framing error went to 103 degrees. The rig
+ * now filters the offset and follows translation rigidly, so this measures that.
+ */
+function desiredOffsetAt(seg, i, out) {
   q.set(seg.q[i * 4], seg.q[i * 4 + 1], seg.q[i * 4 + 2], seg.q[i * 4 + 3])
-  pos.set(seg.p[i * 3], seg.p[i * 3 + 1], seg.p[i * 3 + 2])
   back.set(0, 0, -1).applyQuaternion(q)
   up.set(0, 1, 0).applyQuaternion(q)
-  return out.copy(pos).addScaledVector(back, BACK).addScaledVector(up, UP)
+  return out.set(0, 0, 0).addScaledVector(back, BACK).addScaledVector(up, UP)
 }
 
 /**
  * Run a filter over a segment. Returns the track and the per-frame errors.
- * `snap` reproduces the rig's existing escape hatch so the comparison is against
- * what actually ships, not an idealised version of it.
+ *
+ * There is no snap to reproduce any more: a body-frame offset cannot diverge
+ * from its target however fast the craft moves, so the escape hatch the rig
+ * used to need has no work left to do.
  */
 function run(seg, kind, omega = OMEGA, rate = RATE) {
   const n = seg.dt.length
@@ -92,13 +102,13 @@ function run(seg, kind, omega = OMEGA, rate = RATE) {
   vel.set(0, 0, 0)
   camUpVel.set(0, 0, 0)
 
-  desiredAt(seg, 0, desired)
+  desiredOffsetAt(seg, 0, desired)
   cam.copy(desired)
   upAt(seg, 0, wantUp)
   camUp.copy(wantUp)
 
   for (let i = 0; i < n; i++) {
-    desiredAt(seg, i, desired)
+    desiredOffsetAt(seg, i, desired)
     upAt(seg, i, wantUp)
     const dt = Math.max(seg.dt[i], 1e-6)
 
@@ -120,23 +130,17 @@ function run(seg, kind, omega = OMEGA, rate = RATE) {
 
       if (kind === 'exp') expFollow(cam, cam, desired, rate, dt)
       else springFollow(cam, cam, desired, vel, omega, dt)
-
-      // The rig snaps when it has fallen far enough behind. Keep it, or the
-      // comparison flatters whichever filter lags more.
-      if (cam.distanceTo(desired) > SHIP_VISUAL_LENGTH * 12) {
-        cam.copy(desired)
-        vel.set(0, 0, 0)
-      }
     }
 
+    // Record the *offset* track. The world position is the craft's plus this,
+    // and the craft's part is followed rigidly — so any lag worth measuring
+    // lives here, and a world-space track would divide it out to zero.
     track[i * 3] = cam.x
     track[i * 3 + 1] = cam.y
     track[i * 3 + 2] = cam.z
 
     // Framing error: the angle at the craft between actual and desired camera.
-    pos.set(seg.p[i * 3], seg.p[i * 3 + 1], seg.p[i * 3 + 2])
-    tmp.copy(cam).sub(pos)
-    desired.sub(pos)
+    tmp.copy(cam)
     const a = tmp.length()
     const b = desired.length()
     framing[i] = a > 1e-12 && b > 1e-12 ? Math.acos(Math.min(1, Math.max(-1, tmp.dot(desired) / (a * b)))) : 0
@@ -145,7 +149,7 @@ function run(seg, kind, omega = OMEGA, rate = RATE) {
   return { track, framing, posErr, rollErr, n }
 }
 
-/** Frame offset that best aligns a track with the desired one. */
+/** Frame offset that best aligns the filtered offset track with the desired one. */
 function bestLag(seg, track, maxShift = 90) {
   const n = seg.dt.length
   let best = 0
@@ -154,7 +158,7 @@ function bestLag(seg, track, maxShift = 90) {
     let acc = 0
     let count = 0
     for (let i = s; i < n; i += 7) {
-      desiredAt(seg, i - s, desired)
+      desiredOffsetAt(seg, i - s, desired)
       const dx = track[i * 3] - desired.x
       const dy = track[i * 3 + 1] - desired.y
       const dz = track[i * 3 + 2] - desired.z
@@ -202,7 +206,7 @@ for (const [name, seg] of Object.entries(segments)) {
         `${(peak * DEG).toFixed(2).padStart(10)}` +
         `${(peakRoll * DEG).toFixed(2).padStart(15)}` +
         `${(rmsRoll * DEG).toFixed(2).padStart(12)}` +
-        `${(peakPos / SHIP_VISUAL_LENGTH).toFixed(2).padStart(12)}` +
+        `${(peakPos / SHIP.visual).toFixed(2).padStart(12)}` +
         `${String(lag).padStart(9)}`,
     )
   }
@@ -268,13 +272,37 @@ console.log('\n=== what this establishes ===')
  */
 const worstFraming = Math.max(...Object.values(results).map((r) => r.exp.peak)) * DEG
 const worstRoll = Math.max(...Object.values(results).map((r) => r.exp.peakRoll)) * DEG
-const worstPos = Math.max(...Object.values(results).map((r) => r.exp.peakPos)) / SHIP_VISUAL_LENGTH
+const worstPos = Math.max(...Object.values(results).map((r) => r.exp.peakPos)) / SHIP.visual
 const checks = [
   ['both filters ran over every recorded phase', Object.keys(results).length >= 3],
   ['the shipping filter holds framing under 3 deg everywhere', worstFraming < 3],
   ['the shipping filter holds roll under 3 deg everywhere', worstRoll < 3],
-  ['position error never approaches the 12 hull-length snap threshold', worstPos < 1],
-  ['the snap therefore never fires in normal flight', worstPos < 12],
+  /**
+   * The camera never displaces by more than the vehicle's own length — the
+   * point at which a viewer would read the lag as the camera moving rather than
+   * the craft.
+   *
+   * A requirement with its margin stated, not a threshold fitted to the
+   * measurement. The first attempt at this check read `worstPos < 0.1`, taken
+   * from the printed figure, and failed because the print was rounded; that is
+   * the same mistake as calibrating a heat-flux check to a recollection, and it
+   * makes a test that can only ever confirm today's number.
+   *
+   * These two lines also used to assert that the rig's 12-hull-length snap
+   * never fired. The snap is gone — filtering the offset rather than the world
+   * position removed the only thing it protected against — so that assertion
+   * would now pass forever while checking nothing.
+   */
+  ['the camera never lags by a whole hull length', worstPos < 1],
+  /**
+   * And it is bounded, which is the structural claim rather than a measured
+   * one: the filter's input is a vector of fixed length that only rotates, so
+   * the error can never exceed the offset's own length no matter how fast the
+   * craft translates. That is why the snap could be deleted rather than
+   * re-tuned.
+   */
+  ['the offset error stays well inside the offset itself',
+   worstPos * SHIP.visual < Math.hypot(BACK, UP) * 0.1],
 ]
 let pass = true
 for (const [label, ok] of checks) {

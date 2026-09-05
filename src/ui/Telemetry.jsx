@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { live } from '../sim/live.js'
 import { AU } from '../sim/constants.js'
-import { RADIUS_EXAGGERATION, MOON_BOOST, AU_IN_SCENE } from '../sim/scale.js'
 
 const km = (m) => (m / 1e3).toLocaleString('en-US', { maximumFractionDigits: 0 })
 const kms = (v) => (v / 1e3).toFixed(3)
@@ -92,9 +91,8 @@ export function Telemetry() {
       </div>
 
       <div className="mt-4 border-t border-white/10 pt-2.5 text-[9px] leading-relaxed text-white/25">
-        Physics runs at true SI scale. Display exaggerates radii ×
-        {RADIUS_EXAGGERATION.earth.toFixed(0)} (Terra) / ×{RADIUS_EXAGGERATION.sun.toFixed(0)} (Sol)
-        and the lunar orbit ×{MOON_BOOST}; 1&nbsp;AU = {AU_IN_SCENE} scene units.
+        True scale, 1:1. One scene unit is one metre — every radius, altitude and
+        separation you see is the one the integrator is working in.
       </div>
     </div>
   )

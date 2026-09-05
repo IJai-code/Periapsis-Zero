@@ -1,8 +1,12 @@
 /**
  * Real physical constants, in SI units. The integrator works exclusively in
  * these units (metres, kilograms, seconds) — nothing here is "game scaled".
- * Display scaling happens later and only ever touches what you look at,
- * never what the integrator sees. See ./scale.js.
+ *
+ * Neither is anything else, now. There used to be a display scale between this
+ * file and the renderer, exaggerating body radii, craft altitudes and the
+ * Moon's offset by three independent factors. Two of them disagreed, and the
+ * ship spent every lunar phase drawn 201 lunar radii from the Moon it was
+ * orbiting. The scene is 1:1 in metres and there is no second set of numbers.
  */
 
 /** Newtonian constant of gravitation, m^3 kg^-1 s^-2 (CODATA 2018). */
@@ -174,7 +178,19 @@ export const SHIP = {
   assistGain: 2.2,
   /** Fallback orbit, used when spawning in flight rather than on the pad. */
   orbit: { altitude: 400e3, inclination: 28.5, phase: 0 },
-  visual: 0.022,
+  /**
+   * Rendered length, in metres, like everything else the scene draws.
+   *
+   * SLS Block 1 stands 98.1 m from the mobile launcher to the top of the launch
+   * abort system. This used to read 0.022 — scene units, under a display scale
+   * that made the vehicle 27,000 km long, which is what allowed a camera to be
+   * framed against it from "500 m" that was really a hundred kilometres out.
+   *
+   * One number for the whole flight is still a simplification: the stack sheds
+   * most of this at staging and re-enters as a 3.3 m capsule. Per-stage lengths
+   * are worth having and are not here yet.
+   */
+  visual: 98.1,
   /**
    * Ballistic properties, for drag only. These craft remain gravitationally
    * massless — a mass here says how hard the air pushes them, not how hard they
@@ -195,7 +211,7 @@ export const SATELLITES = {
   iss: {
     name: 'ISS',
     orbit: { altitude: 400e3, inclination: 51.6, phase: 140 },
-    visual: 0.030,
+    visual: 108.5, // truss end to truss end
     // 419 t, and roughly 1500 m^2 of solar array broadside to the flow.
     mass: 419725,
     drag: { cd: 2.2, area: 1500 },
@@ -203,7 +219,7 @@ export const SATELLITES = {
   hubble: {
     name: 'Hubble',
     orbit: { altitude: 540e3, inclination: 28.5, phase: 245 },
-    visual: 0.016,
+    visual: 13.2, // overall length
     mass: 11110,
     drag: { cd: 2.2, area: 30 },
   },

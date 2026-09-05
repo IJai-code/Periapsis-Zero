@@ -3,13 +3,12 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
 import { BODIES } from '../sim/constants.js'
-import { VISUAL_RADIUS } from '../sim/scale.js'
 import { attachNightLights } from '../gfx/shaders.js'
 import { ATMOSPHERE_RADIUS, makeVolumetricAtmosphere } from '../gfx/atmosphereShader.js'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
 
-const R = VISUAL_RADIUS.earth
+const R = BODIES.earth.radius
 
 /**
  * Clouds drift eastward relative to the ground. The real effect is a fraction of
@@ -124,7 +123,7 @@ export function Earth({ textures }) {
       {/* Obliquity is applied outside the spin, so the axis stays fixed in
           inertial space and the seasons come out right over a full orbit. */}
       <group rotation={[0, 0, BODIES.earth.tilt]}>
-        <mesh ref={spin} material={surface} castShadow receiveShadow>
+        <mesh ref={spin} material={surface}>
           <sphereGeometry args={[R, 160, 96]} />
         </mesh>
 
@@ -133,7 +132,6 @@ export function Earth({ textures }) {
           material={cloudMat}
           scale={1.012}
           visible={showClouds}
-          receiveShadow
         >
           <sphereGeometry args={[R, 96, 64]} />
         </mesh>

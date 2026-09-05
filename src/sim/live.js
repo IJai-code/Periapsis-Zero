@@ -1,6 +1,5 @@
 import { Vector3 } from 'three'
-import { createSimulation, INDEX, simDate } from './system.js'
-import { toScene, VISUAL_RADIUS } from './scale.js'
+import { createSimulation, INDEX, readPosition, simDate } from './system.js'
 import { BODIES, ORDER, BODY_ORDER, TEST_PARTICLES, AU } from './constants.js'
 import {
   computeElements,
@@ -159,8 +158,9 @@ const _newOrigin = new Vector3()
 export function refreshDerived(originBody = null, originOffset = null) {
   const { sim, abs, pos } = live
 
-  // Pass one: absolute scene positions.
-  for (const id of BODY_ORDER) toScene(id, sim.state, INDEX[id], INDEX.earth, abs[id])
+  // Pass one: absolute scene positions — a straight read now that the scene
+  // is in metres, with no display transform in between.
+  for (const id of BODY_ORDER) readPosition(sim.state, INDEX[id], abs[id])
 
   // Pass two: choose the origin, record how far it moved, rebase everything.
   if (originBody && abs[originBody]) _newOrigin.copy(abs[originBody])
@@ -278,17 +278,19 @@ export function refreshDerived(originBody = null, originOffset = null) {
 }
 
 /**
- * Shadow geometry, evaluated in *display* space rather than SI.
+ * Shadow geometry.
  *
- * That is the right frame for this: what the HUD announces has to agree with
- * what the shadow map actually draws on screen, and the renderer only ever sees
- * the exaggerated geometry. Because the light is a point source the umbra
- * diverges with distance, so the shadow radius grows along the axis.
+ * Display space and SI are the same space now, so this is simply the real cone
+ * geometry — it used to be evaluated against the exaggerated radii so that what
+ * the HUD announced agreed with what the renderer drew, and with the
+ * exaggeration gone the two agree by construction. Because the light is a point
+ * source the umbra diverges with distance, so the shadow radius grows along the
+ * axis.
  */
 function detectEclipse() {
   const { sun, earth, moon } = live.pos
-  const Re = VISUAL_RADIUS.earth
-  const Rm = VISUAL_RADIUS.moon
+  const Re = B.earth.radius
+  const Rm = B.moon.radius
 
   // Lunar: is the Moon inside the cone Earth casts away from the Sun?
   _axis.copy(earth).sub(sun)

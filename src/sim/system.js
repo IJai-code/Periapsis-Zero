@@ -220,3 +220,23 @@ export function simDate(sim) {
 }
 
 export const INDEX = Object.fromEntries(BODY_ORDER.map((id, i) => [id, i]))
+
+/**
+ * A body's position, straight out of the state vector.
+ *
+ * This is the whole of what used to be `scale.js`'s `toScene()`. The renderer
+ * works in metres now — one scene unit is one metre, so the integrator's
+ * coordinates *are* the world coordinates and there is nothing left to
+ * transform. `origin`, when given, is the floating-origin offset to subtract.
+ *
+ * Keeping it as a named function rather than inlining the three reads is
+ * deliberate: it is the single place the scene learns where something is, and
+ * the last time that mapping carried a factor nobody was checking, the ship
+ * spent every lunar phase rendered nine times further from Earth than the Moon.
+ */
+export function readPosition(state, index, out, origin = null) {
+  const o = index * 6
+  out.set(state[o], state[o + 1], state[o + 2])
+  if (origin) out.sub(origin)
+  return out
+}

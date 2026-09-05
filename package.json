@@ -23,6 +23,7 @@
     "verify:ephemeris": "node scripts/verify-nrho-ephemeris.mjs",
     "verify:keeping": "node scripts/verify-nrho-keeping.mjs",
     "verify:director": "node --expose-gc scripts/verify-director.mjs",
+    "verify:geometry": "node scripts/verify-geometry.mjs",
     "record:attitude": "node scripts/record-attitude.mjs",
     "verify:camera": "node scripts/verify-camera-filter.mjs",
     "verify:alloc": "node --expose-gc scripts/verify-allocation.mjs"

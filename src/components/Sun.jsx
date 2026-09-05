@@ -1,28 +1,22 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { live } from '../sim/live.js'
-import { BODIES } from '../sim/constants.js'
-import { VISUAL_RADIUS } from '../sim/scale.js'
+import { AU, BODIES } from '../sim/constants.js'
 import { makeSunMaterial, makeCoronaMaterial, CORONA_SHELL } from '../gfx/shaders.js'
 
-const R = VISUAL_RADIUS.sun
+const R = BODIES.sun.radius
 
 /**
  * Luminous intensity of the point light, in candela.
  *
- * three uses physical falloff, so illuminance at the Earth is intensity / r^2.
- * At the scene's 120 units per AU that denominator is 14,400 — hence the very
- * large number. This is the scene's only light source.
+ * three uses physical falloff, so illuminance at a distance r is intensity/r^2.
+ * Stated as the illuminance wanted at one AU and multiplied back out, because
+ * the scene is in metres now and the bare candela figure — 6.5e22 — carries no
+ * meaning anyone can check. The illuminance is the same value the exaggerated
+ * scene was tuned to, so the exposure does not move.
  */
-const SOLAR_INTENSITY = 42000
-
-/**
- * three unwraps a point light's cube shadow into a single 4x2 atlas, so a
- * mapSize of 2048 already allocates an 8192x4096 depth texture — the practical
- * ceiling. At this distance a solar eclipse's umbra only spans a handful of
- * texels, which is why the PCF blur radius does the rest of the work.
- */
-const SHADOW_MAP_SIZE = 2048
+const SOLAR_ILLUMINANCE_AT_1AU = 42000 / 120 ** 2
+const SOLAR_INTENSITY = SOLAR_ILLUMINANCE_AT_1AU * AU * AU
 
 export function Sun() {
   const group = useRef()
@@ -40,20 +34,24 @@ export function Sun() {
 
   return (
     <group ref={group}>
-      <pointLight
-        intensity={SOLAR_INTENSITY}
-        decay={2}
-        distance={0}
-        color="#fff4e0"
-        castShadow
-        shadow-mapSize-width={SHADOW_MAP_SIZE}
-        shadow-mapSize-height={SHADOW_MAP_SIZE}
-        shadow-camera-near={R * 0.9}
-        shadow-camera-far={400}
-        shadow-radius={2}
-        shadow-bias={-0.0008}
-        shadow-normalBias={0.015}
-      />
+      {/**
+        * No shadow map. Not a regression to fix later by tuning — at true scale
+        * one cannot exist.
+        *
+        * three unwraps a point light's cube shadow into a 4x2 atlas, so 2048
+        * per face is already an 8192x4096 depth texture and the practical
+        * ceiling. A 90-degree cube face reaching Earth spans 2 x 1.5e11 x
+        * tan(45) = 3e11 m across those 2048 texels: 146,000 km per texel,
+        * against an Earth 12,742 km wide. The planet does not fill a tenth of
+        * one texel, and no map size recovers a factor of ten thousand.
+        *
+        * Analytic ray-sphere shadowing is the replacement and is resolution
+        * independent. `detectEclipse()` in sim/live.js already computes exactly
+        * that umbra geometry for the HUD; promoting it to the shading path is
+        * its own change. Until then the blood-moon term keeps lunar eclipses,
+        * since it was always analytic.
+        */}
+      <pointLight intensity={SOLAR_INTENSITY} decay={2} distance={0} color="#fff4e0" />
 
       {/* Photosphere. Never a shadow caster — the light lives inside it. */}
       <mesh ref={spin} material={surface}>

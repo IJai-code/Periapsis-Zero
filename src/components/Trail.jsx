@@ -3,8 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Line2, LineGeometry, LineMaterial } from 'three-stdlib'
 import { live } from '../sim/live.js'
-import { toScene } from '../sim/scale.js'
-import { INDEX } from '../sim/system.js'
+import { INDEX, readPosition } from '../sim/system.js'
 
 /**
  * Fading orbit trail, drawn from the integrator's own output.
@@ -95,8 +94,8 @@ export function Trail({
     const a = new THREE.Vector3()
     const b = new THREE.Vector3()
     for (let i = points - 1; i >= 0; i--) {
-      toScene(body, clone.state, INDEX[body], INDEX.earth, a)
-      toScene(reference, clone.state, INDEX[reference], INDEX.earth, b)
+      readPosition(clone.state, INDEX[body], a)
+      readPosition(clone.state, INDEX[reference], b)
       a.sub(b)
       buffer[i * 3] = a.x
       buffer[i * 3 + 1] = a.y
