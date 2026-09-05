@@ -18,8 +18,10 @@
  * several times a second while the map is open, so it sits close enough to the
  * render loop that the zero-allocation rule applies to it.
  */
+import { Vector3 } from 'three'
 import { BODIES, BODY_ORDER } from './constants.js'
 import { INDEX } from './system.js'
+import { resolveNode } from './nodes.js'
 
 /** Samples along the path. Enough to draw a smooth ellipse at any zoom. */
 export const SAMPLES = 512
@@ -47,8 +49,12 @@ export const SUBSTEPS_PER_SAMPLE = 4
  */
 export const OPEN_HORIZON = 6 * 86400
 
-/** The live result, refreshed in place. */
-export const prediction = {
+/**
+ * A projection result. Two exist: what happens if nothing is commanded, and
+ * what happens if the planned nodes are flown. Both are refreshed in place.
+ */
+function makeProjection() {
+  return {
   /** Samples actually written this pass. */
   count: 0,
   /** Positions relative to `reference`, metres, xyz per sample. */
@@ -66,7 +72,28 @@ export const prediction = {
   periapsis: { index: -1, radius: 0, time: 0 },
   /** Set when the path meets the reference body's surface. */
   impact: { index: -1, time: 0 },
+  /** Node ids folded into this pass, in the order they fired. */
+  applied: [],
+  /** Sample index each applied node fired at, parallel to `applied`. */
+  nodeSamples: [],
+  /**
+   * Sample index at which the last node fired, or -1.
+   *
+   * The apsis scan starts after it. Scanning the whole span reports whichever
+   * extremum comes first, and on a planned path that is usually one the craft
+   * reaches *before* the burn — so a radial node that swings apoapsis from 185
+   * to 229 km would still print the old 172 km periapsis, which is a true fact
+   * about a trajectory the pilot has just decided not to fly.
+   */
+  lastNode: -1,
+  }
 }
+
+/** Where the craft goes if nothing further is commanded. */
+export const prediction = makeProjection()
+
+/** Where the craft goes if the planned nodes are flown. */
+export const plan = makeProjection()
 
 /**
  * Parabolic refinement through three samples.
@@ -89,13 +116,24 @@ const _radii = new Float64Array(SAMPLES)
 /**
  * Project the craft's path forward.
  *
+ * Nodes, when given, are folded in as instantaneous velocity changes at their
+ * stated times. The integration is split at each one — advance exactly to the
+ * node, apply, advance the remainder — rather than rounding it to the nearest
+ * sample, because a 60 m/s impulse landed one sample late is a visibly
+ * different orbit and the whole point of drawing the plan is to see what the
+ * burn does.
+ *
  * @param {object} sim        the live simulation, read only
  * @param {object} scratch    a persistent integrator to run the projection in
  * @param {string} craft      state-vector id of the craft
  * @param {string} reference  body the path is drawn relative to
  * @param {number} period     orbital period if bound, else 0 or Infinity
+ * @param {object} out        result to fill; defaults to the ballistic one
+ * @param {Array|null} nodes  planned manoeuvres to fold in
  */
-export function project(sim, scratch, craft, reference, period) {
+const _dv = new Vector3()
+
+export function project(sim, scratch, craft, reference, period, out = prediction, nodes = null) {
   const closed = Number.isFinite(period) && period > 0
   const span = closed ? period : OPEN_HORIZON
   const dt = span / (SAMPLES - 1)
@@ -106,24 +144,56 @@ export function project(sim, scratch, craft, reference, period) {
   const r = INDEX[reference] * 6
   const surface = BODIES[reference].radius
 
-  prediction.reference = reference
-  prediction.span = span
-  prediction.closed = closed
-  prediction.apoapsis.index = -1
-  prediction.periapsis.index = -1
-  prediction.impact.index = -1
+  out.reference = reference
+  out.span = span
+  out.closed = closed
+  out.apoapsis.index = -1
+  out.periapsis.index = -1
+  out.impact.index = -1
+  out.applied.length = 0
+  out.nodeSamples.length = 0
+  out.lastNode = -1
+
+  /** Nodes still ahead of the projection, in order. */
+  let nodeAt = 0
+  const pending = nodes ?? null
 
   let n = 0
   for (let i = 0; i < SAMPLES; i++) {
-    if (i > 0) scratch.advance(dt, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
+    if (i > 0) {
+      let remaining = dt
+      // Split the step at every node that falls inside it.
+      while (pending && nodeAt < pending.length) {
+        const node = pending[nodeAt]
+        const until = node.t - scratch.t
+        if (node.executed || until < 0) {
+          nodeAt++
+          continue
+        }
+        if (until > remaining) break
+        if (until > 0) scratch.advance(until, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
+        resolveNode(node, scratch.state, c, r, _dv)
+        scratch.state[c + 3] += _dv.x
+        scratch.state[c + 4] += _dv.y
+        scratch.state[c + 5] += _dv.z
+        out.applied.push(node.id)
+        out.nodeSamples.push(i)
+        out.lastNode = i
+        remaining -= Math.max(0, until)
+        nodeAt++
+      }
+      if (remaining > 0) {
+        scratch.advance(remaining, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
+      }
+    }
     const s = scratch.state
     const x = s[c] - s[r]
     const y = s[c + 1] - s[r + 1]
     const z = s[c + 2] - s[r + 2]
-    prediction.points[i * 3] = x
-    prediction.points[i * 3 + 1] = y
-    prediction.points[i * 3 + 2] = z
-    prediction.times[i] = i * dt
+    out.points[i * 3] = x
+    out.points[i * 3 + 1] = y
+    out.points[i * 3 + 2] = z
+    out.times[i] = i * dt
     _radii[i] = Math.hypot(x, y, z)
     n = i + 1
 
@@ -133,33 +203,33 @@ export function project(sim, scratch, craft, reference, period) {
      * one part of the path the vehicle definitely will not fly.
      */
     if (_radii[i] <= surface) {
-      prediction.impact.index = i
-      prediction.impact.time = i * dt
+      out.impact.index = i
+      out.impact.time = i * dt
       break
     }
   }
-  prediction.count = n
+  out.count = n
 
-  /* ---- apsides, from the sampled radii ---- */
-  for (let i = 1; i < n - 1; i++) {
+  /* ---- apsides, from the sampled radii, after the last planned burn ---- */
+  for (let i = Math.max(1, out.lastNode + 1); i < n - 1; i++) {
     const rm = _radii[i - 1]
     const r0 = _radii[i]
     const rp = _radii[i + 1]
-    if (r0 >= rm && r0 >= rp && prediction.apoapsis.index < 0) {
+    if (r0 >= rm && r0 >= rp && out.apoapsis.index < 0) {
       const f = refine(rm, r0, rp)
-      prediction.apoapsis.index = i
-      prediction.apoapsis.radius = f.value
-      prediction.apoapsis.time = (i + f.offset) * dt
+      out.apoapsis.index = i
+      out.apoapsis.radius = f.value
+      out.apoapsis.time = (i + f.offset) * dt
     }
-    if (r0 <= rm && r0 <= rp && prediction.periapsis.index < 0) {
+    if (r0 <= rm && r0 <= rp && out.periapsis.index < 0) {
       const f = refine(rm, r0, rp)
-      prediction.periapsis.index = i
-      prediction.periapsis.radius = f.value
-      prediction.periapsis.time = (i + f.offset) * dt
+      out.periapsis.index = i
+      out.periapsis.radius = f.value
+      out.periapsis.time = (i + f.offset) * dt
     }
   }
 
-  return prediction
+  return out
 }
 
 /**
