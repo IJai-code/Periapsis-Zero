@@ -15,7 +15,7 @@
  *   node scripts/verify-warp.mjs
  */
 
-import { flight, frame, WARP_RATES } from './flight.mjs'
+import { flight, frame, WARP, WARP_RATES } from './flight.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import {
   beginCountdown,
@@ -59,7 +59,7 @@ function fly(startWarp, until = 'COAST', meddleWarp = null) {
       meddled = true
     }
     if (!committed && id === 'COAST') committed = commitTLI()
-    flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? 3 : 1
+    flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? WARP.h6 : WARP.m1
 
     frame()
     maxSpeed = Math.max(maxSpeed, live.elements.speed)

@@ -1,4 +1,5 @@
 import { PHASE_IDS, currentPhase } from './mission.js'
+import { WARP } from './warp.js'
 
 /**
  * The camera director: which shot each mission phase is worth watching from.
@@ -74,10 +75,20 @@ const SHOTS = {
    * table a lookup and keeps the hand-back visible in the same place as the
    * hand-over.
    */
-  PRE_LAUNCH: ['pad', 'On the pad', null],
-  LIFTOFF: ['pad', 'Liftoff', 0],
-  PITCH_KICK: ['pad', 'Pitch kick', 0],
-  GRAVITY_TURN: ['chase', 'Gravity turn', 1],
+  /**
+   * Opens wide, on the planet, rather than on the pad.
+   *
+   * The pad is the better shot once something is about to happen, and LIFTOFF
+   * cuts to it. But it is a ground camera at whatever local hour the epoch
+   * lands on — J2000 puts the site in darkness — so as a first frame it is a
+   * grey cone in the dark with nothing to say where it is. Establish the world,
+   * then go close, which is the order a viewer needs and also the order a cut
+   * list is normally written in.
+   */
+  PRE_LAUNCH: ['earth', 'Before the count', null],
+  LIFTOFF: ['pad', 'Liftoff', WARP.x1],
+  PITCH_KICK: ['pad', 'Pitch kick', WARP.x1],
+  GRAVITY_TURN: ['chase', 'Gravity turn', WARP.m1],
   STAGING: ['chase', 'Separation'],
   MECO: ['chase', 'Cutoff'],
 

@@ -27,6 +27,7 @@
  */
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { radiativeFlux } from '../src/sim/atmosphere.js'
@@ -64,7 +65,7 @@ console.log(`\nflying from ${currentPhase().id} at MET ${(mission.t / 3600).toFi
 const samples = []
 let entered = false
 for (let i = 0; i < 6_000_000; i++) {
-  flight.pilotWarp = mission.warpRequest === null ? 1 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.m1 : null
   frame()
   const id = currentPhase().id
   if (!entered && live.elements.altitude <= PROFILE.entryInterface) entered = true

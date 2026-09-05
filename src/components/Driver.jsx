@@ -15,7 +15,7 @@ import {
   updateMission,
   updateTLI,
 } from '../sim/mission.js'
-import { setUi, uiStore, useUi, WARP_LEVELS } from '../sim/store.js'
+import { setUi, uiStore, useUi, WARP, WARP_LEVELS } from '../sim/store.js'
 import { director, updateDirector } from '../sim/director.js'
 
 /**
@@ -27,7 +27,7 @@ import { director, updateDirector } from '../sim/director.js'
  * renderPriority makes R3F hand the render loop over to the caller.
  */
 /**
- * Warp ceiling while the engines are lit, as an index into WARP_LEVELS.
+ * Warp ceiling while the engines are lit, named rather than numbered.
  *
  * Thrust and attitude are held constant for a whole frame, so the error that
  * matters is per *frame*, not per substep. At 1 min/s that is one simulated
@@ -35,7 +35,7 @@ import { director, updateDirector } from '../sim/director.js'
  * negligible, and it turns an authentic eight-minute ascent into eight watchable
  * seconds.
  */
-const POWERED_WARP_CAP = 1
+const POWERED_WARP_CAP = WARP.m1
 
 /** Which body the floating origin pins to, per camera mode. */
 const ORIGIN_BODY = {

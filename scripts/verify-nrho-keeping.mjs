@@ -41,6 +41,7 @@
  */
 
 import { flight, frame } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { PROFILE, enterNrhoCycle, resetMission } from '../src/sim/mission.js'
 import { INDEX } from '../src/sim/system.js'
@@ -88,8 +89,8 @@ function setup() {
   PROFILE.nrhoKeepInterval = 1e9 // the loop here is driven by this script
   const ins = insertMember(live.sim.state, member, INDEX.ship * 6)
   refreshDerived()
-  flight.warp = 3
-  flight.pilotWarp = 3
+  flight.warp = WARP.h6
+  flight.pilotWarp = WARP.h6
   return ins
 }
 

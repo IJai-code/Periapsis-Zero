@@ -12,6 +12,7 @@
  */
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { INDEX } from '../src/sim/system.js'
@@ -86,7 +87,7 @@ let interfaceSeen = false
 
 for (let i = 0; i < 6_000_000; i++) {
   const id = currentPhase().id
-  flight.pilotWarp = mission.warpRequest === null ? 1 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.m1 : null
   frame()
   const now = currentPhase().id
 

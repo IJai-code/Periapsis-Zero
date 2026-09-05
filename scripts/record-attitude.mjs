@@ -16,6 +16,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { flight, frame } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { beginCountdown, commitTLI, currentPhase, mission, resetMission } from '../src/sim/mission.js'
 import { ship } from '../src/sim/ship.js'
@@ -32,7 +33,7 @@ const WATCH = new Set(['LOI_ALIGN', 'LOI_BURN', 'RE_ENTRY', 'DROGUE', 'MAIN_CHUT
 resetSimulation()
 resetMission()
 refreshDerived()
-flight.warp = 4
+flight.warp = WARP.d1
 flight.lastWarpRequest = null
 flight.warpBeforeBurn = null
 flight.pilotWarp = null
@@ -45,7 +46,7 @@ let frames = 0
 for (let i = 0; i < 2_000_000; i++) {
   const id = currentPhase().id
   if (!committed && id === 'COAST') committed = commitTLI()
-  flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? 3 : 1
+  flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? WARP.h6 : WARP.m1
 
   frame()
   frames++

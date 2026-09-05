@@ -16,6 +16,7 @@
  */
 
 import { flight, frame } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { PROFILE, enterNrhoCycle, mission, resetMission } from '../src/sim/mission.js'
 import { INDEX } from '../src/sim/system.js'
@@ -90,8 +91,8 @@ const expectedPeriod = member.period * TU_DAYS * 86400
 console.log(`\n=== ${REVS} revolutions, uncontrolled (expected period ${(expectedPeriod / 86400).toFixed(3)} d) ===`)
 console.log('   rev    t days   perilune km    alt km   apolune km   drift km   drift %')
 
-flight.warp = 3
-flight.pilotWarp = 3
+flight.warp = WARP.h6
+flight.pilotWarp = WARP.h6
 
 const apses = []
 let prevR = live.lunarRange

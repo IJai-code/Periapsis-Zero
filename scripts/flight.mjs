@@ -32,10 +32,19 @@ import {
 } from '../src/sim/mission.js'
 
 /** Mirrors store.js — kept as a literal so the harness never imports React. */
-export const WARP_RATES = [1, 60, 3600, 21600, 86400, 259200, 604800, 2629800]
+/**
+ * The ladder, imported rather than restated.
+ *
+ * This used to be a literal copy of the store's array. Two copies of a list
+ * whose *positions* are referenced by forty call sites is one edit away from
+ * the harness and the app disagreeing about what a warp level means, with every
+ * verification still passing against the wrong pace.
+ */
+export { WARP_RATES, WARP } from '../src/sim/warp.js'
+import { WARP, WARP_RATES } from '../src/sim/warp.js'
 
 /** Driver.jsx: warp ceiling while the engines are lit. */
-const POWERED_WARP_CAP = 1
+const POWERED_WARP_CAP = WARP.m1
 
 const FRAME = 1 / 60 // s, wall clock — a 60 Hz display
 
@@ -51,7 +60,7 @@ export const flight = {
    * driver clamps the step regardless — so starting here is the honest test of
    * both.
    */
-  warp: 4,
+  warp: WARP.d1,
   frames: 0,
   wall: 0, // wall-clock seconds the run would have taken
   lastWarpRequest: null,
@@ -370,7 +379,7 @@ export function flyMission(untilPhase = 'LUNAR_APPROACH', opts = {}) {
         // it stays silent the pilot has the dial: 1 min/s through the ascent
         // (the powered cap's own ceiling, and verified warp-invariant against
         // 1x), and 6 h/s across the days-long lunar coast.
-        flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? 3 : 1
+        flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? WARP.h6 : WARP.m1
       },
       maxFrames: opts.maxFrames ?? 5_000_000,
     },

@@ -15,6 +15,7 @@
  */
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission } from '../src/sim/mission.js'
 import { ship, totalMass } from '../src/sim/ship.js'
@@ -39,7 +40,7 @@ let last = currentPhase().id
 let cutoffE = null
 
 for (let i = 0; i < 6_000_000; i++) {
-  flight.pilotWarp = mission.warpRequest === null ? 3 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.h6 : null
   frame()
   const id = currentPhase().id
 

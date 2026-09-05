@@ -1,4 +1,8 @@
 import { useSyncExternalStore } from 'react'
+import { WARP, WARP_LEVELS } from './warp.js'
+
+/* Re-exported so UI modules keep one import for store state and the ladder. */
+export { WARP, WARP_LEVELS }
 
 /**
  * Minimal external store for UI state.
@@ -25,18 +29,6 @@ function createStore(initial) {
   }
 }
 
-/** Time-warp ladder, in simulated seconds per wall-clock second. */
-export const WARP_LEVELS = [
-  { label: 'real time', short: '1×', rate: 1 },
-  { label: '1 min / s', short: '1m', rate: 60 },
-  { label: '1 hour / s', short: '1h', rate: 3600 },
-  { label: '6 hours / s', short: '6h', rate: 21600 },
-  { label: '1 day / s', short: '1d', rate: 86400 },
-  { label: '3 days / s', short: '3d', rate: 259200 },
-  { label: '1 week / s', short: '1w', rate: 604800 },
-  { label: '1 month / s', short: '1mo', rate: 2629800 },
-]
-
 /**
  * The side panels are sized for a desktop viewport. On anything narrower they
  * would cover most of the scene, so they start collapsed and the user opens
@@ -46,9 +38,19 @@ const WIDE_ENOUGH_FOR_PANELS =
   typeof window === 'undefined' || window.innerWidth >= 1024
 
 export const uiStore = createStore({
-  focus: 'earth', // 'free' | 'sun' | 'earth' | 'moon'
-  warp: 4, // index into WARP_LEVELS
-  paused: false,
+  focus: 'earth', // 'free' | 'fly' | 'sun' | 'earth' | 'moon' | ...
+  /**
+   * Opens paused, at real time.
+   *
+   * It used to open at one day a second so the system would visibly be moving
+   * the moment the page loaded. What that actually gives a new arrival is Earth
+   * completing a rotation every second and every body sliding across the frame
+   * before they have worked out what they are looking at. A still frame is a
+   * better first impression than a fast one, and the time controls are the most
+   * legible thing on screen.
+   */
+  warp: WARP.x1,
+  paused: true,
   trails: true,
   labels: true,
   bloom: true,
@@ -62,7 +64,23 @@ export const uiStore = createStore({
    * placeholder. Loading is driven by assignment rather than a bulk toggle: the
    * catalogue is 140 MB and one entry alone is 63 MB of it.
    */
-  modelFor: { ship: null, iss: null, hubble: null },
+  modelFor: {
+    /**
+     * Hubble wears its own mesh out of the box: the catalogue has one, it is
+     * 1.6 MB, and defaulting a telescope to a procedural cone when its actual
+     * geometry is sitting there was never a decision, only an oversight.
+     *
+     * The other two stay null because nothing in the catalogue is them. There
+     * is no SLS and no Orion among the 48 models — the nearest are Saturn V and
+     * the Apollo CSM, which are a different vehicle — and the ISS exists only
+     * as loose modules rather than an assembled station. Binding a craft to a
+     * mesh of something else would be worse than a placeholder, because a
+     * placeholder does not claim to be anything.
+     */
+    ship: null,
+    iss: null,
+    hubble: 'hubble',
+  },
   modelBusy: {},
   shipPanel: true,
 

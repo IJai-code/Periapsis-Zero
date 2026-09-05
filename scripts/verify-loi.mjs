@@ -12,6 +12,7 @@
  */
 
 import { flight, frame, loadSnapshot, saveSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission } from '../src/sim/mission.js'
 import { deltaV, ship, totalMass } from '../src/sim/ship.js'
@@ -38,7 +39,7 @@ let stagedDuringBurn = false
 
 for (let i = 0; i < 6_000_000; i++) {
   // Outside the SOI the sequencer leaves warp to the pilot.
-  flight.pilotWarp = mission.warpRequest === null ? 3 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.h6 : null
   frame()
 
   const id = currentPhase().id
@@ -131,7 +132,7 @@ let prevR = live.lunar.radius
 let climbing = live.lunar.vertical > 0
 let lastPeriT = null
 
-flight.pilotWarp = 1
+flight.pilotWarp = WARP.m1
 for (let i = 0; i < 3_000_000; i++) {
   frame()
   const r = live.lunar.radius

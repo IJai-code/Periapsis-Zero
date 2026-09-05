@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { resetSimulation } from '../sim/live.js'
 import { resetMission } from '../sim/mission.js'
@@ -28,10 +29,13 @@ export function TimeControls() {
 
       <div className="h-7 w-px bg-white/10" />
 
+      {/* The ladder falls into two halves: rungs you watch an event at, and
+          rungs you travel at. The rule marks where one becomes the other. */}
       <div className="flex items-center gap-0.5">
         {WARP_LEVELS.map((level, i) => (
+          <Fragment key={level.id}>
+            {level.id === 'm1' && <div className="mx-1 h-5 w-px shrink-0 bg-white/10" />}
           <button
-            key={level.short}
             onClick={() => setUi({ warp: i })}
             title={level.label}
             className={`h-8 min-w-8 shrink-0 rounded-[2px] px-1.5 text-[10px] tabular-nums transition-colors ${
@@ -44,6 +48,7 @@ export function TimeControls() {
           >
             {level.short}
           </button>
+          </Fragment>
         ))}
       </div>
 

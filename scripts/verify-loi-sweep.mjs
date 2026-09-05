@@ -17,6 +17,7 @@
  */
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { MU_MOON, ship, timestepLimit, totalMass } from '../src/sim/ship.js'
@@ -64,7 +65,7 @@ function fly({ thrustScale = 1, ispScale = 1, openLoop = false, maxDtCap = null 
 
   try {
     for (let i = 0; i < 6_000_000; i++) {
-      flight.pilotWarp = mission.warpRequest === null ? 3 : null
+      flight.pilotWarp = mission.warpRequest === null ? WARP.h6 : null
       frame()
       if (maxDtCap !== null && live.maxDt > maxDtCap) {
         live.maxDt = maxDtCap

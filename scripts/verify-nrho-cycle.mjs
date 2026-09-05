@@ -17,6 +17,7 @@
  */
 
 import { flight, frame } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import {
   currentPhase,
@@ -37,7 +38,7 @@ PROFILE.nrhoKeepDuration = 60
 resetSimulation()
 resetMission()
 refreshDerived()
-flight.warp = 2
+flight.warp = WARP.h1
 flight.pilotWarp = null
 enterNrhoCycle()
 
@@ -63,7 +64,7 @@ let phaseTAtSwitch = []
 const gc = globalThis.gc
 const WARMUP = 8
 while (mission.nrho.cycles < WARMUP) {
-  flight.pilotWarp = mission.warpRequest === null ? 2 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.h1 : null
   frame()
 }
 const cyclesAtStart = mission.nrho.cycles
@@ -75,7 +76,7 @@ const heapBefore = process.memoryUsage().heapUsed
 
 let frames = 0
 for (let i = 0; i < 20_000_000 && mission.nrho.cycles < wanted + WARMUP; i++) {
-  flight.pilotWarp = mission.warpRequest === null ? 2 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.h1 : null
   frame()
   frames++
   const id = currentPhase().id

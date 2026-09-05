@@ -15,6 +15,7 @@
  */
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { currentPhase, mission } from '../src/sim/mission.js'
 
 if (typeof globalThis.gc !== 'function') {
@@ -28,7 +29,7 @@ loadSnapshot(snap)
 
 // Warm up: let V8 settle its inline caches and optimise the hot path, so the
 // measurement is of the steady state rather than of the compiler.
-flight.pilotWarp = 3
+flight.pilotWarp = WARP.h6
 for (let i = 0; i < 20000; i++) frame()
 
 const phaseBefore = currentPhase().id

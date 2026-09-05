@@ -11,6 +11,7 @@
  *   node scripts/verify-tei-timing.mjs <lunar-orbit-snapshot.json>
  */
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { BODIES } from '../src/sim/constants.js'
@@ -22,7 +23,7 @@ loadSnapshot(snap)
 
 // Fly once to just after the departure burn, then branch from there.
 for (let i = 0; i < 3_000_000; i++) {
-  flight.pilotWarp = mission.warpRequest === null ? 1 : null
+  flight.pilotWarp = mission.warpRequest === null ? WARP.m1 : null
   if (currentPhase().id === 'TRANS_EARTH' && mission.tei.burnEnd) break
   frame()
 }
@@ -40,7 +41,7 @@ for (const hours of [3, 6, 12, 24, 36, 48]) {
   // but getting to that state means integrating there.
   loadSnapshot(snap)
   for (let i = 0; i < 3_000_000; i++) {
-    flight.pilotWarp = mission.warpRequest === null ? 1 : null
+    flight.pilotWarp = mission.warpRequest === null ? WARP.m1 : null
     if (currentPhase().id === 'TRANS_EARTH' && mission.tei.burnEnd &&
         mission.t - mission.tei.burnEnd >= hours * 3600) break
     frame()

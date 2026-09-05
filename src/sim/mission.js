@@ -11,6 +11,7 @@ import {
   solveStationKeeping,
 } from './targeting.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
+import { WARP } from './warp.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 
 /**
@@ -224,7 +225,7 @@ export const PROFILE = {
    * would be sampled once per simulated second — enough to miss the top of it.
    * The integrator would still be right; the *reported* number would not be.
    */
-  entryWarp: 0,
+  entryWarp: WARP.x1,
 }
 
 export const mission = {
@@ -1347,7 +1348,7 @@ const PHASES = [
       // up to a minute; the ladder trades that away for resolution only where
       // resolution matters.
       const slack = live.elements.timeToApoapsis - burnLead()
-      mission.warpRequest = slack > 1200 ? 2 : slack > 300 ? 1 : 0
+      mission.warpRequest = slack > 1200 ? WARP.h1 : slack > 300 ? WARP.m1 : WARP.x1
     },
     done: () => live.elements.timeToApoapsis <= burnLead(),
     next: () => INDEX_OF.CIRCULARISE,
@@ -1360,7 +1361,7 @@ const PHASES = [
       mission.bestEccentricity = Infinity
       // The powered cap pins this to 1 min/s anyway; asking for it explicitly
       // stops the coast's higher request from lingering.
-      mission.warpRequest = 1
+      mission.warpRequest = WARP.m1
     },
     control: aimPrograde,
     /**
@@ -1415,7 +1416,7 @@ const PHASES = [
       const t = tli.timeToWindow
       // Wider tolerance further out: the alignment sweeps fast, and a frame at
       // 1 hr/s covers a minute of it.
-      mission.warpRequest = t > 7200 ? 3 : t > 3600 ? 2 : t > 600 ? 1 : 0
+      mission.warpRequest = t > 7200 ? WARP.h6 : t > 3600 ? WARP.h1 : t > 600 ? WARP.m1 : WARP.x1
     },
     done: () => mission.tli.alignment <= PROFILE.phaseTolerance,
     next: () => INDEX_OF.TLI_BURN,
@@ -1425,7 +1426,7 @@ const PHASES = [
     label: 'TLI burn',
     enter() {
       ship.throttle = 1
-      mission.warpRequest = 1
+      mission.warpRequest = WARP.m1
       mission.tli.burnStart = mission.t
     },
     control() {
@@ -1460,7 +1461,7 @@ const PHASES = [
       aimPrograde()
       updateTLI()
       const togo = PROFILE.mccDelay - (mission.t - mission.tli.burnEnd)
-      mission.warpRequest = togo > 7200 ? 3 : togo > 1800 ? 2 : 1
+      mission.warpRequest = togo > 7200 ? WARP.h6 : togo > 1800 ? WARP.h1 : WARP.m1
     },
     done: () => mission.t - mission.tli.burnEnd >= PROFILE.mccDelay,
     next: () => INDEX_OF.MCC_SOLVE,
@@ -1479,7 +1480,7 @@ const PHASES = [
      */
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
 
       const sol = solveMidCourse(PROFILE.lunarPeriapsis)
       const mcc = mission.mcc
@@ -1524,7 +1525,7 @@ const PHASES = [
     id: 'MCC_BURN',
     label: 'MCC burn',
     enter() {
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       ship.throttle = 1
     },
     control() {
@@ -1556,7 +1557,7 @@ const PHASES = [
         return
       }
       const togo = live.lunar.timeToPeriapsis - loiIgnitionLead()
-      mission.warpRequest = togo > 7200 ? 2 : togo > 900 ? 1 : 0
+      mission.warpRequest = togo > 7200 ? WARP.h1 : togo > 900 ? WARP.m1 : WARP.x1
     },
     /**
      * Hand over once periapsis is within a burn-lead plus a slew margin.
@@ -1577,7 +1578,7 @@ const PHASES = [
     label: 'LOI attitude',
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 0 // real time from here to cutoff
+      mission.warpRequest = WARP.x1 // real time from here to cutoff
       mission.loi.pointingError = Math.PI
     },
     control() {
@@ -1615,7 +1616,7 @@ const PHASES = [
     id: 'LOI_BURN',
     label: 'LOI burn',
     enter() {
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       ship.throttle = 1
       const loi = mission.loi
       loi.bestEccentricity = Infinity
@@ -1696,7 +1697,7 @@ const PHASES = [
       aimLunarPrograde()
       if (live.lunar.radius < mission.loi.minRadius) mission.loi.minRadius = live.lunar.radius
       updateTEI()
-      mission.warpRequest = 1
+      mission.warpRequest = WARP.m1
     },
     /**
      * Depart after one full revolution.
@@ -1720,7 +1721,7 @@ const PHASES = [
       aimLunarProgradeGated()
       const tei = updateTEI()
       const togo = tei.timeToWindow - teiIgnitionLead()
-      mission.warpRequest = togo > 1800 ? 1 : 0
+      mission.warpRequest = togo > 1800 ? WARP.m1 : WARP.x1
     },
     /**
      * Ignite at the departure point, with the attitude converged.
@@ -1755,7 +1756,7 @@ const PHASES = [
     id: 'TEI_BURN',
     label: 'TEI burn',
     enter() {
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       const tei = mission.tei
       tei.burnStart = mission.t
       tei.startMass = totalMass()
@@ -1821,10 +1822,10 @@ const PHASES = [
       // so the ladder keys off whichever leg is running.
       if (!mission.ei.solved) {
         const togo = PROFILE.eiDelay - (mission.t - mission.tei.burnEnd)
-        mission.warpRequest = togo > 7200 ? 3 : togo > 1800 ? 2 : 1
+        mission.warpRequest = togo > 7200 ? WARP.h6 : togo > 1800 ? WARP.h1 : WARP.m1
       } else {
         const alt = live.elements.altitude
-        mission.warpRequest = alt > 2e8 ? 3 : alt > 2e7 ? 2 : alt > 1e6 ? 1 : 0
+        mission.warpRequest = alt > 2e8 ? WARP.h6 : alt > 2e7 ? WARP.h1 : alt > 1e6 ? WARP.m1 : WARP.x1
       }
     },
     /**
@@ -1856,7 +1857,7 @@ const PHASES = [
      */
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       const ei = mission.ei
       ei.before = projectPerigee(0, 0, 0)
 
@@ -1897,7 +1898,7 @@ const PHASES = [
     id: 'EI_BURN',
     label: 'Corridor trim',
     enter() {
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       ship.throttle = 1
     },
     control() {
@@ -1921,7 +1922,7 @@ const PHASES = [
      */
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       separate()
       mission.lastSeparations = ship.separations
       mission.entry.interfaceSpeed = live.elements.speed
@@ -1991,7 +1992,7 @@ const PHASES = [
       ship.chuteTarget = SHIP.chutes.main.cdA
       ship.chuteTau = SHIP.chutes.main.tau
       mission.entry.mainAltitude = live.elements.altitude
-      mission.warpRequest = 1
+      mission.warpRequest = WARP.m1
     },
     control() {
       aimEntryAttitude()
@@ -2006,7 +2007,7 @@ const PHASES = [
     splashed: true,
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       mission.entry.splashdownSpeed = live.elements.speed
       mission.entry.splashdownTime = mission.t
       // The descent rate is what matters, and it is the vertical component:
@@ -2025,7 +2026,7 @@ const PHASES = [
     label: 'NRHO coast',
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 3
+      mission.warpRequest = WARP.h6
       // Carry the revolution just finished before starting a fresh extremum
       // search, or the figures read as Infinity/0 to anything that samples them
       // just after a transition — which is exactly when a test would.
@@ -2067,7 +2068,7 @@ const PHASES = [
      */
     enter() {
       ship.throttle = 0
-      mission.warpRequest = 0
+      mission.warpRequest = WARP.x1
       const nr = mission.nrho
       nr.lastKeep = mission.t
       nr.solved = false
@@ -2196,7 +2197,7 @@ export function enterNrhoCycle(referenceRadius = 0) {
 
 export function beginCountdown() {
   mission.running = true
-  mission.warpRequest = 1
+  mission.warpRequest = WARP.m1
 }
 
 export function resetMission() {

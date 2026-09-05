@@ -17,6 +17,7 @@
  */
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { ship } from '../src/sim/ship.js'
@@ -39,7 +40,7 @@ function fly(ld) {
   let sawEntry = false
 
   for (let i = 0; i < 6_000_000; i++) {
-    flight.pilotWarp = mission.warpRequest === null ? 1 : null
+    flight.pilotWarp = mission.warpRequest === null ? WARP.m1 : null
     frame()
     const id = currentPhase().id
     if (id === 'RE_ENTRY' || id === 'DROGUE' || id === 'MAIN_CHUTES') {

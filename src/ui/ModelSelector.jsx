@@ -35,12 +35,21 @@ function Row({ craftId }) {
   const entry = selected ? MODEL_BY_ID[selected] : null
   const error = selected ? getModelError(selected) : null
 
+  /**
+   * Name the mesh, not just its size.
+   *
+   * Selecting "Saturn V" for Artemis left the row reading "Artemis · 0.9 MB ·
+   * glTF", which says nothing about the vehicle now being drawn as a different
+   * rocket. Until craft are vessels in their own right, the least this can do
+   * is not hide the substitution: the craft keeps its name and the row says
+   * what it is wearing.
+   */
   const note = busy
     ? `fetching ${entry ? mb(entry.bytes) : ''}…`
     : error
       ? error
       : entry
-        ? `${mb(entry.bytes)} · glTF`
+        ? `${entry.label} · ${mb(entry.bytes)}`
         : 'procedural placeholder'
 
   return (
@@ -91,8 +100,9 @@ export function ModelSelector() {
       </div>
 
       <p className="mt-3 border-t border-white/10 pt-2.5 text-[9px] leading-relaxed text-white/25">
-        Loads on selection. Models are auto-centred and scaled to the craft;
-        source units and origin offsets do not matter.
+        A mesh is a costume, not a vehicle — mass, staging and drag stay the
+        craft's own. The catalogue has no SLS and no Orion, so Artemis has no
+        faithful hull to wear yet.
       </p>
     </div>
   )

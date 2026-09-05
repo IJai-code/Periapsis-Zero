@@ -15,7 +15,7 @@
  *   node --expose-gc scripts/verify-director.mjs
  */
 
-import { flight, frame, WARP_RATES } from './flight.mjs'
+import { flight, frame, WARP, WARP_RATES } from './flight.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import {
   PHASE_IDS,
@@ -35,7 +35,7 @@ console.log(`=== ${PHASE_IDS.length} phases, all with a shot (the module asserts
 resetSimulation()
 resetMission()
 refreshDerived()
-flight.warp = 4
+flight.warp = WARP.d1
 flight.lastWarpRequest = null
 flight.warpBeforeBurn = null
 flight.pilotWarp = null
@@ -105,7 +105,7 @@ for (let i = 0; i < 2_000_000; i++) {
   if (!committed && id === 'COAST') committed = commitTLI()
   // A stated shot warp takes the dial; otherwise the sequencer, otherwise a pilot.
   flight.pilotWarp =
-    director.warp !== null ? null : mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? 3 : 1
+    director.warp !== null ? null : mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? WARP.h6 : WARP.m1
 
   frame()
   applyDirector()

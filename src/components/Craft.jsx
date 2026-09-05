@@ -1,11 +1,11 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
 import { ship } from '../sim/ship.js'
 import { INDEX } from '../sim/system.js'
 import { CRAFT } from '../sim/constants.js'
-import { useModel } from '../gfx/models.js'
+import { getModel, loadModel, useModel } from '../gfx/models.js'
 import { useUi } from '../sim/store.js'
 import { Placeholder } from './Placeholders.jsx'
 
@@ -28,6 +28,20 @@ export function Craft({ id }) {
 
   const modelId = useUi((s) => s.modelFor[id])
   const source = useModel(modelId)
+
+  /**
+   * Fetch whatever mesh this craft is bound to.
+   *
+   * `useModel` only reads the cache, so until now a binding was only ever
+   * loaded as a side effect of picking it in the panel — which meant a default
+   * binding never loaded at all, and on a narrow viewport, where the panels
+   * start collapsed, no binding could. A craft needing its own hull should not
+   * depend on a panel being open. `loadModel` dedupes through a pending map, so
+   * asking twice costs nothing.
+   */
+  useEffect(() => {
+    if (modelId && !getModel(modelId)) loadModel(modelId)
+  }, [modelId])
 
   // Clone per craft: the same catalogue entry can be bound to more than one
   // vehicle, and an Object3D cannot occupy two places in the scene graph.
