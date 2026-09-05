@@ -1,6 +1,6 @@
 import { Vector3 } from 'three'
 import { createSimulation, INDEX, readPosition, simDate } from './system.js'
-import { BODIES, ORDER, BODY_ORDER, TEST_PARTICLES, AU } from './constants.js'
+import { BODIES, CRAFT, ORDER, BODY_ORDER, TEST_PARTICLES, AU } from './constants.js'
 import {
   computeElements,
   computeLunarElements,
@@ -65,6 +65,15 @@ export const live = {
 
   /** How far the origin moved this frame. The camera must be shifted to match. */
   originDelta: new Vector3(),
+
+  /**
+   * Distance from the camera to the nearest drawn surface, and what that
+   * surface belongs to. Metres, negative inside a body.
+   *
+   * This is what a movement speed should be set from at true scale, where a
+   * single constant cannot serve a hull two metres away and a star at an AU.
+   */
+  nearest: { distance: Infinity, id: null },
 
   /** Live osculating elements of the craft. Same object, refreshed in place. */
   elements,
@@ -144,6 +153,16 @@ export const live = {
  * kilometres over a month, because the Moon's orbit here is emergent.
  */
 const SOI_RATIO = Math.pow(B.moon.mass / B.earth.mass, 0.4)
+
+/**
+ * Bounding radius of everything drawn, in metres — bodies by their real radius,
+ * craft by half their length.
+ *
+ * Built once at load so the per-frame loop is arithmetic on a flat table.
+ */
+const SURFACE_RADIUS = Object.fromEntries(
+  BODY_ORDER.map((id) => [id, BODIES[id]?.radius ?? CRAFT[id].visual / 2]),
+)
 
 const _rel = new Vector3()
 const _axis = new Vector3()
@@ -314,6 +333,46 @@ function detectEclipse() {
     if (_perp.length() < Re + Rm * (t / sunMoon)) return 'solar'
   }
   return null
+}
+
+/**
+ * Distance from `point` to the nearest surface in the scene.
+ *
+ * Closed form, because the scene is spheres: for each one the surface distance
+ * is |point - centre| - radius, and the nearest is the smallest. Six of those
+ * is cheaper than a raycast and allocates nothing.
+ *
+ * Deliberately not a raycast. A ray measures distance *along a direction*, and
+ * the case that matters most is the one it cannot see: flying parallel to a
+ * surface a couple of hundred metres up, looking at the horizon, the forward
+ * ray hits nothing and reports infinity — so a speed derived from it would put
+ * the camera at interplanetary velocity just above the ground. Distance to a
+ * centre minus a radius has no direction in it at all.
+ *
+ * Also deliberately not the focused body's radius: the nearest surface is
+ * frequently not the thing the camera is locked to. Skimming the Moon while
+ * focused on Earth would otherwise take its speed from Earth's 6,371 km.
+ *
+ * `point` must be in rendered coordinates — the same rebased frame as
+ * `live.pos` — which is where the camera already lives.
+ *
+ * @param {import('three').Vector3} point
+ * @returns {number} metres to the nearest surface; negative inside a body
+ */
+export function updateNearestSurface(point) {
+  let best = Infinity
+  let which = null
+  for (const id of BODY_ORDER) {
+    const p = live.pos[id]
+    const d = Math.hypot(point.x - p.x, point.y - p.y, point.z - p.z) - SURFACE_RADIUS[id]
+    if (d < best) {
+      best = d
+      which = id
+    }
+  }
+  live.nearest.distance = best
+  live.nearest.id = which
+  return best
 }
 
 export function resetSimulation() {

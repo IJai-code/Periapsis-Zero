@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { live, refreshDerived } from '../sim/live.js'
+import { live, refreshDerived, updateNearestSurface } from '../sim/live.js'
 import { activeStage, applyThrust, input, integrateAttitude, ship } from '../sim/ship.js'
 import {
   applyClamp,
@@ -265,6 +265,28 @@ export function Driver() {
       controls.target.sub(live.originDelta)
     }
   }, -3)
+
+  /**
+   * Nearest surface to the camera — at priority 1, after the rig has placed it.
+   *
+   * The priority is the whole of it. This first ran inside the block above, at
+   * -3, and read a camera that was mid-flight between two frames: the origin is
+   * pinned to a body moving at 30 km/s, so at 1 day/s it shifts 4.3e7 m per
+   * frame, and the loop subtracts that from the camera immediately. In free
+   * flight that correction is the answer, because OrbitControls owns the camera
+   * and needs to move with the origin. In every locked mode the rig recomputes
+   * the position outright at priority 0, so between -3 and 0 the camera holds
+   * last frame's place minus this frame's origin shift — which is nowhere.
+   *
+   * It reported 33,629 km from a camera standing 147 m above the pad, and it
+   * reported it steadily, which is the shape of these: no error, no crash, a
+   * plausible number from the wrong instant.
+   *
+   * The ordering is: Driver -3, OrbitControls -1, CameraRig 0, this 1.
+   */
+  useFrame(() => {
+    updateNearestSurface(three.camera.position)
+  }, 1)
 
   return null
 }

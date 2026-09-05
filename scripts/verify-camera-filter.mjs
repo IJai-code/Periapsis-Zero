@@ -28,6 +28,7 @@ import { readFileSync } from 'node:fs'
 import { Quaternion, Vector3 } from 'three'
 import { expFollow, omegaForSettling, rateForSettling, springFollow } from '../src/gfx/follow.js'
 import { SHIP } from '../src/sim/constants.js'
+import { CHASE_OFFSET } from '../src/gfx/framing.js'
 
 const path = process.argv[2]
 if (!path) {
@@ -36,9 +37,8 @@ if (!path) {
 }
 const segments = JSON.parse(readFileSync(path, 'utf8'))
 
-/** The rig's own chase geometry. */
-const BACK = SHIP.visual * 4.2
-const UP = SHIP.visual * 1.3
+/** The rig's own chase geometry — imported, not restated. */
+const { back: BACK, up: UP } = CHASE_OFFSET
 
 /**
  * Matched aggression, so the comparison is of *filter shape* and not of tuning.

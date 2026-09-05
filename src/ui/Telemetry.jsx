@@ -30,7 +30,24 @@ const FIELDS = [
   { key: 'moonV', label: 'Luna rel. velocity', get: () => `${kms(live.metric.moonSpeed)} km/s` },
 ]
 
+/** Body ids as the HUD names them, for the nearest-surface row. */
+const DISPLAY_NAME = { sun: 'Sol', earth: 'Terra', moon: 'Luna', ship: 'Artemis', iss: 'ISS', hubble: 'Hubble' }
+
 const DIAGNOSTICS = [
+  {
+    key: 'nearest',
+    label: 'Nearest surface',
+    get: () => {
+      const { distance, id } = live.nearest
+      if (id === null || !Number.isFinite(distance)) return '—'
+      const name = DISPLAY_NAME[id] ?? id
+      // Below a kilometre the metre figure is the interesting one; above it,
+      // nobody reads nine digits.
+      return distance < 1000
+        ? `${distance.toFixed(0)} m · ${name}`
+        : `${km(distance)} km · ${name}`
+    },
+  },
   { key: 'substeps', label: 'RK4 substeps / frame', get: () => String(live.stepsLastFrame) },
   {
     key: 'drift',

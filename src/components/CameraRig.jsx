@@ -4,39 +4,11 @@ import * as THREE from 'three'
 import { live } from '../sim/live.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { LAUNCH_SITES, siteDirection } from '../sim/launchsite.js'
-import { AU, BODIES, CRAFT, SHIP } from '../sim/constants.js'
+import { BODIES, SHIP } from '../sim/constants.js'
+import { CHASE_OFFSET, FRAMING, detentsIn, zoomSpeedFor } from '../gfx/framing.js'
 import { mission } from '../sim/mission.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
-
-/**
- * How the camera frames each body when it locks on, and how close it may get.
- * Metres, like everything else the scene draws.
- *
- * The multiples are the ones the exaggerated scene already used — they were
- * always written against each body's rendered radius, so they survive the
- * change to true scale by substitution and the framing is unchanged. Only the
- * outer limits are new numbers, because the old ones were bounded by a scene
- * 120 units wide per AU and had no meaning in metres.
- *
- * Kept unexported: a non-component export from a component module disables
- * React Fast Refresh for the whole file.
- */
-const FRAMING = {
-  sun: { distance: BODIES.sun.radius * 4.6, min: BODIES.sun.radius * 1.35, max: 2 * AU },
-  earth: { distance: BODIES.earth.radius * 5.2, min: BODIES.earth.radius * 1.25, max: 4e9 },
-  moon: { distance: BODIES.moon.radius * 6.0, min: BODIES.moon.radius * 1.3, max: 4e9 },
-  ship: { distance: SHIP.visual * 4.5, min: SHIP.visual * 1.1, max: 1e9 },
-  chase: { distance: SHIP.visual * 4.5, min: 0, max: 0 },
-  pad: { distance: 0, min: 0, max: 0 },
-  iss: { distance: CRAFT.iss.visual * 4.4, min: CRAFT.iss.visual * 1.2, max: 1e9 },
-  hubble: { distance: CRAFT.hubble.visual * 4.4, min: CRAFT.hubble.visual * 1.25, max: 1e9 },
-  /** Free flight roams the system: a metre off a hull out to a few AU. */
-  free: { distance: 0, min: 1, max: 1e12 },
-}
-
-/** Where the chase camera sits, in the craft's own body frame. Metres. */
-const CHASE_OFFSET = { back: SHIP.visual * 4.2, up: SHIP.visual * 1.3 }
 
 /**
  * Where the ground camera stands: 687 m across the launch azimuth, 147 m up.
@@ -104,6 +76,7 @@ export function CameraRig() {
   const focus = useUi((s) => s.focus)
   const controls = useThree((s) => s.controls)
   const camera = useThree((s) => s.camera)
+  const gl = useThree((s) => s.gl)
   const flight = useRef(null)
   const opening = useRef(true)
 
@@ -125,6 +98,26 @@ export function CameraRig() {
     [],
   )
   const baseFov = useRef(null)
+  const zoomBase = useRef(1)
+
+  /**
+   * Scale `zoomSpeed` by how much the user actually scrolled, before
+   * OrbitControls reads it.
+   *
+   * Attached to the canvas's *parent* in the capture phase: two listeners on
+   * the same element fire in registration order regardless of the capture flag,
+   * so being early requires being higher up the tree, not just capturing.
+   */
+  useEffect(() => {
+    if (!controls) return
+    const canvas = gl.domElement
+    const host = canvas.parentElement ?? canvas
+    const onWheel = (e) => {
+      controls.zoomSpeed = zoomBase.current * detentsIn(e)
+    }
+    host.addEventListener('wheel', onWheel, { capture: true, passive: true })
+    return () => host.removeEventListener('wheel', onWheel, { capture: true })
+  }, [controls, gl])
 
   useEffect(() => {
     if (!controls) return
@@ -179,6 +172,7 @@ export function CameraRig() {
 
     controls.minDistance = frame.min
     controls.maxDistance = frame.max
+    zoomBase.current = zoomSpeedFor(frame.min, frame.max)
     if (focus === 'free') {
       flight.current = null
       return
