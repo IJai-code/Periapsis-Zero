@@ -13,7 +13,7 @@
 
 import { VESSELS } from '../src/sim/vessels.js'
 import { MODEL_BY_ID } from '../src/gfx/modelsManifest.js'
-import { G0 } from '../src/sim/constants.js'
+import { BODIES, G0, SHIP } from '../src/sim/constants.js'
 
 const g = 9.80665
 
@@ -79,6 +79,47 @@ for (const { v, launch } of rows) {
   )
 }
 
+/* ---- and does it reach the orbit it claims? ---- */
+let parked = null
+if (process.argv.includes('--fly')) {
+  /**
+   * Flown, because arithmetic cannot answer this one.
+   *
+   * The ascent lofted for the entire life of this project and nothing noticed,
+   * because every check asked about staging, warp, capture, entry and heating —
+   * and none asked what orbit the launch actually reached. Apollo 8 parked at
+   * 1,318 x 1,323 km against a real 185, and Artemis at 7,602. A vehicle can
+   * have every mass right and still fly to the wrong place.
+   *
+   * Only the active vessel can be flown, since the flight model binds to one at
+   * load; run it once per vessel with SPXSIM_VESSEL.
+   */
+  const { flyMission } = await import('./flight.mjs')
+  const { live } = await import('../src/sim/live.js')
+  const { mission } = await import('../src/sim/mission.js')
+  const { totalMass } = await import('../src/sim/ship.js')
+
+  flyMission('TLI_ALIGN')
+  const e = live.elements
+  const R = BODIES.earth.radius
+  const target = SHIP.parkingOrbit.altitude
+  parked = {
+    perigee: e.periapsisRadius - R,
+    apogee: e.apoapsisRadius - R,
+    target,
+    ecc: e.eccentricity,
+    met: mission.t,
+    mass: totalMass(),
+  }
+  console.log(`\n=== ${SHIP.name} flown to its parking orbit ===`)
+  console.log(`  reached      ${(parked.perigee / 1e3).toFixed(0)} x ${(parked.apogee / 1e3).toFixed(0)} km` +
+    `   e ${parked.ecc.toFixed(4)}`)
+  console.log(`  target       ${(target / 1e3).toFixed(0)} km`)
+  console.log(`  insertion    MET ${(parked.met / 60).toFixed(1)} min, ${(parked.mass / 1e3).toFixed(1)} t in orbit`)
+  console.log(`  error        perigee ${(((parked.perigee - target) / target) * 100).toFixed(1)}%` +
+    `, apogee ${(((parked.apogee - target) / target) * 100).toFixed(1)}%`)
+}
+
 console.log('\n=== what this establishes ===')
 const checks = [
   ['every vessel has stages, chutes and an ascent programme',
@@ -96,6 +137,23 @@ const checks = [
   // A vehicle that cannot lift itself never leaves the pad, and the sequencer
   // would sit in GRAVITY_TURN until the propellant ran out.
   ['every vessel can lift itself', rows.every(({ tw }) => tw > 1.05)],
+  ...(parked
+    ? [
+        /**
+         * Both apsides within a quarter of the target altitude.
+         *
+         * A requirement with its margin stated, not a threshold fitted to the
+         * result: the worst measured error is 9%, so this leaves 2.7x. The
+         * ascent it replaces missed by 610% for Apollo and 4,000% for Artemis,
+         * so no plausible loosening of this could have let that through.
+         */
+        ['the launch reaches the parking orbit it claims',
+         Math.abs(parked.perigee - parked.target) < parked.target * 0.25 &&
+           Math.abs(parked.apogee - parked.target) < parked.target * 0.25],
+        ['the orbit is very nearly circular', parked.ecc < 0.01],
+        ['insertion takes a plausible time', parked.met > 300 && parked.met < 3600],
+      ]
+    : []),
   ['stages are ordered heaviest first', rows.every(({ v }) =>
     v.stages.every((s, i, a) => i === 0 || s.dryMass + s.propellant <= a[i - 1].dryMass + a[i - 1].propellant))],
 ]

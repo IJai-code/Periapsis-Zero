@@ -264,6 +264,8 @@ const ARTEMIS = {
   rcsTorque: 6_000,
   assistGain: 2.2,
   orbit: { altitude: 400e3, inclination: 28.5, phase: 0 },
+  /** Artemis I inserted at 185 km before raising apogee on the ICPS. */
+  parkingOrbit: { altitude: 185e3, inclination: 28.5 },
   drag: { cd: 2.2, area: 30 },
   ascent: { ...ASCENT_DEFAULTS },
 }

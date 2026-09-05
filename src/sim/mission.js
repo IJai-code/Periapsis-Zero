@@ -62,10 +62,41 @@ const _retro = new Vector3()
 
 const DEG = Math.PI / 180
 
+/**
+ * Closed-loop ascent gains. One pair, shared by every vehicle — the whole point
+ * of closing the loop is that thrust-to-weight stops needing its own numbers.
+ *
+ * `ASCENT_APO_GAIN` turns remaining apoapsis deficit into a wanted climb rate
+ * (100 km short asks for 400 m/s); `ASCENT_MIN_CLIMB` is the floor it decays
+ * to, so the burn always ends below apoapsis and still rising; and
+ * `ASCENT_CLIMB_GAIN` closes the climb-rate error.
+ */
+const ASCENT_APO_GAIN = 0.004
+const ASCENT_MIN_CLIMB = 100
+const ASCENT_CLIMB_GAIN = 0.2
+
+/**
+ * Dynamic pressure below which the ascent may steer freely, Pa.
+ *
+ * Max-Q is 22-35 kPa; 1 kPa is roughly 55 km up, where the air no longer
+ * constrains the angle of attack and no longer meaningfully brakes. Below this
+ * the closed loop can point wherever the orbit needs.
+ */
+const HANDOVER_Q = 1000
+
 /** Ascent profile. Tuned so the programmed turn reaches orbit without iteration. */
 export const PROFILE = {
   countdown: 10, // s
-  targetPerigee: 150e3, // m — cut off once the orbit actually closes above the air
+  /**
+   * How far below the parking orbit periapsis may sit at cutoff, m.
+   *
+   * This replaces a flat 150 km target, which was the right idea for the wrong
+   * orbit: with the ascent lofting to over a thousand kilometres, "perigee
+   * above the air" was met while apoapsis was already in deep space. Measured
+   * against the vessel's own parking altitude it means what it says — the orbit
+   * has closed, near-circular, where it was meant to.
+   */
+  insertionMargin: 20e3,
   /**
    * Ascent shaping moved to the vessel — see SHIP.ascent in sim/vessels.js.
    *
@@ -471,11 +502,94 @@ function manageThrottle() {
   ship.throttle = Math.max(0.1, Math.min(1, level))
 }
 
-function aimPitchProgramme() {
-  const v0 = rotationBonus(mission.site)
-  const span = SHIP.ascent.targetSpeed - v0
-  const tau = Math.min(1, Math.max(0, (live.elements.speed - v0) / span))
-  const pitch = (Math.PI / 2) * Math.pow(tau, SHIP.ascent.turnExponent)
+/**
+ * Ascent steering, in two regimes.
+ *
+ * **Open loop, while apoapsis is still short of the parking orbit.** Pitch is a
+ * function of speed alone — `90 deg x (v/vt)^n` — which is what a launch
+ * vehicle wants low down, where the angle of attack has to stay near zero and
+ * there is nothing useful to feed back on yet.
+ *
+ * **Closed loop, once apoapsis reaches the target.** The open-loop law cannot
+ * be the whole ascent, and the failure is not subtle: it knows the vehicle's
+ * *speed* and nothing about where the orbit is going, so a vehicle that climbs
+ * faster than the schedule assumed simply keeps climbing. Measured, Apollo 8
+ * parked at 1,318 x 1,323 km against a real 185, and Artemis — at a
+ * thrust-to-weight of 1.57 against 1.166 — reached 7,602 km. Higher thrust
+ * lofts *worse*, because it finishes the velocity schedule sooner and spends
+ * the rest of the burn pushing apoapsis outward.
+ *
+ * So once apoapsis is where it belongs, hold it there and put everything else
+ * into horizontal speed. Commanding a flight-path angle proportional to the
+ * apoapsis error does that with one gain and no vehicle-specific numbers: short
+ * of target, pitch up; past it, pitch below the horizon; at it, fly level and
+ * let periapsis climb. The loop is what makes the same code fly both vehicles.
+ */
+function aimAscent() {
+  const target = SHIP.parkingOrbit.altitude
+  const e = live.elements
+
+  /**
+   * Handover to the closed loop, on two physical conditions rather than on
+   * apoapsis alone.
+   *
+   * Apoapsis alone fails hard: a vehicle going straight up has an apoapsis far
+   * above the parking orbit within seconds of leaving the pad, so the loop sees
+   * no error and commands level flight at four kilometres. Measured, Apollo 8
+   * did exactly that, burned every stage inside the atmosphere and came down.
+   *
+   * Hand over when steering is actually free: above the initial climb, and with
+   * dynamic pressure low enough that pointing away from the velocity vector
+   * costs nothing structurally. Both are properties of the flight rather than
+   * of the vehicle, which is what keeps this free of per-vessel constants.
+   */
+  const steerable = e.altitude > SHIP.ascent.turnStart && live.dynamicPressure < HANDOVER_Q
+
+  if (!steerable) {
+    const v0 = rotationBonus(mission.site)
+    const span = SHIP.ascent.targetSpeed - v0
+    const tau = Math.min(1, Math.max(0, (e.speed - v0) / span))
+    const pitch = (Math.PI / 2) * Math.pow(tau, SHIP.ascent.turnExponent)
+    azimuthDirection(_aim, mission.site.azimuth)
+    _aim.multiplyScalar(Math.sin(pitch)).addScaledVector(_up, Math.cos(pitch))
+    return aimThrust(_aim)
+  }
+
+  /**
+   * Closed loop: control the *vertical acceleration*, not the pitch angle.
+   *
+   * Two simpler laws were tried and both failed for the same underlying reason
+   * — a commanded flight-path angle is not a control over anything the orbit
+   * cares about, because what the angle does depends on the thrust-to-weight
+   * behind it. Commanding a fixed climb angle let the stack run apoapsis out to
+   * `Infinity` at 11.2 km/s; clamping the angle non-negative instead let the
+   * vehicle sink through apoapsis with periapsis at -57 km, because pointing
+   * level does not stop you falling when gravity exceeds the vertical component
+   * of thrust.
+   *
+   * The vertical acceleration is the thing that has to be right, and it is
+   * computable rather than tunable:
+   *
+   *   g_eff = mu/r^2 - v_h^2/r        gravity, less centrifugal relief
+   *   a_cmd = g_eff + k (vv* - vv)    hold it, plus close the climb-rate error
+   *   sin(gamma) = a_cmd / (F/m)      the angle that delivers it
+   *
+   * A vehicle at 30 m/s^2 needs 18 degrees to hold altitude and one at 10 m/s^2
+   * needs 68; the same line computes both, which is the entire point of closing
+   * the loop. The climb target decays as apoapsis approaches the parking orbit
+   * but never to zero, so the burn always arrives *below* apoapsis and still
+   * rising — which is what the coast that follows needs.
+   */
+  const r = e.radius
+  const vh = Math.sqrt(Math.max(0, e.speed * e.speed - e.vertical * e.vertical))
+  const gEff = (G * BODIES.earth.mass) / (r * r) - (vh * vh) / r
+
+  const climbWanted = Math.max(ASCENT_MIN_CLIMB, ASCENT_APO_GAIN * (target - e.apogee))
+  const aVert = gEff + ASCENT_CLIMB_GAIN * (climbWanted - e.vertical)
+
+  const accel = ship.thrust / Math.max(ship.mass, 1)
+  const sinGamma = Math.max(-0.6, Math.min(0.95, accel > 0 ? aVert / accel : 0))
+  const pitch = Math.PI / 2 - Math.asin(sinGamma)
 
   azimuthDirection(_aim, mission.site.azimuth)
   _aim.multiplyScalar(Math.sin(pitch)).addScaledVector(_up, Math.cos(pitch))
@@ -1279,7 +1393,7 @@ const PHASES = [
     label: 'Gravity turn',
     control(dt) {
       manageThrottle()
-      aimPitchProgramme(dt)
+      aimAscent()
     },
     /**
      * Cut off on *perigee*, not apogee.
@@ -1290,8 +1404,49 @@ const PHASES = [
      * 6000 km below the surface. Perigee rising above the atmosphere is the
      * condition that actually means "in orbit". The depletion clause is the
      * fallback for a vehicle that cannot get there.
+     *
+     * What has changed is the number. It was a flat 150 km, which said nothing
+     * about *which* orbit; now it is the vessel's own parking altitude less a
+     * margin, so the test is "the orbit has closed where it was meant to"
+     * rather than merely "above the air". With the steering closing the loop on
+     * apoapsis, the two together are a direct insertion — which is what the
+     * S-IVB actually did.
      */
-    done: () => live.elements.perigee >= PROFILE.targetPerigee || ship.thrust === 0,
+    /**
+     * Cut off when the orbit has actually closed where it was meant to.
+     *
+     * Three conditions were tried here and the first two are instructive.
+     * Perigee against a flat 150 km was the original: right idea, wrong orbit,
+     * because with the ascent lofting past a thousand kilometres "above the
+     * air" said nothing about *which* orbit. Apoapsis plus a speed gate was the
+     * second, and it cut Artemis off eighty metres a second into a *descent*,
+     * past apoapsis with periapsis at -57 km — an orbit whose next stop is the
+     * ground. Apoapsis is a target, not a state.
+     *
+     * Perigee against the vessel's own parking altitude is a state, and it is
+     * the one that means "in orbit, here". With the steering holding apoapsis
+     * at the target and never commanding below the horizon, reaching it is a
+     * direct insertion — which is what the S-IVB did.
+     */
+    done: () => {
+      const target = SHIP.parkingOrbit.altitude
+      /**
+       * Apoapsis on target, with speed enough that it is an insertion and not a
+       * lob — the objection this comment used to raise against an apoapsis
+       * trigger, answered rather than avoided. A lob reaches 200 km at 2 km/s,
+       * a quarter of circular; an insertion is within a few percent of it.
+       *
+       * Perigee is deliberately *not* in the test. Thrusting below apoapsis
+       * raises apoapsis, not perigee, so waiting for perigee means burning
+       * until apoapsis has run away with it: measured, that parked Apollo at
+       * 10,181 km. Perigee is what the circularisation burn at apoapsis is for.
+       */
+      const vCircular = Math.sqrt((G * BODIES.earth.mass) / (BODIES.earth.radius + target))
+      return (
+        (live.elements.apogee >= target && live.elements.speed >= 0.5 * vCircular) ||
+        ship.thrust === 0
+      )
+    },
     next: () => INDEX_OF.MECO,
   },
   {
@@ -1360,9 +1515,21 @@ const PHASES = [
     enter() {
       ship.throttle = 1
       mission.bestEccentricity = Infinity
-      // The powered cap pins this to 1 min/s anyway; asking for it explicitly
-      // stops the coast's higher request from lingering.
-      mission.warpRequest = WARP.m1
+      /**
+       * Real time, like every other burn that cuts off on a minimum.
+       *
+       * This asked for a minute a second, which the powered cap allows and
+       * which makes a frame one simulated second. A minimum-seeking cutoff can
+       * only resolve to a frame, so the overshoot is one frame of delta-v —
+       * 9 m/s on an S-IVB and 52 m/s on an SLS core, the latter worth 170 km of
+       * apoapsis. Measured: Apollo circularised to 186 x 232 km and Artemis to
+       * 202 x 355, both with the perigee spot on and the apoapsis thrown out by
+       * the burn that was supposed to be closing it.
+       *
+       * LOI_BURN already drops to real time here and says why; this was simply
+       * the one that did not.
+       */
+      mission.warpRequest = WARP.x1
     },
     control: aimPrograde,
     /**
@@ -1915,7 +2082,22 @@ const PHASES = [
     id: 'SM_SEP',
     label: 'SM separation',
     /**
-     * Discard the service module, leaving the capsule.
+     * Discard everything above the capsule, leaving the entry vehicle.
+     *
+     * A loop, not a single call, and the difference is not cosmetic. This used
+     * to separate exactly once, which quietly assumed the vehicle had reached
+     * the service module by now — true only because the ascent used to be
+     * wasteful enough to strand the upper stage empty. With the closed loop
+     * flying an efficient ascent, Artemis arrived here still carrying an ICPS
+     * with 1.6 tonnes aboard, so the one separation dropped *that* and the
+     * capsule re-entered with a service module still attached: 14.8 t at a
+     * ballistic coefficient of 336 instead of 3.9 t at 420. It survived, which
+     * is the worst kind of wrong.
+     *
+     * `separate()` returns false on the last stage, so this drops down to it
+     * whatever is above — the entry vehicle is identified as the stage that
+     * comes home, not as a position in a list, which is what sim/vessels.js
+     * asserts at load.
      *
      * The separation is *commanded* here rather than falling out of propellant
      * depletion, so the staging interrupt is acknowledged on the spot: there is
@@ -1924,7 +2106,7 @@ const PHASES = [
     enter() {
       ship.throttle = 0
       mission.warpRequest = WARP.x1
-      separate()
+      while (separate());
       mission.lastSeparations = ship.separations
       mission.entry.interfaceSpeed = live.elements.speed
       mission.entry.interfaceTime = mission.t
