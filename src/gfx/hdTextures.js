@@ -4,19 +4,27 @@ import { configureTexture } from './textureSettings.js'
 import { useUi } from '../sim/store.js'
 
 /**
- * Lazy loader for real NASA imagery dropped into public/textures/.
+ * Real NASA imagery from public/textures/.
  *
- * Nothing here runs at startup. The manifest is probed and the files fetched
- * only when the user asks for them, so the offline-first procedural path stays
- * the default and the initial load is untouched. Results are cached at module
- * scope, so toggling back and forth after the first fetch costs nothing.
+ * Loaded at startup alongside the procedural set rather than behind a switch —
+ * see ./useAssets.js for why. The manifest is probed before anything is
+ * fetched, so a partial install is a supported outcome rather than a string of
+ * failed requests, and every slot without a real image keeps its generated
+ * version. Results are cached at module scope.
  */
 
 /**
+ * The imagery, by material slot.
+ *
  * `alt` is a fallback filename for the same slot. Published Earth maps are
  * almost always *specular* rather than roughness — bright where the surface is
  * shiny — which is the exact inverse of what a roughnessMap wants. Rather than
  * making that the user's problem, the alternate is inverted on load.
+ *
+ * `sky.sky` is the one slot the bundled fetcher does not fill: there is no
+ * public-domain Milky Way panorama among its sources, so the skybox stays
+ * procedural unless someone supplies `milkyway.jpg` themselves. The entry is
+ * kept because the slot works, not because anything ships it.
  */
 export const HD_MANIFEST = [
   { slot: 'earth.day', file: 'earth_day.jpg' },
@@ -144,9 +152,11 @@ export function loadHdTextures(onProgress = () => {}) {
  * version instead of going undefined.
  */
 export function useActiveTextures(procedural) {
-  const useHd = useUi((s) => s.hd && s.hdStatus === 'ready')
+  // `hdStatus` is the re-render trigger, not a preference: the cache appears
+  // asynchronously and materials have to be rebound when it does.
+  const ready = useUi((s) => s.hdStatus === 'ready')
   return useMemo(
-    () => (useHd && cache ? { ...procedural, ...cache } : procedural),
-    [useHd, procedural],
+    () => (ready && cache ? { ...procedural, ...cache } : procedural),
+    [ready, procedural],
   )
 }

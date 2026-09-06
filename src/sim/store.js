@@ -86,9 +86,12 @@ export const uiStore = createStore({
   modelBusy: {},
   shipPanel: true,
 
-  // High-resolution NASA imagery. Loaded lazily on request; `hd` is the user's
-  // intent and `hdStatus` is what the loader has actually managed to do.
-  hd: false,
+  /**
+   * NASA imagery, loaded at startup rather than on request — there is no longer
+   * a user intent to record, only what the loader managed to do. Kept in the
+   * store because materials have to rebind when the images arrive, and the
+   * store is what crosses the <Canvas> boundary.
+   */
   hdStatus: 'idle', // 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
   hdLoaded: 0,
   hdTotal: 0,

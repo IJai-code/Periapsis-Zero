@@ -236,7 +236,7 @@ async function main() {
   console.log(
     '\n  The Milky Way skybox stays procedural — no public-domain equirectangular\n' +
       '  panorama with a stable URL was worth hard-coding here.\n' +
-      '\n  Start the app and switch on "HD textures" in the Render panel.\n',
+      '\n  These load automatically the next time the app starts.\n',
   )
   if (failures.length) process.exitCode = 1
 }

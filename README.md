@@ -17,22 +17,23 @@ There used to be a separate `landing.html`. It had to be found at its own URL,
 went stale whenever the scene changed, and made a promise the simulator then had
 to keep somewhere else.
 
-The scene is entirely self-contained: every texture — Earth, Moon and the Milky
-Way skybox — is synthesised procedurally in a Web Worker at load (~4s), so there
-are no asset downloads and nothing to break offline.
+Real NASA imagery is what you get: Blue Marble, Black Marble and the CGI Moon
+Kit, about 13 MB, fetched into `public/textures/` the first time you run `npm
+run dev` and skipped on every run after. There is no switch for it — it used to
+be one, which meant the simulator looked like its own fallback to anyone who
+did not go hunting through a render panel.
 
-Real NASA imagery is opt-in:
+Underneath it there is still a complete procedural set, synthesised in a Web
+Worker at load, and the two are layered rather than swapped. Any slot without a
+real image keeps its generated version, so a partial download, an offline
+machine or a fresh clone with no network all still fly — against generated
+ground rather than photographed. The fetch cannot break the build for the same
+reason; if it fails, the run continues.
 
-```bash
-npm run textures:fetch
-```
-
-That pulls Blue Marble, Black Marble and the CGI Moon Kit into
-`public/textures/` (~13 MB). Then switch on **HD textures** in the Render panel:
-nothing is fetched until you click it, the maps are layered over the procedural
-set so partial installs work, and toggling back is instant because neither set
-is ever discarded. See [public/textures/README.md](public/textures/README.md)
-for the file names if you would rather supply your own.
+One slot is never filled from the network: there is no public-domain Milky Way
+panorama among the sources, so the skybox is always the procedural one unless
+you supply `milkyway.jpg` yourself. See
+[public/textures/README.md](public/textures/README.md) for the file names.
 
 ## Mission profile
 
