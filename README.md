@@ -18,10 +18,13 @@ went stale whenever the scene changed, and made a promise the simulator then had
 to keep somewhere else.
 
 Real NASA imagery is what you get: Blue Marble, Black Marble and the CGI Moon
-Kit, about 13 MB, fetched into `public/textures/` the first time you run `npm
-run dev` and skipped on every run after. There is no switch for it — it used to
-be one, which meant the simulator looked like its own fallback to anyone who
-did not go hunting through a render panel.
+Kit, committed in `public/textures/` and loaded at startup. There is no switch
+for it — it used to be one, which meant the simulator looked like its own
+fallback to anyone who did not go hunting through a render panel.
+
+The 13 MB is committed rather than fetched because the two Moon maps are
+converted from TIFF with `sips`, which is macOS-only; downloading them is not
+reproducible on Linux or Windows, and the failure is silent.
 
 Underneath it there is still a complete procedural set, synthesised in a Web
 Worker at load, and the two are layered rather than swapped. Any slot without a

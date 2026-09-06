@@ -1,10 +1,18 @@
-# HD texture overrides
+# Surface imagery
 
-Every map in the scene is synthesised procedurally at load, so the app is
-self-contained and needs no network access. Real imagery is **opt-in**: drop
-files here under the exact names below, then switch on **HD textures** in the
-Render panel. Nothing is fetched until you click it, so the initial load is
-never affected.
+These ship with the repository and load automatically. There is no switch.
+
+They are committed rather than fetched, which is unusual for 13 MB of binary
+and worth the sentence: the two Moon maps arrive from NASA as TIFFs and are
+converted by `sips`, which exists only on macOS. Fetching them is therefore not
+reproducible off a Mac, and the failure is quiet — a skipped source leaves a
+photographed Earth next to a procedural Moon. Committing the converted output
+is what makes the imagery platform-independent.
+
+Underneath them a complete procedural set is still generated at load, and the
+two are layered rather than swapped, so replacing or deleting any file here is
+safe: that slot falls back to its generated version. `npm run textures:fetch
+--force` re-downloads everything from source.
 
 | File                    | Replaces                    | Colour space |
 | ----------------------- | --------------------------- | ------------ |
@@ -18,8 +26,11 @@ never affected.
 | `moon_normal.jpg`       | Lunar normals               | linear       |
 | `milkyway.jpg`          | Skybox                      | sRGB         |
 
-**Partial installs are fine.** Only the files actually present are used; every
-other slot keeps its generated version. Supplying just `earth_day.jpg` works.
+**Partial sets are fine.** Only the files actually present are used; every other
+slot keeps its generated version. `milkyway.jpg` is the one name in the table
+that nothing ships — no public-domain equirectangular panorama had a stable
+enough URL to hard-code — so the skybox is always the procedural one unless you
+supply that file yourself.
 
 ## Notes
 
