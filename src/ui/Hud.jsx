@@ -6,6 +6,7 @@ import { Telemetry } from './Telemetry.jsx'
 import { Toggles } from './Toggles.jsx'
 import { ModelSelector } from './ModelSelector.jsx'
 import { ShipTelemetry } from './ShipTelemetry.jsx'
+import { NodePanel } from './NodePanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
@@ -87,6 +88,9 @@ export function Hud() {
       {open && (
         <div className="pointer-events-auto absolute top-4 right-4 max-h-[calc(100vh-7rem)] overflow-y-auto">
           <div className="flex flex-col gap-3">
+            {/* Above the instruments on purpose: telemetry is ambient, the
+                manoeuvre panel is whatever the pilot is doing right now. */}
+            <NodePanel />
             <Telemetry />
             <ShipTelemetry />
           </div>

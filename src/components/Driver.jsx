@@ -7,6 +7,7 @@ import {
   beginCountdown,
   commitTLI,
   currentPhase,
+  PHASE_IDS,
   isClamped,
   isSplashed,
   applySplashdownHold,
@@ -16,6 +17,9 @@ import {
   updateTLI,
 } from '../sim/mission.js'
 import { setUi, uiStore, useUi, WARP, WARP_LEVELS } from '../sim/store.js'
+import * as nodeApi from '../sim/nodes.js'
+import * as predictApi from '../sim/predict.js'
+import { INDEX } from '../sim/system.js'
 import { director, updateDirector } from '../sim/director.js'
 
 /**
@@ -108,6 +112,16 @@ export function Driver() {
           updateTLI,
           currentPhase,
         },
+        /**
+         * The flight plan, and the maps drawn from it. Here so a node can be
+         * placed and inspected from the console without going through the
+         * pointer — which is how the gizmo's own behaviour gets checked against
+         * the projection it is supposed to be editing.
+         */
+        nodes: nodeApi,
+        predict: predictApi,
+        INDEX,
+        PHASE_IDS,
       }
   }, [three])
 

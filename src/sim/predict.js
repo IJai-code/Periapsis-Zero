@@ -21,7 +21,7 @@
 import { Vector3 } from 'three'
 import { BODIES, BODY_ORDER } from './constants.js'
 import { INDEX } from './system.js'
-import { resolveNode } from './nodes.js'
+import { nodeBasis, resolveNode } from './nodes.js'
 
 /** Samples along the path. Enough to draw a smooth ellipse at any zoom. */
 export const SAMPLES = 512
@@ -48,6 +48,18 @@ export const SUBSTEPS_PER_SAMPLE = 4
  * sequencer flies in one leg.
  */
 export const OPEN_HORIZON = 6 * 86400
+
+/**
+ * How many nodes a projection records a full orbital frame for.
+ *
+ * The frames exist so the gizmo can draw the axes a burn will actually be
+ * measured against — the ones the integrator used, at the instant it used them,
+ * rather than a second guess computed from the craft's *present* state. Eight
+ * is more nodes than any plan this sequencer flies, and the cap is here because
+ * the buffer is preallocated; nodes past it are still applied, just not drawn
+ * with handles.
+ */
+export const MAX_NODE_FRAMES = 8
 
 /**
  * A projection result. Two exist: what happens if nothing is commanded, and
@@ -77,6 +89,28 @@ function makeProjection() {
   /** Sample index each applied node fired at, parallel to `applied`. */
   nodeSamples: [],
   /**
+   * The orbital frame at each applied node, up to MAX_NODE_FRAMES, laid out as
+   * twelve doubles: position, then prograde, normal and radial-out unit
+   * vectors, all relative to `reference`.
+   *
+   * Recorded rather than recomputed. The frame is defined by the state the
+   * integrator had reached at the node's exact instant — which is mid-step, not
+   * at a sample — so anything reconstructing it from the drawn polyline would
+   * be reading a slightly different orbit than the one the burn was applied to.
+   */
+  nodeFrames: new Float64Array(MAX_NODE_FRAMES * 12),
+  /** Seconds from now at which each recorded node fires, parallel to the frames. */
+  nodeTimes: new Float64Array(MAX_NODE_FRAMES),
+  /**
+   * Speed relative to `reference` at each recorded node, m/s.
+   *
+   * Recorded because the gizmo's drag sensitivity is a fraction of it — a burn
+   * planned two days out at the far end of a translunar coast is happening at
+   * 200 m/s, not the 10 km/s the craft is doing now, and a handle geared to the
+   * craft's present speed would be fifty times too coarse there.
+   */
+  nodeSpeeds: new Float64Array(MAX_NODE_FRAMES),
+  /**
    * Sample index at which the last node fired, or -1.
    *
    * The apsis scan starts after it. Scanning the whole span reports whichever
@@ -94,6 +128,29 @@ export const prediction = makeProjection()
 
 /** Where the craft goes if the planned nodes are flown. */
 export const plan = makeProjection()
+
+/**
+ * Forget what a projection holds, without running one.
+ *
+ * Needed because the planned path is only re-projected while there is a plan.
+ * Delete the last node and the amber line is simply hidden — and `applied` goes
+ * on naming a node that no longer exists, with a recorded frame still sitting
+ * where it used to be. The editor draws its markers and does its picking from
+ * exactly those two, so a deleted node left an invisible marker on screen that
+ * kept swallowing clicks: pressing the trajectory where the node had been
+ * selected the ghost instead of planning a new burn, and went on doing so
+ * indefinitely, since with nothing pending there was never another projection
+ * to overwrite it.
+ */
+export function clearProjection(out) {
+  out.count = 0
+  out.applied.length = 0
+  out.nodeSamples.length = 0
+  out.lastNode = -1
+  out.apoapsis.index = -1
+  out.periapsis.index = -1
+  out.impact.index = -1
+}
 
 /**
  * Parabolic refinement through three samples.
@@ -132,6 +189,9 @@ const _radii = new Float64Array(SAMPLES)
  * @param {Array|null} nodes  planned manoeuvres to fold in
  */
 const _dv = new Vector3()
+const _fp = new Vector3()
+const _fn = new Vector3()
+const _fo = new Vector3()
 
 export function project(sim, scratch, craft, reference, period, out = prediction, nodes = null) {
   const closed = Number.isFinite(period) && period > 0
@@ -172,6 +232,29 @@ export function project(sim, scratch, craft, reference, period, out = prediction
         }
         if (until > remaining) break
         if (until > 0) scratch.advance(until, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
+        /**
+         * The frame first, then the impulse. The basis is defined by the
+         * velocity the craft has *arriving* at the node — applying the burn
+         * first and measuring afterwards would rotate prograde by the very
+         * thing being measured.
+         */
+        const slot = out.applied.length
+        if (slot < MAX_NODE_FRAMES && nodeBasis(scratch.state, c, r, _fp, _fn, _fo)) {
+          const f = slot * 12
+          const fr = out.nodeFrames
+          fr[f] = scratch.state[c] - scratch.state[r]
+          fr[f + 1] = scratch.state[c + 1] - scratch.state[r + 1]
+          fr[f + 2] = scratch.state[c + 2] - scratch.state[r + 2]
+          fr[f + 3] = _fp.x; fr[f + 4] = _fp.y; fr[f + 5] = _fp.z
+          fr[f + 6] = _fn.x; fr[f + 7] = _fn.y; fr[f + 8] = _fn.z
+          fr[f + 9] = _fo.x; fr[f + 10] = _fo.y; fr[f + 11] = _fo.z
+          out.nodeTimes[slot] = scratch.t - sim.t
+          out.nodeSpeeds[slot] = Math.hypot(
+            scratch.state[c + 3] - scratch.state[r + 3],
+            scratch.state[c + 4] - scratch.state[r + 4],
+            scratch.state[c + 5] - scratch.state[r + 5],
+          )
+        }
         resolveNode(node, scratch.state, c, r, _dv)
         scratch.state[c + 3] += _dv.x
         scratch.state[c + 4] += _dv.y

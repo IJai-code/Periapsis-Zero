@@ -136,6 +136,15 @@ state, no `.map`/`.filter`/destructuring in per-frame paths, no string building
 below the HUD's own ~9 Hz refresh. One-shot solvers (targeting) are exempt and
 run on phase entry, never in the loop.
 
+**No `useFrame` subscriber may take a positive priority.** In R3F, any priority
+above zero hands the render loop to that subscriber and `gl.render` is never
+called again — the scene simply stops updating while every callback keeps
+running, which reads as a frozen picture rather than an error. Driver's
+nearest-surface pass hit this once; the node editor hit it a second time,
+wanting to run after the camera rig. Anything needing this frame's camera
+composes the matrices itself (`camera.updateMatrixWorld(true)`) and stays at
+zero.
+
 **The integrator's step ceiling lives on the instance, and knows about every
 attractor.** `sim.maxDt` is refreshed each frame from the *fastest* craft in the
 fleet. A caller who passes nothing gets the 900 s planetary default — eight steps
@@ -242,10 +251,77 @@ actually landed.
 | `Enter`         | separate the burning stage                           |
 | Start countdown | releases the pad hold; the autopilot flies the ascent |
 | `h`             | hide the panels                                      |
+| click the path  | plan a burn at that instant                          |
+| drag a handle   | add delta-v along one axis of the orbital frame      |
+| `shift` `ctrl`  | fine / coarse while dragging a handle                 |
+| drag the centre | slide the burn along the orbit                       |
+| `esc` `del`     | deselect / delete the selected node                  |
 
 Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing
 angle survive the body moving underneath you.
+
+## Flight planning
+
+The cyan line is where the craft goes if nothing is commanded; the amber one is
+where the planned burns would take it. Both are the *same RK4* that flies the
+mission — see `src/sim/predict.js` — so the map cannot disagree with the flight
+about the physics, and it inherits every perturbation for free. A node is stored
+as `{ t, prograde, normal, radial }`, which is what a burn *means*; the
+sequencer picks up pending nodes on its own and flies them.
+
+Editing one is three gestures, and all three are coordinate round trips with
+somewhere to be quietly wrong. `scripts/verify-gizmo.mjs` runs each of them
+through the *real* `Line2` raycaster on a real camera against the same packed
+buffer the renderer draws — a reimplementation of the raycast would be testing
+the test.
+
+| what | measured |
+| --- | --- |
+| click → instant, 41 points round the orbit | worst error **0.019 ms**, samples 10.32 s apart |
+| the float32 floor that limits it | 0.100 ms |
+| grab width asked / delivered | 14.00 px / grabs to **13.91**, misses from **14.01** |
+| recorded orbital frame, orthonormality | **1.11e−16** |
+| …against an independent integration to the same instant | **2.98e−8 rad** |
+| a 120 px pull on prograde | 468.51 m/s → apoapsis within **2 m** of vis-viva |
+
+Three things are worth stating because each cost a wrong version first.
+
+**The frame is recorded, not recomputed.** A node fires mid-step, between
+samples, so anything reconstructing prograde from the drawn polyline would be
+reading a slightly different orbit than the one the impulse is applied to. The
+projection writes the basis it actually used, and the gizmo draws that.
+
+**Drag sensitivity is a fraction of orbital speed**, not metres per second per
+pixel. The burns this plans span three decades — an RCS trim is 2 m/s and a
+translunar injection is 3,100 — and one fixed constant has to be wrong at one
+end. A 600 px pull spends 30% of the craft's speed at the node, which is a TLI
+in one gesture at 7.7 km/s and correspondingly finer in a slow lunar orbit,
+without being told.
+
+**An axis pointing at the camera is refused, not mis-picked.** Prograde does it
+constantly, because the natural way to look at a trajectory is along it:
+measured head-on, the prograde and retrograde handles landed 6 and 7 pixels from
+the node's centre — inside each other's grab radius and inside the time-scrub
+ball's. Below 32 px of screen separation a handle is drawn as a ghost and
+refuses to be grabbed, a dead cone of asin(32/88) ≈ **21°** either side of the
+axis. Orbit a little, or type the number into the panel, which carries the same
+three components for exactly this reason.
+
+Two bugs this turned up, both invisible until something tried to click:
+
+- `LineGeometry.setPositions` computes the bounding volume **once**, from the
+  buffer it is handed — a zero-filled placeholder in both the renderer and the
+  test. Writing the real path in afterwards left a bounding sphere of radius
+  zero, and `raycast` rejects against that before looking at a single segment.
+  The line drew perfectly the whole time, because it is marked
+  `frustumCulled = false`.
+- The planned path is only re-projected while there *is* a plan. Delete the last
+  node and the amber line is hidden — but `plan.applied` went on naming it, with
+  a recorded frame still sitting where it used to be, and the editor picks from
+  exactly those. A deleted node left an invisible marker that swallowed clicks
+  indefinitely, since with nothing pending there was never another projection to
+  overwrite it.
 
 ## The physics
 

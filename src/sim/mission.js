@@ -12,7 +12,7 @@ import {
 } from './targeting.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
-import { nodeMagnitude, pendingNode, resolveNode } from './nodes.js'
+import { nodeMagnitude, nodesChanged, pendingNode, resolveNode } from './nodes.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 
 /**
@@ -2292,7 +2292,14 @@ const PHASES = [
     exit() {
       ship.throttle = 0
       const node = mission.node.active
-      if (node) node.executed = true
+      if (node) {
+        node.executed = true
+        // The plan has changed even though nothing in the UI touched it: the
+        // node stops being a plan the moment it is flown, and the editor has to
+        // hear about that from here or it will keep offering handles for a burn
+        // that already happened.
+        nodesChanged()
+      }
       mission.node.active = null
       mission.warpRequest = null // hand time control back to the pilot
     },

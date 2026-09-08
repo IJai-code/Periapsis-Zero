@@ -5,8 +5,17 @@ import { Html } from '@react-three/drei'
 import { Line2, LineGeometry, LineMaterial } from 'three-stdlib'
 import { live } from '../sim/live.js'
 import { BODIES } from '../sim/constants.js'
-import { SAMPLES, dominantBody, packPolyline, plan, prediction, project } from '../sim/predict.js'
-import { nodeMagnitude, nodes } from '../sim/nodes.js'
+import {
+  SAMPLES,
+  clearProjection,
+  dominantBody,
+  packPolyline,
+  plan,
+  prediction,
+  project,
+} from '../sim/predict.js'
+import { nodeRevision, nodes } from '../sim/nodes.js'
+import { NodeEditor } from './NodeEditor.jsx'
 import { useUi } from '../sim/store.js'
 
 /**
@@ -76,6 +85,26 @@ function makeLine({ head, tail }) {
 }
 
 /**
+ * Push new points into a line, and refresh what the line thinks it occupies.
+ *
+ * The bounds are the part that is easy to leave out. `setPositions` computes a
+ * bounding box and sphere once, from the buffer it is handed — which here is a
+ * zero-filled placeholder — and writing the real path in afterwards never
+ * updates them. Drawing is unaffected, because these lines are marked
+ * `frustumCulled = false`; *picking* is not, because `raycast` rejects against
+ * the bounding sphere before it looks at a single segment. The trajectory was
+ * therefore invisible to the pointer while looking perfectly correct, which is
+ * the failure mode that survives longest.
+ */
+function pushPoints(line, points, count) {
+  const attr = line.geometry.attributes.instanceStart.data
+  packPolyline(attr.array, points, count, SAMPLES)
+  attr.needsUpdate = true
+  line.geometry.computeBoundingBox()
+  line.geometry.computeBoundingSphere()
+}
+
+/**
  * An apsis marker. The number is written imperatively rather than through
  * props: it changes with every projection, five times a second, and re-rendering
  * a React subtree to print two altitudes would cost more than the projection
@@ -102,10 +131,12 @@ export function Trajectory() {
   const apo = useRef()
   const peri = useRef()
   const apoText = useRef()
-  const burn = useRef()
   const periText = useRef()
-  const burnText = useRef()
   const clock = useRef(0)
+  const lastRev = useRef(-1)
+  /** Held between ballistic refreshes so a node-driven replan can reuse them. */
+  const reference = useRef('earth')
+  const period = useRef(0)
 
   /**
    * One integrator, kept. `clone()` builds six state-sized buffers, which is
@@ -137,52 +168,33 @@ export function Trajectory() {
     if (!g || !show || cinematic) return
 
     clock.current += delta
-    if (clock.current >= REFRESH) {
+    const ballistic = clock.current >= REFRESH
+    /**
+     * The plan is redrawn when the plan changes; the ballistic path stays on
+     * the clock.
+     *
+     * They are refreshed on different triggers because they answer different
+     * questions. Where the craft is going if nothing is done changes slowly and
+     * on its own, so five times a second is generous. Where a burn would take
+     * it changes because the pilot is dragging a handle *right now*, and a
+     * fifth of a second of lag between the pointer and the amber line is the
+     * difference between an instrument and a form field. Nodes are also the
+     * cheap half: the ballistic pass is what re-runs `dominantBody` and the
+     * apsis scan.
+     */
+    const replan = ballistic || nodeRevision() !== lastRev.current
+
+    if (ballistic) {
       clock.current = 0
-      const reference = dominantBody(live.sim, 'ship') ?? 'earth'
+      reference.current = dominantBody(live.sim, 'ship') ?? 'earth'
       /**
        * One revolution when the orbit closes, a fixed horizon when it does not.
        * `bound` is false on an escape, where `period` is Infinity and there is
        * no revolution to draw.
        */
-      const period = live.elements.bound ? live.elements.period : 0
-      project(live.sim, scratch, 'ship', reference, period)
-
-      const positions = line.geometry.attributes.instanceStart.data
-      packPolyline(positions.array, prediction.points, prediction.count, SAMPLES)
-      positions.needsUpdate = true
-
-      /**
-       * The planned path, when there is one. Projected over half again the
-       * ballistic span, because the point of a burn is usually to change the
-       * period — drawing the new orbit over the old one's span would cut it off
-       * partway round.
-       */
-      const pending = nodes.some((nd) => !nd.executed && nd.t >= live.sim.t)
-      planLine.visible = pending
-      if (pending) {
-        project(live.sim, scratch, 'ship', reference, period * 1.5, plan, nodes)
-        const pp = planLine.geometry.attributes.instanceStart.data
-        packPolyline(pp.array, plan.points, plan.count, SAMPLES)
-        pp.needsUpdate = true
-
-        const mark = burn.current
-        if (mark) {
-          const at = plan.nodeSamples[0] ?? -1
-          mark.visible = at >= 0
-          if (at >= 0) {
-            mark.position.set(
-              plan.points[at * 3],
-              plan.points[at * 3 + 1],
-              plan.points[at * 3 + 2],
-            )
-            const fired = nodes.find((nd) => nd.id === plan.applied[0])
-            if (burnText.current && fired) {
-              burnText.current.textContent = `${nodeMagnitude(fired).toFixed(1)} m/s`
-            }
-          }
-        }
-      }
+      period.current = live.elements.bound ? live.elements.period : 0
+      project(live.sim, scratch, 'ship', reference.current, period.current)
+      pushPoints(line, prediction.points, prediction.count)
 
       const surface = BODIES[prediction.reference].radius
       for (const [ref, text, apsis] of [
@@ -207,6 +219,27 @@ export function Trajectory() {
       }
     }
 
+    if (replan) {
+      lastRev.current = nodeRevision()
+      /**
+       * The planned path, when there is one. Projected over half again the
+       * ballistic span, because the point of a burn is usually to change the
+       * period — drawing the new orbit over the old one's span would cut it off
+       * partway round.
+       */
+      const pending = nodes.some((nd) => !nd.executed && nd.t >= live.sim.t)
+      planLine.visible = pending
+      if (pending) {
+        project(live.sim, scratch, 'ship', reference.current, period.current * 1.5, plan, nodes)
+        pushPoints(planLine, plan.points, plan.count)
+      } else {
+        // Hiding the line is not enough: the editor picks and draws from
+        // `plan.applied` and the frames beside it, so they have to stop naming
+        // burns that are no longer planned.
+        clearProjection(plan)
+      }
+    }
+
     g.position.copy(live.pos[prediction.reference])
   }, -2)
 
@@ -216,15 +249,15 @@ export function Trajectory() {
     <group ref={group}>
       <primitive object={line} />
       <primitive object={planLine} />
-      <group ref={burn} visible={false}>
-        <Apsis label="Burn" textRef={burnText} />
-      </group>
       <group ref={apo} visible={false}>
         <Apsis label="Ap" textRef={apoText} />
       </group>
       <group ref={peri} visible={false}>
         <Apsis label="Pe" textRef={periText} />
       </group>
+      {/* Parented to the same body the path is drawn around, so the handles sit
+          on the line rather than chasing it across the screen at 30 km/s. */}
+      <NodeEditor line={line} host={group} />
     </group>
   )
 }
