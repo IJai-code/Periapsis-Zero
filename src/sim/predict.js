@@ -19,7 +19,8 @@
  * render loop that the zero-allocation rule applies to it.
  */
 import { Vector3 } from 'three'
-import { BODIES, BODY_ORDER } from './constants.js'
+import { BODIES } from './constants.js'
+import { dominantBody } from './soi.js'
 import { INDEX } from './system.js'
 import { nodeBasis, resolveNode } from './nodes.js'
 
@@ -111,6 +112,24 @@ function makeProjection() {
    */
   nodeSpeeds: new Float64Array(MAX_NODE_FRAMES),
   /**
+   * The body each recorded node is measured against — the one whose sphere of
+   * influence the craft is inside at the node's own instant.
+   *
+   * Per node, because a plan can span more than one. A translunar injection is
+   * written against Earth and the capture burn three days later against the
+   * Moon, and resolving both against the body the *line* happens to be drawn
+   * around put a capture burn 23.5 degrees off retrograde and 91.3 off normal:
+   * measured at periselene, an 839 m/s circularisation that should leave a
+   * 95.7 x 95.7 km orbit left a periselene 112.5 km below the lunar surface.
+   */
+  nodeBodies: new Array(MAX_NODE_FRAMES).fill(null),
+  /**
+   * The body the apsides are measured about: the last node's, or `reference`
+   * when there is none. "Resulting orbit" after a capture burn is an orbit of
+   * the Moon, and its extremes of distance from Earth describe nothing.
+   */
+  apsisBody: 'earth',
+  /**
    * Sample index at which the last node fired, or -1.
    *
    * The apsis scan starts after it. Scanning the whole span reports whichever
@@ -144,13 +163,16 @@ export const plan = makeProjection()
  */
 export function clearProjection(out) {
   out.count = 0
-  out.applied.length = 0
-  out.nodeSamples.length = 0
+  out.apsisBody = out.reference
+  empty(out.applied)
+  empty(out.nodeSamples)
   out.lastNode = -1
   out.apoapsis.index = -1
   out.periapsis.index = -1
   out.impact.index = -1
 }
+
+const _fit = { offset: 0, value: 0 }
 
 /**
  * Parabolic refinement through three samples.
@@ -160,12 +182,35 @@ export function clearProjection(out) {
  * arc. Fitting a parabola to the bracketing triple costs three multiplies and
  * lands it where it belongs — the same refinement the targeting solvers use on
  * their own minima.
+ *
+ * Written into one shared result rather than returning a fresh object. A fresh
+ * object is free when the caller inlines this and the optimiser removes it —
+ * measured at 0 B in isolation — and not free inside `project`, which is too
+ * large to inline into. Every caller reads `offset` and `value` before the next
+ * call.
  */
 function refine(rm, r0, rp) {
   const denom = rm - 2 * r0 + rp
-  if (Math.abs(denom) < 1e-12) return { offset: 0, value: r0 }
+  if (Math.abs(denom) < 1e-12) {
+    _fit.offset = 0
+    _fit.value = r0
+    return _fit
+  }
   const offset = (0.5 * (rm - rp)) / denom
-  return { offset, value: r0 - 0.25 * (rm - rp) * offset }
+  _fit.offset = offset
+  _fit.value = r0 - 0.25 * (rm - rp) * offset
+  return _fit
+}
+
+/**
+ * Empty an array without giving back its storage.
+ *
+ * `arr.length = 0` is the idiom, and V8 answers it by dropping the backing
+ * store, so the next push allocates a new one: 152 B a reset, measured, on
+ * arrays this module empties every projection. Popping keeps the capacity.
+ */
+function empty(arr) {
+  while (arr.length > 0) arr.pop()
 }
 
 const _radii = new Float64Array(SAMPLES)
@@ -210,9 +255,13 @@ export function project(sim, scratch, craft, reference, period, out = prediction
   out.apoapsis.index = -1
   out.periapsis.index = -1
   out.impact.index = -1
-  out.applied.length = 0
-  out.nodeSamples.length = 0
+  empty(out.applied)
+  empty(out.nodeSamples)
   out.lastNode = -1
+  out.apsisBody = reference
+
+  /** State offset the apsis radii are measured from; moves to each node's body. */
+  let apsisOffset = r
 
   /** Nodes still ahead of the projection, in order. */
   let nodeAt = 0
@@ -238,8 +287,10 @@ export function project(sim, scratch, craft, reference, period, out = prediction
          * first and measuring afterwards would rotate prograde by the very
          * thing being measured.
          */
+        const body = dominantBody(scratch, craft)
+        const b = INDEX[body] * 6
         const slot = out.applied.length
-        if (slot < MAX_NODE_FRAMES && nodeBasis(scratch.state, c, r, _fp, _fn, _fo)) {
+        if (slot < MAX_NODE_FRAMES && nodeBasis(scratch.state, c, b, _fp, _fn, _fo)) {
           const f = slot * 12
           const fr = out.nodeFrames
           fr[f] = scratch.state[c] - scratch.state[r]
@@ -249,19 +300,24 @@ export function project(sim, scratch, craft, reference, period, out = prediction
           fr[f + 6] = _fn.x; fr[f + 7] = _fn.y; fr[f + 8] = _fn.z
           fr[f + 9] = _fo.x; fr[f + 10] = _fo.y; fr[f + 11] = _fo.z
           out.nodeTimes[slot] = scratch.t - sim.t
-          out.nodeSpeeds[slot] = Math.hypot(
-            scratch.state[c + 3] - scratch.state[r + 3],
-            scratch.state[c + 4] - scratch.state[r + 4],
-            scratch.state[c + 5] - scratch.state[r + 5],
-          )
+          const vx = scratch.state[c + 3] - scratch.state[b + 3]
+          const vy = scratch.state[c + 4] - scratch.state[b + 4]
+          const vz = scratch.state[c + 5] - scratch.state[b + 5]
+          out.nodeSpeeds[slot] = Math.sqrt(vx * vx + vy * vy + vz * vz)
+          out.nodeBodies[slot] = body
         }
-        resolveNode(node, scratch.state, c, r, _dv)
+        // Position stays relative to `reference`, because that is the frame the
+        // line and the gizmo are drawn in; only the *axes* belong to the node's
+        // own body.
+        resolveNode(node, scratch.state, c, b, _dv)
         scratch.state[c + 3] += _dv.x
         scratch.state[c + 4] += _dv.y
         scratch.state[c + 5] += _dv.z
         out.applied.push(node.id)
         out.nodeSamples.push(i)
         out.lastNode = i
+        out.apsisBody = body
+        apsisOffset = b
         remaining -= Math.max(0, until)
         nodeAt++
       }
@@ -277,15 +333,30 @@ export function project(sim, scratch, craft, reference, period, out = prediction
     out.points[i * 3 + 1] = y
     out.points[i * 3 + 2] = z
     out.times[i] = i * dt
-    _radii[i] = Math.hypot(x, y, z)
+    /**
+     * Lengths as square roots, not `Math.hypot`. On this V8 hypot allocates on
+     * every call, and this line runs 512 times a projection: HEAD's single call
+     * here was 1,260 minor collections per 20,000 projections, all of it
+     * garbage, and invisible to the old heap-after-GC gate — which is why that
+     * gate is gone (scripts/allocation.mjs).
+     */
+    const fromReference = Math.sqrt(x * x + y * y + z * z)
+    const ax = s[c] - s[apsisOffset]
+    const ay = s[c + 1] - s[apsisOffset + 1]
+    const az = s[c + 2] - s[apsisOffset + 2]
+    _radii[i] = Math.sqrt(ax * ax + ay * ay + az * az)
     n = i + 1
 
     /**
      * Stop at the surface. Past it the integrator is describing a trajectory
      * through rock, and drawing that is worse than drawing nothing — it is the
      * one part of the path the vehicle definitely will not fly.
+     *
+     * Against the reference body, deliberately not `_radii`: after a capture
+     * burn those are distances from the Moon, and comparing 1,800 km to Earth's
+     * radius would end every lunar plan at the first sample past the node.
      */
-    if (_radii[i] <= surface) {
+    if (fromReference <= surface) {
       out.impact.index = i
       out.impact.time = i * dt
       break
@@ -348,26 +419,4 @@ export function packPolyline(out, points, count, samples) {
     out[o + 5] = at(s + 1, 2)
   }
   return out
-}
-
-/** Which body a craft's path should be drawn around, by whichever pulls hardest. */
-export function dominantBody(sim, craft) {
-  const c = INDEX[craft] * 6
-  let best = null
-  let strongest = -Infinity
-  for (const id of BODY_ORDER) {
-    const b = BODIES[id]
-    if (!b) continue
-    const o = INDEX[id] * 6
-    const d2 =
-      (sim.state[c] - sim.state[o]) ** 2 +
-      (sim.state[c + 1] - sim.state[o + 1]) ** 2 +
-      (sim.state[c + 2] - sim.state[o + 2]) ** 2
-    const pull = b.mass / Math.max(d2, 1)
-    if (pull > strongest) {
-      strongest = pull
-      best = id
-    }
-  }
-  return best
 }

@@ -12,7 +12,8 @@ import {
 } from './targeting.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
-import { nodeMagnitude, nodesChanged, pendingNode, resolveNode } from './nodes.js'
+import { nodeMagnitude, nodeRevision, nodesChanged, pendingNode, resolveNode } from './nodes.js'
+import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 
 /**
@@ -300,6 +301,13 @@ export const mission = {
   node: {
     active: null,
     direction: new Vector3(),
+    /**
+     * The body the active node is measured against. Decided once, on alignment,
+     * at the node's own instant — see `coastToNode` — and held through the burn.
+     */
+    body: 'earth',
+    /** Plan revision the direction was solved against; a pilot's edit re-solves it. */
+    revision: -1,
     target: 0, // m/s asked for
     delivered: 0, // m/s integrated from the applied acceleration
     burnStart: 0,
@@ -689,6 +697,61 @@ function aimLunarPrograde() {
   lunarVelocity(_retro)
   if (_retro.lengthSq() < 1) return aimThrust(_up)
   aimThrust(_retro)
+}
+
+/**
+ * A ballistic copy of the flight, coasted to a planned node's instant.
+ *
+ * The question "which body is this burn relative to?" has to be asked where the
+ * burn happens, not where the craft is when it starts turning toward it — and
+ * it has to be asked the same way the map asked it, or the pilot can plan a
+ * capture burn against the Moon and have it flown against Earth. The projection
+ * reaches the node by integrating ballistically from the present; so does this.
+ * Near a sphere-of-influence boundary that is the difference between agreeing
+ * with the map and not, and everywhere else it costs a few dozen RK4 steps once
+ * per burn — a one-shot solve on phase entry, which the allocation rule exempts.
+ *
+ * Created on first use: `live.sim` is replaced on reset, and a copy taken at
+ * import would be a copy of a simulation that no longer exists.
+ */
+let _coast = null
+function coastToNode(t) {
+  if (!_coast) _coast = live.sim.clone()
+  _coast.resetFrom(live.sim)
+  const ahead = t - live.sim.t
+  if (ahead > 0) _coast.advance(ahead, Math.min(live.maxDt, 10), 1e6)
+  return _coast
+}
+
+/**
+ * Solve the active node into the inertial direction the burn will be flown along.
+ *
+ * Resolved at the node's own instant — not the craft's present one, and not the
+ * moment of ignition — against the body whose sphere it is in there. That is the
+ * vector the projection applied, so it is the only one that flies the orbit the
+ * map drew.
+ *
+ * It used to be re-resolved from the live state while aligning and frozen at
+ * ignition. A centred burn ignites half its duration early, and the frame turns
+ * in the meantime: at lunar periselene the velocity rotates 1.35 mrad/s, so an
+ * 839 m/s capture burn frozen 108 s early was flown the whole way along a
+ * direction some 8 degrees off the one planned. Correctly measured against the
+ * Moon, it still arrived in a 48.4 x 161.5 km orbit where the map drew
+ * 95.7 x 95.7. Held on the node-instant vector instead, the errors either side
+ * of the node point opposite ways and largely cancel.
+ */
+function solveNodeBurn(node) {
+  mission.node.revision = nodeRevision()
+  if (!node) {
+    mission.node.target = 0
+    mission.node.body = 'earth'
+    mission.node.direction.set(0, 0, 0)
+    return
+  }
+  const at = coastToNode(node.t)
+  mission.node.body = dominantBody(at, 'ship')
+  mission.node.target = nodeMagnitude(node)
+  resolveNode(node, at.state, INDEX.ship * 6, INDEX[mission.node.body] * 6, mission.node.direction)
 }
 
 /**
@@ -2238,16 +2301,15 @@ const PHASES = [
     enter() {
       ship.throttle = 0
       mission.warpRequest = WARP.x1
-      const node = mission.node.active
-      mission.node.target = node ? nodeMagnitude(node) : 0
       mission.node.delivered = 0
+      solveNodeBurn(mission.node.active)
     },
     control() {
       const node = mission.node.active
       if (!node) return aimPrograde()
-      // Re-resolved while aligning, because the craft is still coasting and the
-      // frame the node was written in is moving with it. Frozen at ignition.
-      resolveNode(node, live.sim.state, INDEX.ship * 6, INDEX.earth * 6, mission.node.direction)
+      // Solved once, against the node's instant. Solved again only if the pilot
+      // edits the node while the vehicle is turning toward it.
+      if (nodeRevision() !== mission.node.revision) solveNodeBurn(node)
       if (mission.node.direction.lengthSq() === 0) return
       mission.node.pointingError = ship.forward.angleTo(mission.node.direction)
       aimThrust(mission.node.direction)
@@ -2272,11 +2334,9 @@ const PHASES = [
       mission.warpRequest = WARP.x1
       mission.node.burnStart = mission.t
       mission.node.delivered = 0
-      // Freeze the direction: from here the attitude is inertial.
-      const node = mission.node.active
-      if (node) {
-        resolveNode(node, live.sim.state, INDEX.ship * 6, INDEX.earth * 6, mission.node.direction)
-      }
+      // The direction was solved at the node's instant while aligning, and is
+      // held from here: re-resolving it now would measure the frame half a burn
+      // early, which is exactly the error solveNodeBurn exists to remove.
     },
     control() {
       if (mission.node.direction.lengthSq() > 0) aimThrust(mission.node.direction)

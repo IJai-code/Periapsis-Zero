@@ -141,7 +141,9 @@ export function setNodeTime(node, t, now, lead = 1) {
 }
 
 /** Total magnitude of a node's impulse, m/s. */
-export const nodeMagnitude = (n) => Math.hypot(n.prograde, n.normal, n.radial)
+/** Written out rather than `Math.hypot`, which allocates on every call on this V8. */
+export const nodeMagnitude = (n) =>
+  Math.sqrt(n.prograde * n.prograde + n.normal * n.normal + n.radial * n.radial)
 
 /** The next node the craft has not yet flown, or null. */
 export function pendingNode(now) {

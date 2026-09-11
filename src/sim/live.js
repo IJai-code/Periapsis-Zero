@@ -12,6 +12,7 @@ import {
   timestepLimit,
 } from './ship.js'
 import { computeLagrange } from './lagrange.js'
+import { soiRadius } from './soi.js'
 import { density, radiativeFlux, speedOfSound } from './atmosphere.js'
 
 /** Sutton-Graves constant in SI, and the capsule's heat-shield curvature. */
@@ -150,15 +151,6 @@ export const live = {
 }
 
 /**
- * Sphere-of-influence exponent, (m_moon / m_earth)^(2/5).
- *
- * Laplace's radius, scaled by the live separation rather than frozen: it comes
- * out at 66,100 km at the mean distance and swings by several thousand
- * kilometres over a month, because the Moon's orbit here is emergent.
- */
-const SOI_RATIO = Math.pow(B.moon.mass / B.earth.mass, 0.4)
-
-/**
  * Bounding radius of everything drawn, in metres — bodies by their real radius,
  * craft by half their length.
  *
@@ -218,8 +210,9 @@ export function refreshDerived(originBody = null, originOffset = null) {
 
   // Sphere of influence, from the live separation rather than a constant: the
   // Moon's radius here is emergent and swings some 45,000 km over a month.
-  //   r_SOI = d (m_moon / m_earth)^(2/5)
-  live.lunarSOI = live.metric.earthMoon * SOI_RATIO
+  // Defined once, in soi.js, because the projection and the flight computer
+  // now ask the same question and must not get a different answer.
+  live.lunarSOI = soiRadius(sim.state, 'moon')
   live.lunarRange = live.lunar.radius
   live.insideLunarSOI = live.lunarRange < live.lunarSOI
 

@@ -136,6 +136,22 @@ state, no `.map`/`.filter`/destructuring in per-frame paths, no string building
 below the HUD's own ~9 Hz refresh. One-shot solvers (targeting) are exempt and
 run on phase entry, never in the loop.
 
+Caveat, found later: a heap delta read after `gc()` measures what is *retained*,
+and garbage is not retained — a projection made to allocate an object per
+sample passed that gate at 0.02 KB. It was hiding real garbage: on V8 12.4
+`Math.hypot` allocates on every call (56 B; `Math.sqrt` of the sum of squares,
+0), and V8 drops an array's storage on `length = 0`. The planner — projection,
+sphere test, gizmo — is now measured in bytes per call across the loop with
+`scripts/allocation.mjs`, against a positive control; the figure above predates
+that and the remaining paths still need re-measuring.
+
+**A burn is measured against the body whose sphere of influence it happens in,
+at its own instant, and the map and the flight computer ask with the same
+function.** The map drew a capture burn against the Moon while the autopilot
+flew it against Earth once already — 23.5° off retrograde, periselene 112.5 km
+underground. Deciding "which body" from the craft's *present* position, or at
+ignition, reintroduces the disagreement at every sphere boundary.
+
 **No `useFrame` subscriber may take a positive priority.** In R3F, any priority
 above zero hands the render loop to that subscriber and `gl.render` is never
 called again — the scene simply stops updating while every callback keeps
@@ -322,6 +338,46 @@ Two bugs this turned up, both invisible until something tried to click:
   exactly those. A deleted node left an invisible marker that swallowed clicks
   indefinitely, since with nothing pending there was never another projection to
   overwrite it.
+
+### Frames of reference
+
+"Prograde" means nothing until a centre is chosen, and two things chose it
+wrongly. `scripts/verify-frames.mjs` flies the real mission and checks both.
+
+The drawn trajectory picked whichever body pulled hardest, m/r². The Sun
+out-pulls Earth on anything beyond ~259,000 km — but it pulls on Earth almost as
+hard, so what the craft feels *relative to Earth* is only the difference. The
+right criterion is Laplace's sphere of influence, r = d(m/M)^(2/5), which
+`live.js` already used for the Moon. Flown from TLI to ninety minutes before
+periselene:
+
+| criterion | Earth | Sun | Moon | hands over to the Moon |
+| --- | --- | --- | --- | --- |
+| largest raw pull (old) | 28.5% | **67.7%** | 3.8% | 28,269 km out |
+| sphere of influence | 87.8% | 0% | 12.2% | 65,978 km — 17 km inside its 65,995 km sphere |
+
+And every node — in the projection and in both places the flight computer turns
+a node into a direction — was measured against Earth. At lunar periselene,
+Earth's prograde axis is 23.5° off the Moon's and its normal 91.3° off.
+
+Now there is one function, `sim/soi.js`, asked at the node's *own instant*: by
+the projection as it integrates through the node, and by the flight computer,
+which coasts a scratch copy forward to the node to ask it. Fixing the frame
+exposed a second error behind it — the flight computer re-resolved the burn at
+ignition, half a burn early, and at periselene the frame turns 1.35 mrad/s.
+Solving once at the node's instant and holding that inertial vector fixed both.
+An 839.1 m/s circularisation at 95.7 km:
+
+| | lunar orbit |
+| --- | --- |
+| map (and closed form) | 95.7 × 95.7 km |
+| on Earth's axes, as it was flown before | −112.5 × 843.1 km — into the Moon |
+| on the Moon's axes, frozen at ignition | 48.4 × 161.5 km |
+| on the Moon's axes, solved at the node | **93.6 × 103.7 km** |
+
+The last row is inside the ~13.4 km a centred 216 s burn sweeping ±8.4° of arc
+should leave (cosine loss Δv·θ²/6, carried round to the far apsis), and the
+vector the map applied and the vector the autopilot held differ by 2.0e−11 rad.
 
 ## The physics
 

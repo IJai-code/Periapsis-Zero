@@ -84,6 +84,16 @@ const CLICK_SLOP = 4
  */
 const MIN_LEAD = 30
 
+/**
+ * How often the node's label text is rebuilt, in seconds.
+ *
+ * Positions follow every frame; the words do not. Formatting a delta-v and a
+ * countdown builds strings, and the render loop builds none below the HUD's own
+ * ~9 Hz — the rule the telemetry panels already keep. Ten times a second is
+ * faster than a digit can be read changing.
+ */
+const LABEL_REFRESH = 0.1
+
 const UP_Y = new THREE.Vector3(0, 1, 0)
 const AXIS_OF = { prograde: 3, normal: 6, radial: 9 }
 
@@ -139,6 +149,8 @@ export function NodeEditor({ line, host }) {
       hoverHandle: -1,
       /** Placement written by the frame loop, read by the pick handlers. */
       placed: { ok: false, radius: 0, slot: -1 },
+      /** Seconds since the label text was last rebuilt. */
+      labelClock: LABEL_REFRESH,
     }),
     [],
   )
@@ -265,8 +277,12 @@ export function NodeEditor({ line, host }) {
       if (at.z > 1) continue // behind the camera
       // Foreshortened past the point of being distinguishable — see
       // HANDLE_MIN_SPREAD_PX. Refused rather than mis-picked.
-      if (Math.hypot(at.x - cx, at.y - cy) < HANDLE_MIN_SPREAD_PX) continue
-      if (Math.hypot(at.x - px, at.y - py) <= HANDLE_GRAB_PX) {
+      const sx = at.x - cx
+      const sy = at.y - cy
+      if (sx * sx + sy * sy < HANDLE_MIN_SPREAD_PX * HANDLE_MIN_SPREAD_PX) continue
+      const gx = at.x - px
+      const gy = at.y - py
+      if (gx * gx + gy * gy <= HANDLE_GRAB_PX * HANDLE_GRAB_PX) {
         screenAxis(s.axis2, s.centreWorld, s.dir, camera, size.width, size.height)
         return {
           kind: 'handle',
@@ -279,7 +295,9 @@ export function NodeEditor({ line, host }) {
       }
     }
 
-    if (Math.hypot(cx - px, cy - py) <= CENTRE_GRAB_PX) {
+    const mx = cx - px
+    const my = cy - py
+    if (mx * mx + my * my <= CENTRE_GRAB_PX * CENTRE_GRAB_PX) {
       return { kind: 'centre', node }
     }
     return null
@@ -294,7 +312,9 @@ export function NodeEditor({ line, host }) {
       readFrame(i)
       const at = toScreen(s.centreWorld)
       if (at.z > 1) continue
-      if (Math.hypot(at.x - px, at.y - py) <= CENTRE_GRAB_PX) return plan.applied[i]
+      const gx = at.x - px
+      const gy = at.y - py
+      if (gx * gx + gy * gy <= CENTRE_GRAB_PX * CENTRE_GRAB_PX) return plan.applied[i]
     }
     return null
   }
@@ -309,7 +329,9 @@ export function NodeEditor({ line, host }) {
     if (!line || !host.current) return null
     s.raycaster.params.Line2 = { threshold: lineThreshold(line.material.linewidth, grab) }
     s.raycaster.setFromCamera(toNdc(px, py), camera)
-    s.hits.length = 0
+    // Popped, not truncated: `length = 0` makes V8 drop the backing store and
+    // the raycaster's pushes allocate a new one on every pointer move.
+    while (s.hits.length > 0) s.hits.pop()
     line.raycast(s.raycaster, s.hits)
     if (s.hits.length === 0) return null
 
@@ -327,7 +349,9 @@ export function NodeEditor({ line, host }) {
       const u = paramOnSegment(prediction.points, hit.faceIndex, s.local.x, s.local.y, s.local.z)
       s.epochs[i] = epochOnSegment(prediction, hit.faceIndex, u)
       const at = toScreen(hit.pointOnLine)
-      s.gaps[i] = Math.hypot(at.x - px, at.y - py)
+      const gx = at.x - px
+      const gy = at.y - py
+      s.gaps[i] = Math.sqrt(gx * gx + gy * gy)
     }
     const k = chooseEpoch(s.epochs, s.gaps, n, continuing)
     return k < 0 ? null : s.epochs[k]
@@ -441,7 +465,9 @@ export function NodeEditor({ line, host }) {
       const p = s.pending
       s.pending = null
       if (!p || e.button !== 0) return
-      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > CLICK_SLOP) return
+      const tx = e.clientX - p.x
+      const ty = e.clientY - p.y
+      if (tx * tx + ty * ty > CLICK_SLOP * CLICK_SLOP) return
       if (p.marker !== null) {
         selectNode(p.marker)
         return
@@ -493,7 +519,7 @@ export function NodeEditor({ line, host }) {
    * Placement
    * ------------------------------------------------------------------ */
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const g = gizmo.current
     const h = host.current
     if (!g || !h) return
@@ -577,8 +603,9 @@ export function NodeEditor({ line, host }) {
            */
           s.handleWorld.copy(s.centreWorld).addScaledVector(s.dir, radius)
           const at = toScreen(s.handleWorld)
-          const spread = Math.hypot(at.x - cx, at.y - cy)
-          if (spread < HANDLE_MIN_SPREAD_PX) {
+          const sx = at.x - cx
+          const sy = at.y - cy
+          if (sx * sx + sy * sy < HANDLE_MIN_SPREAD_PX * HANDLE_MIN_SPREAD_PX) {
             kit.handleMats[i].opacity = 0.12
             continue
           }
@@ -601,7 +628,9 @@ export function NodeEditor({ line, host }) {
             s.hoverHandle === i ? 1 : baseOpacity(hd.sign) * (0.65 + 0.35 * engaged)
         }
 
-        if (nodeText.current) {
+        s.labelClock += delta
+        if (nodeText.current && s.labelClock >= LABEL_REFRESH) {
+          s.labelClock = 0
           const dv = nodeMagnitude(node)
           nodeText.current.textContent =
             `${dv.toFixed(dv < 100 ? 1 : 0)} m/s · T−${formatTime(node.t - live.sim.t)}`

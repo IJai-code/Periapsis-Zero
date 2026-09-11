@@ -123,7 +123,7 @@ export function screenAxis(out2, worldPos, worldDir, camera, width, height) {
   const dx = (_b.x - _a.x) * width * 0.5
   // NDC y runs up, pixels run down.
   const dy = -(_b.y - _a.y) * height * 0.5
-  const len = Math.hypot(dx, dy)
+  const len = Math.sqrt(dx * dx + dy * dy)
   if (!Number.isFinite(len) || len < 1e-12) {
     out2.set(0, 0)
     return 0

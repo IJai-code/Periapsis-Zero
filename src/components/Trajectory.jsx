@@ -8,12 +8,12 @@ import { BODIES } from '../sim/constants.js'
 import {
   SAMPLES,
   clearProjection,
-  dominantBody,
   packPolyline,
   plan,
   prediction,
   project,
 } from '../sim/predict.js'
+import { dominantBody } from '../sim/soi.js'
 import { nodeRevision, nodes } from '../sim/nodes.js'
 import { NodeEditor } from './NodeEditor.jsx'
 import { useUi } from '../sim/store.js'

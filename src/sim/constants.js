@@ -28,6 +28,13 @@ export const BODIES = {
   sun: {
     id: 'sun',
     name: 'Sol',
+    /**
+     * What each body orbits, for spheres of influence (sim/soi.js). Declared
+     * rather than inferred from the state: the hierarchy is a fact about the
+     * system, and an inference from "whatever is nearest and heaviest" is the
+     * very criterion that put two-thirds of a translunar coast on the Sun.
+     */
+    parent: null,
     mass: 1.98892e30,
     radius: 6.957e8,
     spin: 25.38 * DAY,
@@ -36,6 +43,7 @@ export const BODIES = {
   earth: {
     id: 'earth',
     name: 'Terra',
+    parent: 'sun',
     mass: 5.97219e24,
     radius: 6.371e6,
     spin: 86164.0905, // sidereal day, not solar
@@ -44,6 +52,7 @@ export const BODIES = {
   moon: {
     id: 'moon',
     name: 'Luna',
+    parent: 'earth',
     mass: 7.34767309e22,
     radius: 1.7374e6,
     spin: 27.321661 * DAY, // tidally locked to its orbital period

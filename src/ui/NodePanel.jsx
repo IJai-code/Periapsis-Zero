@@ -106,6 +106,7 @@ export function NodePanel() {
 
   const fields = useRef({})
   const clock = useRef()
+  const frame = useRef()
   const total = useRef()
   const result = useRef()
 
@@ -128,19 +129,32 @@ export function NodePanel() {
         }
       }
 
+      const slot = plan.applied.indexOf(node.id)
+      if (frame.current) {
+        /**
+         * Which body "prograde" means here. It changes as the node is dragged
+         * across a sphere of influence, and the axes change with it — this is
+         * what says so, rather than the gizmo quietly swinging round.
+         */
+        const body = slot >= 0 ? BODIES[plan.nodeBodies[slot]] : null
+        frame.current.textContent = body ? `about ${body.name}` : ''
+      }
       if (result.current) {
-        const fired = plan.applied.includes(node.id)
-        if (!fired) {
+        if (slot < 0) {
           result.current.textContent = '—'
         } else {
-          const surface = BODIES[plan.reference]?.radius ?? 0
+          // About the body the last burn left the craft orbiting, not the one
+          // the line is drawn around: after a capture burn, distances from
+          // Earth describe no orbit at all.
+          const about = BODIES[plan.apsisBody]
+          const surface = about?.radius ?? 0
           const km = (r) => ((r - surface) / 1e3).toLocaleString('en-US', {
             maximumFractionDigits: 0,
           })
           result.current.textContent =
             plan.apoapsis.index < 0 || plan.periapsis.index < 0
-              ? 'escape'
-              : `${km(plan.periapsis.radius)} × ${km(plan.apoapsis.radius)} km`
+              ? `escape · ${about?.name ?? ''}`
+              : `${km(plan.periapsis.radius)} × ${km(plan.apoapsis.radius)} km · ${about?.name ?? ''}`
         }
       }
     }, TICK)
@@ -193,7 +207,10 @@ export function NodePanel() {
       ) : (
         <div className="space-y-2.5">
           <div className="flex items-baseline justify-between font-mono text-[11px]">
-            <span className="text-white/40">Node {node.id}</span>
+            <span className="text-white/40">
+              Node {node.id}
+              <span ref={frame} className="ml-1.5 text-[9px] tracking-[0.12em] text-white/30 uppercase" />
+            </span>
             <span ref={clock} className="text-hud/80">
               —
             </span>

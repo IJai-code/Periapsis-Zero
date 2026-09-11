@@ -42,6 +42,7 @@ import {
   screenAxis,
   viewDepth,
 } from '../src/gfx/gizmo.js'
+import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
 
 const MU = G * BODIES.earth.mass
 const R = BODIES.earth.radius
@@ -513,36 +514,28 @@ console.log(`  continuing from 118  picks ${selEpochs[pickAhead]} s (28 px neare
  * Two different budgets. The maths run every frame and must allocate nothing;
  * the raycast allocates inside three-stdlib — two Vector3 per hit, which is not
  * ours to fix — and is therefore driven by pointer movement rather than by the
- * frame clock. The number below is what one hover costs, so the decision to
- * gate it is made against a measurement.
+ * frame clock.
+ *
+ * Measured across the loop (scripts/allocation.mjs). The first version of this
+ * gate read the heap after a forced collection, reported the maths clean, and
+ * was blind: `screenAxis` took its length with `Math.hypot`, which on this V8
+ * allocates on every call.
  */
-const gc = globalThis.gc
 const axisTmp = new Vector2()
-for (let i = 0; i < 5000; i++) {
+const control = await knownAllocation()
+const mathBytes = await bytesPerCall(() => {
   screenAxis(axisTmp, nodeWorld, fp, camera, WIDTH, HEIGHT)
   paramOnSegment(prediction.points, 100, world.x, world.y, world.z)
   epochOnSegment(prediction, 100, 0.5)
-}
-if (gc) { gc(); gc() }
-const heap0 = process.memoryUsage().heapUsed
-const N = 200_000
-for (let i = 0; i < N; i++) {
-  screenAxis(axisTmp, nodeWorld, fp, camera, WIDTH, HEIGHT)
-  paramOnSegment(prediction.points, 100, world.x, world.y, world.z)
-  epochOnSegment(prediction, 100, 0.5)
-}
-if (gc) { gc(); gc() }
-const mathDelta = process.memoryUsage().heapUsed - heap0
-
-if (gc) { gc(); gc() }
-const heap1 = process.memoryUsage().heapUsed
-const HOVERS = 2000
-for (let i = 0; i < HOVERS; i++) pickEpoch(nodeWorld)
-const hoverDelta = process.memoryUsage().heapUsed - heap1
+}, { calls: 20000, warm: 20000 })
+const hover = await bytesPerCall(() => pickEpoch(nodeWorld), { calls: 512, warm: 500, windows: 5 })
 
 console.log('\n=== allocation ===')
-console.log(`  gizmo maths     ${(mathDelta / 1024).toFixed(2)} KB over ${N.toLocaleString('en-US')} calls`)
-console.log(`  one hover pick  ${(hoverDelta / HOVERS).toFixed(0)} bytes — three-stdlib's, gated on pointer motion`)
+if (mathBytes) {
+  console.log(`  gizmo maths     ${mathBytes.bytes.toFixed(1)} B per frame's worth of calls`)
+  console.log(`  one hover pick  ${hover.bytes.toFixed(0)} B — raycast plus this harness's bookkeeping; pointer-gated, not per frame`)
+  console.log(`  control object  ${control.bytes.toFixed(0)} B — proof the measurement can see one`)
+}
 
 /* ---- verdict ---- */
 console.log('\n=== what this establishes ===')
@@ -589,7 +582,9 @@ const checks = [
   ['with no gesture in progress the nearest pixel wins', pickCold === 0],
   ['at a crossing, the candidate that continues the gesture wins', pickCrossing === 1],
   ['but a clearly nearer candidate is not overruled by continuity', pickAhead === 0],
-  ['the per-frame maths allocate nothing', !gc || Math.abs(mathDelta) < 64 * 1024],
+  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
+  // Under the smallest object there is: not even one allocation per frame.
+  ['the per-frame maths allocate nothing', !mathBytes || mathBytes.bytes < SMALLEST_OBJECT / 2],
 ]
 let pass = true
 for (const [label, ok] of checks) {

@@ -28,11 +28,11 @@ import {
   OPEN_HORIZON,
   SAMPLES,
   SUBSTEPS_PER_SAMPLE,
-  dominantBody,
   packPolyline,
   prediction,
   project,
 } from '../src/sim/predict.js'
+import { dominantBody } from '../src/sim/soi.js'
 
 const MU_EARTH = G * BODIES.earth.mass
 

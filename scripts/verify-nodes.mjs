@@ -31,6 +31,7 @@ import { BODIES, G } from '../src/sim/constants.js'
 import { WARP } from '../src/sim/warp.js'
 import { addNode, clearNodes, nodeMagnitude, nodes, resolveNode } from '../src/sim/nodes.js'
 import { plan, prediction, project } from '../src/sim/predict.js'
+import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
 import { Vector3 } from 'three'
 
 const MU = G * BODIES.earth.mass
@@ -218,22 +219,26 @@ console.log(`  autopilot flew   ${((flownApo - R) / 1e3).toFixed(2)} km` +
 console.log(`  finite-burn loss is expected: the projection is an impulse, the burn is not`)
 
 /* ---- allocation ---- */
-const gc = globalThis.gc
 clearNodes()
 addNode(tBurn, { prograde: dvHohmann })
-for (let i = 0; i < 200; i++) project(live.sim, scratch, 'ship', 'earth', period, plan, nodes)
-if (gc) {
-  gc()
-  gc()
-}
-const heap0 = process.memoryUsage().heapUsed
-const N = 1500
-for (let i = 0; i < N; i++) project(live.sim, scratch, 'ship', 'earth', period, plan, nodes)
-if (gc) {
-  gc()
-  gc()
-}
-const delta = process.memoryUsage().heapUsed - heap0
+/**
+ * Bytes allocated per projection, measured across the loop — not heap left over
+ * after a collection, which is what this gate used to read and which cannot see
+ * garbage at all (scripts/allocation.mjs has the mutation that proved it). On
+ * that measurement this check passed while the projection was allocating a
+ * `Math.hypot` result per sample, some 34 KB a call.
+ *
+ * The limit is a kilobyte a projection. Anything allocated per *sample* is at
+ * least 512 x 12 B = 6 KB and fails with room to spare; what remains, measured
+ * between 30 and 240 B depending on the run, is at the edge of what a
+ * heap-delta can resolve and is not claimed to be zero.
+ */
+const control = await knownAllocation()
+const perProjection = await bytesPerCall(
+  () => project(live.sim, scratch, 'ship', 'earth', period, plan, nodes),
+  { calls: 512, warm: 3000, windows: 5 },
+)
+const PROJECTION_BUDGET = 1024
 
 console.log('\n=== what this establishes ===')
 /**
@@ -270,7 +275,8 @@ const checks = [
    */
   ['a zero node changes nothing', zeroGap / r1 < 1e-9],
   ['a node carries its own magnitude', Math.abs(nodeMagnitude(nodes[0]) - dvHohmann) < 1e-9],
-  ['projecting with nodes allocates nothing', !gc || Math.abs(delta) < 64 * 1024],
+  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
+  ['projecting with a node allocates under a kilobyte', !perProjection || perProjection.bytes < PROJECTION_BUDGET],
   ['the sequencer preempted the coast to fly the node', sawAlign && sawBurn],
   ['and marked it flown', node.executed],
   ['it delivered what was asked, to 1 m/s', Math.abs(mission.node.delivered - dvHohmann) < 1],
@@ -287,6 +293,9 @@ for (const [label, ok] of checks) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}`)
   if (!ok) pass = false
 }
-console.log(`\n  heap delta ${(delta / 1024).toFixed(2)} KB over ${N} projections`)
+if (perProjection) {
+  console.log(`\n  allocation: ${perProjection.bytes.toFixed(0)} B per projection (budget ${PROJECTION_BUDGET}),` +
+    ` control object ${control.bytes.toFixed(0)} B`)
+}
 console.log(`  ${pass ? 'PASS' : 'FAIL'}`)
 process.exit(pass ? 0 : 1)
