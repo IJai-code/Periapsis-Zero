@@ -692,14 +692,31 @@ path crosses *any* parking plane twice a lunar month, whatever its inclination.
 Measured over sixty days, the Moon comes within 0.01° of all four planes,
 Vandenberg's included, so a window is available there as much as anywhere.
 
-What is true is only that this sequencer did not find it. The ignition test
-wants the craft's apoapsis direction within 0.6° of where the Moon will be, and
-apoapsis sweeps the entire plane every 88 minutes — so the *instantaneous*
-alignment passes through small values twice an orbit whether or not a real
-window is open, and the warp ladder that reads `timeToWindow` from how fast the
-alignment is closing drops to real time each time it does. That is a plausible
-mechanism and it has not been demonstrated. It is an open question, not a
-result.
+That mechanism turned out to be real, and to affect every site rather than
+this one. The ignition test wants apoapsis within 0.6° of where the Moon will
+be, and apoapsis sweeps the whole plane every 88 minutes — so the instantaneous
+alignment dives toward zero and climbs again twice an orbit whether or not a
+window is open. The warp ladder read its time-to-window from how fast that
+angle was closing, so it saw a window arriving every few minutes and held real
+time indefinitely: measured, **every pad spent essentially every frame at 1×**,
+buying four simulated seconds each, and Kennedy took 720,697 frames to reach a
+window nine days out.
+
+The ladder now steers by how far the Moon's arrival point lies out of the
+parking plane — the half of the problem that moves on the timescale the window
+lives on, and which forbids a window outright while it is large. Same windows,
+same days, same burns:
+
+| pad | window at | frames before | frames after |
+| --- | --- | --- | --- |
+| Kennedy | day 9.2 | 720,697 | 23,629 |
+| Kourou | day 12.0 | 1,585,455 | 23,750 |
+| Baikonur | day 5.7 | 568,654 | 21,545 |
+| Vandenberg | day 12.8 | 420,600 | 11,385 |
+
+So Vandenberg was never the outlier at TLI — it found its window in *fewer*
+frames than Kennedy. Where it actually stalls is further down the mission and
+is not yet established.
 
 ## Surface launch
 

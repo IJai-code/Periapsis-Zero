@@ -29,6 +29,17 @@ import { BODIES, G, G0, SHIP } from './constants.js'
  * therefore current.
  */
 
+/**
+ * Plane-gap thresholds for the translunar warp ladder, radians.
+ *
+ * Coarse: beyond this the Moon cannot be in the plane soon, so run time hard —
+ * at 6 h/s a frame is 36 minutes, and the gap moves about a third of a degree
+ * in that. Fine: close enough to want the craft's own orbital position
+ * resolved, at which point the alignment takes over.
+ */
+const TLI_PLANE_COARSE = 5 * (Math.PI / 180)
+const TLI_PLANE_FINE = 1 * (Math.PI / 180)
+
 const _up = new Vector3()
 const _east = new Vector3()
 const _north = new Vector3()
@@ -326,6 +337,8 @@ export const mission = {
     targetPhase: 0, // rad the Moon must lead the ship by at ignition
     phase: 0, // rad the Moon currently leads by
     timeToWindow: Infinity, // s
+    /** How far the Moon's arrival point lies out of the parking plane, rad. */
+    outOfPlane: Math.PI,
     /** 3D angle between where apoapsis will point and where the Moon will be. */
     alignment: Math.PI,
     lastAlignment: Math.PI,
@@ -1402,6 +1415,19 @@ function updateTLI() {
   const cosAlign = _apoDir.dot(_future)
   tli.alignment = Math.acos(cosAlign > 1 ? 1 : cosAlign < -1 ? -1 : cosAlign)
 
+  /**
+   * How far out of the parking plane the Moon's arrival point lies.
+   *
+   * The slow half of the problem, and the half worth steering time by.
+   * `alignment` mixes two rates: the craft sweeps its whole plane every 88
+   * minutes, so the angle it reports dives toward zero and climbs again twice
+   * an orbit whether or not a window is open at all. This does not — it is set
+   * by the Moon, and it changes over days.
+   */
+  const hLen = _hs.length()
+  const outDot = hLen > 0 ? _hs.dot(_future) / hLen : 0
+  tli.outOfPlane = Math.asin(outDot > 1 ? 1 : outDot < -1 ? -1 : outDot)
+
   // Time to the window from how fast the alignment is closing. Measured rather
   // than derived, because it depends on both bodies and on the flight time,
   // which itself moves with the Moon's radius.
@@ -1673,12 +1699,27 @@ const PHASES = [
     control() {
       aimPrograde()
       const tli = updateTLI()
-      // Same ladder as the apoapsis coast: warp hard while the window is far
-      // off, then buy back resolution as it closes.
-      const t = tli.timeToWindow
-      // Wider tolerance further out: the alignment sweeps fast, and a frame at
-      // 1 hr/s covers a minute of it.
-      mission.warpRequest = t > 7200 ? WARP.h6 : t > 3600 ? WARP.h1 : t > 600 ? WARP.m1 : WARP.x1
+      /**
+       * Steered by how far the *Moon* is from the plane, not by the alignment.
+       *
+       * The alignment closes and reopens twice an orbit as apoapsis sweeps the
+       * plane, so a ladder reading its rate of closure sees a window arriving
+       * every few minutes and holds real time indefinitely: measured, every
+       * site spent essentially every frame at 1x and bought four simulated
+       * seconds for each one, taking half a million frames to reach a window
+       * nine days out. The Moon's distance from the plane moves on the
+       * timescale the window actually lives on, and no window can open while it
+       * is large however the craft is pointed.
+       */
+      const out = Math.abs(tli.outOfPlane)
+      mission.warpRequest =
+        out > TLI_PLANE_COARSE
+          ? WARP.h6
+          : out > TLI_PLANE_FINE
+            ? WARP.h1
+            : tli.alignment > PROFILE.phaseTolerance * 8
+              ? WARP.m1
+              : WARP.x1
     },
     done: () => mission.tli.alignment <= PROFILE.phaseTolerance,
     next: () => INDEX_OF.TLI_BURN,
