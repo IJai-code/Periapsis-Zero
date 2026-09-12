@@ -101,6 +101,16 @@ function makeProjection() {
   times: new Float64Array(SAMPLES),
   /** Which body the path is drawn around. */
   reference: 'earth',
+  /**
+   * Absolute simulated time this pass started from; `times` are measured from it.
+   *
+   * Needed because the two projections are refreshed on different triggers — the
+   * ballistic one on a clock, the planned one whenever the plan changes — so
+   * their epochs can be measured from instants a fifth of a second apart. A
+   * click on one line converted through the *live* clock instead of through its
+   * own pass lands 1.5 km away at orbital speed.
+   */
+  t0: 0,
   /** Simulated span covered, s. */
   span: 0,
   /** True when the pass ended by completing a revolution, rather than at a limit. */
@@ -418,6 +428,7 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
   _out[DRAG_K] = scratch.dragK[INDEX[craft] - ORDER.length] ?? 0
 
   out.reference = reference
+  out.t0 = sim.t
   out.closed = false
   out.truncated = false
   out.apoapsis.index = -1
@@ -460,6 +471,15 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
        * first and measuring afterwards would rotate prograde by the very
        * thing being measured.
        */
+      /**
+       * A node being dragged through time is *deferred*: its frame is recorded,
+       * so the gizmo stays on it, but its impulse is not applied. The drawn plan
+       * is then the path the node is sliding along — every earlier burn, and not
+       * its own — which is the line the pointer is picking against. Applying it
+       * would draw the node's own result and leave the pilot scrubbing along a
+       * trajectory that only exists if the node stays where it already is.
+       */
+      const deferred = next.deferred === true
       const body = dominantBody(scratch, craft)
       const b = INDEX[body] * 6
       const slot = out.applied.length
@@ -479,16 +499,19 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
         out.nodeSpeeds[slot] = Math.sqrt(vx * vx + vy * vy + vz * vz)
         out.nodeBodies[slot] = body
       }
+      out.applied.push(next.id)
+      if (applied < _nodeStep.length) _nodeStep[applied] = n
+      applied++
+      _forced[n] = 1
+      nodeAt++
+      if (deferred) continue
+
       // Position stays relative to `reference`, the frame the line and the gizmo
       // are drawn in; only the *axes* belong to the node's own body.
       resolveNode(next, s, c, b, _dv)
       s[c + 3] += _dv.x
       s[c + 4] += _dv.y
       s[c + 5] += _dv.z
-      out.applied.push(next.id)
-      if (applied < _nodeStep.length) _nodeStep[applied] = n
-      applied++
-      _forced[n] = 1
       lastNodeStep = n
 
       // A burn is a new orbit: its revolution and its apsides belong to its body.
@@ -500,7 +523,6 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
       py = s[c + 1] - s[b + 1]
       pz = s[c + 2] - s[b + 2]
       _radius[n] = Math.sqrt(px * px + py * py + pz * pz)
-      nodeAt++
       continue
     }
 

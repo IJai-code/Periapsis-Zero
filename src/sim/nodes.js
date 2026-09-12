@@ -80,6 +80,13 @@ export function addNode(t, dv = {}) {
     radial: dv.radial ?? 0,
     /** Set once the sequencer has flown it, so it stops being a plan. */
     executed: false,
+    /**
+     * Set while the pilot is dragging this node through time. The projection
+     * records its frame but skips its impulse, so the drawn plan is the path it
+     * is sliding along rather than the one it would produce. Transient: never
+     * true outside a drag.
+     */
+    deferred: false,
   }
   nodes.push(node)
   sortNodes()
@@ -137,6 +144,13 @@ export function setNodeTime(node, t, now, lead = 1) {
   if (node.t === next) return
   node.t = next
   sortNodes()
+  nodesChanged()
+}
+
+/** Hold a node's impulse out of the plan while it is dragged through time. */
+export function deferNode(node, on) {
+  if (!node || node.deferred === on) return
+  node.deferred = on
   nodesChanged()
 }
 

@@ -26,7 +26,7 @@ import { beginCountdown, currentPhase, resetMission } from '../src/sim/mission.j
 import { BODIES, G } from '../src/sim/constants.js'
 import { INDEX } from '../src/sim/system.js'
 import { WARP } from '../src/sim/warp.js'
-import { addNode, clearNodes, nodeBasis, nodes, setNodeTime } from '../src/sim/nodes.js'
+import { addNode, clearNodes, nodeBasis, nodes, removeNode, setNodeTime } from '../src/sim/nodes.js'
 import { SAMPLES, packPolyline, plan, prediction, project } from '../src/sim/predict.js'
 import {
   CROSSING_PX,
@@ -399,6 +399,13 @@ console.log(`    position          ${framePos.distanceTo(probePos).toFixed(3)} m
  * it down in the verdict would be reporting the last one instead of this one.
  */
 const firedAt = plan.nodeTimes[0]
+/**
+ * And what it was asked for, captured alongside it. Later sections advance the
+ * simulation — deliberately, to put the two projections a fifth of a second
+ * apart — so a lead recomputed against the clock down in the verdict is a lead
+ * from a different instant than the one measured here.
+ */
+const firedWanted = tBurn - live.sim.t
 console.log(`  node fires at       ${firedAt.toFixed(3)} s from now (asked ${(tBurn - live.sim.t).toFixed(3)})`)
 
 /* ---- 4. drag the prograde handle, and check where the orbit ends up ---- */
@@ -509,7 +516,154 @@ console.log(`  the node is ${(gizmoRange / 1e3).toFixed(0)} km from the lens, ` 
   `${(((gizmoRange - gizmoDepth) / gizmoDepth) * 100).toFixed(1)}% further than it is deep`)
 console.log(`  measured back        ${gotPx.toFixed(3)} px`)
 
-/* ---- 8. choosing between candidates ---- */
+/* ---- 8. clicking the path the plan draws ---- */
+/**
+ * A second burn is planned on the orbit the first one produces, and that orbit
+ * exists only as the amber line. Three things have to hold for a click on it to
+ * mean anything: it must be read off the *planned* samples, its instant must be
+ * converted through the pass that drew them rather than through the clock, and a
+ * node being dragged must stop bending the very line it is being dragged along.
+ */
+clearNodes()
+project(live.sim, scratch, 'ship', 'earth', period, prediction)
+const firstBurn = live.sim.t + prediction.periapsis.time
+addNode(firstBurn, { prograde: 400 })
+
+/**
+ * The two passes are deliberately made from instants a fifth of a second apart,
+ * which is what the renderer does: the ballistic path is on a clock and the
+ * planned one is redrawn whenever the plan changes.
+ */
+const SKEW = 0.2
+live.sim.advance(SKEW, 0.05, 4096)
+project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+const skew = plan.t0 - prediction.t0
+
+const planGeometry = new LineGeometry()
+planGeometry.setPositions(new Float32Array(SAMPLES * 3))
+const planMaterial = new LineMaterial({ linewidth: LINEWIDTH })
+planMaterial.resolution.set(WIDTH, HEIGHT)
+const planLine = new Line2(planGeometry, planMaterial)
+planLine.frustumCulled = false
+group.add(planLine)
+const planAttr = planLine.geometry.attributes.instanceStart.data
+packPolyline(planAttr.array, plan.points, plan.count, SAMPLES)
+planAttr.needsUpdate = true
+planLine.geometry.computeBoundingBox()
+planLine.geometry.computeBoundingSphere()
+group.updateMatrixWorld(true)
+
+/** Both paths offered at once, exactly as the editor offers them. */
+function pickEither(point) {
+  const want = screenOf(point)
+  world.copy(point).project(camera)
+  ndc.set(world.x, world.y)
+  raycaster.setFromCamera(ndc, camera)
+  let n = 0
+  for (const [object, projection] of [[line, prediction], [planLine, plan]]) {
+    const hits = []
+    object.raycast(raycaster, hits)
+    for (let i = 0; i < hits.length && n < epochBuf.length; i++, n++) {
+      local.copy(hits[i].pointOnLine).sub(GROUP_AT)
+      const u = paramOnSegment(projection.points, hits[i].faceIndex, local.x, local.y, local.z)
+      epochBuf[n] = epochOnSegment(projection, hits[i].faceIndex, u)
+      owners[n] = projection
+      const at = screenOf(hits[i].pointOnLine)
+      gapBuf[n] = Math.hypot(at.x - want.x, at.y - want.y)
+    }
+  }
+  if (n === 0) return null
+  const k = chooseEpoch(epochBuf, gapBuf, n, null)
+  return k < 0 ? null : { epoch: epochBuf[k], owner: owners[k], onPlan: owners[k] === plan }
+}
+const owners = new Array(64).fill(null)
+
+/** A point on the amber line well past the burn, where the two have parted. */
+const afterBurn = Math.min(plan.count - 2, (plan.nodeSamples[0] ?? 0) + 120)
+const planPoint = new Vector3(
+  plan.points[afterBurn * 3],
+  plan.points[afterBurn * 3 + 1],
+  plan.points[afterBurn * 3 + 2],
+).add(GROUP_AT)
+const ballisticAtSame = new Vector3(
+  prediction.points[afterBurn * 3],
+  prediction.points[afterBurn * 3 + 1],
+  prediction.points[afterBurn * 3 + 2],
+).add(GROUP_AT)
+const parted = planPoint.distanceTo(ballisticAtSame)
+
+const gotPlan = pickEither(planPoint)
+const wantAbsolute = plan.t0 + plan.times[afterBurn]
+const gotAbsolute = gotPlan ? gotPlan.owner.t0 + gotPlan.epoch : NaN
+const clockAbsolute = gotPlan ? live.sim.t + gotPlan.epoch : NaN
+
+/* And a click on the cyan line, where reading the clock instead of the pass costs. */
+const cyanPoint = new Vector3(
+  prediction.points[40 * 3],
+  prediction.points[40 * 3 + 1],
+  prediction.points[40 * 3 + 2],
+).add(GROUP_AT)
+const gotCyan = pickEither(cyanPoint)
+const cyanWant = prediction.t0 + prediction.times[40]
+const cyanGot = gotCyan ? gotCyan.owner.t0 + gotCyan.epoch : NaN
+const cyanByClock = gotCyan ? live.sim.t + gotCyan.epoch : NaN
+const speedThere = Math.hypot(
+  live.sim.state[shipO + 3] - live.sim.state[earthO + 3],
+  live.sim.state[shipO + 4] - live.sim.state[earthO + 4],
+  live.sim.state[shipO + 5] - live.sim.state[earthO + 5],
+)
+
+/* A node planned there lands where it was clicked. */
+const second = addNode(gotAbsolute, { prograde: 0 })
+project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+const secondSlot = plan.applied.indexOf(second.id)
+const secondAt = secondSlot >= 0
+  ? new Vector3(
+      plan.nodeFrames[secondSlot * 12],
+      plan.nodeFrames[secondSlot * 12 + 1],
+      plan.nodeFrames[secondSlot * 12 + 2],
+    ).add(GROUP_AT)
+  : null
+const landedGap = secondAt ? secondAt.distanceTo(planPoint) : Infinity
+
+/* Deferring the dragged node: frame kept, impulse withheld. */
+second.prograde = 250
+project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+const withSecond = new Vector3(
+  plan.points[(plan.count - 1) * 3],
+  plan.points[(plan.count - 1) * 3 + 1],
+  plan.points[(plan.count - 1) * 3 + 2],
+)
+second.deferred = true
+project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+const deferredEnd = new Vector3(
+  plan.points[(plan.count - 1) * 3],
+  plan.points[(plan.count - 1) * 3 + 1],
+  plan.points[(plan.count - 1) * 3 + 2],
+)
+const deferredSlot = plan.applied.indexOf(second.id)
+removeNode(second.id)
+project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+const withoutSecond = new Vector3(
+  plan.points[(plan.count - 1) * 3],
+  plan.points[(plan.count - 1) * 3 + 1],
+  plan.points[(plan.count - 1) * 3 + 2],
+)
+
+console.log('\n=== clicking the planned path ===')
+console.log(`  the two passes are ${skew.toFixed(3)} s apart, as the renderer leaves them`)
+console.log(`  at that point they have parted by ${(parted / 1e3).toFixed(1)} km`)
+console.log(`  picked from         ${gotPlan ? (gotPlan.onPlan ? 'the planned path' : 'the ballistic path') : 'nothing'}`)
+console.log(`  instant recovered   ${(gotAbsolute - wantAbsolute).toExponential(2)} s out` +
+  `   — read off the clock instead: ${(clockAbsolute - wantAbsolute).toFixed(3)} s`)
+console.log(`  a cyan click        ${(cyanGot - cyanWant).toExponential(2)} s out` +
+  `   — off the clock: ${(cyanByClock - cyanWant).toFixed(3)} s, worth ${((cyanByClock - cyanWant) * speedThere / 1e3).toFixed(2)} km at ${(speedThere / 1e3).toFixed(2)} km/s`)
+console.log(`  a node planned there lands ${landedGap.toFixed(1)} m from the click`)
+console.log(`  deferred            frame kept ${deferredSlot >= 0}, path moves ` +
+  `${deferredEnd.distanceTo(withoutSecond).toFixed(3)} m from the plan without it` +
+  ` (with it applied: ${(withSecond.distanceTo(withoutSecond) / 1e3).toFixed(0)} km)`)
+
+/* ---- 9. choosing between candidates ---- */
 /**
  * The rule that decides which bit of an overlapping line the pointer means,
  * exercised on made-up candidates so the two cases can be posed exactly.
@@ -537,7 +691,7 @@ console.log(`  no gesture          picks ${selEpochs[pickCold]} s (nearest pixel
 console.log(`  continuing from 3900 picks ${selEpochs[pickCrossing]} s (same pixel, continues)`)
 console.log(`  continuing from 118  picks ${selEpochs[pickAhead]} s (28 px nearer wins)`)
 
-/* ---- 9. allocation ---- */
+/* ---- 10. allocation ---- */
 /**
  * Two different budgets. The maths run every frame and must allocate nothing;
  * the raycast allocates inside three-stdlib — two Vector3 per hit, which is not
@@ -592,7 +746,7 @@ const checks = [
    * pilot could aim at, and far above the noise.
    */
   ['it matches an independent integration to the same instant', frameAngle < 1e-5],
-  ['the node fires when it was told to', Math.abs(firedAt - (tBurn - live.sim.t)) < 1e-6],
+  ['the node fires when it was told to', Math.abs(firedAt - firedWanted) < 1e-6],
   ['the screen axis is a unit vector', Math.abs(Math.hypot(axis2.x, axis2.y) - 1) < 1e-12],
   /**
    * A kilometre on a 1,400 km apoapsis: the same allowance verify-nodes makes,
@@ -607,6 +761,27 @@ const checks = [
   ['scrubbing moves the node along the drawn path', worstScrub < 2 * sag],
   ['a node cannot be scrubbed into the past', clampedAhead >= 1],
   ['a pixel size is the pixel size asked for', Math.abs(gotPx - wantPx) < 0.5],
+  ['a click on the planned path is read off the planned path', gotPlan !== null && gotPlan.onPlan],
+  ['where the two have visibly parted', parted > 1e4],
+  /**
+   * Against the float32 floor, not a round number. The click is read back
+   * through the drawn buffer, which is float32 metres, so the instant can be no
+   * sharper than the quantisation of a vertex divided by orbital speed — the
+   * same floor the picking section measures at a tenth of a millisecond.
+   */
+  ['its instant comes back below the float32 floor', Math.abs(gotAbsolute - wantAbsolute) < float32Floor],
+  /**
+   * The two passes are made a fifth of a second apart, so reading either one's
+   * epoch off the live clock is wrong by that much — 1.5 km of arc at orbital
+   * speed, which is the whole reason each pass records the instant it began.
+   */
+  ['reading it off the clock instead would be a fifth of a second out',
+    Math.abs(cyanByClock - cyanWant) > SKEW * 0.9],
+  ['while its own pass stays below that floor', Math.abs(cyanGot - cyanWant) < float32Floor],
+  ['a node planned there lands within a metre of the click', landedGap < 1],
+  ['a deferred node keeps its handle', deferredSlot >= 0],
+  ['and stops bending the line it is dragged along',
+    deferredEnd.distanceTo(withoutSecond) < 1 && withSecond.distanceTo(withoutSecond) > 1e4],
   ['with no gesture in progress the nearest pixel wins', pickCold === 0],
   ['at a crossing, the candidate that continues the gesture wins', pickCrossing === 1],
   ['but a clearly nearer candidate is not overruled by continuity', pickAhead === 0],

@@ -6,6 +6,7 @@ import { live } from '../sim/live.js'
 import { MAX_NODE_FRAMES, plan, prediction } from '../sim/predict.js'
 import {
   addNode,
+  deferNode,
   nodeMagnitude,
   nodes,
   removeNode,
@@ -110,7 +111,7 @@ function formatTime(seconds) {
     : `${m}:${String(r).padStart(2, '0')}`
 }
 
-export function NodeEditor({ line, host }) {
+export function NodeEditor({ line, planLine, host }) {
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
   const size = useThree((s) => s.size)
@@ -133,8 +134,10 @@ export function NodeEditor({ line, host }) {
       gaps: new Float64Array(64),
       segments: new Int32Array(64),
       params: new Float64Array(64),
+      /** Which projection each candidate came from, parallel to the arrays above. */
+      owners: new Array(64).fill(null),
       /** The drawn segment and position along it that the last pick chose. */
-      picked: { segment: -1, param: 0 },
+      picked: { segment: -1, param: 0, projection: prediction },
       ndc: new THREE.Vector2(),
       centreLocal: new THREE.Vector3(),
       centreWorld: new THREE.Vector3(),
@@ -329,42 +332,73 @@ export function NodeEditor({ line, host }) {
    * `grab` widens the tolerance for a scrub in progress, where losing the line
    * mid-gesture would drop the node rather than move it.
    */
-  const pickLine = (px, py, grab = LINE_GRAB_PX, continuing = null) => {
-    if (!line || !host.current) return null
-    s.raycaster.params.Line2 = { threshold: lineThreshold(line.material.linewidth, grab) }
+  /**
+   * Score one drawn path's hits into the candidate arrays.
+   *
+   * Every candidate is scored twice: when it happens, and how far from the
+   * pointer it is drawn. The second is measured in screen pixels rather than
+   * taken from the raycaster's own 3D miss distance, because "the bit of line
+   * under the cursor" is a statement about pixels, and at a crossing the two
+   * criteria disagree.
+   */
+  const gather = (object, projection, px, py, grab, from) => {
+    s.raycaster.params.Line2 = { threshold: lineThreshold(object.material.linewidth, grab) }
     s.raycaster.setFromCamera(toNdc(px, py), camera)
     // Popped, not truncated: `length = 0` makes V8 drop the backing store and
     // the raycaster's pushes allocate a new one on every pointer move.
     while (s.hits.length > 0) s.hits.pop()
-    line.raycast(s.raycaster, s.hits)
-    if (s.hits.length === 0) return null
+    object.raycast(s.raycaster, s.hits)
 
-    /**
-     * Every candidate scored twice: when it happens, and how far from the
-     * pointer it is drawn. The second is measured in screen pixels rather than
-     * taken from the raycaster's own 3D miss distance, because "the bit of line
-     * under the cursor" is a statement about pixels, and at a crossing the two
-     * criteria disagree.
-     */
-    const n = Math.min(s.hits.length, s.epochs.length)
-    for (let i = 0; i < n; i++) {
+    let n = from
+    for (let i = 0; i < s.hits.length && n < s.epochs.length; i++, n++) {
       const hit = s.hits[i]
       s.local.copy(hit.pointOnLine).sub(host.current.position)
-      const u = paramOnSegment(prediction.points, hit.faceIndex, s.local.x, s.local.y, s.local.z)
-      s.segments[i] = hit.faceIndex
-      s.params[i] = u
-      s.epochs[i] = epochOnSegment(prediction, hit.faceIndex, u)
+      const u = paramOnSegment(projection.points, hit.faceIndex, s.local.x, s.local.y, s.local.z)
+      s.segments[n] = hit.faceIndex
+      s.params[n] = u
+      s.owners[n] = projection
+      s.epochs[n] = epochOnSegment(projection, hit.faceIndex, u)
       const at = toScreen(hit.pointOnLine)
       const gx = at.x - px
       const gy = at.y - py
-      s.gaps[i] = Math.sqrt(gx * gx + gy * gy)
+      s.gaps[n] = Math.sqrt(gx * gx + gy * gy)
     }
+    return n
+  }
+
+  /**
+   * Where on either drawn path the pointer is, as seconds from that path's own
+   * start.
+   *
+   * Both paths are offered and the nearest pixel decides. The planned one is
+   * why this exists: a second burn is planned on the orbit the first one
+   * produces, and that orbit is drawn only in amber. Reading such a click off
+   * the cyan line would put the node on a trajectory the craft is no longer
+   * going to fly. Before the first burn the two coincide and agree anyway.
+   */
+  const pickLine = (px, py, grab = LINE_GRAB_PX, continuing = null) => {
+    if (!line || !host.current) return null
+    let n = gather(line, prediction, px, py, grab, 0)
+    if (planLine && planLine.visible) n = gather(planLine, plan, px, py, grab, n)
+    if (n === 0) return null
     const k = chooseEpoch(s.epochs, s.gaps, n, continuing)
     if (k < 0) return null
     s.picked.segment = s.segments[k]
     s.picked.param = s.params[k]
+    s.picked.projection = s.owners[k]
     return s.epochs[k]
   }
+
+  /**
+   * An epoch on a drawn path, as absolute simulated time.
+   *
+   * Through that path's own `t0` rather than the live clock. The two are
+   * refreshed on different triggers — the cyan one on a fifth-of-a-second
+   * clock, the amber one whenever the plan changes — so their epochs are
+   * measured from instants that far apart, which at orbital speed is 1.5 km of
+   * misplacement for a node.
+   */
+  const absolute = (epoch, projection) => (projection ? projection.t0 : live.sim.t) + epoch
 
   /* ------------------------------------------------------------------ *
    * Gestures
@@ -375,6 +409,7 @@ export function NodeEditor({ line, host }) {
     const parent = canvas.parentElement ?? canvas
 
     const endDrag = () => {
+      if (s.drag && s.drag.kind === 'scrub') deferNode(s.drag.node, false)
       s.drag = null
       window.removeEventListener('pointermove', onDragMove)
       window.removeEventListener('pointerup', onDragEnd)
@@ -390,7 +425,7 @@ export function NodeEditor({ line, host }) {
         const epoch = pickLine(e.clientX, e.clientY, SCRUB_GRAB_PX, d.epoch)
         if (epoch === null) return
         d.epoch = epoch
-        setNodeTime(d.node, live.sim.t + epoch, live.sim.t, MIN_LEAD)
+        setNodeTime(d.node, absolute(epoch, s.picked.projection), live.sim.t, MIN_LEAD)
         return
       }
 
@@ -432,6 +467,9 @@ export function NodeEditor({ line, host }) {
         e.stopPropagation()
         e.preventDefault()
         if (hit.kind === 'centre') {
+          // Held out of the plan for the duration: the amber line then draws the
+          // path this node slides along rather than the one it produces.
+          deferNode(hit.node, true)
           s.drag = { kind: 'scrub', node: hit.node, epoch: hit.node.t - live.sim.t }
         } else {
           const h = HANDLES[hit.index]
@@ -466,7 +504,15 @@ export function NodeEditor({ line, host }) {
       const epoch = marker === null ? pickLine(e.clientX, e.clientY) : null
       s.pending =
         marker !== null || epoch !== null
-          ? { marker, epoch, x: e.clientX, y: e.clientY }
+          ? {
+              marker,
+              epoch,
+              // Captured now: hovering between press and release re-picks, and
+              // the path under the pointer then is not the one pressed on.
+              from: s.picked.projection,
+              x: e.clientX,
+              y: e.clientY,
+            }
           : null
     }
 
@@ -481,7 +527,7 @@ export function NodeEditor({ line, host }) {
         selectNode(p.marker)
         return
       }
-      const node = addNode(live.sim.t + Math.max(p.epoch, MIN_LEAD))
+      const node = addNode(Math.max(absolute(p.epoch, p.from), live.sim.t + MIN_LEAD))
       selectNode(node.id)
     }
 
@@ -666,7 +712,7 @@ export function NodeEditor({ line, host }) {
             // following the curve.
             const o = s.picked.segment * 3
             const u = s.picked.param
-            const P = prediction.points
+            const P = (s.picked.projection || prediction).points
             gh.position.set(
               P[o] + (P[o + 3] - P[o]) * u,
               P[o + 1] + (P[o + 4] - P[o + 1]) * u,

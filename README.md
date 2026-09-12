@@ -340,6 +340,32 @@ What that buys, end to end:
   month away exhausts the step budget and the projection says `truncated`
   instead of taking as long as it takes inside a render frame.
 
+### Planning a burn on the result of another
+
+Both drawn paths are pickable, and the nearest pixel decides between them. That
+is what makes a second burn possible at all: it is planned on the orbit the
+first one produces, and that orbit exists only as the amber line — measured at
+the point tested, the two paths have parted by 3,347 km, so reading such a click
+off the cyan line would put the node on a trajectory the craft is no longer
+going to fly.
+
+Two details make it land where it was clicked:
+
+- **Each pass records the instant it started from.** The two are refreshed on
+  different triggers — the ballistic path on a fifth-of-a-second clock, the plan
+  whenever it changes — so their epochs are measured from instants that far
+  apart. Converting a click through the live clock instead of through its own
+  pass is 0.2 s out, which at 7.81 km/s is **1.56 km** of arc. Through the pass
+  it is exact to well under the float32 floor of the drawn buffer.
+- **A node being dragged through time is held out of the plan.** Its frame is
+  still recorded, so the gizmo stays on it, but its impulse is withheld — so the
+  amber line draws the path it is *sliding along* rather than the one it
+  produces. Otherwise the pilot scrubs along a trajectory that only exists while
+  the node stays where it already is.
+
+In the running app, a click on the amber line lands a node 0.2 m from the click
+and 28 µs from that point's own instant.
+
 Editing one is three gestures, and all three are coordinate round trips with
 somewhere to be quietly wrong. `scripts/verify-gizmo.mjs` runs each of them
 through the *real* `Line2` raycaster on a real camera against the same packed

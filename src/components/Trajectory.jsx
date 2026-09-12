@@ -255,7 +255,7 @@ export function Trajectory() {
       </group>
       {/* Parented to the same body the path is drawn around, so the handles sit
           on the line rather than chasing it across the screen at 30 km/s. */}
-      <NodeEditor line={line} host={group} />
+      <NodeEditor line={line} planLine={planLine} host={group} />
     </group>
   )
 }
