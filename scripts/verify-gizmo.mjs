@@ -71,10 +71,37 @@ const period = live.elements.period
 clearNodes()
 project(live.sim, scratch, 'ship', 'earth', period, prediction)
 
-const dt = prediction.span / (SAMPLES - 1)
+/**
+ * Samples are no longer evenly spaced — the projection puts them where the path
+ * bends — so every expectation here comes from the recorded times rather than
+ * from a stride. `gap` is a segment's own duration; `slowest` bounds them all.
+ */
+const gap = (i) => prediction.times[Math.min(i + 1, prediction.count - 1)] - prediction.times[i]
+let slowest = 0
+let quickest = Infinity
+for (let i = 0; i < prediction.count - 1; i++) {
+  slowest = Math.max(slowest, gap(i))
+  quickest = Math.min(quickest, gap(i))
+}
+const median = (() => {
+  const all = []
+  for (let i = 0; i < prediction.count - 1; i++) all.push(gap(i))
+  all.sort((a, b) => a - b)
+  return all[all.length >> 1]
+})()
+/** The instant a point at `param` along segment `i` of the drawn line represents. */
+const timeOn = (i, param) => prediction.times[i] + gap(i) * param
+/** Which drawn segment an instant falls in, and how far along it. */
+function segmentAt(t) {
+  let i = 0
+  while (i < prediction.count - 2 && prediction.times[i + 1] <= t) i++
+  const d = gap(i)
+  return { i, u: d > 0 ? Math.min(1, Math.max(0, (t - prediction.times[i]) / d)) : 0 }
+}
 console.log('=== the scene the pointer is pointing at ===')
 console.log(`  orbit            ${((prediction.periapsis.radius - R) / 1e3).toFixed(1)} x ${((prediction.apoapsis.radius - R) / 1e3).toFixed(1)} km, ${(period / 60).toFixed(1)} min`)
-console.log(`  polyline         ${prediction.count} samples, ${dt.toFixed(3)} s apart`)
+console.log(`  polyline         ${prediction.count} samples spanning ${prediction.span.toFixed(1)} s` +
+  `, ${quickest.toFixed(3)} / ${median.toFixed(3)} / ${slowest.toFixed(3)} s apart (min/median/max)`)
 
 /**
  * The line as the renderer builds it: float32, body-relative, parented to a
@@ -198,6 +225,7 @@ for (let k = 0; k < 41; k++) {
 }
 
 let worstEpoch = 0
+let worstShare = 0
 let worstSegment = 0
 let picked = 0
 let missed = 0
@@ -216,15 +244,17 @@ for (const trial of TRIALS) {
     continue
   }
   picked++
-  const want = (trial.sample + trial.param) * dt
+  const want = timeOn(trial.sample, trial.param)
   worstEpoch = Math.max(worstEpoch, Math.abs(got.epoch - want))
+  worstShare = Math.max(worstShare, Math.abs(got.epoch - want) / Math.max(gap(trial.sample), 1e-9))
   worstSegment = Math.max(worstSegment, Math.abs(got.segment - trial.sample))
   maxMiss = Math.max(maxMiss, got.missMetres)
 }
 
 console.log('\n=== clicking the drawn line ===')
 console.log(`  ${TRIALS.length} points around the orbit, ${missed} missed`)
-console.log(`  worst epoch error   ${(worstEpoch * 1e3).toFixed(3)} ms  (samples are ${dt.toFixed(2)} s apart)`)
+console.log(`  worst epoch error   ${(worstEpoch * 1e3).toFixed(3)} ms` +
+  `  (${(worstShare * 100).toFixed(4)}% of its own segment; segments run to ${slowest.toFixed(2)} s)`)
 console.log(`  worst segment error ${worstSegment}`)
 console.log(`  worst ray miss      ${maxMiss.toFixed(2)} m`)
 
@@ -340,7 +370,7 @@ const handedness = new Vector3().crossVectors(fp, fn).dot(fo)
  * apoapsis), which at this radius is 2e-7 rad of direction.
  */
 probe.resetFrom(live.sim)
-probe.advance(tBurn - live.sim.t, dt / 4, 4096)
+probe.advance(tBurn - live.sim.t, slowest / 4, 65536)
 const ip = new Vector3()
 const inn = new Vector3()
 const io = new Vector3()
@@ -422,9 +452,7 @@ for (const f of scrubs) {
   setNodeTime(node, live.sim.t + want, live.sim.t, 1)
   project(live.sim, scratch, 'ship', 'earth', period * 1.2, plan, nodes)
 
-  const at = want / dt
-  const i = Math.min(prediction.count - 2, Math.floor(at))
-  const u = at - i
+  const { i, u } = segmentAt(want)
   const on = new Vector3(
     prediction.points[i * 3] + (prediction.points[i * 3 + 3] - prediction.points[i * 3]) * u,
     prediction.points[i * 3 + 1] + (prediction.points[i * 3 + 4] - prediction.points[i * 3 + 1]) * u,
@@ -437,10 +465,10 @@ for (const f of scrubs) {
 /**
  * The chord, not the arc. The comparison point is interpolated along a straight
  * segment between two samples while the node sits on the curve, so the gap is
- * dominated by sagitta — about r(1-cos(dt/2 * n))... which for a 10.8 s sample
- * on a 92 min orbit is a few metres and has nothing to do with scrubbing.
+ * dominated by sagitta, which for the widest segment the projection drew is a
+ * few metres and has nothing to do with scrubbing.
  */
-const sag = prediction.apoapsis.radius * (1 - Math.cos((Math.PI * dt) / period))
+const sag = prediction.apoapsis.radius * (1 - Math.cos((Math.PI * slowest) / period))
 
 console.log('\n=== scrubbing the node along the line ===')
 console.log(`  ${scrubs.length} positions round the orbit`)
@@ -550,7 +578,7 @@ const checks = [
    * be quantised to samples, which is the thing sub-sample interpolation exists
    * to avoid.
    */
-  ['a click recovers its instant to a thousandth of a sample', worstEpoch < dt / 1000],
+  ['a click recovers its instant to a thousandth of the segment it lands on', worstShare < 1e-3],
   ['and comfortably above the float32 floor it is limited by', worstEpoch < float32Floor * 100],
   ['the segment it lands on is the segment clicked', worstSegment === 0],
   ['the grab is the width it was asked for, to a tenth of a pixel',

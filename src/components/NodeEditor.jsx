@@ -131,6 +131,10 @@ export function NodeEditor({ line, host }) {
       hits: [],
       epochs: new Float64Array(64),
       gaps: new Float64Array(64),
+      segments: new Int32Array(64),
+      params: new Float64Array(64),
+      /** The drawn segment and position along it that the last pick chose. */
+      picked: { segment: -1, param: 0 },
       ndc: new THREE.Vector2(),
       centreLocal: new THREE.Vector3(),
       centreWorld: new THREE.Vector3(),
@@ -347,6 +351,8 @@ export function NodeEditor({ line, host }) {
       const hit = s.hits[i]
       s.local.copy(hit.pointOnLine).sub(host.current.position)
       const u = paramOnSegment(prediction.points, hit.faceIndex, s.local.x, s.local.y, s.local.z)
+      s.segments[i] = hit.faceIndex
+      s.params[i] = u
       s.epochs[i] = epochOnSegment(prediction, hit.faceIndex, u)
       const at = toScreen(hit.pointOnLine)
       const gx = at.x - px
@@ -354,7 +360,10 @@ export function NodeEditor({ line, host }) {
       s.gaps[i] = Math.sqrt(gx * gx + gy * gy)
     }
     const k = chooseEpoch(s.epochs, s.gaps, n, continuing)
-    return k < 0 ? null : s.epochs[k]
+    if (k < 0) return null
+    s.picked.segment = s.segments[k]
+    s.picked.param = s.params[k]
+    return s.epochs[k]
   }
 
   /* ------------------------------------------------------------------ *
@@ -652,11 +661,16 @@ export function NodeEditor({ line, host }) {
         else if (!over) {
           const epoch = pickLine(s.pointer.x, s.pointer.y)
           if (epoch !== null && gh) {
-            const at = Math.min(prediction.count - 1, Math.round(epoch / (prediction.span / 511)))
+            // On the drawn chord, where the pointer is — not snapped to a sample by
+            // an assumed stride, which stopped being true when samples started
+            // following the curve.
+            const o = s.picked.segment * 3
+            const u = s.picked.param
+            const P = prediction.points
             gh.position.set(
-              prediction.points[at * 3],
-              prediction.points[at * 3 + 1],
-              prediction.points[at * 3 + 2],
+              P[o] + (P[o + 3] - P[o]) * u,
+              P[o + 1] + (P[o + 4] - P[o + 1]) * u,
+              P[o + 2] + (P[o + 5] - P[o + 2]) * u,
             )
             s.centreWorld.copy(gh.position).add(h.position)
             gh.scale.setScalar(

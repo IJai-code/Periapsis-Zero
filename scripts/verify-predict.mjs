@@ -27,7 +27,6 @@ import { WARP } from '../src/sim/warp.js'
 import {
   OPEN_HORIZON,
   SAMPLES,
-  SUBSTEPS_PER_SAMPLE,
   packPolyline,
   prediction,
   project,
@@ -49,14 +48,20 @@ function specificEnergy(state, craft, body, mu) {
   return (v * v) / 2 - mu / r
 }
 
-/** Re-run a projection, sampling energy rather than position. */
+/**
+ * Integrate the same span independently, sampling energy rather than position.
+ *
+ * Its own fixed ten-second steps, deliberately not the projection's: this is a
+ * check on the physics along the path, and borrowing the projection's stepping
+ * would make it a check of the projection against itself.
+ */
 function energyTrack(sim, scratch, craft, body, mu, span) {
   const dt = span / (SAMPLES - 1)
   scratch.resetFrom(sim)
   let lo = Infinity
   let hi = -Infinity
   for (let i = 0; i < SAMPLES; i++) {
-    if (i > 0) scratch.advance(dt, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
+    if (i > 0) scratch.advance(dt, Math.min(dt, 10), 1e7)
     const e = specificEnergy(scratch.state, craft, body, mu)
     if (e < lo) lo = e
     if (e > hi) hi = e
@@ -119,11 +124,19 @@ const gap = Math.hypot(
   prediction.points[(prediction.count - 1) * 3 + 2] - prediction.points[2],
 )
 console.log(`  cost             ${perProjection.toFixed(2)} ms per projection` +
-  `  (${SAMPLES} samples x ${SUBSTEPS_PER_SAMPLE} substeps)`)
+  `  (${prediction.steps} steps, ${prediction.count} drawn)`)
 console.log(`  closure gap      ${(gap / 1e3).toFixed(3)} km after one revolution` +
   `  (${((gap / e.apoapsisRadius) * 100).toFixed(4)}% of the orbit)`)
 
 const leoCount = prediction.count
+/**
+ * Captured here, not read in the verdict. `e` is `live.elements`, a live object
+ * the driver refreshes — and this script resets the simulation to the pad
+ * before the checks run, so a period read down there is the pad's 29.9 minutes
+ * and nothing to do with the orbit just projected.
+ */
+const leoSpan = prediction.span
+const leoPeriod = e.period
 const leo = energyTrack(live.sim, scratch, 'ship', 'earth', MU_EARTH, e.period)
 console.log(`  energy about Earth  ${(leo.lo / 1e6).toFixed(4)} to ${(leo.hi / 1e6).toFixed(4)} MJ/kg` +
   `,  change ${(leo.change / 1e3).toFixed(2)} kJ/kg — a conic would model this well`)
@@ -238,7 +251,7 @@ const delta = process.memoryUsage().heapUsed - before
 
 console.log('\n=== what this establishes ===')
 const checks = [
-  ['the projection ran to a full revolution', leoCount === SAMPLES],
+  ['the projection ran to a full revolution', Math.abs(leoSpan - leoPeriod) < 1e-6 && leoCount > 1],
   // Against the analytic conic, in the regime where the conic is trustworthy.
   ['apoapsis agrees with the analytic conic to 2 km', Math.abs(apoErr) < 2000],
   ['periapsis agrees with the analytic conic to 2 km', Math.abs(periErr) < 2000],

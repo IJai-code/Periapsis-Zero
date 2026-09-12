@@ -156,9 +156,29 @@ const radialApoExpected = aRadial * (1 + eRadial)
 clearNodes()
 addNode(tBurn, { prograde: 0, normal: 0, radial: 0 })
 project(live.sim, scratch, 'ship', 'earth', period, plan, nodes)
-let zeroGap = 0
-for (let i = 0; i < prediction.count * 3; i++) {
-  zeroGap = Math.max(zeroGap, Math.abs(plan.points[i] - prediction.points[i]))
+/**
+ * Compared where the two paths *end*, and at their apsides — not sample by
+ * sample. The projection now places its samples where the path bends, and
+ * folding in a node forces a sample at the burn, so the two runs draw the same
+ * curve with points at different places along it. Index against index measured
+ * that difference and called it 34 km of disagreement about physics.
+ */
+const lastOf = (p, k) => p.points[(p.count - 1) * 3 + k]
+let zeroGap = Math.hypot(
+  lastOf(plan, 0) - lastOf(prediction, 0),
+  lastOf(plan, 1) - lastOf(prediction, 1),
+  lastOf(plan, 2) - lastOf(prediction, 2),
+)
+/**
+ * Apsides only where both passes actually found one. A projection leaves the
+ * radius of an apsis it did not reach at whatever the last one left there, and
+ * the planned pass only scans *after* the burn — so within one period it never
+ * reaches the next periapsis. Comparing that stale field reported 44 km.
+ */
+for (const apsis of ['apoapsis', 'periapsis']) {
+  if (plan[apsis].index >= 0 && prediction[apsis].index >= 0) {
+    zeroGap = Math.max(zeroGap, Math.abs(plan[apsis].radius - prediction[apsis].radius))
+  }
 }
 
 console.log('\n=== what each axis does ===')
@@ -171,7 +191,7 @@ console.log(`  60 radial   ${((radialApo - R) / 1e3).toFixed(1).padStart(10)} km
   `${((radialPeri - R) / 1e3).toFixed(1).padStart(14)} km${'—'.padStart(13)}`)
 console.log(`              closed form says apoapsis ${((radialApoExpected - R) / 1e3).toFixed(1)} km` +
   `, semi-major moves ${((aRadial - aCurrent)).toFixed(0)} m`)
-console.log(`  zero        identical to the ballistic path to ${zeroGap.toExponential(1)} m`)
+console.log(`  zero        ends where the ballistic path ends, to ${zeroGap.toExponential(1)} m, apsides included`)
 
 /* ---- and now let the sequencer actually fly it ---- */
 /**

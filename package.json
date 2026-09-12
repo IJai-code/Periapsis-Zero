@@ -28,9 +28,10 @@
     "verify:predict": "node --expose-gc scripts/verify-predict.mjs",
     "verify:nodes": "node --expose-gc scripts/verify-nodes.mjs",
     "verify:gizmo": "node --expose-gc scripts/verify-gizmo.mjs",
+    "verify:horizon": "node --expose-gc scripts/verify-horizon.mjs",
     "verify:frames": "node --expose-gc scripts/verify-frames.mjs",
     "verify:navigation": "node --expose-gc scripts/verify-navigation.mjs",
-    "verify:all": "node scripts/verify-anomalies.mjs && node scripts/verify-warp.mjs && node scripts/verify-cr3bp.mjs && node scripts/verify-geometry.mjs && node --expose-gc scripts/verify-navigation.mjs && node --expose-gc scripts/verify-director.mjs && node --expose-gc scripts/verify-gizmo.mjs && node --expose-gc scripts/verify-nodes.mjs && node --expose-gc scripts/verify-frames.mjs",
+    "verify:all": "node scripts/verify-anomalies.mjs && node scripts/verify-warp.mjs && node scripts/verify-cr3bp.mjs && node scripts/verify-geometry.mjs && node --expose-gc scripts/verify-navigation.mjs && node --expose-gc scripts/verify-director.mjs && node --expose-gc scripts/verify-gizmo.mjs && node --expose-gc scripts/verify-nodes.mjs && node --expose-gc scripts/verify-frames.mjs && node --expose-gc scripts/verify-horizon.mjs",
     "record:attitude": "node scripts/record-attitude.mjs",
     "verify:camera": "node scripts/verify-camera-filter.mjs",
     "verify:alloc": "node --expose-gc scripts/verify-allocation.mjs"

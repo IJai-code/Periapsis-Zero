@@ -134,9 +134,8 @@ export function Trajectory() {
   const periText = useRef()
   const clock = useRef(0)
   const lastRev = useRef(-1)
-  /** Held between ballistic refreshes so a node-driven replan can reuse them. */
+  /** Held between ballistic refreshes so a node-driven replan can reuse it. */
   const reference = useRef('earth')
-  const period = useRef(0)
 
   /**
    * One integrator, kept. `clone()` builds six state-sized buffers, which is
@@ -188,12 +187,13 @@ export function Trajectory() {
       clock.current = 0
       reference.current = dominantBody(live.sim, 'ship') ?? 'earth'
       /**
-       * One revolution when the orbit closes, a fixed horizon when it does not.
-       * `bound` is false on an escape, where `period` is Infinity and there is
-       * no revolution to draw.
+       * No span passed: the projection decides — one revolution about whatever
+       * the craft is orbiting, or to a surface, or to its backstop for paths
+       * that never close. It used to be handed `live.elements.period`, which is
+       * the period about *Earth* whatever the line is drawn around — 134 days
+       * while in a two-hour lunar orbit.
        */
-      period.current = live.elements.bound ? live.elements.period : 0
-      project(live.sim, scratch, 'ship', reference.current, period.current)
+      project(live.sim, scratch, 'ship', reference.current, null)
       pushPoints(line, prediction.points, prediction.count)
 
       const surface = BODIES[prediction.reference].radius
@@ -221,16 +221,14 @@ export function Trajectory() {
 
     if (replan) {
       lastRev.current = nodeRevision()
-      /**
-       * The planned path, when there is one. Projected over half again the
-       * ballistic span, because the point of a burn is usually to change the
-       * period — drawing the new orbit over the old one's span would cut it off
-       * partway round.
-       */
+      /** The planned path, when there is one. */
       const pending = nodes.some((nd) => !nd.executed && nd.t >= live.sim.t)
       planLine.visible = pending
       if (pending) {
-        project(live.sim, scratch, 'ship', reference.current, period.current * 1.5, plan, nodes)
+        // Through the last burn and one revolution of the orbit it leaves, which
+        // is what "period x 1.5" was approximating and could not reach past a
+        // node more than half a lap away.
+        project(live.sim, scratch, 'ship', reference.current, null, plan, nodes)
         pushPoints(planLine, plan.points, plan.count)
       } else {
         // Hiding the line is not enough: the editor picks and draws from

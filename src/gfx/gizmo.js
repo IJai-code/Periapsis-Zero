@@ -202,18 +202,19 @@ export function paramOnSegment(points, i, x, y, z) {
 /**
  * The instant a hit on the drawn polyline corresponds to, in seconds from now.
  *
- * Sub-sample, not snapped. Samples are uniform in time by construction — the
- * projection writes `times[i] = i * dt` — so the interpolation is exact rather
- * than an approximation of an uneven spacing. Snapping to the nearer sample
- * instead would quantise a node to 10.8 s on a low orbit, which is about 80 km
- * of arc, and a burn placed 80 km from the apsis it was aimed at is a
- * measurably different orbit.
+ * Sub-sample, not snapped: interpolated between the two samples' own recorded
+ * times. Samples are not evenly spaced — the projection draws more of them
+ * where the path bends — so a stride computed from the span, which this used to
+ * do, would put a click at perigee on the wrong side of the orbit. Snapping to
+ * the nearer sample instead would quantise a node to tens of seconds of arc,
+ * and a burn placed that far from the apsis it was aimed at is a measurably
+ * different orbit.
  */
 export function epochOnSegment(projection, segment, param) {
   const last = Math.max(0, Math.min(projection.count, SAMPLES) - 2)
   const i = Math.max(0, Math.min(segment, last))
-  const dt = projection.span / (SAMPLES - 1)
-  return (i + clamp01(param)) * dt
+  const t0 = projection.times[i]
+  return t0 + (projection.times[i + 1] - t0) * clamp01(param)
 }
 
 /**

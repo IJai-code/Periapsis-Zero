@@ -152,6 +152,17 @@ flew it against Earth once already — 23.5° off retrograde, periselene 112.5 k
 underground. Deciding "which body" from the craft's *present* position, or at
 ignition, reintroduces the disagreement at every sphere boundary.
 
+**A function call cannot carry a double for free.** Anything in a per-step or
+per-frame path passes and returns its scalars through a preallocated
+`Float64Array` slot, not as arguments and return values. A double crossing a
+call boundary the optimiser does not inline comes back boxed as a heap number:
+bisected on the forward projection, one small shared helper cost **32 B a step,
+33 KB a projection**, and returning an angular rate cost another 16 KB. The same
+call on the other side of the same rule would have put an allocation inside the
+render loop. Small arithmetic helpers that *are* inlined — `timestepLimit`,
+`density` — measure zero, so this is a rule about what to check, not a ban on
+factoring: measure with `bytesPerCall`, and only then reach for a slot.
+
 **No `useFrame` subscriber may take a positive priority.** In R3F, any priority
 above zero hands the render loop to that subscriber and `gl.render` is never
 called again — the scene simply stops updating while every callback keeps
@@ -285,6 +296,49 @@ mission — see `src/sim/predict.js` — so the map cannot disagree with the fli
 about the physics, and it inherits every perturbation for free. A node is stored
 as `{ t, prograde, normal, radial }`, which is what a burn *means*; the
 sequencer picks up pending nodes on its own and flies them.
+
+### How far it looks, and how finely it steps
+
+Two separate questions, and answering them with one number is what broke four
+different things. The horizon is an **event**: one revolution about the body the
+craft orbits, counted from the last thing that changed the orbit — now, or the
+last planned burn, after which the count restarts about *that* burn's body. It
+ends earlier at any body's surface, and has a backstop of eight days and 8,192
+integration steps for paths that never close. The step is the **local orbital
+timescale**: the circular period at the craft's current distance over Earth and
+the Moon, divided by 1,024, which is the criterion `timestepLimit` has always
+given the flight integrator at 400 — plus the same 2%-per-step drag limit, so a
+projected entry is stepped like a flown one.
+
+Measured on a translunar-sized ellipse, e 0.916, over one revolution:
+
+| | |
+| --- | --- |
+| 2,048 steps, each a fixed fraction of the period | **252.5 km** of error |
+| 2,048 steps, each a fraction of the *local* period | **1.7 m** — what a 2 s fixed step gives at 53x the cost |
+| the projection as built, 1,427 steps | **9.9 m** against a 0.5 s integration |
+| halving the step | 17.8x better: fourth order, as RK4 should be |
+
+The drawing is a separate budget from the integration: every step is kept, and
+512 of them are chosen by how much the line turns there and how much time
+passes, so half the points follow curvature and half follow the clock. Spreading
+the same 512 points evenly in time instead draws a chord **31 km underground**
+while every sample on it sits 168 km up — the projection's own lowest chord is
+168.4 km against a lowest sample of 168.6 km.
+
+What that buys, end to end:
+
+- A burn ten minutes out and another three days later are **both** folded into
+  one plan, and the second lands **1 m** from an independent two-second
+  integration. The old fixed window reached 132 minutes ahead and dropped the
+  second burn without a word; stretched to cover it, it was 91 km out.
+- A **lunar orbit** is projected about the Moon for one lunar revolution, 117
+  minutes. It used to be handed the craft's *geocentric* period, which in lunar
+  orbit measures **134 days**.
+- Cost is 1,024 steps and 0.66 ms for a parking orbit, 3,302 steps and 1.65 ms
+  for the three-day two-burn plan, and 5 ms in the worst case, where a burn a
+  month away exhausts the step budget and the projection says `truncated`
+  instead of taking as long as it takes inside a render frame.
 
 Editing one is three gestures, and all three are coordinate round trips with
 somewhere to be quietly wrong. `scripts/verify-gizmo.mjs` runs each of them

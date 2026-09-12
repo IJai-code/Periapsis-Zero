@@ -19,36 +19,53 @@
  * render loop that the zero-allocation rule applies to it.
  */
 import { Vector3 } from 'three'
-import { BODIES } from './constants.js'
+import { BODIES, ORDER } from './constants.js'
 import { dominantBody } from './soi.js'
 import { INDEX } from './system.js'
 import { nodeBasis, resolveNode } from './nodes.js'
+import { MU_EARTH, MU_MOON, timestepLimit } from './ship.js'
+import { ATMOSPHERE_TOP, density } from './atmosphere.js'
 
-/** Samples along the path. Enough to draw a smooth ellipse at any zoom. */
+/** Most points drawn. The integration takes many more; these are chosen from it. */
 export const SAMPLES = 512
 
 /**
- * RK4 substeps per sample.
+ * RK4 steps per *local* circular period.
  *
- * Without this the projection inherits the flight integrator's `maxDt`, which
- * is 0.02 s — chosen for a vehicle under thrust in atmosphere, and absurd for a
- * ballistic look-ahead. A 3.5 s sample became 176 substeps and a full
- * revolution 90,000 of them, about 154 ms, five times a second. The projection
- * does not need the accuracy the flight does: it is advisory, redrawn
- * continuously, and its error against the analytic conic at four substeps is
- * measured in scripts/verify-predict.mjs rather than assumed.
+ * The step is sized from where the craft is — the circular period at its
+ * current distance, over Earth and the Moon — the criterion the flight
+ * integrator already uses at 400. It replaces a fixed fraction of the span,
+ * which is the same thing on a circle and nothing like it on an ellipse: over
+ * one revolution of a translunar ellipse (e 0.916), 2,048 equal steps left
+ * 252.5 km of error where 2,048 steps scaled to the local period left 1.7 m.
+ * Equal steps spend the budget where the craft is slow and starve perigee,
+ * where it is fast; this does the opposite, and it converges cleanly at fourth
+ * order — 113 km, 7.4 km, 473 m, 29 m as the divisor doubles from 100 to 800.
+ * scripts/verify-horizon.mjs measures the value chosen here.
  */
-export const SUBSTEPS_PER_SAMPLE = 4
+export const STEPS_PER_LOCAL_PERIOD = 1024
 
 /**
- * How far ahead to look when the orbit does not close, in seconds.
+ * Integration steps a single projection may take.
  *
- * A bound orbit projects exactly one revolution, which is the whole of what
- * there is to see. An escape or a transfer has no period, so the horizon is a
- * choice: six days covers a translunar coast, which is the longest thing this
- * sequencer flies in one leg.
+ * A budget, not a horizon: a low orbit costs about 1,024 steps a revolution, a
+ * five-day translunar coast a few hundred because the steps grow with distance.
+ * When a plan needs more than this — a node placed a week of low orbits away —
+ * the projection stops and says so in `truncated`, rather than taking as long
+ * as it takes inside a render frame.
  */
-export const OPEN_HORIZON = 6 * 86400
+export const MAX_STEPS = 8192
+
+/**
+ * The longest any projection looks ahead, in seconds.
+ *
+ * Only a backstop. A bound orbit ends after one revolution, and a plan one
+ * revolution after its last burn; this bounds the paths that never close — an
+ * escape, a transfer, a flyby. Eight days covers the 5.3-day translunar coast
+ * this sequencer flies and one revolution of any member of the NRHO family,
+ * whose periods run from 6.15 to 7.24 days.
+ */
+export const OPEN_HORIZON = 8 * 86400
 
 /**
  * How many nodes a projection records a full orbital frame for.
@@ -70,21 +87,29 @@ function makeProjection() {
   return {
   /** Samples actually written this pass. */
   count: 0,
+  /** Integration steps the pass took. */
+  steps: 0,
+  /** True when the step budget ran out before the horizon did. */
+  truncated: false,
   /** Positions relative to `reference`, metres, xyz per sample. */
   points: new Float64Array(SAMPLES * 3),
-  /** Seconds from now, per sample. */
+  /**
+   * Seconds from now, per sample. Not evenly spaced: samples are dense where the
+   * path bends and sparse where it runs straight, so anything mapping a point on
+   * the line to an instant must interpolate these rather than assume a stride.
+   */
   times: new Float64Array(SAMPLES),
   /** Which body the path is drawn around. */
   reference: 'earth',
   /** Simulated span covered, s. */
   span: 0,
-  /** True when the projection closed a full revolution rather than running out. */
+  /** True when the pass ended by completing a revolution, rather than at a limit. */
   closed: false,
   /** Apsides, as sample indices with refined values. Index -1 when absent. */
   apoapsis: { index: -1, radius: 0, time: 0 },
   periapsis: { index: -1, radius: 0, time: 0 },
-  /** Set when the path meets the reference body's surface. */
-  impact: { index: -1, time: 0 },
+  /** Set when the path meets any body's surface, and which. */
+  impact: { index: -1, time: 0, body: null },
   /** Node ids folded into this pass, in the order they fired. */
   applied: [],
   /** Sample index each applied node fired at, parallel to `applied`. */
@@ -163,6 +188,8 @@ export const plan = makeProjection()
  */
 export function clearProjection(out) {
   out.count = 0
+  out.steps = 0
+  out.truncated = false
   out.apsisBody = out.reference
   empty(out.applied)
   empty(out.nodeSamples)
@@ -172,33 +199,38 @@ export function clearProjection(out) {
   out.impact.index = -1
 }
 
-const _fit = { offset: 0, value: 0 }
+const _fit = { time: 0, value: 0 }
 
 /**
  * Parabolic refinement through three samples.
  *
- * The extremum of a path sampled every few seconds sits between samples, and
- * taking the nearest one puts an apoapsis marker visibly off the top of the
- * arc. Fitting a parabola to the bracketing triple costs three multiplies and
- * lands it where it belongs — the same refinement the targeting solvers use on
- * their own minima.
+ * The extremum of a sampled path sits between samples, and taking the nearest
+ * one puts an apoapsis marker visibly off the top of the arc. A parabola through
+ * the bracketing triple lands it where it belongs.
  *
- * Written into one shared result rather than returning a fresh object. A fresh
- * object is free when the caller inlines this and the optimiser removes it —
- * measured at 0 B in isolation — and not free inside `project`, which is too
- * large to inline into. Every caller reads `offset` and `value` before the next
- * call.
+ * Through unevenly spaced times, because the steps are: fitting the triple as if
+ * it were evenly spaced would bias the vertex toward the wider gap, which on an
+ * adaptively stepped path is always the slower side of the apsis.
+ *
+ * Written into one shared result rather than returning a fresh object, which
+ * allocates inside a function too large for the optimiser to inline this into.
+ * Callers read `time` and `value` before the next call.
  */
-function refine(rm, r0, rp) {
-  const denom = rm - 2 * r0 + rp
-  if (Math.abs(denom) < 1e-12) {
-    _fit.offset = 0
-    _fit.value = r0
-    return _fit
-  }
-  const offset = (0.5 * (rm - rp)) / denom
-  _fit.offset = offset
-  _fit.value = r0 - 0.25 * (rm - rp) * offset
+function refine(t0, r0, t1, r1, t2, r2) {
+  const d0 = t0 - t1
+  const d2 = t2 - t1
+  const denom = d0 * d2 * (d2 - d0)
+  _fit.time = t1
+  _fit.value = r1
+  if (!(Math.abs(denom) > 0)) return _fit
+  const a = ((r2 - r1) * d0 - (r0 - r1) * d2) / denom
+  if (!(Math.abs(a) > 0)) return _fit
+  const b = (r0 - r1 - a * d0 * d0) / d0
+  const offset = -b / (2 * a)
+  // A vertex outside its own bracket is noise, not an apsis.
+  if (offset < d0 || offset > d2) return _fit
+  _fit.time = t1 + offset
+  _fit.value = r1 + b * offset + a * offset * offset
   return _fit
 }
 
@@ -213,177 +245,453 @@ function empty(arr) {
   while (arr.length > 0) arr.pop()
 }
 
-const _radii = new Float64Array(SAMPLES)
+/* ---- per-step scratch: every step is kept, and SAMPLES are chosen from it ---- */
+const MAX_POINTS = MAX_STEPS + 1
+const _pos = new Float64Array(MAX_POINTS * 3) // relative to the reference body
+const _time = new Float64Array(MAX_POINTS) // seconds from now
+const _radius = new Float64Array(MAX_POINTS) // from the apsis body in force at that step
+const _forced = new Uint8Array(MAX_POINTS) // must be drawn: ends, burns, apsides, impact
+const _sampleOf = new Int32Array(MAX_POINTS) // which drawn sample a kept step became
+const _nodeStep = new Int32Array(64)
+
+/** Massive bodies, for the surface test: state offsets and radii. */
+const _bodyOffset = new Int32Array(ORDER.length)
+const _bodyRadius = new Float64Array(ORDER.length)
+for (let k = 0; k < ORDER.length; k++) {
+  _bodyOffset[k] = INDEX[ORDER[k]] * 6
+  _bodyRadius[k] = BODIES[ORDER[k]].radius
+}
 
 /**
- * Project the craft's path forward.
+ * Results of the per-step helpers, written here rather than returned.
  *
- * Nodes, when given, are folded in as instantaneous velocity changes at their
- * stated times. The integration is split at each one — advance exactly to the
- * node, apply, advance the remainder — rather than rounding it to the nearest
- * sample, because a 60 m/s impulse landed one sample late is a visibly
- * different orbit and the whole point of drawing the plan is to see what the
- * burn does.
- *
- * @param {object} sim        the live simulation, read only
- * @param {object} scratch    a persistent integrator to run the projection in
- * @param {string} craft      state-vector id of the craft
- * @param {string} reference  body the path is drawn relative to
- * @param {number} period     orbital period if bound, else 0 or Infinity
- * @param {object} out        result to fill; defaults to the ballistic one
- * @param {Array|null} nodes  planned manoeuvres to fold in
+ * A double returned from a function the optimiser does not inline comes back
+ * boxed — a heap number per call — and `project` is too large for everything it
+ * calls to be inlined into it. Measured at about 48 B a step, 50 KB a
+ * projection, before this; a Float64Array slot is never boxed.
  */
+const _out = new Float64Array(3)
+const STEP = 0
+const RATE = 1
+const DRAG_K = 2
+
+const TWO_PI = 2 * Math.PI
+/** Swept angle counted as a whole revolution, allowing for the last step's rounding. */
+const REVOLUTION = TWO_PI * (1 - 1e-6)
+/** Shortest step taken to land exactly on a revolution or a node. */
+const MIN_STEP = 1e-3
+
+/**
+ * The step for this state: the tightest of the local-period limit about Earth
+ * and about the Moon, and the drag limit inside the atmosphere.
+ */
+function stepFor(s, c) {
+  const e = INDEX.earth * 6
+  const m = INDEX.moon * 6
+  const ex = s[c] - s[e]
+  const ey = s[c + 1] - s[e + 1]
+  const ez = s[c + 2] - s[e + 2]
+  const re = Math.sqrt(ex * ex + ey * ey + ez * ez)
+  const mx = s[c] - s[m]
+  const my = s[c + 1] - s[m + 1]
+  const mz = s[c + 2] - s[m + 2]
+  const rm = Math.sqrt(mx * mx + my * my + mz * mz)
+  let h = timestepLimit(re, MU_EARTH, STEPS_PER_LOCAL_PERIOD)
+  const hm = timestepLimit(rm, MU_MOON, STEPS_PER_LOCAL_PERIOD)
+  if (hm < h) h = hm
+  /**
+   * Drag, which low down is far stiffer than gravity: a capsule at 20 km wants
+   * half-second steps where the orbital criterion alone would take five. The
+   * same rule live.js applies to the flight integrator, and written out here
+   * rather than shared with it because a call cannot carry doubles for free —
+   * measured, this one cost 32 B a step, 33 KB a projection, and the same call
+   * put an allocation inside the render loop at the other end.
+   */
+  const dragK = _out[DRAG_K]
+  const altitude = re - BODIES.earth.radius
+  if (dragK > 0 && altitude < ATMOSPHERE_TOP) {
+    const vx = s[c + 3] - s[e + 3]
+    const vy = s[c + 4] - s[e + 4]
+    const vz = s[c + 5] - s[e + 5]
+    const speed = Math.sqrt(vx * vx + vy * vy + vz * vz)
+    const accel = dragK * density(altitude) * speed * speed
+    if (accel > 0) {
+      const hd = (0.02 * speed) / accel
+      const bounded = hd > 0.02 ? hd : 0.02
+      if (bounded < h) h = bounded
+    }
+  }
+  _out[STEP] = h
+}
+
+/** Offset of the body whose surface the craft is at or under, or -1. */
+function surfaceUnder(s, c) {
+  for (let k = 0; k < _bodyOffset.length; k++) {
+    const o = _bodyOffset[k]
+    const dx = s[c] - s[o]
+    const dy = s[c + 1] - s[o + 1]
+    const dz = s[c + 2] - s[o + 2]
+    if (dx * dx + dy * dy + dz * dz <= _bodyRadius[k] * _bodyRadius[k]) return k
+  }
+  return -1
+}
+
+/** Angular rate about a body, |r x v| / r^2, rad/s. */
+function angularRate(s, c, o) {
+  const rx = s[c] - s[o]
+  const ry = s[c + 1] - s[o + 1]
+  const rz = s[c + 2] - s[o + 2]
+  const vx = s[c + 3] - s[o + 3]
+  const vy = s[c + 4] - s[o + 4]
+  const vz = s[c + 5] - s[o + 5]
+  const hx = ry * vz - rz * vy
+  const hy = rz * vx - rx * vz
+  const hz = rx * vy - ry * vx
+  const r2 = rx * rx + ry * ry + rz * rz
+  _out[RATE] = r2 > 0 ? Math.sqrt(hx * hx + hy * hy + hz * hz) / r2 : 0
+}
+
+/** Keep step `k`: position relative to the reference, time, radius about the apsis body. */
+function keep(k, s, c, r, a, t) {
+  const o = k * 3
+  _pos[o] = s[c] - s[r]
+  _pos[o + 1] = s[c + 1] - s[r + 1]
+  _pos[o + 2] = s[c + 2] - s[r + 2]
+  _time[k] = t
+  const ax = s[c] - s[a]
+  const ay = s[c + 1] - s[a + 1]
+  const az = s[c + 2] - s[a + 2]
+  _radius[k] = Math.sqrt(ax * ax + ay * ay + az * az)
+}
+
 const _dv = new Vector3()
 const _fp = new Vector3()
 const _fn = new Vector3()
 const _fo = new Vector3()
 
-export function project(sim, scratch, craft, reference, period, out = prediction, nodes = null) {
-  const closed = Number.isFinite(period) && period > 0
-  const span = closed ? period : OPEN_HORIZON
-  const dt = span / (SAMPLES - 1)
+/**
+ * Project the craft's path forward.
+ *
+ * **How far.** With no `horizon`, until the path has swept one full revolution
+ * about the body it orbits, counted from the last thing that changed the orbit
+ * — the present, or the last planned burn, after which the count restarts about
+ * *that* burn's body. So a parking orbit draws one lap; a translunar injection
+ * followed by a capture burn draws the coast, the capture, and one lap of the
+ * Moon. It stops earlier at any body's surface, and at OPEN_HORIZON or the step
+ * budget for paths that never close.
+ *
+ * Neither a period nor a fixed window could say this. The period in hand was
+ * Earth's even while the line was drawn around the Moon — measured in lunar
+ * orbit, that is 134 days against the two hours the craft actually takes to go
+ * round; and a window long enough for a translunar plan draws a low orbit
+ * dozens of times over.
+ *
+ * A positive `horizon` projects exactly that many seconds instead, with no
+ * revolution test — for callers that need a fixed window.
+ *
+ * **How finely.** Each step is sized from the local period (STEPS_PER_LOCAL_
+ * PERIOD), every step is kept, and SAMPLES of them are drawn — spread by how much
+ * the drawn line turns and how much time passes, so perigee gets the points
+ * perigee needs. Equal spacing in time drew a translunar ellipse's perigee as a
+ * chord 31 km underground while every sample on it was 186 km up. Burns,
+ * apsides and the impact point are always among the samples drawn.
+ *
+ * Nodes are folded in as instantaneous velocity changes at their exact times:
+ * the step before one is shortened to land on it.
+ *
+ * @param {object} sim        the live simulation, read only
+ * @param {object} scratch    a persistent integrator to run the projection in
+ * @param {string} craft      state-vector id of the craft
+ * @param {string} reference  body the path is drawn relative to
+ * @param {number|null} horizon  seconds to project, or null for one revolution
+ * @param {object} out        result to fill; defaults to the ballistic one
+ * @param {Array|null} nodes  planned manoeuvres to fold in
+ */
+export function project(sim, scratch, craft, reference, horizon = null, out = prediction, nodes = null) {
+  const fixed = Number.isFinite(horizon) && horizon > 0
+  const limit = fixed ? horizon : OPEN_HORIZON
 
   scratch.resetFrom(sim)
-
+  const s = scratch.state
   const c = INDEX[craft] * 6
   const r = INDEX[reference] * 6
-  const surface = BODIES[reference].radius
+  _out[DRAG_K] = scratch.dragK[INDEX[craft] - ORDER.length] ?? 0
 
   out.reference = reference
-  out.span = span
-  out.closed = closed
+  out.closed = false
+  out.truncated = false
   out.apoapsis.index = -1
   out.periapsis.index = -1
   out.impact.index = -1
+  out.impact.body = null
   empty(out.applied)
   empty(out.nodeSamples)
   out.lastNode = -1
   out.apsisBody = reference
 
-  /** State offset the apsis radii are measured from; moves to each node's body. */
+  /** What "one revolution" is counted about, and what apsides are measured from. */
+  let orbitOffset = INDEX[dominantBody(scratch, craft)] * 6
   let apsisOffset = r
+  let swept = 0
+  let px = s[c] - s[orbitOffset]
+  let py = s[c + 1] - s[orbitOffset + 1]
+  let pz = s[c + 2] - s[orbitOffset + 2]
 
-  /** Nodes still ahead of the projection, in order. */
   let nodeAt = 0
-  const pending = nodes ?? null
-
+  let lastNodeStep = -1
+  let applied = 0
   let n = 0
-  for (let i = 0; i < SAMPLES; i++) {
-    if (i > 0) {
-      let remaining = dt
-      // Split the step at every node that falls inside it.
-      while (pending && nodeAt < pending.length) {
-        const node = pending[nodeAt]
-        const until = node.t - scratch.t
-        if (node.executed || until < 0) {
-          nodeAt++
-          continue
-        }
-        if (until > remaining) break
-        if (until > 0) scratch.advance(until, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
-        /**
-         * The frame first, then the impulse. The basis is defined by the
-         * velocity the craft has *arriving* at the node — applying the burn
-         * first and measuring afterwards would rotate prograde by the very
-         * thing being measured.
-         */
-        const body = dominantBody(scratch, craft)
-        const b = INDEX[body] * 6
-        const slot = out.applied.length
-        if (slot < MAX_NODE_FRAMES && nodeBasis(scratch.state, c, b, _fp, _fn, _fo)) {
-          const f = slot * 12
-          const fr = out.nodeFrames
-          fr[f] = scratch.state[c] - scratch.state[r]
-          fr[f + 1] = scratch.state[c + 1] - scratch.state[r + 1]
-          fr[f + 2] = scratch.state[c + 2] - scratch.state[r + 2]
-          fr[f + 3] = _fp.x; fr[f + 4] = _fp.y; fr[f + 5] = _fp.z
-          fr[f + 6] = _fn.x; fr[f + 7] = _fn.y; fr[f + 8] = _fn.z
-          fr[f + 9] = _fo.x; fr[f + 10] = _fo.y; fr[f + 11] = _fo.z
-          out.nodeTimes[slot] = scratch.t - sim.t
-          const vx = scratch.state[c + 3] - scratch.state[b + 3]
-          const vy = scratch.state[c + 4] - scratch.state[b + 4]
-          const vz = scratch.state[c + 5] - scratch.state[b + 5]
-          out.nodeSpeeds[slot] = Math.sqrt(vx * vx + vy * vy + vz * vz)
-          out.nodeBodies[slot] = body
-        }
-        // Position stays relative to `reference`, because that is the frame the
-        // line and the gizmo are drawn in; only the *axes* belong to the node's
-        // own body.
-        resolveNode(node, scratch.state, c, b, _dv)
-        scratch.state[c + 3] += _dv.x
-        scratch.state[c + 4] += _dv.y
-        scratch.state[c + 5] += _dv.z
-        out.applied.push(node.id)
-        out.nodeSamples.push(i)
-        out.lastNode = i
-        out.apsisBody = body
-        apsisOffset = b
-        remaining -= Math.max(0, until)
-        nodeAt++
-      }
-      if (remaining > 0) {
-        scratch.advance(remaining, dt / SUBSTEPS_PER_SAMPLE, SUBSTEPS_PER_SAMPLE)
-      }
-    }
-    const s = scratch.state
-    const x = s[c] - s[r]
-    const y = s[c + 1] - s[r + 1]
-    const z = s[c + 2] - s[r + 2]
-    out.points[i * 3] = x
-    out.points[i * 3 + 1] = y
-    out.points[i * 3 + 2] = z
-    out.times[i] = i * dt
-    /**
-     * Lengths as square roots, not `Math.hypot`. On this V8 hypot allocates on
-     * every call, and this line runs 512 times a projection: HEAD's single call
-     * here was 1,260 minor collections per 20,000 projections, all of it
-     * garbage, and invisible to the old heap-after-GC gate — which is why that
-     * gate is gone (scripts/allocation.mjs).
-     */
-    const fromReference = Math.sqrt(x * x + y * y + z * z)
-    const ax = s[c] - s[apsisOffset]
-    const ay = s[c + 1] - s[apsisOffset + 1]
-    const az = s[c + 2] - s[apsisOffset + 2]
-    _radii[i] = Math.sqrt(ax * ax + ay * ay + az * az)
-    n = i + 1
+  let steps = 0
+  _forced[0] = 1
+  keep(0, s, c, r, apsisOffset, 0)
 
-    /**
-     * Stop at the surface. Past it the integrator is describing a trajectory
-     * through rock, and drawing that is worse than drawing nothing — it is the
-     * one part of the path the vehicle definitely will not fly.
-     *
-     * Against the reference body, deliberately not `_radii`: after a capture
-     * burn those are distances from the Moon, and comparing 1,800 km to Earth's
-     * radius would end every lunar plan at the first sample past the node.
-     */
-    if (fromReference <= surface) {
-      out.impact.index = i
-      out.impact.time = i * dt
+  let impact = surfaceUnder(s, c)
+  while (impact < 0) {
+    // Nodes behind the craft, or already flown, are not part of the plan.
+    while (nodes && nodeAt < nodes.length && (nodes[nodeAt].executed || nodes[nodeAt].t < scratch.t - 1e-9)) {
+      nodeAt++
+    }
+    const next = nodes && nodeAt < nodes.length ? nodes[nodeAt] : null
+
+    if (next && next.t - scratch.t <= 1e-9) {
+      /**
+       * The frame first, then the impulse. The basis is defined by the
+       * velocity the craft has *arriving* at the node — applying the burn
+       * first and measuring afterwards would rotate prograde by the very
+       * thing being measured.
+       */
+      const body = dominantBody(scratch, craft)
+      const b = INDEX[body] * 6
+      const slot = out.applied.length
+      if (slot < MAX_NODE_FRAMES && nodeBasis(s, c, b, _fp, _fn, _fo)) {
+        const f = slot * 12
+        const fr = out.nodeFrames
+        fr[f] = s[c] - s[r]
+        fr[f + 1] = s[c + 1] - s[r + 1]
+        fr[f + 2] = s[c + 2] - s[r + 2]
+        fr[f + 3] = _fp.x; fr[f + 4] = _fp.y; fr[f + 5] = _fp.z
+        fr[f + 6] = _fn.x; fr[f + 7] = _fn.y; fr[f + 8] = _fn.z
+        fr[f + 9] = _fo.x; fr[f + 10] = _fo.y; fr[f + 11] = _fo.z
+        out.nodeTimes[slot] = scratch.t - sim.t
+        const vx = s[c + 3] - s[b + 3]
+        const vy = s[c + 4] - s[b + 4]
+        const vz = s[c + 5] - s[b + 5]
+        out.nodeSpeeds[slot] = Math.sqrt(vx * vx + vy * vy + vz * vz)
+        out.nodeBodies[slot] = body
+      }
+      // Position stays relative to `reference`, the frame the line and the gizmo
+      // are drawn in; only the *axes* belong to the node's own body.
+      resolveNode(next, s, c, b, _dv)
+      s[c + 3] += _dv.x
+      s[c + 4] += _dv.y
+      s[c + 5] += _dv.z
+      out.applied.push(next.id)
+      if (applied < _nodeStep.length) _nodeStep[applied] = n
+      applied++
+      _forced[n] = 1
+      lastNodeStep = n
+
+      // A burn is a new orbit: its revolution and its apsides belong to its body.
+      out.apsisBody = body
+      apsisOffset = b
+      orbitOffset = b
+      swept = 0
+      px = s[c] - s[b]
+      py = s[c + 1] - s[b + 1]
+      pz = s[c + 2] - s[b + 2]
+      _radius[n] = Math.sqrt(px * px + py * py + pz * pz)
+      nodeAt++
+      continue
+    }
+
+    const elapsed = scratch.t - sim.t
+    if (elapsed >= limit - 1e-9) break
+    if (!fixed && !next && swept >= REVOLUTION) {
+      out.closed = true
       break
     }
-  }
-  out.count = n
-
-  /* ---- apsides, from the sampled radii, after the last planned burn ---- */
-  for (let i = Math.max(1, out.lastNode + 1); i < n - 1; i++) {
-    const rm = _radii[i - 1]
-    const r0 = _radii[i]
-    const rp = _radii[i + 1]
-    if (r0 >= rm && r0 >= rp && out.apoapsis.index < 0) {
-      const f = refine(rm, r0, rp)
-      out.apoapsis.index = i
-      out.apoapsis.radius = f.value
-      out.apoapsis.time = (i + f.offset) * dt
+    if (steps >= MAX_STEPS) {
+      out.truncated = true
+      break
     }
-    if (r0 <= rm && r0 <= rp && out.periapsis.index < 0) {
-      const f = refine(rm, r0, rp)
-      out.periapsis.index = i
-      out.periapsis.radius = f.value
-      out.periapsis.time = (i + f.offset) * dt
+
+    stepFor(s, c)
+    let h = _out[STEP]
+    if (h > limit - elapsed) h = limit - elapsed
+    if (!fixed && !next) {
+      // Land the revolution on itself instead of overshooting by a step.
+      angularRate(s, c, orbitOffset)
+      const rate = _out[RATE]
+      if (rate > 0 && swept + rate * h > TWO_PI) h = Math.max((TWO_PI - swept) / rate, MIN_STEP)
     }
+    /**
+     * Clipped to a node last, and never floored. A minimum step applied after
+     * this would carry the craft a millisecond past a burn that was due, and the
+     * test at the top of the loop would then see that node as behind it and drop
+     * it from the plan without a word.
+     */
+    if (next && next.t - scratch.t < h) h = next.t - scratch.t
+
+    scratch.step(h)
+    steps++
+    n++
+
+    const qx = s[c] - s[orbitOffset]
+    const qy = s[c + 1] - s[orbitOffset + 1]
+    const qz = s[c + 2] - s[orbitOffset + 2]
+    const cx = py * qz - pz * qy
+    const cy = pz * qx - px * qz
+    const cz = px * qy - py * qx
+    swept += Math.atan2(Math.sqrt(cx * cx + cy * cy + cz * cz), px * qx + py * qy + pz * qz)
+    px = qx
+    py = qy
+    pz = qz
+
+    _forced[n] = 0
+    keep(n, s, c, r, apsisOffset, scratch.t - sim.t)
+
+    /**
+     * Stop at a surface — any body's. Past it the integrator is describing a
+     * trajectory through rock, and drawing that is worse than drawing nothing:
+     * it is the one part of the path the vehicle definitely will not fly.
+     */
+    impact = surfaceUnder(s, c)
+  }
+  _forced[n] = 1
+  out.steps = steps
+
+  /* ---- apsides, from every kept step, after the last planned burn ---- */
+  /**
+   * On a closed revolution the radius is periodic, so the scan wraps: the step
+   * before the end stands in for the step before the start, and an apsis
+   * refined to just before "now" is reported as the next passage, a revolution
+   * on. Without the wrap an apsis at either end of the path is never an
+   * interior extremum and is simply not found — which is where it always is at
+   * the moment this sequencer hands over to TLI alignment, 2 s past apoapsis,
+   * and the parking orbit's apoapsis vanished from the map.
+   */
+  let apoStep = -1
+  let periStep = -1
+  const origin = lastNodeStep >= 0 ? lastNodeStep : 0
+  const wrap = out.closed && n - origin >= 3
+  const revolution = _time[n] - _time[origin]
+  for (let k = wrap ? origin : Math.max(1, origin + 1); k < n; k++) {
+    const seam = wrap && k === origin
+    const km = seam ? n - 1 : k - 1
+    const tm = seam ? _time[n - 1] - revolution : _time[km]
+    const rm = _radius[km]
+    const r0 = _radius[k]
+    const rp = _radius[k + 1]
+    const isApo = apoStep < 0 && r0 >= rm && r0 >= rp
+    const isPeri = periStep < 0 && r0 <= rm && r0 <= rp
+    if (!isApo && !isPeri) continue
+    refine(tm, rm, _time[k], r0, _time[k + 1], rp)
+    const when = wrap && _fit.time < _time[origin] ? _fit.time + revolution : _fit.time
+    if (isApo) {
+      apoStep = k
+      out.apoapsis.radius = _fit.value
+      out.apoapsis.time = when
+    } else {
+      periStep = k
+      out.periapsis.radius = _fit.value
+      out.periapsis.time = when
+    }
+    _forced[k] = 1
+    if (apoStep >= 0 && periStep >= 0) break
   }
 
+  /* ---- choose what to draw ---- */
+  const count = choose(n, out)
+  out.count = count
+  out.span = _time[n]
+
+  for (let i = 0; i < applied && i < _nodeStep.length; i++) out.nodeSamples.push(_sampleOf[_nodeStep[i]])
+  if (lastNodeStep >= 0) out.lastNode = _sampleOf[lastNodeStep]
+  if (apoStep >= 0) out.apoapsis.index = _sampleOf[apoStep]
+  if (periStep >= 0) out.periapsis.index = _sampleOf[periStep]
+  if (impact >= 0) {
+    out.impact.index = count - 1
+    out.impact.time = _time[n]
+    out.impact.body = ORDER[impact]
+  }
   return out
+}
+
+/**
+ * Pick at most SAMPLES of the kept steps to draw, and write them out.
+ *
+ * Every step gets a cost: how far the drawn line turns there, as a share of how
+ * far it turns in total, plus how much time passes, as a share of the whole
+ * span. Samples go at equal intervals of accumulated cost, so half the budget
+ * follows curvature — perigee, a lunar loop — and half follows time, so a long
+ * straight coast still gets points often enough to click on. Forced steps are
+ * always drawn and come out of the same budget.
+ *
+ * The turn is measured in the frame the line is drawn in, not about any body: a
+ * lunar orbit drawn around Earth is a loop on a nearly straight line from
+ * Earth's point of view, and it is the loop that needs the points.
+ */
+function choose(n, out) {
+  const total = n + 1
+  if (total <= SAMPLES) {
+    for (let k = 0; k <= n; k++) write(out, k, k)
+    return total
+  }
+
+  let forced = 0
+  for (let k = 0; k <= n; k++) forced += _forced[k]
+  const budget = SAMPLES - forced
+
+  let turning = 0
+  for (let k = 1; k < n; k++) turning += turnAt(k, n)
+  const span = _time[n] - _time[0]
+  const spacing = 2 / Math.max(budget, 1)
+
+  let written = 0
+  let chosenFree = 0
+  let accumulated = 0
+  let threshold = spacing
+  for (let k = 0; k <= n; k++) {
+    if (k > 0) {
+      accumulated += (turning > 0 ? turnAt(k, n) / turning : 0) + (span > 0 ? (_time[k] - _time[k - 1]) / span : 0)
+    }
+    if (_forced[k]) {
+      write(out, k, written++)
+    } else if (accumulated >= threshold && chosenFree < budget) {
+      write(out, k, written++)
+      chosenFree++
+      while (threshold <= accumulated) threshold += spacing
+    }
+  }
+  return written
+}
+
+/** Turning angle of the kept line at step k of 0..n, radians; 0 at the ends. */
+function turnAt(k, n) {
+  if (k <= 0 || k >= n) return 0
+  const a = (k - 1) * 3
+  const b = k * 3
+  const d = (k + 1) * 3
+  const ux = _pos[b] - _pos[a]
+  const uy = _pos[b + 1] - _pos[a + 1]
+  const uz = _pos[b + 2] - _pos[a + 2]
+  const wx = _pos[d] - _pos[b]
+  const wy = _pos[d + 1] - _pos[b + 1]
+  const wz = _pos[d + 2] - _pos[b + 2]
+  const cx = uy * wz - uz * wy
+  const cy = uz * wx - ux * wz
+  const cz = ux * wy - uy * wx
+  const dot = ux * wx + uy * wy + uz * wz
+  const cross = Math.sqrt(cx * cx + cy * cy + cz * cz)
+  return cross > 0 || dot < 0 ? Math.atan2(cross, dot) : 0
+}
+
+function write(out, k, j) {
+  out.points[j * 3] = _pos[k * 3]
+  out.points[j * 3 + 1] = _pos[k * 3 + 1]
+  out.points[j * 3 + 2] = _pos[k * 3 + 2]
+  out.times[j] = _time[k]
+  _sampleOf[k] = j
 }
 
 /**

@@ -504,10 +504,15 @@ function apsisTiming(out, r, a, e, bound, radialVelocity, mu) {
  * the 900 s planetary ceiling — against a two-hour orbit, which is 7.9 steps per
  * revolution: the same failure this function exists to prevent, one body over.
  * Callers take the tightest limit over every attractor the craft is near.
+ *
+ * `perPeriod` is how many steps a revolution should take. The flight keeps 400,
+ * which is what the step-size study in the README was run against; the forward
+ * projection asks for more, because it integrates eccentric orbits in one pass
+ * and has no drag-limited entry to pay for.
  */
-export function timestepLimit(radius, mu = MU_EARTH) {
+export function timestepLimit(radius, mu = MU_EARTH, perPeriod = 400) {
   const period = 2 * Math.PI * Math.sqrt((radius * radius * radius) / mu)
-  return clamp(period / 400, 0.5, 900)
+  return clamp(period / perPeriod, 0.5, 900)
 }
 
 export { MU_EARTH, MU_MOON }
