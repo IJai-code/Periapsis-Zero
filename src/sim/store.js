@@ -41,6 +41,13 @@ const WIDE_ENOUGH_FOR_PANELS =
 export const uiStore = createStore({
   /** Which pad the next flight leaves from. Mirrors sim/launchsite.js. */
   site: activeSite().id,
+  /**
+   * The map. Not a separate scene — the same one, pulled back far enough to see
+   * the whole orbit, with the flight instruments out of the way and the
+   * planning ones kept. Everything that makes a plan — the two paths, the
+   * gizmo, the flight-plan list, the clock — works identically in both.
+   */
+  map: false,
   focus: 'earth', // 'free' | 'fly' | 'sun' | 'earth' | 'moon' | ...
   /**
    * Opens paused, at real time.

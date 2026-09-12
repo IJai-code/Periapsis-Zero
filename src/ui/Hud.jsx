@@ -11,6 +11,16 @@ import { NodePanel } from './NodePanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
+import { prediction } from '../sim/predict.js'
+
+/**
+ * Camera modes the map cannot use.
+ *
+ * The map is a view of an orbit, and an orbit has to be seen from outside it.
+ * These four put the camera on or inside the vehicle, so entering the map from
+ * one of them moves to the body the path is drawn around.
+ */
+const FROM_THE_VEHICLE = new Set(['chase', 'pad', 'fly', 'cinematic'])
 
 const FOCUS_KEYS = {
   1: 'free',
@@ -46,8 +56,24 @@ function EclipseBanner() {
   )
 }
 
+/**
+ * Into the map and back.
+ *
+ * Entering from a camera riding the vehicle moves to whichever body the path is
+ * drawn around, because an orbit cannot be read from inside it. Any other lock
+ * is left alone — if the pilot was looking at the Moon, the map opens on the
+ * Moon.
+ */
+function toggleMap() {
+  setUi((s) => ({
+    map: !s.map,
+    focus: !s.map && FROM_THE_VEHICLE.has(s.focus) ? (prediction.reference ?? 'earth') : s.focus,
+  }))
+}
+
 export function Hud() {
   const open = useUi((s) => s.panelOpen)
+  const map = useUi((s) => s.map)
 
   useEffect(() => {
     const onKey = (e) => {
@@ -61,6 +87,7 @@ export function Hud() {
       if (e.key === ']')
         return setUi((s) => ({ warp: Math.min(WARP_LEVELS.length - 1, s.warp + 1) }))
       if (e.key.toLowerCase() === 'h') return setUi((s) => ({ panelOpen: !s.panelOpen }))
+      if (e.key.toLowerCase() === 'm') return toggleMap()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -72,16 +99,29 @@ export function Hud() {
     <div className="pointer-events-none fixed inset-0 z-10 select-none">
       <div className="absolute top-4 left-4 flex max-h-[calc(100vh-7rem)] flex-col gap-3 overflow-y-auto pr-1">
         <div className="pointer-events-auto">
-          <div className="font-display text-lg leading-none font-semibold tracking-[0.28em] text-hud">
-            SPXSIM
+          <div className="flex items-baseline gap-2">
+            <div className="font-display text-lg leading-none font-semibold tracking-[0.28em] text-hud">
+              SPXSIM
+            </div>
+            <button
+              onClick={toggleMap}
+              className={`rounded-[2px] px-1.5 py-0.5 text-[9px] tracking-[0.2em] uppercase transition-colors ${
+                map
+                  ? 'bg-hud/70 text-black'
+                  : 'border border-white/15 text-white/40 hover:text-white/80'
+              }`}
+            >
+              map · m
+            </button>
           </div>
-          <div className="rule mt-1">Sol · Terra · Luna</div>
+          <div className="rule mt-1">{map ? 'Flight plan' : 'Sol · Terra · Luna'}</div>
         </div>
         {open && (
           <div className="pointer-events-auto flex flex-col gap-3">
             <FocusMenu />
-            <LaunchSite />
-            <ModelSelector />
+            {/* Setting the flight up, not flying it: out of the way on the map. */}
+            {!map && <LaunchSite />}
+            {!map && <ModelSelector />}
             <Toggles />
           </div>
         )}
@@ -94,7 +134,7 @@ export function Hud() {
                 manoeuvre panel is whatever the pilot is doing right now. */}
             <NodePanel />
             <Telemetry />
-            <ShipTelemetry />
+            {!map && <ShipTelemetry />}
           </div>
         </div>
       )}

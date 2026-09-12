@@ -18,6 +18,37 @@ import { AU, BODIES, CRAFT, SHIP } from '../sim/constants.js'
  * outer limits are new numbers, because the old ones were bounded by a scene
  * 120 units wide per AU and had no meaning in metres.
  */
+/**
+ * How far back a drawn path fits in frame, in metres.
+ *
+ * From the path rather than from the body it orbits: what the map is for is
+ * seeing the *orbit*, and a 200 km parking orbit and a translunar coast differ
+ * by three decades while the body under them does not change at all. The
+ * greatest radius the projection drew, opened out by the vertical field of
+ * view, with a margin so the apoapsis is not flush against the edge.
+ *
+ * `floor` keeps a near-circular low orbit from pulling the camera inside the
+ * planet it is drawn around.
+ *
+ * @param {Float64Array} points xyz per sample, relative to the body
+ * @param {number} count samples written
+ * @param {number} fovDegrees the camera's vertical field of view
+ * @param {number} floor closest the camera may sit, m
+ */
+export function pathFramingDistance(points, count, fovDegrees, floor) {
+  let far = 0
+  for (let i = 0; i < count; i++) {
+    const o = i * 3
+    const r = Math.sqrt(points[o] * points[o] + points[o + 1] * points[o + 1] + points[o + 2] * points[o + 2])
+    if (r > far) far = r
+  }
+  const half = Math.tan(((fovDegrees * 0.5) * Math.PI) / 180)
+  return Math.max(floor, (far / Math.max(half, 1e-6)) * FRAMING_MARGIN)
+}
+
+/** How much wider than the path itself the map frames. */
+export const FRAMING_MARGIN = 1.15
+
 export const FRAMING = {
   sun: { distance: BODIES.sun.radius * 4.6, min: BODIES.sun.radius * 1.35, max: 2 * AU },
   earth: { distance: BODIES.earth.radius * 5.2, min: BODIES.earth.radius * 1.25, max: 4e9 },

@@ -23,6 +23,7 @@ import { Vector3 } from 'three'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { INDEX } from '../src/sim/system.js'
 import { BODIES, BODY_ORDER, CRAFT } from '../src/sim/constants.js'
+import { pathFramingDistance } from '../src/gfx/framing.js'
 
 /** Place a craft at an absolute position, in metres. */
 function place(id, x, y, z) {
@@ -148,7 +149,38 @@ for (const [id, c] of Object.entries(CRAFT)) {
 }
 
 console.log('\n=== what this establishes ===')
+/* ---- the map's framing: does the whole path actually fit? ---- */
+/**
+ * The map pulls back far enough to see the orbit, which is a statement about
+ * angles rather than distances: at the framing distance, the furthest point of
+ * the path must subtend less than half the vertical field of view, and not so
+ * much less that the orbit is a dot.
+ */
+const FOV = 45
+const fits = []
+for (const apoapsis of [6.6e6, 2.1e7, 4.0e8]) {
+  const points = new Float64Array(3 * 64)
+  for (let i = 0; i < 64; i++) {
+    const a = (i / 64) * Math.PI * 2
+    points[i * 3] = Math.cos(a) * apoapsis
+    points[i * 3 + 1] = Math.sin(a) * apoapsis * 0.6
+  }
+  const d = pathFramingDistance(points, 64, FOV, BODIES.earth.radius * 3)
+  // Half-angle the furthest point subtends from there, against the half-fov.
+  const subtended = (Math.atan(apoapsis / d) * 180) / Math.PI
+  fits.push({ apoapsis, d, subtended, margin: FOV / 2 / subtended })
+}
+console.log('\n=== the map frames the path, not the body ===')
+for (const f of fits) {
+  console.log(`  apoapsis ${(f.apoapsis / 1e3).toFixed(0).padStart(7)} km → camera ${(f.d / 1e3).toFixed(0).padStart(8)} km` +
+    `, path subtends ${f.subtended.toFixed(2)} deg of the ${FOV / 2} available`)
+}
+
 const checks = [
+  ['the map fits the whole path in frame', fits.every((f) => f.subtended < FOV / 2)],
+  ['with a margin, and not a wasteful one', fits.every((f) => f.margin > 1.05 && f.margin < 1.5)],
+  ['and it scales with the path across three decades',
+    fits[2].d / fits[0].d > 50],
   ['every rendered separation matches the state vector', worstRel < 1e-12],
   /**
    * Derived rather than written down, and toleranced to what the coordinates

@@ -5,10 +5,10 @@ import { live } from '../sim/live.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { BODIES, SHIP } from '../sim/constants.js'
-import { CHASE_OFFSET, FRAMING, detentsIn, zoomSpeedFor } from '../gfx/framing.js'
+import { CHASE_OFFSET, FRAMING, detentsIn, pathFramingDistance, zoomSpeedFor } from '../gfx/framing.js'
 import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
 import { mission } from '../sim/mission.js'
-import { MAX_NODE_FRAMES, plan } from '../sim/predict.js'
+import { MAX_NODE_FRAMES, plan, prediction } from '../sim/predict.js'
 import { selectedNode } from '../sim/nodes.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
@@ -137,6 +137,7 @@ const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2
  */
 export function CameraRig() {
   const focus = useUi((s) => s.focus)
+  const map = useUi((s) => s.map)
   const controls = useThree((s) => s.controls)
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
@@ -355,7 +356,14 @@ export function CameraRig() {
      * A 200 km parking orbit and a burn at the Moon are four decades apart.
      */
     let distance = frame.distance
-    if (focus === 'node') {
+    if (map && focus !== 'node') {
+      distance = pathFramingDistance(
+        prediction.points,
+        prediction.count,
+        camera.fov,
+        (BODIES[focus]?.radius ?? BODIES.earth.radius) * 3,
+      )
+    } else if (focus === 'node') {
       const anchor = live.pos[plan.reference]
       const away = nodePosition(scratch.nodeAim) ? scratch.nodeAim.distanceTo(anchor) : 0
       const surface = BODIES[plan.reference]?.radius ?? BODIES.earth.radius
@@ -401,7 +409,7 @@ export function CameraRig() {
       dir,
       distance,
     }
-  }, [focus, controls, camera])
+  }, [focus, map, controls, camera])
 
   useFrame((_, delta) => {
     if (!controls || focus === 'free') return

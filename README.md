@@ -293,6 +293,7 @@ actually landed.
 | drag the centre | slide the burn along the orbit                       |
 | `esc` `del`     | deselect / delete the selected node                  |
 | click a plan row | open that burn and fly the camera to it             |
+| `m`             | the map: pull back until the whole orbit is in frame  |
 
 Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing
@@ -349,6 +350,25 @@ What that buys, end to end:
   for the three-day two-burn plan, and 5 ms in the worst case, where a burn a
   month away exhausts the step budget and the projection says `truncated`
   instead of taking as long as it takes inside a render frame.
+
+### The map
+
+`m` opens it, and it is not a second scene — it is the same one, pulled back far
+enough to see the whole orbit, with the flight instruments out of the way and
+the planning ones kept. The two paths, the gizmo, the flight-plan list and the
+clock all work identically in both, because they are the same objects.
+
+How far back comes from the *path*, not from the body it orbits: a parking orbit
+and a translunar coast differ by three decades while Earth does not change at
+all. `pathFramingDistance` takes the greatest radius the projection drew and
+opens it out by the vertical field of view, with a 15% margin. Gated in
+verify-geometry across three decades of orbit — the path subtends 19.1°, 19.8°
+and 19.8° of the 22.5° available, so it fits with room and the room does not
+grow.
+
+Entering from a camera that rides the vehicle — chase, pad, free flight, the
+opening shot — moves to whichever body the path is drawn around, because an
+orbit cannot be read from inside it. Any other lock is left alone.
 
 ### The plan as a list
 
