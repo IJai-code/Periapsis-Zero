@@ -131,6 +131,12 @@ const SHOTS = {
   DROGUE: ['chase', 'Drogues'],
   MAIN_CHUTES: ['chase', 'Main canopies'],
   SPLASHDOWN: ['ship', 'Splashdown'],
+
+  /**
+   * Pull back to the planet. Wherever the vehicle got to, the useful thing to
+   * see is the body it is inside, not a chase camera buried in the crust.
+   */
+  LOST: ['earth', 'Vehicle lost'],
 }
 
 /**

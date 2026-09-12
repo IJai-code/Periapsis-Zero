@@ -204,6 +204,28 @@ ISS**, whose geocentric limit is tighter than the Moon's 17.50 s. So the lunar
 term changes no number today — it removes the dependence of lunar-orbit fidelity
 on an unrelated satellite in low Earth orbit.
 
+**A vehicle inside a planet stops the run.** `updateMission` checks height above
+the nearest body before any phase steers, and a craft below the surface goes to
+`LOST` and holds. Not a `done()` on the phases that can reach it: the phase that
+needed it was `TLI_ALIGN`, a coast that does nothing but wait, which is the last
+place anyone would have put a crash test. Without it a decayed parking orbit
+integrated down to `r = 0` and the sequencer flew the corpse for another 32
+hours, ran a translunar injection from Earth's centre, and produced a delta-v
+number that was believed and written down. The descent phases carry
+`landing: true`, because `MAIN_CHUTES` reaches zero altitude on purpose and the
+guard would otherwise report every returning capsule lost one frame before it
+splashed.
+
+**A gate that cannot run is worse than a gate that fails.** `verify-loi-sweep`
+declared `const WARP = 4` beside an imported `WARP`, and had been a syntax error
+since 72a3f56 — the commit that added rungs to the warp ladder, after which the
+literal `4` no longer meant the 1 day/s its own comment claimed. Nobody noticed,
+because nothing runs it: it takes two snapshot arguments, and its usage line
+named one. When it was repaired it turned out to have been measuring a
+trans-Earth injection rather than a coast — the sequencer departs at revolution
+1.7 — so every row of a step-size experiment reported the same number, which is
+exactly the tell. The step-ceiling table above is what it says once it runs.
+
 **Test particles are structurally massless.** Tier one is pair-symmetric among
 Sun/Earth/Moon; tier two reads gravity and writes none. The planetary solution
 is bit-identical with the fleet aboard — verified, max difference exactly `0`.
@@ -747,20 +769,57 @@ same days, same burns:
 | Vandenberg | day 12.8 | 420,600 | 11,385 |
 
 So Vandenberg was never the outlier at TLI — it found its window in *fewer*
-frames than Kennedy. Where it stalls is the injection itself, and the trace is
-unambiguous: it reaches the window at MET 306.6 h with 5,208 m/s in the tanks
-against Kennedy's 5,825, stages *twice* during the burn where Kennedy stages
-once, and cuts off on propellant exhaustion rather than on reaching the target
-apoapsis. It then coasts for 120 days without ever entering the Moon's sphere of
-influence — lunar range 398,682 km against an SOI of 68,649.
+frames than Kennedy.
 
-So the mission is not flyable from that pad with this vehicle: the polar azimuth
-costs 617 m/s at insertion and the vehicle does not have it to give. Why the
-injection consumed more than the ~3,100 m/s a translunar burn costs — a figure
-that does not depend on inclination — is **not** established. Three explanations
-for Vandenberg have been wrong already (lunar geometry, then the window search,
-then the frame budget), so this one is recorded as far as it was measured and no
-further.
+That made the injection itself look like the problem, and it was written up as
+one: the vehicle reached the window at MET 306.6 h with 5,208 m/s against
+Kennedy's 5,825, staged twice during the burn where Kennedy stages once, and cut
+off on propellant exhaustion. Recorded here as a delta-v shortfall the polar
+azimuth had caused. That was the fourth wrong explanation for this pad, and
+unlike the first three it had been committed.
+
+**The vehicle is not there.** It reentered on day 11.4 and the sequencer kept
+flying it.
+
+A 172 x 185 km parking orbit is not somewhere to wait. Drag takes perigee at
+1.62 km a day to begin with and faster as it drops, and the figure is the air
+rather than the integrator: the same 24-hour coast loses 1.624 km at 60x warp
+and 1.624 km at 21,600x, a 360-fold change in step size that moves nothing. The
+sequencer waits in that orbit for the Moon to cross its orbital plane, and at
+this epoch that wait is:
+
+| pad | window opens | lowest altitude reached | outcome |
+| --- | --- | --- | --- |
+| Baikonur | 137.1 h | 163.6 km | injects |
+| Kennedy | 219.7 h | 156.4 km | injects |
+| Kourou | 286.9 h | 148.8 km | injects |
+| Vandenberg | 306.4 h | — | **lost at MET 274.7 h** |
+
+Vandenberg's craft crosses the surface 31.7 hours before its window opens. With
+nothing checking, it kept integrating down to r = 0 and sat at Earth's centre —
+and the sequencer, which only ever asked whether the Moon was in the plane,
+reached the window on schedule and ran a translunar injection out of the middle
+of the planet. 5,208 m/s spent; apoapsis raised to 15 km.
+
+There was never a delta-v anomaly. Kennedy's injection, traced burn-frame by
+burn-frame, costs **3,147 m/s of ideal delta-v** — the textbook figure — of
+which 3,022 m/s becomes speed and 124 m/s is paid climbing, with steering loss
+below 1 m/s because the burn is held prograde. Nothing about that depends on
+inclination and nothing about it was ever wrong.
+
+What is wrong is the profile, and not only from Vandenberg. Three pads out of
+four survive the wait, and they survive it by where the Moon happened to be:
+Kourou reaches its window at 148.8 km, which is an altitude Vandenberg passed
+through with about two days left to live. The mission parks low and loiters for
+between six and thirteen days. Apollo parked at this altitude and injected
+within three orbits, for exactly this reason.
+
+Two things follow, and only the first is done. The sequencer now carries a
+`LOST` phase and an altitude check that runs before any phase steers, so a
+vehicle inside a planet stops the run and says where instead of being flown on —
+`verify-launch-sites` puts a craft under the surface and asserts it. The second
+is the profile itself: a parking orbit chosen for a wait this long, or a
+commitment held until the window is close enough to reach. Neither is built.
 
 ## Surface launch
 

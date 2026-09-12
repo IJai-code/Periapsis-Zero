@@ -18,20 +18,34 @@
 
 import { flight, frame, loadSnapshot } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
-import { live } from '../src/sim/live.js'
+import { live, refreshDerived } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
-import { MU_MOON, ship, timestepLimit, totalMass } from '../src/sim/ship.js'
+import {
+  MU_MOON,
+  applyThrust,
+  integrateAttitude,
+  ship,
+  timestepLimit,
+  totalMass,
+} from '../src/sim/ship.js'
 import { BODIES, SHIP, TEST_PARTICLES } from '../src/sim/constants.js'
 import { INDEX } from '../src/sim/system.js'
 
 const R = BODIES.moon.radius
 const snap = process.argv[2]
-if (!snap) {
-  console.error('usage: node scripts/verify-loi-sweep.mjs <approach-snapshot.json>')
+const orbitSnap = process.argv[3]
+/**
+ * Both are required. The usage line used to name only the first, and the second
+ * was read without being checked — so a run given one argument got through the
+ * first two experiments and then died inside `readFileSync` on `undefined`,
+ * which reads as a broken harness rather than a missing argument.
+ */
+if (!snap || !orbitSnap) {
+  console.error(
+    'usage: node scripts/verify-loi-sweep.mjs <approach-snapshot.json> <lunar-orbit-snapshot.json>',
+  )
   process.exit(1)
 }
-
-const orbitSnap = process.argv[3]
 const alt = (m) => (m - R) / 1e3
 
 /**
@@ -179,22 +193,56 @@ for (const [label, thrustScale, ispScale] of [
 console.log('\n=== 3. lunar coast at 1 day/s, 10 revolutions, by step ceiling ===')
 console.log('   maxDt   real step  steps/rev       a drift      e drift    peri drift')
 
-const WARP = 4 // 1 day/s -> 1440 simulated seconds per frame
+/**
+ * 1 day/s, so a frame is 1440 simulated seconds.
+ *
+ * This was the literal `4` until the ladder grew rungs in 72a3f56, at which
+ * point index 4 became 1 min/s — and, because the name was already imported at
+ * the top of this file, the redeclaration made the whole gate a syntax error
+ * rather than a wrong measurement. It has not run since. The named rung cannot
+ * drift out from under it the way the index did; flight.mjs makes the same
+ * argument about its own copy of the ladder.
+ */
 const SIMDT = 86400 / 60
 
+/**
+ * Integrated directly, without the sequencer.
+ *
+ * This used to call `frame()`, which runs `updateMission` — and the sequencer
+ * does not sit in lunar orbit for ten revolutions. It departs: measured, it
+ * entered TEI_ALIGN at revolution 1.00 and lit the trans-Earth injection at
+ * 1.70, so every row below was reporting the same ~1,000 m/s burn and the
+ * eccentricity drift read 1.0 at every ceiling including 5 s. A step-size
+ * experiment whose answer does not move with step size is measuring something
+ * else, and it was.
+ *
+ * What replaces it is `frame()` with `updateMission` removed and nothing else:
+ * attitude, thrust and the drag coefficients still have to be refreshed every
+ * step. Dropping `applyThrust` as well looks harmless at throttle zero and is
+ * not — `extAccel` is a live object that holds the *last* acceleration written
+ * into it, so a snapshot taken after the capture burn keeps applying that burn
+ * forever. That read as semi-major axis going to exactly zero at every ceiling,
+ * which is the same shape of wrong answer as before and worth naming: in both
+ * cases the number did not move with the step size, and in both cases that was
+ * the tell.
+ */
 for (const cap of [1440, 900, 300, 100, 30, 17.66, 13.86, 5]) {
   loadSnapshot(orbitSnap)
   const a0 = live.lunar.semiMajor
   const e0 = live.lunar.eccentricity
   const rp0 = live.lunar.periapsisRadius
   const period = live.lunar.period
-  const t0 = mission.t
+  const t0 = live.sim.t
 
-  flight.pilotWarp = WARP
-  while (mission.t - t0 < 10 * period) {
-    frame()
-    live.maxDt = cap
-    live.sim.maxDt = cap
+  ship.throttle = 0
+  while (live.sim.t - t0 < 10 * period) {
+    integrateAttitude(SIMDT)
+    applyThrust(1 / 60, SIMDT, live.sim.extAccel)
+    live.sim.dragK[0] = live.sim.extAccel.dragK ?? 0
+    live.sim.liftK[0] = live.sim.extAccel.liftK ?? 0
+    live.sim.bank[0] = live.sim.extAccel.bank ?? 0
+    live.sim.advance(SIMDT, cap)
+    refreshDerived()
   }
 
   const realStep = SIMDT / Math.ceil(SIMDT / cap)

@@ -17,7 +17,7 @@
 
 import { flight, flyMission } from './flight.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import { currentPhase, mission } from '../src/sim/mission.js'
+import { currentPhase, mission, updateMission } from '../src/sim/mission.js'
 import { deltaV, ship, totalMass } from '../src/sim/ship.js'
 import { BODIES } from '../src/sim/constants.js'
 import { INDEX } from '../src/sim/system.js'
@@ -184,6 +184,62 @@ const checks = [
    */
   ['every stack leaves its pad pointing straight up', flown.every((f) => f.tilt < 0.01)],
 ]
+
+/* ---------------------------------------------------------------- *
+ * A vehicle inside the planet is not still flying
+ * ---------------------------------------------------------------- */
+
+/**
+ * The check that was missing, and what it cost.
+ *
+ * A parking orbit at 172 x 185 km is not a place to loiter: drag takes 1.6 km
+ * of perigee a day, measured, and the same figure comes back at 60x and at
+ * 21,600x warp, so it is the air and not the integrator. The sequencer waits
+ * there for the Moon to cross its orbital plane, which at this epoch is 137 h
+ * from Baikonur and 306 h from Vandenberg — and Vandenberg's vehicle reenters
+ * on day 11.4, 32 hours before its window opens.
+ *
+ * Nothing noticed. The craft kept integrating down to r = 0, sat at Earth's
+ * centre, and the sequencer flew on and ran a translunar injection out of the
+ * middle of the planet: 5,208 m/s spent to raise apoapsis to 15 km. That was
+ * read as a delta-v shortfall, written into the README as one, and committed.
+ *
+ * So the guard is tested the cheap way rather than by flying eleven days: put
+ * the craft under the surface and take one frame. It has to stop.
+ */
+selectSite('ksc')
+resetSimulation()
+refreshDerived()
+/**
+ * `TLI_ALIGN`, not `COAST`.
+ *
+ * `flyMission`'s own `onFrame` calls `commitTLI()` the moment `COAST` is
+ * entered, and `flyUntil` tests the predicate *after* `onFrame` — so by the
+ * time anything asks whether the phase is `COAST` it is already `TLI_ALIGN`,
+ * and a run asked to stop there instead flies to splashdown. Asking for a phase
+ * nothing preempts is the whole of the fix.
+ */
+flyMission('TLI_ALIGN', { onPhase: () => {}, maxFrames: 2_000_000 })
+const orbiting = currentPhase().id
+
+// Halve the radius, keeping the velocity: unambiguously inside the planet, and
+// nothing else about the state disturbed.
+const st = live.sim.state
+for (let k = 0; k < 3; k++) st[C + k] = st[E + k] + (st[C + k] - st[E + k]) * 0.5
+refreshDerived()
+const depth = live.elements.altitude
+updateMission(1 / 60, 1 / 60)
+
+console.log('\n=== a vehicle inside the planet ===')
+console.log(`  from ${orbiting}, moved to ${(depth / 1e3).toFixed(0)} km altitude`)
+console.log(`  sequencer now in ${currentPhase().id}`)
+
+checks.push(
+  ['a craft below the surface is reported lost', currentPhase().id === 'LOST'],
+  ['and the depth it was lost at is recorded', mission.lost.altitude < 0],
+  ['against the body it is inside', mission.lost.body === 'earth'],
+)
+
 let pass = true
 for (const [label, ok] of checks) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}`)

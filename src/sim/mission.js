@@ -325,6 +325,14 @@ export const mission = {
     pointingError: Math.PI, // rad between the nose and the commanded direction
   },
 
+  /**
+   * Where the vehicle was lost, if it was. `at` is MET in seconds and
+   * `altitude` the depth below the surface when the guard tripped — kept
+   * because "how far under" separates a grazing reentry from an integration
+   * that ran away.
+   */
+  lost: { at: 0, altitude: 0, body: '' },
+
   /** Lowest eccentricity seen during a circularisation burn. */
   bestEccentricity: Infinity,
   /** Whether the phase a staging interrupt preempted has met its own cutoff. */
@@ -2273,6 +2281,7 @@ const PHASES = [
   {
     id: 'RE_ENTRY',
     label: 'Re-entry',
+    landing: true,
     enter() {
       ship.throttle = 0
       mission.warpRequest = PROFILE.entryWarp
@@ -2290,6 +2299,7 @@ const PHASES = [
   {
     id: 'DROGUE',
     label: 'Drogues',
+    landing: true,
     enter() {
       ship.chuteTarget = SHIP.chutes.drogue.cdA
       ship.chuteTau = SHIP.chutes.drogue.tau
@@ -2306,6 +2316,7 @@ const PHASES = [
   {
     id: 'MAIN_CHUTES',
     label: 'Main chutes',
+    landing: true,
     enter() {
       ship.chuteTarget = SHIP.chutes.main.cdA
       ship.chuteTau = SHIP.chutes.main.tau
@@ -2525,6 +2536,46 @@ const PHASES = [
       return 'NRHO_COAST'
     },
   },
+
+  /**
+   * The vehicle is inside a planet. Nothing else in this list can be true.
+   *
+   * A terminal phase rather than a flag, because the sequencer's whole contract
+   * is that some phase is always running: a flag would have to be consulted by
+   * every `control()` and one of them would forget. This one holds, and the
+   * `done: () => false` means the run stops here and says where.
+   *
+   * It exists because the run that did not have it was believed. Vandenberg's
+   * parking orbit decayed through the atmosphere on day 11.4 of a 12.8-day wait
+   * for a lunar window, and with no check on it the craft kept integrating down
+   * to r = 0 and sat at Earth's centre. The sequencer flew on, reached the
+   * window at MET 306.6 h, and dutifully ran a translunar injection from the
+   * middle of the planet — 5,208 m/s spent to raise apoapsis to 15 km. That was
+   * read as "the polar azimuth costs more than the vehicle has", written into
+   * this file's documentation as a delta-v finding, and committed. It was the
+   * fourth wrong explanation for this pad, and the only one that a two-line
+   * altitude check would have caught before it was ever written down.
+   */
+  {
+    id: 'LOST',
+    label: 'Vehicle lost',
+    /**
+     * `landing: true` on the descent phases is what keeps this one from
+     * stealing splashdown. `MAIN_CHUTES.done()` fires on `altitude <= 0`, and
+     * it reads the same refreshed elements the guard does — so without the
+     * flag the guard trips first, every single flight, and the capsule is
+     * reported lost one frame before it lands.
+     */
+    enter() {
+      ship.throttle = 0
+      mission.warpRequest = WARP.x1
+      mission.lost.at = mission.t
+      mission.lost.altitude = surfaceAltitude()
+      mission.lost.body = live.insideLunarSOI ? 'moon' : 'earth'
+    },
+    control() {},
+    done: () => false,
+  },
 ]
 
 const INDEX_OF = Object.fromEntries(PHASES.map((p, i) => [p.id, i]))
@@ -2641,6 +2692,9 @@ export function resetMission() {
   mission.loi.minRadius = Infinity
   mission.loi.ignited = false
   mission.loi.cutoff = ''
+  mission.lost.at = 0
+  mission.lost.altitude = 0
+  mission.lost.body = ''
   PHASES[0].enter()
 }
 
@@ -2655,8 +2709,47 @@ export function resetMission() {
  * to advance with the *simulation*, or at 60x the vehicle experiences a minute
  * of trajectory for every second the sequencer believes has passed.
  */
+/**
+ * Height above the surface of whichever body the craft is actually near, m.
+ *
+ * `live.elements` is geocentric and `live.lunar` selenocentric, and only one of
+ * them means anything at a time — a craft in lunar orbit is 400,000 km up by
+ * the first and 100 km up by the second. `insideLunarSOI` is the same test the
+ * rest of the sequencer uses to decide which conic to believe.
+ */
+function surfaceAltitude() {
+  return live.insideLunarSOI ? live.lunar.altitude : live.elements.altitude
+}
+
+/**
+ * Is the vehicle somewhere a vehicle can be?
+ *
+ * Two phases legitimately sit at or below zero: a clamped stack on the pad
+ * reads exactly 0, and a capsule in the water is done. Everything else in the
+ * list is flight, and flight below the surface is not a manoeuvre the sequencer
+ * should keep steering — it is the run having already failed somewhere earlier.
+ */
+function belowSurface() {
+  const phase = PHASES[mission.index]
+  if (phase.splashed || phase.clamped || phase.landing || phase.id === 'LOST') return false
+  return surfaceAltitude() < 0
+}
+
 export function updateMission(dt, simDt = dt) {
   updateLocalFrame()
+
+  /**
+   * Checked before anything else steers, and from every phase.
+   *
+   * Deliberately not a `done()` on the phases that can reach it: the point is
+   * that *no* phase has to know about it, because the phase that needed it last
+   * time was `TLI_ALIGN` — a coast that does nothing but wait, and the last
+   * place anyone would have thought to test for a crash.
+   */
+  if (belowSurface()) {
+    setPhase(INDEX_OF.LOST)
+    return
+  }
 
   const phase = PHASES[mission.index]
   mission.phaseT += mission.index === 0 ? dt : simDt
