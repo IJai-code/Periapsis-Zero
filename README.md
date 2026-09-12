@@ -618,6 +618,77 @@ Every craft in Earth orbit shares one display-scaling rule rather than matching
 on an id, because matching on a single id is exactly how the ISS and Hubble
 first ended up rendering *inside* the planet.
 
+## Launch sites
+
+Four pads, and the picker is the small half. A site is a latitude, a longitude
+and a heading, and each one reaches into the flight: latitude sets how much of
+the planet's rotation the vehicle starts with and the lowest inclination it can
+reach, the heading sets how much of that rotation points where it is going.
+
+The guidance carries no site-specific constants — one vertical-acceleration law
+for all four — so the test is whether it still parks the vehicle in the same
+orbit when the ground under it moves 140 m/s slower and the plane is tilted 53
+degrees further over. Flown, in `scripts/verify-launch-sites.mjs`:
+
+| pad | latitude | azimuth | parking orbit | inclination | Δv left |
+| --- | --- | --- | --- | --- | --- |
+| Kennedy LC-39B | 28.58°N | 90° | 172.6 × 185.3 km | 28.58° | 5,825 m/s |
+| Baikonur 1/5 | 45.92°N | 61.9° | 172.8 × 185.5 km | 51.29° | 5,646 m/s |
+| Kourou ELA-3 | 5.24°N | 90° | 172.7 × 185.7 km | 5.24° | 5,894 m/s |
+| Vandenberg SLC-6 | 34.74°N | 170° | 172.5 × 185.2 km | 80.61° | 5,208 m/s |
+
+All four park within 0.3 km of the same orbit, and none beats its own latitude
+floor — the hard bound a launch cannot steer around.
+
+**What is left in the tanks follows the rotation that points *downrange*, not
+the rotation.** ω·R·cos φ predicts the wrong order: it puts Vandenberg above
+Baikonur, and the flights say otherwise. Vandenberg leaves at 170 degrees, so of
+its 382 m/s only 66 point where the vehicle is going — `ω·R·cos φ·sin β` orders
+the four correctly, and the gate asserts both that it does and that the raw
+bonus does not.
+
+### The bug this exposed
+
+A vehicle on a pad points along its own local vertical. This one pointed
+wherever `makeBasis` made of a fallback axis that was not perpendicular to it.
+
+`aimThrust` builds its frame as `x = up × z`. Commanded straight up — which is
+exactly what a stack on a pad is commanded — that cross product vanishes, and
+the fallback was the fixed world axis `(1,0,0)`, which is *not* perpendicular to
+the local vertical. `makeBasis` was handed three vectors that were not a basis,
+and the quaternion came out tilted by however far that axis happened to sit from
+the local horizontal. Measured at release: **1.4° off vertical at Kennedy**,
+where the profile was tuned, **0.9° at Baikonur — and 27.7° at Kourou, 29.8° at
+Vandenberg**. A stack that lifts off leaning thrusts sideways: Kourou gave back
+38 m/s of the very eastward speed its latitude exists to provide, and climbed to
+134 m in the time Kennedy reached 239. The fallback is now `east`, which is
+perpendicular to up by construction. All four now leave the pad at 0.0°.
+
+It had been invisible because the one pad in the simulator sat where the error
+was nearly harmless.
+
+### The whole mission, from three of them
+
+Launch → parking orbit → translunar injection → lunar capture, flown end to end:
+
+| pad | reached lunar orbit at | selenocentric | Δv left |
+| --- | --- | --- | --- |
+| Kennedy | MET 348.7 h | 73 × 103 km | 1,720 m/s |
+| Kourou | MET 413.1 h | 82 × 114 km | 1,825 m/s |
+| Baikonur | MET 270.1 h | 76 × 104 km | 1,534 m/s |
+
+The mission elapsed times differ by 143 hours and nothing in the sequencer says
+so: each site's plane lines up with the Moon's at a different time, and the
+sequencer waits in the parking orbit until it does. Kourou, which climbs
+cheapest, also arrives with the most left.
+
+Vandenberg's 80.6° orbit is the exception, and it is physics rather than a
+defect: the Moon does not pass near that plane, and a lunar mission from it
+would have to buy the plane change. Where the other three found a translunar
+window within seconds of searching, that one was still searching when the run
+was stopped — so it is fair to say no window was found, and not that none
+exists.
+
 ## Surface launch
 
 The vehicle starts clamped to Kennedy LC-39B (28.58 N) and flies itself to orbit

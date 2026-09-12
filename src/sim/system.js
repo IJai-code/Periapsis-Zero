@@ -12,7 +12,7 @@ import {
 } from './constants.js'
 import { RK4NBody } from './rk4.js'
 import { OMEGA, dragCoefficient } from './atmosphere.js'
-import { LAUNCH_SITES, clampToSite } from './launchsite.js'
+import { activeSite, clampToSite } from './launchsite.js'
 
 const DEG = Math.PI / 180
 
@@ -144,7 +144,7 @@ export function buildInitialState() {
   })
 
   // The vehicle starts on the pad, not in orbit — Phase 5 flies the ascent.
-  clampToSite(state, 0, LAUNCH_SITES.ksc, ORDER.indexOf('earth') * 6, BODY_ORDER.indexOf('ship') * 6)
+  clampToSite(state, 0, activeSite(), ORDER.indexOf('earth') * 6, BODY_ORDER.indexOf('ship') * 6)
   for (const [id, spec] of Object.entries(SATELLITES)) placeCraft(state, id, spec.orbit)
   return state
 }

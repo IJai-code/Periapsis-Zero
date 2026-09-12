@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FocusMenu } from './FocusMenu.jsx'
+import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
@@ -79,6 +80,7 @@ export function Hud() {
         {open && (
           <div className="pointer-events-auto flex flex-col gap-3">
             <FocusMenu />
+            <LaunchSite />
             <ModelSelector />
             <Toggles />
           </div>

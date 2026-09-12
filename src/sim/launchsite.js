@@ -27,6 +27,78 @@ export const LAUNCH_SITES = {
     longitude: -80.65,
     azimuth: 90, // due east, to collect the planet's rotation
   },
+  /**
+   * Gagarin's Start. The azimuth is the one Soyuz flies to the station's
+   * 51.6 degrees, which is not due east: from 45.92 north, due east would give
+   * 45.92 and the range's drop zones do not allow it.
+   */
+  baikonur: {
+    id: 'baikonur',
+    name: 'Baikonur 1/5',
+    latitude: 45.92,
+    longitude: 63.342,
+    azimuth: 61.9,
+  },
+  /**
+   * The best-placed pad on Earth for what this mission does: five degrees off
+   * the equator is 463 m/s of free eastward speed against Kennedy's 408, and
+   * the plane it launches into is nearly the one the Moon lives in.
+   */
+  kourou: {
+    id: 'kourou',
+    name: 'Kourou ELA-3',
+    latitude: 5.239,
+    longitude: -52.768,
+    azimuth: 90,
+  },
+  /**
+   * Launching south over open water, the way Vandenberg does, for a near-polar
+   * orbit. Deliberately the awkward one: it collects almost none of the
+   * planet's rotation and it reaches an inclination a lunar mission has to pay
+   * to leave.
+   */
+  vandenberg: {
+    id: 'vandenberg',
+    name: 'Vandenberg SLC-6',
+    latitude: 34.742,
+    longitude: -120.573,
+    azimuth: 170,
+  },
+}
+
+/**
+ * Which pad the next flight leaves from.
+ *
+ * Module state rather than a store field, because two things outside React need
+ * it before any component exists: `createSimulation` stands the vehicle on it,
+ * and the sequencer steers by its azimuth. Overridable from the environment the
+ * same way the vessel is — `SPXSIM_SITE=kourou node scripts/flight.mjs` — so a
+ * headless run can fly from anywhere without editing source.
+ */
+const REQUESTED =
+  (typeof process !== 'undefined' && process.env && process.env.SPXSIM_SITE) || 'ksc'
+
+if (!LAUNCH_SITES[REQUESTED]) {
+  throw new Error(
+    `unknown launch site "${REQUESTED}" — known: ${Object.keys(LAUNCH_SITES).join(', ')}`,
+  )
+}
+
+let active = LAUNCH_SITES[REQUESTED]
+
+/** The pad the vehicle is standing on. */
+export const activeSite = () => active
+
+/**
+ * Move the pad. Only meaningful before release: the vehicle is *clamped* to its
+ * site, so the caller resets the simulation and the mission after this, which is
+ * what puts the stack on the new pad.
+ */
+export function selectSite(id) {
+  const site = LAUNCH_SITES[id]
+  if (!site) throw new Error(`unknown launch site "${id}"`)
+  active = site
+  return site
 }
 
 const DEG = Math.PI / 180

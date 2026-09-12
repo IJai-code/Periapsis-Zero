@@ -276,6 +276,22 @@ const lunar = {
 addNode(live.sim.t + 120, { prograde: -400 })
 project(live.sim, scratch, 'ship', lunarBody, null, plan, nodes)
 const crash = { body: plan.impact.body, index: plan.impact.index, count: plan.count }
+/**
+ * How far below the surface the path may end: one step of travel.
+ *
+ * The projection stops at the first step that is under the ground, so the
+ * overshoot is whatever the craft covered during it — a physical quantity, not
+ * a round number. At perilune that is a couple of kilometres, and a fixed
+ * one-kilometre tolerance failed the moment the ascent fix moved the arrival
+ * state slightly.
+ */
+const lastStep = plan.span / Math.max(plan.steps, 1)
+const impactSpeed = Math.hypot(
+  live.sim.state[C + 3] - live.sim.state[M + 3],
+  live.sim.state[C + 4] - live.sim.state[M + 4],
+  live.sim.state[C + 5] - live.sim.state[M + 5],
+)
+const overshootAllowed = Math.max(2e3, lastStep * impactSpeed)
 const endRadius = Math.hypot(
   plan.points[(plan.count - 1) * 3] - 0,
   plan.points[(plan.count - 1) * 3 + 1],
@@ -285,7 +301,8 @@ console.log('\n=== in lunar orbit ===')
 console.log(`  drawn about        ${lunar.body}, closed ${lunar.closed} after ${(lunar.span / 60).toFixed(1)} min`)
 console.log(`  its lunar period   ${(lunar.period / 60).toFixed(1)} min` +
   `   — its *geocentric* period, which the old horizon used, is ${(lunar.geocentric / 3600).toFixed(1)} h`)
-console.log(`  400 m/s retrograde ends on ${crash.body} at ${((endRadius - BODIES.moon.radius) / 1e3).toFixed(2)} km altitude`)
+console.log(`  400 m/s retrograde ends on ${crash.body} at ${((endRadius - BODIES.moon.radius) / 1e3).toFixed(2)} km altitude` +
+  `  (one step of travel there is ${(overshootAllowed / 1e3).toFixed(1)} km)`)
 
 /* ---- 7. a plan too big to draw says so ---- */
 clearNodes()
@@ -347,7 +364,7 @@ const checks = [
   ['and the two are nothing like each other',
     Math.abs(lunar.geocentric - lunar.period) / lunar.period > 1],
   ['a plan into the Moon stops at the Moon', crash.body === 'moon' &&
-    Math.abs(endRadius - BODIES.moon.radius) < 1e3],
+    BODIES.moon.radius - endRadius < overshootAllowed && endRadius < BODIES.moon.radius + 1],
   ['a plan too big for the budget says so instead of hanging',
     budget.truncated && budget.applied === 0 && budget.steps <= MAX_STEPS],
   ['and still returns inside a frame', budgetCost < 16],

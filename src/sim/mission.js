@@ -2,7 +2,7 @@ import { Matrix4, Quaternion, Vector3 } from 'three'
 import { live } from './live.js'
 import { activeStage, separate, ship, totalMass } from './ship.js'
 import { INDEX } from './system.js'
-import { LAUNCH_SITES, clampToSite, rotationBonus } from './launchsite.js'
+import { activeSite, clampToSite, rotationBonus } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
 import {
   projectPerigee,
@@ -273,7 +273,7 @@ export const PROFILE = {
 }
 
 export const mission = {
-  site: LAUNCH_SITES.ksc,
+  site: activeSite(),
   index: 0,
   /** Phase to resume after a staging interrupt. */
   resumeIndex: 0,
@@ -492,7 +492,18 @@ function aimThrust(dir) {
   if (mission.planeLocked) _z.addScaledVector(_plane, -_z.dot(_plane))
   _z.normalize()
   _x.crossVectors(_up, _z)
-  if (_x.lengthSq() < 1e-10) _x.set(1, 0, 0)
+  /**
+   * `dir` parallel to the local vertical, which is exactly what a vehicle on a
+   * pad is commanded: the cross product vanishes and any horizontal axis will
+   * do for roll. East is one, and it is already perpendicular to up — where the
+   * fallback used to be a fixed world axis, which is *not*, so `makeBasis` was
+   * handed three vectors that were not a basis and the quaternion came out
+   * tilted by however far that axis happened to sit from the local horizontal.
+   * Measured at release: 1.4 degrees off vertical at Kennedy, where the
+   * profile was tuned, and 27.7 at Kourou, which lifted off leaning and gave
+   * back 38 m/s of the eastward speed its latitude exists to provide.
+   */
+  if (_x.lengthSq() < 1e-10) _x.copy(_east)
   _x.normalize()
   _y.crossVectors(_z, _x)
   _basis.makeBasis(_x, _y, _z)
@@ -2556,6 +2567,9 @@ export function beginCountdown() {
 }
 
 export function resetMission() {
+  // Picked up here rather than held from module load, so changing the pad and
+  // resetting is all it takes to fly from somewhere else.
+  mission.site = activeSite()
   mission.index = 0
   mission.resumeIndex = 0
   mission.t = -PROFILE.countdown

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { WARP, WARP_LEVELS } from './warp.js'
+import { activeSite } from './launchsite.js'
 
 /* Re-exported so UI modules keep one import for store state and the ladder. */
 export { WARP, WARP_LEVELS }
@@ -38,6 +39,8 @@ const WIDE_ENOUGH_FOR_PANELS =
   typeof window === 'undefined' || window.innerWidth >= 1024
 
 export const uiStore = createStore({
+  /** Which pad the next flight leaves from. Mirrors sim/launchsite.js. */
+  site: activeSite().id,
   focus: 'earth', // 'free' | 'fly' | 'sun' | 'earth' | 'moon' | ...
   /**
    * Opens paused, at real time.

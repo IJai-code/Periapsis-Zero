@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
-import { LAUNCH_SITES, siteDirection } from '../sim/launchsite.js'
+import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { BODIES, SHIP } from '../sim/constants.js'
 import { CHASE_OFFSET, FRAMING, detentsIn, zoomSpeedFor } from '../gfx/framing.js'
 import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
@@ -483,7 +483,7 @@ export function CameraRig() {
      * drag model use, so the camera and the vehicle standing on it agree.
      */
     if (focus === 'pad') {
-      const site = mission.site ?? LAUNCH_SITES.ksc
+      const site = mission.site ?? activeSite()
       siteDirection(scratch.siteDir, site, live.sim.t)
 
       // East at the site: omega-hat x up, the direction the ground is moving.
