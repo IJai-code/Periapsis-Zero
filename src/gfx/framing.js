@@ -30,6 +30,12 @@ export const FRAMING = {
   /** Free flight roams the system: a metre off a hull out to a few AU. */
   free: { distance: 0, min: 1, max: 1e12 },
   /**
+   * A planned burn. `distance` is computed per node from how far it sits from
+   * the body it is measured against — a burn in low orbit wants a different
+   * framing from one at the Moon — so the entry only carries the limits.
+   */
+  node: { distance: 0, min: 1, max: 4e9 },
+  /**
    * The opening shot. Driven entirely by the rig on a fixed path, so there is
    * no orbit radius for these to bound either.
    */

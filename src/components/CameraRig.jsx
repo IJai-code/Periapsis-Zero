@@ -8,6 +8,8 @@ import { BODIES, SHIP } from '../sim/constants.js'
 import { CHASE_OFFSET, FRAMING, detentsIn, zoomSpeedFor } from '../gfx/framing.js'
 import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
 import { mission } from '../sim/mission.js'
+import { MAX_NODE_FRAMES, plan } from '../sim/predict.js'
+import { selectedNode } from '../sim/nodes.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
 
@@ -98,6 +100,27 @@ const smooth = (dt, rate) => 1 - Math.exp(-dt * rate)
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0)
 
+/**
+ * Where the selected planned burn is, in world space.
+ *
+ * Read from the projection's recorded frame rather than recomputed: that is the
+ * position the burn is actually applied at, and it is the same point the gizmo
+ * is drawn on, so the camera and the handles cannot disagree about where the
+ * pilot is looking. False when nothing is selected or the plan does not reach
+ * it — a node beyond the projection's horizon has no drawn position to fly to.
+ */
+function nodePosition(out) {
+  const node = selectedNode()
+  if (!node) return false
+  const slot = plan.applied.indexOf(node.id)
+  if (slot < 0 || slot >= MAX_NODE_FRAMES) return false
+  const f = slot * 12
+  const body = live.pos[plan.reference]
+  if (!body) return false
+  out.set(plan.nodeFrames[f], plan.nodeFrames[f + 1], plan.nodeFrames[f + 2]).add(body)
+  return true
+}
+
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 /**
@@ -136,6 +159,7 @@ export function CameraRig() {
       flyEuler: new THREE.Euler(0, 0, 0, 'YXZ'),
       aim: new THREE.Vector3(),
       aimVel: new THREE.Vector3(),
+      nodeAim: new THREE.Vector3(),
       anchor: new THREE.Vector3(),
     }),
     [],
@@ -325,6 +349,19 @@ export function CameraRig() {
       return
     }
 
+    /**
+     * Framing a burn: far enough out to see the arc it sits on, which means
+     * scaling with its distance from the body rather than with the body's size.
+     * A 200 km parking orbit and a burn at the Moon are four decades apart.
+     */
+    let distance = frame.distance
+    if (focus === 'node') {
+      const anchor = live.pos[plan.reference]
+      const away = nodePosition(scratch.nodeAim) ? scratch.nodeAim.distanceTo(anchor) : 0
+      const surface = BODIES[plan.reference]?.radius ?? BODIES.earth.radius
+      distance = Math.max(surface * 1.6, away * 0.9)
+    }
+
     // Keep the current viewing direction through the flight, so locking on
     // feels like a dolly toward the body rather than a swing around it.
     const dir = new THREE.Vector3().subVectors(camera.position, controls.target)
@@ -362,7 +399,7 @@ export function CameraRig() {
       fromCamera: camera.position.clone(),
       fromTarget: controls.target.clone(),
       dir,
-      distance: frame.distance,
+      distance,
     }
   }, [focus, controls, camera])
 
@@ -538,7 +575,19 @@ export function CameraRig() {
       return
     }
 
-    const target = live.pos[focus]
+    /**
+     * A planned burn is followed the same way a body is: it is a point that
+     * moves, and the tail of this function only needs somewhere to point. When
+     * the selection goes — deleted, flown, or scrubbed past the horizon — it
+     * falls back to the body the plan is drawn around rather than stranding the
+     * camera on a stale position.
+     */
+    const target =
+      focus === 'node'
+        ? nodePosition(scratch.nodeAim)
+          ? scratch.nodeAim
+          : live.pos[plan.reference]
+        : live.pos[focus]
     const f = flight.current
 
     if (f) {

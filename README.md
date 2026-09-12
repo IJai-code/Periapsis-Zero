@@ -283,6 +283,7 @@ actually landed.
 | `shift` `ctrl`  | fine / coarse while dragging a handle                 |
 | drag the centre | slide the burn along the orbit                       |
 | `esc` `del`     | deselect / delete the selected node                  |
+| click a plan row | open that burn and fly the camera to it             |
 
 Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing
@@ -339,6 +340,26 @@ What that buys, end to end:
   for the three-day two-burn plan, and 5 ms in the worst case, where a burn a
   month away exhausts the step budget and the projection says `truncated`
   instead of taking as long as it takes inside a render frame.
+
+### The plan as a list
+
+A plan is a sequence — burn, coast, burn — and a gizmo can only ever show one of
+them. The flight-plan panel is where the sequence lives: every planned burn in
+the order it fires, the body it is measured against, the time to it, its size,
+and the orbit it leaves behind. The selected one opens in place rather than
+replacing the list, so editing a burn never costs sight of the rest, and
+clicking a row flies the camera to that burn — a planned burn is a point that
+moves, so the rig follows it exactly the way it follows a body.
+
+Each burn's "leaves" is osculating, taken at the instant of the impulse, rather
+than read off the integrated path afterwards. Two reasons, and the second is the
+load-bearing one: a burn's result is a fact about that burn and should not change
+because a *later* node was added; and a plan whose next burn comes before the
+orbit reaches an apsis — a Hohmann transfer is exactly that — has no apsis on the
+path between them to read. Checked against the closed form in
+scripts/verify-nodes.mjs: a 162.24 m/s burn at a 171.7 km periapsis reports
+171.7 x 1000.0 km, the 222.24 m/s burn 48 minutes later reports 1000 x 1000, and
+a 3,200 m/s burn reports no far side at all.
 
 ### Planning a burn on the result of another
 

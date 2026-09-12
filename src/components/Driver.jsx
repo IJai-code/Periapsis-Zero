@@ -56,6 +56,7 @@ const ORIGIN_BODY = {
   /** The opening shot circles Earth, so the origin sits on it. */
   cinematic: 'earth',
   free: null, // follows the orbit target instead
+  node: null, // resolved live from the plan: see the origin choice below
   /**
    * Free flight rides whatever it is nearest, resolved per frame — see below.
    * The table entry is a placeholder so the map stays exhaustive.
@@ -317,7 +318,14 @@ export function Driver() {
      * origin — and changes only which motion the camera shares.
      */
     const flying = focus === 'fly'
-    const originBody = flying ? (live.nearest.id ?? 'earth') : (ORIGIN_BODY[focus] ?? null)
+    const originBody = flying
+      ? (live.nearest.id ?? 'earth')
+      : focus === 'node'
+        ? // A node is a point in a body's frame, so the origin belongs on that
+          // body — not on the node, which would make the rest of the scene
+          // shift under a point the pilot is trying to read.
+          (predictApi.plan.reference ?? 'earth')
+        : (ORIGIN_BODY[focus] ?? null)
     refreshDerived(originBody, originBody ? null : (controls?.target ?? null))
 
     /**

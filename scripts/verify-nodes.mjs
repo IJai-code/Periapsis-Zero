@@ -238,6 +238,55 @@ console.log(`  autopilot flew   ${((flownApo - R) / 1e3).toFixed(2)} km` +
   `  — ${flownErr >= 0 ? '+' : ''}${(flownErr / 1e3).toFixed(2)} km against the map`)
 console.log(`  finite-burn loss is expected: the projection is an impulse, the burn is not`)
 
+/* ---- what each burn leaves behind, per burn ---- */
+/**
+ * A two-burn Hohmann, which is the case the per-node readout exists for: raise
+ * at periapsis, circularise at the transfer's apoapsis. Between them the path
+ * reaches exactly one apsis and it belongs to neither burn's *result*, so
+ * reading each node's orbit off the drawn line cannot work — and both have an
+ * exact closed form to check against.
+ */
+clearNodes()
+project(live.sim, scratch, 'ship', 'earth', period, prediction)
+const hohmannAt = live.sim.t + prediction.periapsis.time
+const rp = prediction.periapsis.radius
+/**
+ * A target of its own, not the 400 km one above. By this point the sequencer
+ * has already flown the craft to a 400 km apoapsis, so a transfer aimed there
+ * is a 0.1 m/s burn that changes nothing — the checks passed while measuring a
+ * no-op.
+ */
+const rHigh = R + 1000e3
+const vPeri = Math.sqrt(MU * (2 / rp - 1 / live.elements.semiMajor))
+const aTr = (rp + rHigh) / 2
+const vTransferPeri = Math.sqrt(MU * (2 / rp - 1 / aTr))
+const vTransferApo = Math.sqrt(MU * (2 / rHigh - 1 / aTr))
+const vCircle = Math.sqrt(MU / rHigh)
+const halfTransfer = Math.PI * Math.sqrt((aTr * aTr * aTr) / MU)
+
+addNode(hohmannAt, { prograde: vTransferPeri - vPeri })
+addNode(hohmannAt + halfTransfer, { prograde: vCircle - vTransferApo })
+project(live.sim, scratch, 'ship', 'earth', null, plan, nodes)
+
+const firstOrbit = [plan.nodeApsides[0], plan.nodeApsides[1]]
+const secondOrbit = [plan.nodeApsides[2], plan.nodeApsides[3]]
+const bothApplied = plan.applied.length
+
+console.log('\n=== what each burn leaves behind ===')
+console.log(`  burn 1  ${(vTransferPeri - vPeri).toFixed(2)} m/s at periapsis` +
+  ` — leaves ${((firstOrbit[0] - R) / 1e3).toFixed(1)} x ${((firstOrbit[1] - R) / 1e3).toFixed(1)} km` +
+  `, closed form ${((rp - R) / 1e3).toFixed(1)} x ${((rHigh - R) / 1e3).toFixed(1)}`)
+console.log(`  burn 2  ${(vCircle - vTransferApo).toFixed(2)} m/s ${(halfTransfer / 60).toFixed(1)} min later` +
+  ` — leaves ${((secondOrbit[0] - R) / 1e3).toFixed(1)} x ${((secondOrbit[1] - R) / 1e3).toFixed(1)} km` +
+  `, closed form ${((rHigh - R) / 1e3).toFixed(0)} circular`)
+
+/* And an escape, where the far side does not exist. */
+clearNodes()
+addNode(hohmannAt, { prograde: 3200 })
+project(live.sim, scratch, 'ship', 'earth', null, plan, nodes)
+const escapeOrbit = [plan.nodeApsides[0], plan.nodeApsides[1]]
+console.log(`  3,200 m/s — periapsis ${((escapeOrbit[0] - R) / 1e3).toFixed(0)} km, apoapsis ${escapeOrbit[1]}`)
+
 /* ---- allocation ---- */
 clearNodes()
 addNode(tBurn, { prograde: dvHohmann })
@@ -295,6 +344,17 @@ const checks = [
    */
   ['a zero node changes nothing', zeroGap / r1 < 1e-9],
   ['a node carries its own magnitude', Math.abs(nodeMagnitude(nodes[0]) - dvHohmann) < 1e-9],
+  ['both burns of a two-burn plan are folded in', bothApplied === 2],
+  /**
+   * A kilometre, the same allowance the transfer itself gets: these are
+   * osculating two-body values taken inside an n-body integration, so they
+   * cannot agree exactly and it would be suspicious if they did.
+   */
+  ['the first burn reports the transfer orbit it puts the craft on',
+    Math.abs(firstOrbit[0] - rp) < 1000 && Math.abs(firstOrbit[1] - rHigh) < 1000],
+  ['the second reports a circle at the target radius',
+    Math.abs(secondOrbit[0] - rHigh) < 1000 && Math.abs(secondOrbit[1] - rHigh) < 1000],
+  ['and a burn to escape reports no far side at all', escapeOrbit[1] === Infinity],
   ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
   ['projecting with a node allocates under a kilobyte', !perProjection || perProjection.bytes < PROJECTION_BUDGET],
   ['the sequencer preempted the coast to fly the node', sawAlign && sawBurn],

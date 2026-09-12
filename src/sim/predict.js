@@ -19,7 +19,7 @@
  * render loop that the zero-allocation rule applies to it.
  */
 import { Vector3 } from 'three'
-import { BODIES, ORDER } from './constants.js'
+import { BODIES, G, ORDER } from './constants.js'
 import { dominantBody } from './soi.js'
 import { INDEX } from './system.js'
 import { nodeBasis, resolveNode } from './nodes.js'
@@ -158,6 +158,18 @@ function makeProjection() {
    * 95.7 x 95.7 km orbit left a periselene 112.5 km below the lunar surface.
    */
   nodeBodies: new Array(MAX_NODE_FRAMES).fill(null),
+  /**
+   * The orbit each burn leaves the craft on, as periapsis and apoapsis radii
+   * about that burn's own body — two doubles per recorded node.
+   *
+   * Osculating, taken at the instant of the impulse, rather than read off the
+   * integrated path afterwards. Two reasons. A burn's result is a fact about
+   * that burn, and should not change because a *later* node was added; and a
+   * plan whose next burn comes before the orbit reaches an apsis — a Hohmann
+   * transfer is exactly that — has no apsis on the path between them to read.
+   * Apoapsis is Infinity when the burn opens the orbit.
+   */
+  nodeApsides: new Float64Array(MAX_NODE_FRAMES * 2),
   /**
    * The body the apsides are measured about: the last node's, or `reference`
    * when there is none. "Resulting orbit" after a capture burn is an orbit of
@@ -361,6 +373,36 @@ function angularRate(s, c, o) {
   _out[RATE] = r2 > 0 ? Math.sqrt(hx * hx + hy * hy + hz * hz) / r2 : 0
 }
 
+/**
+ * The osculating apsides an impulse leaves behind, about the body it is measured
+ * against. Writes periapsis then apoapsis radii into `out` at `at`.
+ *
+ * Straight vis-viva on the state the integrator is holding: no second
+ * integration, and no dependence on what the path does afterwards.
+ */
+function apsidesAfter(s, c, b, body, dv, out, at) {
+  const mu = G * BODIES[body].mass
+  const rx = s[c] - s[b]
+  const ry = s[c + 1] - s[b + 1]
+  const rz = s[c + 2] - s[b + 2]
+  const vx = s[c + 3] - s[b + 3] + dv.x
+  const vy = s[c + 4] - s[b + 4] + dv.y
+  const vz = s[c + 5] - s[b + 5] + dv.z
+  const r = Math.sqrt(rx * rx + ry * ry + rz * rz)
+  const v2 = vx * vx + vy * vy + vz * vz
+  const energy = v2 / 2 - mu / r
+  const hx = ry * vz - rz * vy
+  const hy = rz * vx - rx * vz
+  const hz = rx * vy - ry * vx
+  const h2 = hx * hx + hy * hy + hz * hz
+  const a = -mu / (2 * energy)
+  const e = Math.sqrt(Math.max(0, 1 + (2 * energy * h2) / (mu * mu)))
+  out[at] = a * (1 - e)
+  // A hyperbola has no far side. Infinity, rather than the negative radius the
+  // algebra gives, so a reader cannot mistake it for a very low orbit.
+  out[at + 1] = energy < 0 ? a * (1 + e) : Infinity
+}
+
 /** Keep step `k`: position relative to the reference, time, radius about the apsis body. */
 function keep(k, s, c, r, a, t) {
   const o = k * 3
@@ -504,11 +546,18 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
       applied++
       _forced[n] = 1
       nodeAt++
-      if (deferred) continue
+      if (deferred) {
+        // Held out of the path, but still reported: the panel should say what
+        // this burn does while the pilot is dragging it about.
+        resolveNode(next, s, c, b, _dv)
+        if (slot < MAX_NODE_FRAMES) apsidesAfter(s, c, b, body, _dv, out.nodeApsides, slot * 2)
+        continue
+      }
 
       // Position stays relative to `reference`, the frame the line and the gizmo
       // are drawn in; only the *axes* belong to the node's own body.
       resolveNode(next, s, c, b, _dv)
+      if (slot < MAX_NODE_FRAMES) apsidesAfter(s, c, b, body, _dv, out.nodeApsides, slot * 2)
       s[c + 3] += _dv.x
       s[c + 4] += _dv.y
       s[c + 5] += _dv.z
