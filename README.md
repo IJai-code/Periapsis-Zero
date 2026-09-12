@@ -682,12 +682,24 @@ so: each site's plane lines up with the Moon's at a different time, and the
 sequencer waits in the parking orbit until it does. Kourou, which climbs
 cheapest, also arrives with the most left.
 
-Vandenberg's 80.6° orbit is the exception, and it is physics rather than a
-defect: the Moon does not pass near that plane, and a lunar mission from it
-would have to buy the plane change. Where the other three found a translunar
-window within seconds of searching, that one was still searching when the run
-was stopped — so it is fair to say no window was found, and not that none
-exists.
+Vandenberg is the exception and the reason is **not** known. The sequencer did
+not reach lunar orbit from its 80.6° orbit within the frames allowed, where the
+other three took seconds.
+
+It is tempting to call that physics — a polar parking orbit, no lunar window —
+and that explanation is wrong. Two great circles always intersect: the Moon's
+path crosses *any* parking plane twice a lunar month, whatever its inclination.
+Measured over sixty days, the Moon comes within 0.01° of all four planes,
+Vandenberg's included, so a window is available there as much as anywhere.
+
+What is true is only that this sequencer did not find it. The ignition test
+wants the craft's apoapsis direction within 0.6° of where the Moon will be, and
+apoapsis sweeps the entire plane every 88 minutes — so the *instantaneous*
+alignment passes through small values twice an orbit whether or not a real
+window is open, and the warp ladder that reads `timeToWindow` from how fast the
+alignment is closing drops to real time each time it does. That is a plausible
+mechanism and it has not been demonstrated. It is an open question, not a
+result.
 
 ## Surface launch
 
