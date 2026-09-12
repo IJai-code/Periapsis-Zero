@@ -305,8 +305,10 @@ addNode(live.sim.t + 600, { prograde: 60 })
 const planned = await bytesPerCall(() => project(live.sim, scratch, 'ship', 'earth', null, plan, nodes), { calls: 256, warm: 2000, windows: 5 })
 const control = await knownAllocation()
 console.log('\n=== allocation ===')
-console.log(`  ballistic ${bare.bytes.toFixed(0)} B, planned ${planned.bytes.toFixed(0)} B per projection` +
-  `  (a known allocation measures ${control ? control.bytes.toFixed(0) : 'n/a'} B)`)
+const window = (r) => (r ? `${r.bytes.toFixed(0)} B over ${r.windows} windows of ${r.calls}` : 'n/a')
+console.log(`  ballistic   ${window(bare)}`)
+console.log(`  planned     ${window(planned)}`)
+console.log(`  a known one ${window(control)}`)
 
 /* ---- verdict ---- */
 console.log('\n=== what this establishes ===')

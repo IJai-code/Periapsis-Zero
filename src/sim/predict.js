@@ -373,35 +373,6 @@ function angularRate(s, c, o) {
   _out[RATE] = r2 > 0 ? Math.sqrt(hx * hx + hy * hy + hz * hz) / r2 : 0
 }
 
-/**
- * The osculating apsides an impulse leaves behind, about the body it is measured
- * against. Writes periapsis then apoapsis radii into `out` at `at`.
- *
- * Straight vis-viva on the state the integrator is holding: no second
- * integration, and no dependence on what the path does afterwards.
- */
-function apsidesAfter(s, c, b, body, dv, out, at) {
-  const mu = G * BODIES[body].mass
-  const rx = s[c] - s[b]
-  const ry = s[c + 1] - s[b + 1]
-  const rz = s[c + 2] - s[b + 2]
-  const vx = s[c + 3] - s[b + 3] + dv.x
-  const vy = s[c + 4] - s[b + 4] + dv.y
-  const vz = s[c + 5] - s[b + 5] + dv.z
-  const r = Math.sqrt(rx * rx + ry * ry + rz * rz)
-  const v2 = vx * vx + vy * vy + vz * vz
-  const energy = v2 / 2 - mu / r
-  const hx = ry * vz - rz * vy
-  const hy = rz * vx - rx * vz
-  const hz = rx * vy - ry * vx
-  const h2 = hx * hx + hy * hy + hz * hz
-  const a = -mu / (2 * energy)
-  const e = Math.sqrt(Math.max(0, 1 + (2 * energy * h2) / (mu * mu)))
-  out[at] = a * (1 - e)
-  // A hyperbola has no far side. Infinity, rather than the negative radius the
-  // algebra gives, so a reader cannot mistake it for a very low orbit.
-  out[at + 1] = energy < 0 ? a * (1 + e) : Infinity
-}
 
 /** Keep step `k`: position relative to the reference, time, radius about the apsis body. */
 function keep(k, s, c, r, a, t) {
@@ -546,18 +517,50 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
       applied++
       _forced[n] = 1
       nodeAt++
-      if (deferred) {
-        // Held out of the path, but still reported: the panel should say what
-        // this burn does while the pilot is dragging it about.
-        resolveNode(next, s, c, b, _dv)
-        if (slot < MAX_NODE_FRAMES) apsidesAfter(s, c, b, body, _dv, out.nodeApsides, slot * 2)
-        continue
+
+      /**
+       * The impulse, and the orbit it leaves — worked out whether or not it is
+       * applied, because a node held out of the path while the pilot drags it
+       * should still say what it does.
+       *
+       * Osculating, straight off the state the integrator is holding: no second
+       * integration, and no dependence on what the path does afterwards. Two
+       * apsides, about the node's own body, written where the panel reads them.
+       *
+       * Written out here rather than called, and that is not style. Measured, the
+       * same arithmetic in a helper invoked once per projection allocated 1,088 B
+       * a call — some sixty intermediate doubles, boxed, because a function
+       * called that rarely never reaches a tier that keeps them in registers.
+       * Inlined into a caller that *is* hot, it allocates nothing. Passing only
+       * numbers and typed arrays did not help; the boxes are the callee's own.
+       */
+      resolveNode(next, s, c, b, _dv)
+      if (slot < MAX_NODE_FRAMES) {
+        const mu = G * BODIES[body].mass
+        const qx = s[c] - s[b]
+        const qy = s[c + 1] - s[b + 1]
+        const qz = s[c + 2] - s[b + 2]
+        const wx = s[c + 3] - s[b + 3] + _dv.x
+        const wy = s[c + 4] - s[b + 4] + _dv.y
+        const wz = s[c + 5] - s[b + 5] + _dv.z
+        const q = Math.sqrt(qx * qx + qy * qy + qz * qz)
+        const w2 = wx * wx + wy * wy + wz * wz
+        const energy = w2 / 2 - mu / q
+        const jx = qy * wz - qz * wy
+        const jy = qz * wx - qx * wz
+        const jz = qx * wy - qy * wx
+        const j2 = jx * jx + jy * jy + jz * jz
+        const semi = -mu / (2 * energy)
+        const ecc = Math.sqrt(Math.max(0, 1 + (2 * energy * j2) / (mu * mu)))
+        out.nodeApsides[slot * 2] = semi * (1 - ecc)
+        // A hyperbola has no far side. Infinity, rather than the negative radius
+        // the algebra gives, so a reader cannot mistake it for a low orbit.
+        out.nodeApsides[slot * 2 + 1] = energy < 0 ? semi * (1 + ecc) : Infinity
       }
+      if (deferred) continue
 
       // Position stays relative to `reference`, the frame the line and the gizmo
       // are drawn in; only the *axes* belong to the node's own body.
-      resolveNode(next, s, c, b, _dv)
-      if (slot < MAX_NODE_FRAMES) apsidesAfter(s, c, b, body, _dv, out.nodeApsides, slot * 2)
       s[c + 3] += _dv.x
       s[c + 4] += _dv.y
       s[c + 5] += _dv.z

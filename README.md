@@ -159,9 +159,18 @@ call boundary the optimiser does not inline comes back boxed as a heap number:
 bisected on the forward projection, one small shared helper cost **32 B a step,
 33 KB a projection**, and returning an angular rate cost another 16 KB. The same
 call on the other side of the same rule would have put an allocation inside the
-render loop. Small arithmetic helpers that *are* inlined — `timestepLimit`,
-`density` — measure zero, so this is a rule about what to check, not a ban on
-factoring: measure with `bytesPerCall`, and only then reach for a slot.
+render loop.
+
+A *rare* call is worse than a frequent one, and that is the counter-intuitive
+half. The per-node vis-viva that reports what each burn leaves behind runs once
+per projection, so its own call count never lifts it out of the tier where
+intermediate doubles are boxed — some sixty of them, **1,088 B a call**, while
+its caller was fully optimised around it. Passing only numbers and typed arrays
+changed nothing, because the boxes are the callee's own; inlining it removed all
+of them. Small arithmetic helpers that *are* hot enough to inline —
+`timestepLimit`, `density` — measure zero. So this is a rule about what to
+check, not a ban on factoring: measure with `bytesPerCall`, and reach for a slot
+or for inlining only once the measurement says to.
 
 **No `useFrame` subscriber may take a positive priority.** In R3F, any priority
 above zero hands the render loop to that subscriber and `gl.render` is never
