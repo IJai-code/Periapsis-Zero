@@ -48,7 +48,50 @@ function pruneUnusedModels() {
   }
 }
 
+/**
+ * A stamp the running page can be asked for.
+ *
+ * Vite's dependency pre-bundle lives in `node_modules/.vite` and outlives the
+ * server; when it goes stale the page keeps executing code that is no longer on
+ * disk. That failure is *silent* — the source reads correctly, the edit is
+ * saved, the browser shows the old behaviour — and it has cost this project
+ * several rounds of diagnosing a bug that had already been fixed. `npm run
+ * predev` clears the cache, which prevents most of it. This is the other half:
+ * asking the page which code it is actually running.
+ *
+ * The stamp has to come from the modules the page *executed*, not from the
+ * server. The first attempt was a `define` computed when the config loaded,
+ * which is the newest source mtime at server start — and that cannot tell a
+ * stale page from one that hot-updated correctly since, because both report a
+ * time older than the file on disk. Every module carrying its own mtime and the
+ * page keeping the maximum does distinguish them: a module replaced over HMR
+ * runs its line again and raises the figure, a stale one never does. Compare
+ * what the page reports against the newest file under `src/`; if the page is
+ * behind, it is behind.
+ *
+ * Serve only. A production build is a fixed artefact and has nothing to be
+ * stale against.
+ */
+function stampModules() {
+  const root = path.resolve('src')
+  return {
+    name: 'spxsim:build-stamp',
+    apply: 'serve',
+    transform(code, id) {
+      const file = id.split('?')[0]
+      if (!file.startsWith(root) || !/\.[jt]sx?$/.test(file)) return null
+      // Appended, so every line above keeps its number and the existing source
+      // map stays honest without this having to rewrite one.
+      const stamp = fs.statSync(file).mtimeMs
+      return {
+        code: `${code}\n;globalThis.__SPXSIM_BUILD__ = Math.max(globalThis.__SPXSIM_BUILD__ ?? 0, ${stamp});`,
+        map: null,
+      }
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), pruneUnusedModels()],
+  plugins: [react(), tailwindcss(), pruneUnusedModels(), stampModules()],
   server: { port: 5173, host: true },
 })
