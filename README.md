@@ -747,8 +747,20 @@ same days, same burns:
 | Vandenberg | day 12.8 | 420,600 | 11,385 |
 
 So Vandenberg was never the outlier at TLI — it found its window in *fewer*
-frames than Kennedy. Where it actually stalls is further down the mission and
-is not yet established.
+frames than Kennedy. Where it stalls is the injection itself, and the trace is
+unambiguous: it reaches the window at MET 306.6 h with 5,208 m/s in the tanks
+against Kennedy's 5,825, stages *twice* during the burn where Kennedy stages
+once, and cuts off on propellant exhaustion rather than on reaching the target
+apoapsis. It then coasts for 120 days without ever entering the Moon's sphere of
+influence — lunar range 398,682 km against an SOI of 68,649.
+
+So the mission is not flyable from that pad with this vehicle: the polar azimuth
+costs 617 m/s at insertion and the vehicle does not have it to give. Why the
+injection consumed more than the ~3,100 m/s a translunar burn costs — a figure
+that does not depend on inclination — is **not** established. Three explanations
+for Vandenberg have been wrong already (lunar geometry, then the window search,
+then the frame budget), so this one is recorded as far as it was measured and no
+further.
 
 ## Surface launch
 
