@@ -370,6 +370,18 @@ Entering from a camera that rides the vehicle — chase, pad, free flight, the
 opening shot — moves to whichever body the path is drawn around, because an
 orbit cannot be read from inside it. Any other lock is left alone.
 
+What the map adds is a frame to read the orbit *against*. An orbit on its own
+shows its shape and says nothing about its orientation, so the overlay draws the
+equator of the body it goes round as a ring grid, the line where the two planes
+cross, and — on Earth — the pads. That last one is what turns an inclination
+from a number in a panel into *where you launched from*: Kennedy's 28.6° track
+passes over its own pad, and Vandenberg's 80.6° one does not go near it.
+
+The line of nodes is hidden rather than drawn when the two planes coincide,
+because an equatorial orbit has no nodes and the cross product that defines them
+degenerates — the same collinear collapse that tilted the vehicle on the pad,
+caught in advance this time.
+
 ### The plan as a list
 
 A plan is a sequence — burn, coast, burn — and a gizmo can only ever show one of
