@@ -27,8 +27,11 @@ import {
   isSplashed,
   applySplashdownHold,
   mission,
+  resetLoiter,
   resetMission,
+  stepCeiling,
   updateMission,
+  updateStepCeiling,
 } from '../src/sim/mission.js'
 
 /** Mirrors store.js — kept as a literal so the harness never imports React. */
@@ -85,7 +88,10 @@ export function frame(delta = FRAME) {
   }
 
   const rate = WARP_RATES[flight.warp]
-  let simDt = dt * rate
+  // Never step past the moment a planned burn has to start turning — the same
+  // two lines as Driver.jsx, for the reason given there.
+  updateStepCeiling(live.sim.t)
+  let simDt = Math.min(dt * rate, stepCeiling[0])
   live.simDtLastFrame = simDt
 
   const phaseBefore = mission.index
@@ -166,7 +172,7 @@ export function snapshot() {
       lastSeparations: mission.lastSeparations,
       warpRequest: mission.warpRequest,
       bestEccentricity: mission.bestEccentricity,
-      tli: { ...mission.tli, committed: mission.tli.committed },
+      tli: { ...mission.tli, committed: mission.tli.committed, loiter: { ...mission.tli.loiter } },
       mcc: {
         solved: mission.mcc.solved,
         converged: mission.mcc.converged,
@@ -207,7 +213,17 @@ export function restore(snap) {
     warpRequest: snap.mission.warpRequest,
     bestEccentricity: snap.mission.bestEccentricity,
   })
+  /**
+   * The loiter plan is the one nested object in the block. Copied into the live
+   * object rather than letting the snapshot's become it — otherwise the next
+   * flight restored from the same snapshot inherits whatever this one planned.
+   * Older snapshot files have no plan at all, and restore to none.
+   */
+  const loiter = mission.tli.loiter
   Object.assign(mission.tli, snap.mission.tli)
+  mission.tli.loiter = loiter
+  resetLoiter()
+  Object.assign(loiter, snap.mission.tli.loiter)
   Object.assign(mission.mcc, {
     solved: snap.mission.mcc.solved,
     converged: snap.mission.mcc.converged,

@@ -15,6 +15,8 @@ import {
   resetMission,
   updateMission,
   updateTLI,
+  stepCeiling,
+  updateStepCeiling,
 } from '../sim/mission.js'
 import { setUi, uiStore, useUi, WARP, WARP_LEVELS } from '../sim/store.js'
 import * as nodeApi from '../sim/nodes.js'
@@ -172,7 +174,17 @@ export function Driver() {
     }
 
     const rate = WARP_LEVELS[uiStore.get().warp].rate
-    let simDt = paused ? 0 : dt * rate
+    /**
+     * Never step past the moment a planned burn has to start turning.
+     *
+     * Applied before the sequencer runs, while this frame's step can still be
+     * shortened for nothing — see updateStepCeiling. Without it a node inside a
+     * warped coast is caught only if a frame boundary happens to land in its
+     * one-minute alignment window, and at 6 h/s most do not: the burn is
+     * skipped and the flight plan still draws it.
+     */
+    updateStepCeiling(live.sim.t)
+    let simDt = paused ? 0 : Math.min(dt * rate, stepCeiling[0])
     live.simDtLastFrame = simDt
 
     const phaseBefore = mission.index

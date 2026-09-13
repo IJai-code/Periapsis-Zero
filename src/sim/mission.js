@@ -12,9 +12,18 @@ import {
 } from './targeting.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
-import { nodeMagnitude, nodeRevision, nodesChanged, pendingNode, resolveNode } from './nodes.js'
+import {
+  addNode,
+  clearNodes,
+  nodeMagnitude,
+  nodeRevision,
+  nodesChanged,
+  pendingNode,
+  resolveNode,
+} from './nodes.js'
 import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
+import { DECAY_FLOOR, circularOrbitDecayingTo, orbitalLifetime } from './decay.js'
 
 /**
  * Mission sequencer: a flat state machine driving throttle and attitude.
@@ -120,6 +129,22 @@ export const PROFILE = {
    */
   nodePointTolerance: 0.005,
   nodeAlignMargin: 60,
+
+  /**
+   * Whether the flight computer may raise the parking orbit to wait out a
+   * distant translunar window. See `planLoiter`. Off only for measurement: the
+   * verification that the decay theory predicts a flown lifetime needs a flight
+   * that is allowed to decay. The forecast is still made and recorded.
+   */
+  loiterRaise: true,
+  /**
+   * How far the decay theory may overstate a lifetime, as a fraction.
+   *
+   * Measured at no more than 1.05% against flown decay on all four pads, always
+   * in the long direction; `verify-loiter` flies it again and fails if the error
+   * grows past this. A tolerance with a gate behind it, not a fitted constant.
+   */
+  lifetimeTolerance: 0.02,
   /**
    * Ascent shaping moved to the vessel — see SHIP.ascent in sim/vessels.js.
    *
@@ -354,6 +379,25 @@ export const mission = {
     burnStart: 0, // mission time at ignition
     burnDuration: 0, // s
     committed: false,
+    /**
+     * The loiter plan, made once per commitment on entry to TLI_ALIGN.
+     *
+     * Times are seconds and radii are semi-major axes in metres, so the figures
+     * can be checked against `decay.js` directly rather than through a
+     * conversion someone has to remember.
+     */
+    loiter: {
+      planned: false,
+      needed: false, // the committed orbit would not have lasted
+      raised: false,
+      wait: 0, // s from commitment until the Moon's arrival point reaches the plane
+      lifetime: 0, // s the committed orbit would last
+      margin: 0, // s the vehicle needs in hand at the window: an orbit to align, plus the burn
+      arrive: 0, // m, the orbit to have decayed back down to when the window opens
+      target: 0, // m, the loiter orbit
+      dv1: 0, // m/s
+      dv2: 0, // m/s
+    },
   },
 
   /** Mid-course correction, solved numerically once en route. */
@@ -1352,6 +1396,29 @@ function loadGeocentric() {
 }
 
 /**
+ * Hohmann flight time from a departure radius out to the Moon's, s.
+ *
+ * Shared between the live injection solution and the window forecast, because
+ * the forecast is only worth anything if it asks exactly the question the
+ * ignition test will ask when the day comes.
+ */
+function transferTime(r1, r2) {
+  const at = (r1 + r2) / 2
+  return Math.PI * Math.sqrt((at * at * at) / MU_EARTH)
+}
+
+/**
+ * Where the Moon will be when a transfer launched now arrives: its present
+ * direction carried forward by `travel` radians about its own orbit normal.
+ * Written into `out`. The same two lines `updateTLI` has always used, moved so
+ * the forecast cannot drift from them.
+ */
+function arrivalDirection(out, rm, vm, r2, travel) {
+  _hm.crossVectors(rm, vm).normalize()
+  return out.copy(rm).divideScalar(r2).applyAxisAngle(_hm, travel)
+}
+
+/**
  * Refresh the whole injection solution from live state.
  *
  * A Hohmann transfer covers 180 degrees while the Moon covers only part of its
@@ -1376,7 +1443,7 @@ function updateTLI() {
   if (r1 < 1 || r2 < 1) return tli
 
   const at = (r1 + r2) / 2
-  tli.timeOfFlight = Math.PI * Math.sqrt((at * at * at) / MU_EARTH)
+  tli.timeOfFlight = transferTime(r1, r2)
 
   // The Moon's mean motion, taken from its live state rather than a constant.
   const nMoon = _vm.length() / r2
@@ -1415,8 +1482,7 @@ function updateTLI() {
    * where the Moon will actually be after the flight. Satisfying it forces
    * ignition onto a node, which is exactly the constraint the planar form drops.
    */
-  _hm.crossVectors(_rm, _vm).normalize()
-  _future.copy(_rm).divideScalar(r2).applyAxisAngle(_hm, tli.moonTravel)
+  arrivalDirection(_future, _rm, _vm, r2, tli.moonTravel)
   _apoDir.copy(_rs).divideScalar(-r1)
 
   tli.lastAlignment = tli.alignment
@@ -1455,8 +1521,145 @@ export { updateTLI }
 export function commitTLI() {
   if (currentPhase().id !== 'COAST') return false
   mission.tli.committed = true
+  resetLoiter()
   setPhase(INDEX_OF.TLI_ALIGN)
   return true
+}
+
+/** Clear the loiter plan. Exported for the harness's snapshot restore. */
+export function resetLoiter() {
+  const lo = mission.tli.loiter
+  lo.planned = false
+  lo.needed = false
+  lo.raised = false
+  lo.wait = 0
+  lo.lifetime = 0
+  lo.margin = 0
+  lo.arrive = 0
+  lo.target = 0
+  lo.dv1 = 0
+  lo.dv2 = 0
+}
+
+/* ---------------------------------------------------------------- *
+ * Waiting for the window without falling out of the sky
+ * ---------------------------------------------------------------- */
+
+/** Sample spacing and reach of the window forecast, s. Half an hour is 0.3 deg of lunar motion. */
+const WINDOW_STEP = 1800
+const WINDOW_HORIZON = 30 * 86400
+
+let _ephemeris = null
+const _em = new Vector3()
+const _ev = new Vector3()
+const _eh = new Vector3()
+const _ef = new Vector3()
+
+/**
+ * Seconds until the Moon's arrival point comes within the ignition tolerance of
+ * the parking plane, or Infinity if not within a month.
+ *
+ * The Moon is propagated, not extrapolated: a drag-free copy of the simulation
+ * (`clone()` does not carry the atmosphere) marched in half-hour steps, with
+ * `arrivalDirection` asked the question `updateTLI` will ask each frame. The
+ * plane is today's — nothing in this gravity model precesses it. What is left
+ * is the in-plane alignment, which the craft reaches within one parking orbit of
+ * the plane window opening: measured on all four pads, the injection came
+ * 0.4-1.2 h after this forecast, against an orbit of 1.47 h.
+ */
+function predictTLIWindow(r1) {
+  if (!_ephemeris) _ephemeris = live.sim.clone()
+  _ephemeris.resetFrom(live.sim)
+  loadGeocentric()
+  _eh.crossVectors(_rs, _vs).normalize()
+
+  const tol = PROFILE.phaseTolerance
+  const y = _ephemeris.state
+  const e = INDEX.earth * 6
+  const m = INDEX.moon * 6
+  let last = 0
+  for (let k = 0; k * WINDOW_STEP <= WINDOW_HORIZON; k++) {
+    if (k > 0) _ephemeris.advance(WINDOW_STEP, WINDOW_STEP, 1)
+    _em.set(y[m] - y[e], y[m + 1] - y[e + 1], y[m + 2] - y[e + 2])
+    _ev.set(y[m + 3] - y[e + 3], y[m + 4] - y[e + 4], y[m + 5] - y[e + 5])
+    const r2 = _em.length()
+    arrivalDirection(_ef, _em, _ev, r2, (_ev.length() / r2) * transferTime(r1, r2))
+    const sine = _eh.dot(_ef)
+    const out = Math.asin(sine > 1 ? 1 : sine < -1 ? -1 : sine)
+    const t = k * WINDOW_STEP
+    if (Math.abs(out) <= tol) return t
+    // Crossed between samples: interpolate to the crossing, then back off to
+    // where it came within tolerance.
+    if (k > 0 && out > 0 !== last > 0) {
+      const rate = (Math.abs(last) + Math.abs(out)) / WINDOW_STEP
+      return Math.max(0, t - WINDOW_STEP + (Math.abs(last) - tol) / rate)
+    }
+    last = out
+  }
+  return Infinity
+}
+
+/**
+ * Decide, once per commitment, whether the parking orbit will outlast the wait
+ * — and if it will not, plan the orbit that does.
+ *
+ * The wait is a forecast (`predictTLIWindow`) and the orbit's remaining life a
+ * decay integral (`decay.js`), both from models the rest of the simulation
+ * already runs on. The vehicle needs to reach the window with one more parking
+ * orbit in hand for the in-plane alignment, and the injection burn on top.
+ *
+ * When it will not, the raise is a two-burn transfer to the circular orbit that
+ * decays back down to the one committed from *just as the window opens*. So the
+ * injection is flown from the orbit it always was, and the margin at the window
+ * is not a tolerance: it is that orbit's entire remaining life, some 270-370 h.
+ * Flown as two planned nodes, so it shows in the flight plan like any other
+ * burn and the pilot can see — or delete — what the flight computer decided.
+ *
+ * This cannot move to the pad. Commitment is the pilot's, made in orbit, at
+ * whatever time they choose; the flight computer's job is to survive the wait
+ * it was handed, from wherever the pilot handed it over.
+ */
+function planLoiter() {
+  const lo = mission.tli.loiter
+  lo.planned = true
+
+  updateTLI()
+  const r = _rs.length()
+  const a = 1 / (2 / r - _vs.lengthSq() / MU_EARTH)
+  if (!(a > 0)) return
+  _eh.crossVectors(_rs, _vs)
+  const hLen = _eh.length()
+  const e = Math.sqrt(Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * a)))
+  const cosI = (_eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]) / hLen
+  const dragK = live.sim.dragK[0]
+  const halfOrbit = Math.PI * Math.sqrt((a * a * a) / MU_EARTH)
+
+  lo.wait = predictTLIWindow(a)
+  lo.lifetime = orbitalLifetime(a, e, dragK, cosI)
+  lo.margin = 2 * halfOrbit + burnTimeFor(mission.tli.deltaV)
+  const keep = 1 - PROFILE.lifetimeTolerance
+  if (!Number.isFinite(lo.wait) || lo.lifetime * keep >= lo.wait + lo.margin) return
+  lo.needed = true
+  if (!PROFILE.loiterRaise) return
+
+  // Back down to the committed orbit — unless that orbit could not itself
+  // survive the alignment, as after a long wait before committing, in which
+  // case to the lowest one that can.
+  lo.arrive = a
+  if (orbitalLifetime(a, 0, dragK, cosI) * keep < lo.margin) {
+    lo.arrive = circularOrbitDecayingTo(BODIES.earth.radius + DECAY_FLOOR, lo.margin / keep, dragK, cosI)
+  }
+
+  // The first burn waits out a slew; the loiter clock starts when the second
+  // has circularised, half a transfer later.
+  const t1 = live.sim.t + 2 * PROFILE.nodeAlignMargin
+  lo.target = circularOrbitDecayingTo(lo.arrive, lo.wait - (t1 - live.sim.t) - halfOrbit, dragK, cosI)
+  const at = 0.5 * (a + lo.target)
+  lo.dv1 = Math.sqrt(MU_EARTH * (2 / a - 1 / at)) - Math.sqrt(MU_EARTH / a)
+  lo.dv2 = Math.sqrt(MU_EARTH / lo.target) - Math.sqrt(MU_EARTH * (2 / lo.target - 1 / at))
+  addNode(t1, { prograde: lo.dv1 })
+  addNode(t1 + Math.PI * Math.sqrt((at * at * at) / MU_EARTH), { prograde: lo.dv2 })
+  lo.raised = true
 }
 
 /* ---------------------------------------------------------------- *
@@ -1703,6 +1906,9 @@ const PHASES = [
     label: 'Awaiting TLI window',
     enter() {
       ship.throttle = 0
+      // Entered again every time a planned burn hands back, so the flag is what
+      // keeps the loiter plan from planning itself a second pair of burns.
+      if (!mission.tli.loiter.planned) planLoiter()
     },
     control() {
       aimPrograde()
@@ -2695,6 +2901,20 @@ export function resetMission() {
   mission.lost.at = 0
   mission.lost.altitude = 0
   mission.lost.body = ''
+  mission.tli.committed = false
+  resetLoiter()
+  /**
+   * A reset discards the flight plan.
+   *
+   * Node times are absolute simulated seconds and a reset puts the clock back
+   * to the epoch, so a plan carried across one is not stale — it is a set of
+   * burns scheduled into the *next* flight. Choosing a new pad or restarting
+   * used to leave them in place, where a warped coast usually stepped over them
+   * unnoticed. Once burns stopped being stepped over, a 3,000 m/s node left
+   * behind by one section of verify-horizon lit in the next section's parking
+   * orbit and sent the vehicle 5.5 million km out.
+   */
+  clearNodes()
   PHASES[0].enter()
 }
 
@@ -2733,6 +2953,72 @@ function belowSurface() {
   const phase = PHASES[mission.index]
   if (phase.splashed || phase.clamped || phase.landing || phase.id === 'LOST') return false
   return surfaceAltitude() < 0
+}
+
+/**
+ * The planned node the running phase would hand over to, or null.
+ *
+ * One definition for the preemption and for the step ceiling, and it has to be
+ * one: a ceiling that holds time still for a node the preemption will not take
+ * is a deadlock. So the phases that cannot be interrupted — a burn already
+ * running, a staging event, a lost vehicle, the pad before the count — are
+ * excluded here and nowhere else. `LOST` is new to the list: without it a node
+ * still in the plan would pull a vehicle out of the planet and fly the burn.
+ */
+function nodeAhead(now) {
+  const id = PHASES[mission.index].id
+  if (id === 'NODE_ALIGN' || id === 'NODE_BURN' || id === 'STAGING' || id === 'LOST') return null
+  if (mission.index === 0 && !mission.running) return null
+  return pendingNode(now)
+}
+
+/** When the sequencer turns toward a node: half the burn early, less the slew. */
+const alignmentStart = (node) =>
+  node.t - burnTimeFor(nodeMagnitude(node)) * 0.5 - PROFILE.nodeAlignMargin
+
+/** How close counts as arrived, s. Stepping by the remaining time can otherwise fall short by less than a unit in the last place forever. */
+const NODE_TIME_EPS = 1e-3
+
+/**
+ * Longest step this frame may take, s. Written by `updateStepCeiling`, read by
+ * the frame loop — a typed slot rather than a return value, for the reason the
+ * README gives about doubles crossing calls.
+ */
+export const stepCeiling = new Float64Array(1)
+
+/**
+ * Never step past the moment a planned burn has to start turning.
+ *
+ * Called by the frame loop *before* the sequencer, while this frame's step can
+ * still be shortened for free. The preemption above is checked once a frame,
+ * and the window it looks for is `nodeAlignMargin` wide — 60 s. A frame at 6 h/s
+ * is 360 s, so a node in a warped coast was caught only when a frame boundary
+ * happened to land inside that minute. Measured during TLI_ALIGN: a node
+ * planned two hours ahead was skipped outright — the sequencer flew on through
+ * injection and the mid-course correction to lunar approach with the burn never
+ * made — and one that was caught lit 332 s late, because the frame that entered
+ * NODE_ALIGN had already committed to its 360 s step.
+ *
+ * With this the approach lands on the alignment start, the frame that preempts
+ * takes no step at all, and NODE_ALIGN's own request for 1x does the rest. While
+ * aligning it also stops the clock at ignition, so a warp dial turned up by hand
+ * mid-slew cannot carry the burn past its time; once ignition is due, the phase
+ * waits out pointing on its own terms.
+ */
+export function updateStepCeiling(now) {
+  if (PHASES[mission.index].id === 'NODE_ALIGN') {
+    const node = mission.node.active
+    const togo = node && mission.node.target > 0 ? node.t - burnTimeFor(mission.node.target) * 0.5 - now : 0
+    stepCeiling[0] = togo > NODE_TIME_EPS ? togo : Infinity
+    return
+  }
+  const node = nodeAhead(now)
+  if (!node) {
+    stepCeiling[0] = Infinity
+    return
+  }
+  const togo = alignmentStart(node) - now
+  stepCeiling[0] = togo > NODE_TIME_EPS ? togo : 0
 }
 
 export function updateMission(dt, simDt = dt) {
@@ -2777,17 +3063,12 @@ export function updateMission(dt, simDt = dt) {
    * come back to — the same field STAGING uses, because this is the same shape
    * of interruption.
    */
-  if (phase.id !== 'NODE_ALIGN' && phase.id !== 'NODE_BURN' && phase.id !== 'STAGING') {
-    const node = pendingNode(live.sim.t)
-    if (node) {
-      const lead = burnTimeFor(nodeMagnitude(node)) * 0.5
-      if (live.sim.t >= node.t - lead - PROFILE.nodeAlignMargin) {
-        mission.node.active = node
-        mission.resumeIndex = mission.index
-        setPhase(INDEX_OF.NODE_ALIGN)
-        return
-      }
-    }
+  const ahead = nodeAhead(live.sim.t)
+  if (ahead && live.sim.t >= alignmentStart(ahead) - NODE_TIME_EPS) {
+    mission.node.active = ahead
+    mission.resumeIndex = mission.index
+    setPhase(INDEX_OF.NODE_ALIGN)
+    return
   }
 
   phase.control(dt)

@@ -23,7 +23,8 @@
  *   node --expose-gc scripts/verify-nodes.mjs
  */
 
-import { flight, frame } from './flight.mjs'
+import { flight, frame, restore, snapshot } from './flight.mjs'
+import { activeStage, totalMass } from '../src/sim/ship.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { beginCountdown, currentPhase, mission, resetMission } from '../src/sim/mission.js'
 import { INDEX } from '../src/sim/system.js'
@@ -368,6 +369,80 @@ const checks = [
    */
   ['the flown orbit matches the one the map drew, to 2 km', Math.abs(flownErr) < 2000],
 ]
+/**
+ * Run after the checks above have been evaluated: the section below restores
+ * snapshots and flies burns, which rewrites the live plan and the delivered
+ * delta-v that several of those checks read.
+ */
+/* ---- a node inside a warped coast ---- */
+/**
+ * The same 5 m/s node, placed at each point of a 360 s frame cycle inside a
+ * coast warped to 6 h/s.
+ *
+ * The preemption is tested once a frame and looks for a window 60 s wide, so a
+ * node here used to be caught only when a frame boundary happened to land in
+ * that minute — one placement in six. The other five were skipped outright:
+ * the sequencer flew on through injection to lunar approach with the burn
+ * never made, and the plan still drawing it. The one that was caught lit 332 s
+ * late, because the frame that entered NODE_ALIGN had already committed to its
+ * full step. The step ceiling is what this is checking.
+ */
+clearNodes()
+for (let i = 0; i < 3; i++) frame()
+const coastState = `phase ${currentPhase().id}, request ${mission.warpRequest}, dial ${flight.warp}, ` +
+  `Moon ${((mission.tli.outOfPlane * 180) / Math.PI).toFixed(1)} deg out of plane, active node ${mission.node.active?.id ?? 'none'}`
+const coast = snapshot()
+const warped = []
+for (let offset = 7200; offset < 7560; offset += 60) {
+  restore(coast)
+  clearNodes()
+  /**
+   * The pilot's dial at 6 h/s: this flight never commits to the Moon, so it is
+   * in COAST, where time is the pilot's. That is the case a pilot makes by
+   * planning a burn and warping toward it. NODE_ALIGN still takes the dial
+   * down to 1x when it preempts, and hands it back after the burn. The same
+   * frame meeting a node under the *sequencer's* 6 h/s is what verify-loiter's
+   * raise burns fly through during TLI_ALIGN.
+   */
+  flight.warp = WARP.h6
+  flight.pilotWarp = WARP.h6
+  const tNode = live.sim.t + offset
+  const n = addNode(tNode, { prograde: 5 })
+  let last = currentPhase().id
+  let burnAt = NaN
+  let burnEnd = NaN
+  let frames = 0
+  for (let i = 0; i < 200_000 && !n.executed; i++) {
+    const before = live.sim.t
+    frame()
+    frames++
+    const id = currentPhase().id
+    if (id !== last) {
+      if (id === 'NODE_BURN') burnAt = before
+      if (last === 'NODE_BURN') burnEnd = live.sim.t
+      last = id
+    }
+  }
+  warped.push({ offset, frames, executed: n.executed, late: (burnAt + burnEnd) / 2 - tNode, delivered: mission.node.delivered })
+}
+clearNodes()
+/** One frame of full thrust at 1x: the finest a delivered-delta-v cutoff can resolve. */
+const frameDv = activeStage().thrust / totalMass() / 60
+
+console.log('\n=== a node inside a 6 h/s coast ===')
+console.log(`  coast inherited: ${coastState}`)
+console.log('  a 5 m/s node at each point of a 360 s frame cycle, pilot dial at 6 h/s:')
+for (const w of warped) {
+  console.log(`    +${w.offset} s   flown ${String(w.executed).padEnd(5)} after ${String(w.frames).padStart(4)} frames   burn midpoint ${w.late.toFixed(3)} s from the node   delivered ${w.delivered.toFixed(3)} m/s`)
+}
+
+checks.push(
+  ['a node inside a 6 h/s coast is flown wherever the frames fall',
+    warped.length === 6 && warped.every((w) => w.executed)],
+  ['on time, to two frames at 1x', warped.every((w) => Math.abs(w.late) < 2 / 60)],
+  ['delivering what was asked, to one frame of thrust', warped.every((w) => Math.abs(w.delivered - 5) <= frameDv)],
+)
+
 let pass = true
 for (const [label, ok] of checks) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}`)

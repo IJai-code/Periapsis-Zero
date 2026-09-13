@@ -226,6 +226,19 @@ trans-Earth injection rather than a coast — the sequencer departs at revolutio
 1.7 — so every row of a step-size experiment reported the same number, which is
 exactly the tell. The step-ceiling table above is what it says once it runs.
 
+**A planned burn is never stepped over.** The frame loop reads `stepCeiling`
+from the sequencer before the sequencer runs, so no step carries the clock past
+the moment a node has to start turning. Without it a node inside a 6 h/s coast
+was caught only if a frame boundary landed in its one-minute alignment window,
+and five placements in six were skipped. The ceiling and the preemption share one
+definition of which node is next, `nodeAhead`, because a clock held still for a
+node that nothing will hand over to — during staging, or with the vehicle lost —
+is a deadlock.
+
+**A reset discards the flight plan.** Node times are absolute simulated seconds
+and a reset returns the clock to the epoch, so a plan that survives one is a set
+of burns scheduled into the next flight.
+
 **Test particles are structurally massless.** Tier one is pair-symmetric among
 Sun/Earth/Moon; tier two reads gravity and writes none. The planetary solution
 is bit-identical with the fleet aboard — verified, max difference exactly `0`.
@@ -721,24 +734,30 @@ perpendicular to up by construction. All four now leave the pad at 0.0°.
 It had been invisible because the one pad in the simulator sat where the error
 was nearly harmless.
 
-### The whole mission, from three of them
+### The whole mission, from all four
 
 Launch → parking orbit → translunar injection → lunar capture, flown end to end:
 
 | pad | reached lunar orbit at | selenocentric | Δv left |
 | --- | --- | --- | --- |
-| Kennedy | MET 348.7 h | 73 × 103 km | 1,720 m/s |
+| Kennedy | MET 348.7 h | 80 × 110 km | 1,721 m/s |
 | Kourou | MET 413.1 h | 82 × 114 km | 1,825 m/s |
 | Baikonur | MET 270.1 h | 76 × 104 km | 1,534 m/s |
+| Vandenberg | MET 400.6 h | 79 × 106 km | 1,016 m/s |
+
+Kennedy's row read 73 × 103 km and 1,720 m/s until it was flown again beside
+Vandenberg's: the flight had moved since the table was written, and the table
+had not. Vandenberg goes on to fly the return too — trans-Earth injection, entry,
+splashdown at MET 508.3 h — with 62 m/s left after the entry corridor trim.
 
 The mission elapsed times differ by 143 hours and nothing in the sequencer says
 so: each site's plane lines up with the Moon's at a different time, and the
 sequencer waits in the parking orbit until it does. Kourou, which climbs
 cheapest, also arrives with the most left.
 
-Vandenberg is the exception and the reason is **not** known. The sequencer did
-not reach lunar orbit from its 80.6° orbit within the frames allowed, where the
-other three took seconds.
+Vandenberg was the exception, and it took five explanations to find out why.
+The first four were wrong. They are kept here in order, because each one was
+believed, and the fourth was committed.
 
 It is tempting to call that physics — a polar parking orbit, no lunar window —
 and that explanation is wrong. Two great circles always intersect: the Moon's
@@ -766,13 +785,17 @@ same days, same burns:
 | Kennedy | day 9.2 | 720,697 | 23,629 |
 | Kourou | day 12.0 | 1,585,455 | 23,750 |
 | Baikonur | day 5.7 | 568,654 | 21,545 |
-| Vandenberg | day 12.8 | 420,600 | 11,385 |
+| Vandenberg | ~~day 12.8~~ | 420,600 | 11,385 |
 
-So Vandenberg was never the outlier at TLI — it found its window in *fewer*
-frames than Kennedy.
+The Vandenberg row is not a window. By day 11.4 that vehicle was inside the
+planet (below), and "day 12.8" was the alignment test passing by chance against a
+craft sitting at r = 0, where the direction of apoapsis is noise. It was read at
+the time as Vandenberg finding its window in *fewer* frames than Kennedy. Its
+real window — measured with drag removed after commitment and nothing else
+changed — is day 11.75.
 
 That made the injection itself look like the problem, and it was written up as
-one: the vehicle reached the window at MET 306.6 h with 5,208 m/s against
+one: the vehicle "reached the window" at MET 306.6 h with 5,208 m/s against
 Kennedy's 5,825, staged twice during the burn where Kennedy stages once, and cut
 off on propellant exhaustion. Recorded here as a delta-v shortfall the polar
 azimuth had caused. That was the fourth wrong explanation for this pad, and
@@ -793,13 +816,15 @@ this epoch that wait is:
 | Baikonur | 137.1 h | 163.6 km | injects |
 | Kennedy | 219.7 h | 156.4 km | injects |
 | Kourou | 286.9 h | 148.8 km | injects |
-| Vandenberg | 306.4 h | — | **lost at MET 274.7 h** |
+| Vandenberg | 282.1 h | — | **lost at MET 274.7 h** |
 
-Vandenberg's craft crosses the surface 31.7 hours before its window opens. With
+Vandenberg's craft crosses the surface 7.5 hours before its window opens. With
 nothing checking, it kept integrating down to r = 0 and sat at Earth's centre —
 and the sequencer, which only ever asked whether the Moon was in the plane,
-reached the window on schedule and ran a translunar injection out of the middle
-of the planet. 5,208 m/s spent; apoapsis raised to 15 km.
+went on to run a translunar injection out of the middle of the planet. 5,208 m/s
+spent; apoapsis raised to 15 km. That window was first written here as 306.4 h,
+31.7 hours after the loss, and it came from the same corpse: 282.1 h is the one
+flown with drag removed after commitment.
 
 There was never a delta-v anomaly. Kennedy's injection, traced burn-frame by
 burn-frame, costs **3,147 m/s of ideal delta-v** — the textbook figure — of
@@ -814,12 +839,92 @@ through with about two days left to live. The mission parks low and loiters for
 between six and thirteen days. Apollo parked at this altitude and injected
 within three orbits, for exactly this reason.
 
-Two things follow, and only the first is done. The sequencer now carries a
-`LOST` phase and an altitude check that runs before any phase steers, so a
-vehicle inside a planet stops the run and says where instead of being flown on —
-`verify-launch-sites` puts a craft under the surface and asserts it. The second
-is the profile itself: a parking orbit chosen for a wait this long, or a
-commitment held until the window is close enough to reach. Neither is built.
+Two things followed. The first is a `LOST` phase and an altitude check that
+runs before any phase steers, so a vehicle inside a planet stops the run and says
+where instead of being flown on — `verify-launch-sites` puts a craft under the
+surface and asserts it. The second is the profile, below.
+
+### Waiting out the window
+
+The wait cannot move to the pad. Commitment to the Moon is the pilot's, made in
+orbit at a time of their choosing, so the flight computer has to survive
+whatever wait it is handed, from wherever it is handed it. At commitment it now
+asks two questions, and both are answered by models the simulation already
+runs on.
+
+**How long until the window?** The Moon is propagated, not extrapolated: a
+drag-free copy of the simulation marched in half-hour steps, asking at each one
+the question `updateTLI` will ask when the day comes. The Hohmann flight time and
+the arrival direction are shared functions now, so the forecast cannot drift
+from the ignition test. What it forecasts is the *plane* window; the craft still
+has to come round to the right point of its own orbit, so injection follows
+within one parking orbit — 1.47 h:
+
+| pad | forecast | injected | late by |
+| --- | --- | --- | --- |
+| Baikonur | 136.0 h | 137.1 h | 1.08 h |
+| Kennedy | 218.5 h | 219.7 h | 1.23 h |
+| Kourou | 286.5 h | 286.9 h | 0.35 h |
+| Vandenberg | 281.5 h | 282.7 h | 1.15 h |
+
+**How long will the orbit last?** `decay.js` integrates King-Hele's theory, with
+semi-major axis and eccentricity marched together over the same density table,
+the same `dragK`, and air turning at the same rate. Two simpler forms were
+measured first and rejected. Circular at the semi-major axis reads 1.5–3.1% long
+on every pad, always long, because an eccentricity of 0.001 puts perigee 6.4 km
+below the mean against a 22.5 km scale height. Holding e fixed corrects the start
+and overshoots the end, since drag circularises the orbit while it lowers it.
+Marched together, against Vandenberg's orbit left to decay:
+
+| flown | semi-major axis altitude | theory | error |
+| --- | --- | --- | --- |
+| 25 h | 176.93 km | 25.23 h | 0.92% |
+| 100 h | 169.99 km | 100.37 h | 0.37% |
+| 200 h | 155.32 km | 200.55 h | 0.28% |
+| 250 h | 140.71 km | 250.74 h | 0.30% |
+| lost at 274.58 h | — | 274.55 h | −0.01% |
+
+If the orbit will not last the wait plus one more orbit and the injection burn —
+with 2% taken off the lifetime for the theory's error, a figure `verify-loiter`
+checks against this decay flown again — the flight computer plans a raise: a
+two-burn transfer to the circular orbit that decays back down into the one
+committed from *just as the window opens*. So injection is flown from the orbit
+it always was, and the margin at the window is not a tolerance but that orbit's
+whole remaining life. The raise is two ordinary manoeuvre nodes, in the flight
+plan like any other burn, where the pilot can see what was decided or delete it.
+
+Kennedy, Kourou and Baikonur last their waits and plan nothing, and their flights
+are bit-identical to before — injection time, delta-v and apoapsis, to seventeen
+significant figures. Vandenberg forecasts 281.5 h against a lifetime of 274.6 h,
+raises from 178.9 to 194.1 km for 4.54 + 4.54 m/s, has decayed back to 179.7 km
+at ignition — 0.8 km from where it aimed — and flies the whole mission.
+
+### Planned burns under time warp
+
+The raise exposed that a planned burn inside a warped coast was usually never
+flown. The sequencer checks once a frame whether a node is inside its 60-second
+alignment margin, and at 6 h/s a frame is 360 s, so a node was caught only when a
+frame boundary happened to land in that minute. Measured during TLI_ALIGN, a
+5 m/s node was skipped outright at five of six placements across the frame
+cycle — the sequencer flew on through injection to lunar approach with the burn
+never made and the map still drawing it — and the sixth lit 332 s late, because
+the frame that caught it had already committed to its whole step.
+
+The frame loop now takes a step ceiling from the sequencer before the sequencer
+runs, and no frame carries the clock past the moment a burn has to start
+turning. All six placements ignite within 0.033 s of plan and deliver 5.148 m/s
+of 5, which is one frame of thrust. `verify-nodes` repeats the measurement in a
+coast the pilot has warped, where it is the dial and not the sequencer that sets
+the 360 s frame, and `verify-loiter`'s raise burns are flown through the
+sequencer's.
+
+Burns that were no longer skipped then showed where a plan was being kept too
+long. Node times are absolute, and a reset puts the clock back to the epoch, so
+nodes left over from one flight were scheduled into the next: choosing a new pad
+left the old plan in place. `verify-horizon` added a 3,000 m/s node in one
+section and flew the next section's mission with it still in the plan; once it
+was flown, that vehicle left for interplanetary space and the lunar checks
+failed. A reset now clears the plan.
 
 ## Surface launch
 
