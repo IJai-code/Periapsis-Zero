@@ -19,6 +19,14 @@
  *   3. pads whose orbits last plan nothing; Vandenberg plans a raise, flies it,
  *      and injects from the orbit it committed from
  *   4. Vandenberg flies the whole mission, pad to splashdown
+ *   5. a window already open at commitment is counted on only if the craft
+ *      will come round in time to use it
+ *   6. when the pilot changes the orbit during the wait, the plan follows
+ *   7. the decay theory holds on eccentric orbits, where the air is all met
+ *      at perigee
+ *   8. no injection starts from under the 140 km floor: an orbit that would
+ *      reach its window lower is raised by the least that clears it, and
+ *      ignition waits for a raise that has not flown
  *
  *   node scripts/verify-loiter.mjs
  */
@@ -26,9 +34,9 @@
 import { flight, flyMission, frame } from './flight.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { PROFILE, beginCountdown, commitTLI, currentPhase, mission, resetMission } from '../src/sim/mission.js'
-import { clearNodes } from '../src/sim/nodes.js'
-import { decayTime } from '../src/sim/decay.js'
-import { deltaV } from '../src/sim/ship.js'
+import { addNode, clearNodes } from '../src/sim/nodes.js'
+import { DECAY_FLOOR, decayAfter, decayTime, decayed as decayState } from '../src/sim/decay.js'
+import { deltaV, input, ship } from '../src/sim/ship.js'
 import { BODIES, G } from '../src/sim/constants.js'
 import { SPIN_AXIS } from '../src/sim/atmosphere.js'
 import { INDEX } from '../src/sim/system.js'
@@ -79,11 +87,15 @@ function freshFlight(site) {
 }
 
 /** Pad to injection or loss, recording the plan made at commitment and what then happened. */
-function toInjection(site, sampleEvery = 0) {
+function toInjection(site, sampleEvery = 0, launchHour = 0) {
   freshFlight(site)
   resetMission()
+  // Hold on the pad until the launch epoch; the clamp is exact and the world turns under it.
+  flight.pilotWarp = WARP.d1
+  for (let i = 0; live.sim.t < launchHour * H && i < 1_000_000; i++) frame()
   beginCountdown()
-  const rec = { site, commit: 0, orbit: null, dragK: 0, plan: null, samples: [], nodePhases: 0, injectT: null, injectA: 0, end: '', endT: 0 }
+  const rec = { site, commit: 0, orbit: null, dragK: 0, plan: null, samples: [], nodePhases: 0, injectT: null, injectA: 0, injectPeri: 0, end: '', endT: 0 }
+  let lastPeri = 0
   let committed = false
   let next = Infinity
   for (let i = 0; i < 3_000_000; i++) {
@@ -94,11 +106,13 @@ function toInjection(site, sampleEvery = 0) {
       rec.orbit = orbitNow()
       rec.dragK = live.sim.dragK[0]
       rec.plan = { ...mission.tli.loiter }
+      rec.outAtCommit = mission.tli.outOfPlane
       next = rec.commit + sampleEvery
     }
     flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
     frame()
     const now = currentPhase().id
+    if (now === 'TLI_ALIGN') lastPeri = live.elements.periapsisRadius
     if (now !== id && now.startsWith('NODE_')) rec.nodePhases++
     if (sampleEvery && now === 'TLI_ALIGN' && live.sim.t >= next) {
       rec.samples.push([live.sim.t - rec.commit, orbitNow().a])
@@ -107,6 +121,7 @@ function toInjection(site, sampleEvery = 0) {
     if (now === 'TLI_BURN' && rec.injectT === null) {
       rec.injectT = live.sim.t
       rec.injectA = orbitNow().a
+      rec.injectPeri = lastPeri
     }
     if (now === 'TRANS_LUNAR' || now === 'LOST') {
       rec.end = now
@@ -183,6 +198,252 @@ console.log(`\n=== 4. Vandenberg, pad to splashdown ===`)
 console.log(`  ended in ${whole} at MET ${hours(mission.t)} h; ${atLunarOrbit.toFixed(0)} m/s in hand in lunar orbit`)
 
 /* ---------------------------------------------------------------- *
+ * 5. A window already open at commitment
+ * ---------------------------------------------------------------- */
+
+/**
+ * Two Vandenberg launches that commit with the Moon's arrival point already
+ * inside tolerance. At +374.1 h it is on its way out and the craft does not come
+ * round before it goes: the first forecast said "now", planned no raise, and the
+ * vehicle was lost waiting half a month for the next window. At +150.5 h the
+ * pass is caught, and the forecast has to say when.
+ */
+const closing = toInjection('vandenberg', 0, 374.1)
+const caught = toInjection('vandenberg', 0, 150.5)
+for (const f of [closing, caught]) {
+  f.period = 2 * Math.PI * Math.sqrt(f.orbit.a ** 3 / MU)
+  f.late = f.injectT === null ? NaN : f.injectT - f.commit - f.plan.wait
+}
+console.log('\n=== 5. a window already open at commitment ===')
+for (const [label, f] of [['closing', closing], ['caught', caught]]) {
+  console.log(`  ${label.padEnd(8)} arrival point ${((f.outAtCommit * 180) / Math.PI).toFixed(3)} deg out of plane;` +
+    ` forecast ${hours(f.plan.wait)} h, injected ${f.injectT === null ? '-' : hours(f.injectT - f.commit)} h (${f.late.toFixed(0)} s after), raised ${f.plan.raised}, ${f.end}`)
+}
+
+/* ---------------------------------------------------------------- *
+ * 6. The pilot changes the orbit during the wait
+ * ---------------------------------------------------------------- */
+
+/** Pad to commitment, then on to injection with `onFrame` run before every frame. */
+function withPilot(site, onFrame) {
+  freshFlight(site)
+  resetMission()
+  beginCountdown()
+  for (let i = 0; i < 3_000_000 && currentPhase().id !== 'COAST'; i++) {
+    flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
+    frame()
+  }
+  commitTLI()
+  const commit = live.sim.t
+  let burns = 0
+  let last = currentPhase().id
+  for (let i = 0; i < 3_000_000; i++) {
+    onFrame(commit)
+    flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
+    frame()
+    const id = currentPhase().id
+    if (id !== last && id === 'NODE_BURN') burns++
+    last = id
+    if (id === 'TRANS_LUNAR' || id === 'LOST') break
+  }
+  return { burns, end: currentPhase().id }
+}
+
+/**
+ * A 25 m/s retrograde trim six hours into the wait, after the raise has flown.
+ * It takes the orbit to roughly 110 x 194 km, and the raise first built for a
+ * near-circle then burned from the wrong point: the vehicle replanned correctly
+ * and was lost at MET 181.7 h anyway. Burns now sit at the apsides.
+ */
+let trim = null
+let afterTrim = null
+const trimmed = withPilot('vandenberg', (commit) => {
+  if (!trim && live.sim.t > commit + 6 * H) trim = addNode(live.sim.t + 600, { prograde: -25 })
+  if (trim?.executed && !afterTrim && currentPhase().id === 'TLI_ALIGN') afterTrim = { ...mission.tli.loiter }
+})
+
+/**
+ * Thrust by hand straight after commitment, before the raise has flown, until
+ * 15 m/s has gone. The flight computer does not burn in TLI_ALIGN, so any thrust
+ * there is the pilot's; once it stops, the plan is remade from the new orbit.
+ */
+let hand = 'up'
+let handStart = 0
+let handDv = 0
+let afterHand = null
+const byHand = withPilot('vandenberg', () => {
+  if (hand === 'up') {
+    if (handStart === 0) handStart = deltaV()
+    input.throttleUp = true
+    if (handStart - deltaV() >= 15) {
+      input.throttleUp = false
+      hand = 'down'
+    }
+  } else if (hand === 'down') {
+    input.throttleDown = true
+    if (ship.throttle <= 0) {
+      input.throttleDown = false
+      hand = 'off'
+    }
+  } else if (hand === 'off' && ship.thrust === 0 && mission.tli.loiter.replans > 0) {
+    handDv = handStart - deltaV()
+    afterHand = { ...mission.tli.loiter }
+    hand = 'done'
+  }
+})
+
+console.log('\n=== 6. the pilot changes the orbit during the wait ===')
+if (afterTrim) {
+  console.log(`  25 m/s retrograde after the raise: ${hours(afterTrim.lifetime)} h of life against ${hours(afterTrim.wait)} h to the window;` +
+    ` replanned a ${(afterTrim.dv1 + afterTrim.dv2).toFixed(2)} m/s raise in ${afterTrim.node2 >= 0 ? 2 : 1} burn(s); ${trimmed.burns} burns flown in all; ${trimmed.end}`)
+} else console.log('  the trim never handed back')
+if (afterHand) {
+  console.log(`  ${handDv.toFixed(1)} m/s by hand before the raise flew: ${hours(afterHand.lifetime)} h of life, raise ${afterHand.raised ? 'kept' : 'withdrawn'};` +
+    ` ${byHand.burns} burns flown; ${byHand.end}`)
+} else console.log('  the hand burn was never replanned')
+
+/* ---------------------------------------------------------------- *
+ * 7. Eccentric orbits
+ * ---------------------------------------------------------------- */
+
+/**
+ * A parking orbit is nearly circular, but a pilot can commit from anything, and
+ * an eccentric orbit meets nearly all its air at perigee. That is where the first
+ * theory — the air as one exponential about the mean altitude — went wrong: 25%
+ * long at 150 x 250 km and 280% at 180 x 870 km. Flown here in the integrator
+ * alone, with the S-IVB's drag at Vandenberg's insertion mass on a bare coast.
+ */
+function eccentricDecay(periKm, apoKm, flyHours) {
+  resetSimulation()
+  refreshDerived()
+  const K = (0.5 * 2.2 * 30) / 95_100
+  const u = [-SPIN_AXIS[1], SPIN_AXIS[0], 0]
+  const un = Math.hypot(u[0], u[1], u[2])
+  u[0] /= un
+  u[1] /= un
+  const w = [SPIN_AXIS[1] * u[2] - SPIN_AXIS[2] * u[1], SPIN_AXIS[2] * u[0] - SPIN_AXIS[0] * u[2], SPIN_AXIS[0] * u[1] - SPIN_AXIS[1] * u[0]]
+  const tilt = Math.PI / 6
+  const normal = [0, 1, 2].map((k) => Math.cos(tilt) * SPIN_AXIS[k] + Math.sin(tilt) * w[k])
+  const q = [normal[1] * u[2] - normal[2] * u[1], normal[2] * u[0] - normal[0] * u[2], normal[0] * u[1] - normal[1] * u[0]]
+  const rp = R + periKm * 1e3
+  const a0 = R + 0.5 * (periKm + apoKm) * 1e3
+  const vp = Math.sqrt(MU * (2 / rp - 1 / a0))
+  const s = live.sim.state
+  for (let k = 0; k < 3; k++) {
+    s[C + k] = s[E + k] + rp * u[k]
+    s[C + 3 + k] = s[E + 3 + k] + vp * q[k]
+  }
+  live.sim.dragK[0] = K
+  refreshDerived()
+  const start = orbitNow()
+  let t = 0
+  let next = 50 * H
+  let worst = 0
+  let down = null
+  while (t < flyHours * H) {
+    live.sim.advance(600, live.maxDt)
+    refreshDerived()
+    t += 600
+    const now = orbitNow()
+    const reached = now.a - R < DECAY_FLOOR
+    if (t >= next || reached) {
+      const predicted = decayTime(start.a, start.e, now.a, K, start.cosI)
+      worst = Math.max(worst, Math.abs((predicted - t) / t))
+      next += 50 * H
+    }
+    if (reached) {
+      down = t
+      break
+    }
+  }
+  return { periKm, apoKm, e: start.e, worst, down, flown: t }
+}
+const eccentric = [eccentricDecay(150, 250, 600), eccentricDecay(180, 870, 500)]
+const eccWorst = Math.max(...eccentric.map((r) => r.worst))
+console.log('\n=== 7. eccentric orbits, the integrator against the theory ===')
+for (const r of eccentric) {
+  console.log(`  ${r.periKm} x ${r.apoKm} km (e ${r.e.toFixed(4)}): ${r.down ? `down at ${hours(r.down)} h` : `flown ${hours(r.flown)} h`}, worst sample ${(r.worst * 100).toFixed(2)}%`)
+}
+
+/* ---------------------------------------------------------------- *
+ * 8. The injection floor
+ * ---------------------------------------------------------------- */
+
+const FLOOR = R + PROFILE.injectionFloor
+
+/** Perigee at ignition, as the theory has it from the orbit at commitment, against flight. */
+const periError = (f) => {
+  decayAfter(f.orbit.a, f.orbit.e, f.injectT - f.commit, f.dragK, f.orbit.cosI)
+  return decayState[0] * (1 - decayState[1]) - f.injectPeri
+}
+
+/**
+ * A raise for height as well as life. Baikonur launched at +563.3 h lasts its
+ * 319 h wait with hours to spare, so the lifetime rule alone plans nothing — and
+ * it injected from a 126 km perigee. The floor makes that a raise, the least one
+ * that reaches the window at 140 km.
+ */
+const low = toInjection('baikonur', 0, 563.3)
+
+/**
+ * And a floor that holds. Vandenberg at +150.5 h commits inside a window whose
+ * pass comes minutes later; here 15 m/s is first taken off its velocity — a trim
+ * before commitment — which drops perigee under the floor on the far side. The
+ * raise that fixes it is at apogee, an orbit away, so ignition has to let this
+ * window go.
+ */
+function heldFlight() {
+  freshFlight('vandenberg')
+  resetMission()
+  flight.pilotWarp = WARP.d1
+  for (let i = 0; live.sim.t < 150.5 * H && i < 1_000_000; i++) frame()
+  beginCountdown()
+  for (let i = 0; i < 3_000_000 && currentPhase().id !== 'COAST'; i++) {
+    flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
+    frame()
+  }
+  const s = live.sim.state
+  const vx = s[C + 3] - s[E + 3]
+  const vy = s[C + 4] - s[E + 4]
+  const vz = s[C + 5] - s[E + 5]
+  const v = Math.hypot(vx, vy, vz)
+  s[C + 3] -= (15 * vx) / v
+  s[C + 4] -= (15 * vy) / v
+  s[C + 5] -= (15 * vz) / v
+  refreshDerived()
+  commitTLI()
+  const plan = { ...mission.tli.loiter }
+  const commit = live.sim.t
+  let heldAt = null
+  let lastPeri = live.elements.periapsisRadius
+  let injectPeri = null
+  let burns = 0
+  let last = currentPhase().id
+  for (let i = 0; i < 3_000_000; i++) {
+    flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
+    frame()
+    const id = currentPhase().id
+    if (id !== last && id === 'NODE_BURN') burns++
+    last = id
+    if (id === 'TLI_ALIGN') {
+      lastPeri = live.elements.periapsisRadius
+      if (heldAt === null && mission.tli.alignment <= PROFILE.phaseTolerance && lastPeri < FLOOR) heldAt = live.sim.t - commit
+    }
+    if (id === 'TLI_BURN' && injectPeri === null) injectPeri = lastPeri
+    if (id === 'TRANS_LUNAR' || id === 'LOST') break
+  }
+  return { plan, heldAt, injectPeri, burns, end: currentPhase().id, injectedAfter: live.sim.t - commit }
+}
+const held = heldFlight()
+
+console.log('\n=== 8. the injection floor ===')
+for (const f of kept) console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)} perigee at ignition ${km(f.injectPeri - R)} km, theory ${km(f.injectPeri + periError(f) - R)} km`)
+console.log(`  Baikonur +563.3 h: forecast ${hours(low.plan.wait)} h, lifetime ${hours(low.plan.lifetime)} h, perigee at ignition unraised ${km(low.plan.periapsisAtIgnition - R)} km;` +
+  ` raised for ${low.plan.reason} with ${(low.plan.dv1 + low.plan.dv2).toFixed(2)} m/s in ${low.plan.node2 >= 0 ? 2 : 1} burn(s); injected from ${km(low.injectPeri - R)} km; ${low.end}`)
+console.log(`  Vandenberg +150.5 h trimmed: raised for ${held.plan.reason}, forecast ${hours(held.plan.wait)} h;` +
+  ` ${held.heldAt === null ? 'never held' : `held a window at ${hours(held.heldAt)} h`}; ${held.burns} burns; injected from ${held.injectPeri === null ? '-' : km(held.injectPeri - R)} km after ${hours(held.injectedAfter)} h; ${held.end}`)
+
+/* ---------------------------------------------------------------- *
  * What this establishes
  * ---------------------------------------------------------------- */
 
@@ -204,12 +465,36 @@ const checks = [
    * the right point of its own orbit, which comes round once a revolution —
    * so the injection is late by up to one parking orbit and never early.
    */
-  ['each injection comes after the forecast window, by less than one parking orbit', flown.every((f) => f.late >= 0 && f.late <= f.period)],
+  ['each injection comes after the forecast window, by less than one parking orbit', flown.every((f) => f.late >= -60 && f.late <= f.period)],
   ['pads whose orbits outlast the wait plan nothing and fly nothing extra', kept.every((f) => !f.plan.needed && !f.plan.raised && f.nodePhases === 0)],
   ['Vandenberg plans a raise and flies both burns', vb.plan.raised && vb.nodePhases === 4],
   ['for under 1% of what is left in its tanks', vb.plan.dv1 + vb.plan.dv2 < 0.01 * 5208],
   ['and injects back down in the orbit it committed from, to 2 km', Math.abs(arriveError) < 2000],
   ['Vandenberg flies the whole mission, pad to splashdown', whole === 'SPLASHDOWN' && reached.includes('LUNAR_ORBIT')],
+  ['a window open at commitment but closing before the craft comes round is not counted on',
+    Math.abs(closing.outAtCommit) <= PROFILE.phaseTolerance && closing.plan.wait > 100 * H],
+  ['so that launch raises for the next window and injects, where it was lost',
+    closing.plan.raised && closing.end === 'TRANS_LUNAR' && closing.late >= -60 && closing.late <= closing.period],
+  ['a window open at commitment that will be caught is forecast to the pass, to a minute',
+    Math.abs(caught.outAtCommit) <= PROFILE.phaseTolerance && caught.plan.wait < H && Math.abs(caught.late) < 60 && caught.end === 'TRANS_LUNAR'],
+  ['a trim that leaves the orbit short of its window is planned around',
+    afterTrim !== null && afterTrim.replans === 1 && afterTrim.lifetime < afterTrim.wait && afterTrim.raised],
+  ['and the trimmed vehicle still injects', trimmed.end === 'TRANS_LUNAR'],
+  ['thrust by hand that makes the raise unnecessary withdraws it before it flies',
+    afterHand !== null && afterHand.replans === 1 && !afterHand.raised && byHand.burns === 0 && byHand.end === 'TRANS_LUNAR'],
+  ['the decay theory holds on eccentric orbits, to the same tolerance',
+    eccentric[0].down !== null && eccWorst < PROFILE.lifetimeTolerance],
+  ['perigee at ignition is predicted to a kilometre', kept.every((f) => Math.abs(periError(f)) < 1000)],
+  ['an orbit that lasts its wait but would inject under the floor is raised for height',
+    low.plan.reason === 'floor' && low.plan.raised && low.plan.periapsisAtIgnition < FLOOR && low.plan.lifetime > low.plan.wait],
+  /**
+   * Within 5 km of the floor, so the raise is the least one and not merely a
+   * sufficient one: sized as if it left a circle, this raise arrived at 152 km.
+   */
+  ['and injects just above the floor, for a few metres a second',
+    low.end === 'TRANS_LUNAR' && low.injectPeri >= FLOOR && low.injectPeri < FLOOR + 5e3 && low.plan.dv1 + low.plan.dv2 < 5],
+  ['a raise that cannot fly before the window holds ignition rather than inject low',
+    held.plan.needed && held.heldAt !== null && held.injectPeri !== null && held.injectPeri >= FLOOR && held.end === 'TRANS_LUNAR'],
 ]
 let pass = true
 for (const [label, ok] of checks) {

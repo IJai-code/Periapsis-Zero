@@ -10,29 +10,30 @@ import { density, SPIN_RATE } from './atmosphere.js'
  * orbit when the window opens has a numerical answer, and it was being answered
  * by where the Moon happened to be.
  *
- * King-Hele's theory for a near-circular orbit, semi-major axis and
- * eccentricity marched together:
+ * King-Hele's equations for one revolution, taken as they stand, with E the
+ * eccentric anomaly measured from perigee:
  *
- *   da/dt = -B rho(a) sqrt(mu a)  F [I0(x) + 2e I1(x)]
- *   de/dt = -B rho(a) sqrt(mu/a)  F [I1(x) + e/2 (I0(x) + I2(x))]
+ *   da/dE = -delta a^2 rho F (1 + e cos E)^3/2 / (1 - e cos E)^1/2
+ *   de/dE = -delta a (1 - e^2) rho F [(1 + e cos E) / (1 - e cos E)]^1/2 cos E
  *
- * with B = Cd A / m = 2 dragK, x = a e / H for the local scale height H, I_n the
- * modified Bessel functions, and F = (1 - omega a cos i / v)^2 for an atmosphere
- * that turns with the planet. Nothing here is fitted. `density` is the table
- * the integrator reads, `dragK` the slot it reads, omega the rate it rotates the
- * air at, and cos i is taken against the same spin axis.
+ * delta = Cd A / m = 2 dragK, and F = (1 - omega h cos i / v^2)^2 is the part of
+ * the planet's rotation lying along the track at each point. Both integrals are
+ * taken numerically over the density table itself, divided by the period, and a
+ * and e marched together. Nothing is fitted and nothing is approximated about
+ * the air: `density` is the table the integrator reads, `dragK` the slot it
+ * reads, omega the rate it turns the atmosphere at.
  *
- * Why not something simpler, measured against flown decay on all four pads:
- * circular at the semi-major axis reads 1.5-3.1% long, always long, because
- * density is weighted toward perigee and an eccentricity of 0.001 is 6.4 km of
- * altitude against a 22.5 km scale height. Holding e at its starting value
- * fixes the start and over-corrects the end, since drag circularises the orbit
- * while it lowers it. Marching both agrees to 0.2-1.0% over 34 samples, and the
- * one orbit flown all the way down — Vandenberg's, lost at 274.58 h — it puts
- * at 274.5 h.
- *
- * Valid while x stays small, which is to say near-circular: first-order in e,
- * and the parking orbits it is used on sit at x of about 0.3.
+ * Two earlier forms were measured and replaced. Both take the textbook route of
+ * treating the air as a single exponential around some height and integrating
+ * analytically into Bessel functions. Centred on the mean altitude — the first
+ * shipped — it held 0.2-1% on the near-circular parking orbits it was checked
+ * against, and misled on anything else: 25% long at 150 x 250 km, 88% at
+ * 180 x 447 km, and an orbit that never came down at 180 x 1,636 km. Centred on
+ * perigee it did better at high eccentricity and worse near circular, 7-31%
+ * long across the range, because no single scale height describes air whose
+ * scale height doubles over the first few hundred kilometres. Integrating the
+ * table directly removes the approximation instead of moving it: within 0.2% of
+ * flown decay on nine orbits from 172 x 185 km to 180 x 1,636 km.
  */
 
 const MU = G * BODIES.earth.mass
@@ -52,9 +53,8 @@ const ALTITUDE_STEP = 200
 const MAX_STEPS = 1_000_000
 
 /**
- * Local density scale height, m, read off the table rather than restated.
- * A second copy of the layer heights would be one edit away from disagreeing
- * with the air the vehicle actually flies through.
+ * Local density scale height, m, read off the table rather than restated. Used
+ * only to decide how finely to sample around perigee.
  */
 function scaleHeight(alt) {
   const lo = density(alt)
@@ -65,39 +65,41 @@ function scaleHeight(alt) {
 /** da/dt and de/dt, written here. One-shot planning, but still no allocation per step. */
 const _rate = new Float64Array(2)
 
+/**
+ * Revolution-averaged rates.
+ *
+ * The integrand peaks at perigee, with a width in E of about 1/sqrt(a e / H),
+ * so the sample count follows that: a circle meets the same air all the way
+ * round and needs one reading, an eccentricity of 0.1 a hundred or so. A
+ * trapezoid on a periodic integrand converges quickly once the peak is resolved.
+ */
 function rates(a, e, dragK, cosI) {
-  const alt = a - R
-  const rho = density(alt)
-  if (!(rho > 0)) {
-    _rate[0] = 0
+  const n = Math.sqrt(MU / (a * a * a))
+  const h = Math.sqrt(MU * a * (1 - e * e))
+  if (e < 1e-9) {
+    const rho = density(a - R)
+    const wind = 1 - (SPIN_RATE * h * cosI) / (MU / a)
+    _rate[0] = -2 * dragK * n * a * a * rho * wind * wind
     _rate[1] = 0
     return
   }
-  const wind = 1 - (SPIN_RATE * a * cosI) / Math.sqrt(MU / a)
-  const x = (a * e) / scaleHeight(alt)
-
-  // I0, I1, I2 by their series. Sixteen terms is exact to machine precision
-  // well past any x a near-circular orbit reaches.
-  const q = 0.5 * x
-  const q2 = q * q
-  let t0 = 1
-  let t1 = q
-  let t2 = 0.5 * q2
-  let i0 = 0
-  let i1 = 0
-  let i2 = 0
-  for (let k = 0; k < 16; k++) {
-    i0 += t0
-    i1 += t1
-    i2 += t2
-    t0 *= q2 / ((k + 1) * (k + 1))
-    t1 *= q2 / ((k + 1) * (k + 2))
-    t2 *= q2 / ((k + 1) * (k + 3))
+  const x = (a * e) / scaleHeight(a * (1 - e) - R)
+  const samples = Math.min(1024, Math.max(16, Math.ceil(24 * Math.sqrt(1 + (x > 0 && x < Infinity ? x : 0)))))
+  let ia = 0
+  let ie = 0
+  for (let j = 0; j < samples; j++) {
+    const c = Math.cos((2 * Math.PI * j) / samples)
+    const r = a * (1 - e * c)
+    const rho = density(r - R)
+    if (!(rho > 0)) continue
+    const wind = 1 - (SPIN_RATE * h * cosI) / (MU * (2 / r - 1 / a))
+    const f = rho * wind * wind * Math.sqrt((1 + e * c) / (1 - e * c))
+    ia += f * (1 + e * c)
+    ie += f * c
   }
-
-  const b = 2 * dragK * rho * wind * wind
-  _rate[0] = -b * Math.sqrt(MU * a) * (i0 + 2 * e * i1)
-  _rate[1] = -b * Math.sqrt(MU / a) * (i1 + 0.5 * e * (i0 + i2))
+  const k = (2 * dragK * n) / samples
+  _rate[0] = -k * a * a * ia
+  _rate[1] = -k * a * (1 - e * e) * ie
 }
 
 /**
@@ -128,6 +130,44 @@ export function decayTime(a0, e0, aEnd, dragK, cosI, horizon = Infinity) {
     if (t > horizon) return Infinity
   }
   return Infinity
+}
+
+/** Semi-major axis and eccentricity after `decayAfter`, m and dimensionless. */
+export const decayed = new Float64Array(2)
+
+/**
+ * March an orbit forward `time` seconds and write where it gets to into
+ * `decayed`. False if it reaches the decay floor first, in which case
+ * `decayed` holds the orbit at the floor.
+ *
+ * The same march as `decayTime`, stopped on the clock rather than on the
+ * altitude — so it answers "what will perigee be when the window opens", which
+ * a lifetime alone cannot: an orbit can outlast its wait and still arrive at
+ * ignition very low.
+ */
+export function decayAfter(a0, e0, time, dragK, cosI) {
+  let a = a0
+  let e = e0
+  let t = 0
+  const floor = R + DECAY_FLOOR
+  for (let n = 0; n < MAX_STEPS && t < time && dragK > 0; n++) {
+    rates(a, e, dragK, cosI)
+    const da = _rate[0]
+    if (!(da < 0)) break
+    const dt = Math.min(MAX_STEP, ALTITUDE_STEP / -da, time - t)
+    rates(a + 0.5 * dt * da, Math.max(0, e + 0.5 * dt * _rate[1]), dragK, cosI)
+    a += dt * _rate[0]
+    e = Math.max(0, e + dt * _rate[1])
+    t += dt
+    if (a <= floor) {
+      decayed[0] = a
+      decayed[1] = e
+      return false
+    }
+  }
+  decayed[0] = a
+  decayed[1] = e
+  return true
 }
 
 /** Seconds until an orbit reaches the decay floor. */

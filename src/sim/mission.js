@@ -17,13 +17,15 @@ import {
   clearNodes,
   nodeMagnitude,
   nodeRevision,
+  nodes,
   nodesChanged,
   pendingNode,
+  removeNode,
   resolveNode,
 } from './nodes.js'
 import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
-import { DECAY_FLOOR, circularOrbitDecayingTo, orbitalLifetime } from './decay.js'
+import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
 /**
  * Mission sequencer: a flat state machine driving throttle and attitude.
@@ -145,6 +147,21 @@ export const PROFILE = {
    * grows past this. A tolerance with a gate behind it, not a fitted constant.
    */
   lifetimeTolerance: 0.02,
+  /**
+   * Lowest perigee a translunar injection may start from, m of altitude.
+   *
+   * A policy, set as one rather than derived. What it guards is the steepness of
+   * the last day of a decaying orbit: a Baikonur launch at +563.3 h lasted its
+   * 319 h wait and injected from a 126 km perigee with seven hours of life left,
+   * which leaves nothing for a pass missed or a window slipped. It is not drag
+   * during the burn — 0.04 m/s from 126 km, measured — though the low start does
+   * cost more, because a lower circular orbit is deeper in the well: 3,159 m/s
+   * to inject from 126 km against 3,149 m/s from 164 km. When the orbit would
+   * reach its window below this, even with life to spare, the flight computer
+   * raises it by the least that keeps it above, and ignition waits for that raise
+   * if it has not flown by the time the window comes.
+   */
+  injectionFloor: 140e3,
   /**
    * Ascent shaping moved to the vessel — see SHIP.ascent in sim/vessels.js.
    *
@@ -335,6 +352,12 @@ export const mission = {
    * manoeuvre from the one the pilot planned and the projection drew.
    */
   node: {
+    /**
+     * Id of the burn that just handed control back, or -1. Written by
+     * NODE_BURN on the way out and consumed by the phase it resumes, so that
+     * phase can tell a burn it planned from one the pilot did.
+     */
+    lastFlownId: -1,
     active: null,
     direction: new Vector3(),
     /**
@@ -397,6 +420,19 @@ export const mission = {
       target: 0, // m, the loiter orbit
       dv1: 0, // m/s
       dv2: 0, // m/s
+      /** Ids of the two raise burns, so they can be told apart and withdrawn. -1 when none. */
+      node1: -1,
+      node2: -1,
+      /** How many times the plan has been remade, for any reason. */
+      replans: 0,
+      /** Of those, how many because a raise flown did not buy the life it was for. */
+      corrections: 0,
+      /** Perigee the orbit would have at the latest ignition before any raise, m from the centre. */
+      periapsisAtIgnition: 0,
+      /** Why a raise was needed: 'lifetime', 'floor', or '' when it was not. */
+      reason: '',
+      /** The pilot is thrusting by hand during the wait; replan when they stop. */
+      manual: false,
     },
   },
 
@@ -1539,6 +1575,13 @@ export function resetLoiter() {
   lo.target = 0
   lo.dv1 = 0
   lo.dv2 = 0
+  lo.node1 = -1
+  lo.node2 = -1
+  lo.replans = 0
+  lo.corrections = 0
+  lo.periapsisAtIgnition = 0
+  lo.reason = ''
+  lo.manual = false
 }
 
 /* ---------------------------------------------------------------- *
@@ -1548,72 +1591,299 @@ export function resetLoiter() {
 /** Sample spacing and reach of the window forecast, s. Half an hour is 0.3 deg of lunar motion. */
 const WINDOW_STEP = 1800
 const WINDOW_HORIZON = 30 * 86400
+/** Spacing of the scan for the craft's pass through a window already open, s: 1.4 deg of its orbit. */
+const PASS_STEP = 20
+/**
+ * How far inside the tolerance a pass must fall for the forecast to count on
+ * it, rad.
+ *
+ * The error this guards against costs very differently in its two directions.
+ * A pass counted on that then misses leaves the vehicle waiting half a month
+ * with no raise planned, which is how the one vehicle lost in 624 launches was
+ * lost. A pass not counted on that then fires costs a raise that is withdrawn
+ * at ignition.
+ */
+const PASS_MARGIN = 0.05 * (Math.PI / 180)
 
 let _ephemeris = null
 const _em = new Vector3()
 const _ev = new Vector3()
 const _eh = new Vector3()
 const _ef = new Vector3()
+const _er = new Vector3()
+const _evs = new Vector3()
+const _ea = new Vector3()
+const _eb = new Vector3()
 
 /**
- * Seconds until the Moon's arrival point comes within the ignition tolerance of
- * the parking plane, or Infinity if not within a month.
+ * The craft's next ignition inside a window that is open now, s from now, or
+ * Infinity if the window will close before the craft comes round to use it.
+ *
+ * Open is not the same as usable. Ignition needs the Moon's arrival point within
+ * tolerance of the plane *at the moment* the craft passes the point opposite it,
+ * and that comes round once an orbit. At commitment the arrival point can be
+ * inside tolerance and on its way out: measured, a Vandenberg launch committed
+ * with it 0.09 deg out of plane, and by the time the craft came round an orbit
+ * later it was 0.77 deg out and the pass missed. The forecast had said "now";
+ * the next window was half a month away; no raise had been planned.
+ *
+ * So within an open window the pass itself is found: the craft and the Moon
+ * propagated together on the drag-free copy in 20 s steps — two orbits of drag
+ * move the craft well under a kilometre — asking at each step where the arrival
+ * point sits in the craft's own orbital plane relative to apoapsis, and taking
+ * the out-of-plane angle at the step where that crosses zero.
+ */
+function passInOpenWindow(horizon) {
+  _ephemeris.resetFrom(live.sim)
+  const y = _ephemeris.state
+  const o = INDEX.ship * 6
+  const e = INDEX.earth * 6
+  const m = INDEX.moon * 6
+  const limit = PROFILE.phaseTolerance - PASS_MARGIN
+  let lastAhead = 0
+  let lastOut = 0
+  for (let t = 0; t <= horizon; t += PASS_STEP) {
+    if (t > 0) _ephemeris.advance(PASS_STEP, PASS_STEP, 1)
+    _er.set(y[o] - y[e], y[o + 1] - y[e + 1], y[o + 2] - y[e + 2])
+    _evs.set(y[o + 3] - y[e + 3], y[o + 4] - y[e + 4], y[o + 5] - y[e + 5])
+    _em.set(y[m] - y[e], y[m + 1] - y[e + 1], y[m + 2] - y[e + 2])
+    _ev.set(y[m + 3] - y[e + 3], y[m + 4] - y[e + 4], y[m + 5] - y[e + 5])
+    const rs = _er.length()
+    const r2 = _em.length()
+    _eh.crossVectors(_er, _evs).normalize()
+    arrivalDirection(_ef, _em, _ev, r2, (_ev.length() / r2) * transferTime(rs, r2))
+    const sine = _eh.dot(_ef)
+    const out = Math.asin(sine > 1 ? 1 : sine < -1 ? -1 : sine)
+    // Apoapsis points away from the craft; "ahead" is the direction it turns.
+    _ea.copy(_er).divideScalar(-rs)
+    _eb.crossVectors(_eh, _ea)
+    const ahead = Math.atan2(_ef.dot(_eb), _ef.dot(_ea))
+    if (t > 0 && lastAhead > 0 && ahead <= 0 && _ef.dot(_ea) > 0) {
+      const frac = lastAhead / (lastAhead - ahead)
+      const atPass = lastOut + frac * (out - lastOut)
+      if (Math.abs(atPass) <= limit) return t - PASS_STEP + frac * PASS_STEP
+    }
+    lastAhead = ahead
+    lastOut = out
+  }
+  return Infinity
+}
+
+/**
+ * Seconds until the craft can inject: the pass through a window open now if it
+ * will be caught, otherwise the moment the next window opens. Infinity if none
+ * within a month.
  *
  * The Moon is propagated, not extrapolated: a drag-free copy of the simulation
  * (`clone()` does not carry the atmosphere) marched in half-hour steps, with
- * `arrivalDirection` asked the question `updateTLI` will ask each frame. The
- * plane is today's — nothing in this gravity model precesses it. What is left
- * is the in-plane alignment, which the craft reaches within one parking orbit of
- * the plane window opening: measured on all four pads, the injection came
- * 0.4-1.2 h after this forecast, against an orbit of 1.47 h.
+ * `arrivalDirection` asked the question `updateTLI` will ask each frame. A
+ * window's opening is interpolated between the two samples either side of it —
+ * the first version returned the sample, up to half an hour late, and 103 of
+ * 624 launches then injected before their own forecast. What follows an opening
+ * is the craft coming round, within one parking orbit; the planner's margin
+ * carries that orbit. A window that is open when this runs is handed to
+ * `passInOpenWindow` instead, and skipped if its pass will not be caught.
  */
 function predictTLIWindow(r1) {
   if (!_ephemeris) _ephemeris = live.sim.clone()
-  _ephemeris.resetFrom(live.sim)
   loadGeocentric()
   _eh.crossVectors(_rs, _vs).normalize()
+  const planeX = _eh.x
+  const planeY = _eh.y
+  const planeZ = _eh.z
 
   const tol = PROFILE.phaseTolerance
   const y = _ephemeris.state
   const e = INDEX.earth * 6
   const m = INDEX.moon * 6
-  let last = 0
-  for (let k = 0; k * WINDOW_STEP <= WINDOW_HORIZON; k++) {
-    if (k > 0) _ephemeris.advance(WINDOW_STEP, WINDOW_STEP, 1)
+  const outAt = () => {
     _em.set(y[m] - y[e], y[m + 1] - y[e + 1], y[m + 2] - y[e + 2])
     _ev.set(y[m + 3] - y[e + 3], y[m + 4] - y[e + 4], y[m + 5] - y[e + 5])
     const r2 = _em.length()
     arrivalDirection(_ef, _em, _ev, r2, (_ev.length() / r2) * transferTime(r1, r2))
-    const sine = _eh.dot(_ef)
-    const out = Math.asin(sine > 1 ? 1 : sine < -1 ? -1 : sine)
-    const t = k * WINDOW_STEP
-    if (Math.abs(out) <= tol) return t
-    // Crossed between samples: interpolate to the crossing, then back off to
-    // where it came within tolerance.
-    if (k > 0 && out > 0 !== last > 0) {
-      const rate = (Math.abs(last) + Math.abs(out)) / WINDOW_STEP
-      return Math.max(0, t - WINDOW_STEP + (Math.abs(last) - tol) / rate)
+    const sine = planeX * _ef.x + planeY * _ef.y + planeZ * _ef.z
+    return Math.asin(sine > 1 ? 1 : sine < -1 ? -1 : sine)
+  }
+
+  _ephemeris.resetFrom(live.sim)
+  let skipping = false
+  let last = outAt()
+  if (Math.abs(last) <= tol) {
+    const period = 2 * Math.PI * Math.sqrt((r1 * r1 * r1) / MU_EARTH)
+    const pass = passInOpenWindow(2 * period)
+    if (Number.isFinite(pass)) return pass
+    skipping = true
+    _ephemeris.resetFrom(live.sim)
+  }
+  for (let k = 1; k * WINDOW_STEP <= WINDOW_HORIZON; k++) {
+    _ephemeris.advance(WINDOW_STEP, WINDOW_STEP, 1)
+    const out = outAt()
+    if (skipping) {
+      if (Math.abs(out) > tol) skipping = false
+    } else if (Math.abs(last) > tol && (Math.abs(out) <= tol || out > 0 !== last > 0)) {
+      // A straight line through the two readings, signed, so a crossing inside
+      // one step is found as well as an approach.
+      const frac = (last - Math.sign(last) * tol) / (last - out)
+      return (k - 1 + frac) * WINDOW_STEP
     }
     last = out
   }
   return Infinity
 }
 
+/** Withdraw the loiter plan's raise burns that have not flown yet. */
+function withdrawLoiterBurns() {
+  const lo = mission.tli.loiter
+  for (const id of [lo.node1, lo.node2]) {
+    if (id < 0) continue
+    const node = nodes.find((n) => n.id === id)
+    if (node && !node.executed) removeNode(id)
+  }
+}
+
 /**
- * Decide, once per commitment, whether the parking orbit will outlast the wait
- * — and if it will not, plan the orbit that does.
+ * Whether ignition waits for a raise still to fly.
  *
- * The wait is a forecast (`predictTLIWindow`) and the orbit's remaining life a
- * decay integral (`decay.js`), both from models the rest of the simulation
- * already runs on. The vehicle needs to reach the window with one more parking
- * orbit in hand for the in-plane alignment, and the injection burn on top.
+ * The floor is a hard one. When the window comes with perigee under it and the
+ * raise that fixes it has not flown — a pilot trimmed the orbit just before the
+ * window, or committed from a low one at the wrong moment — the window is let go
+ * rather than injected through. The raise flies, the plan is checked again, and
+ * the next window is taken from an orbit that clears the floor.
  *
- * When it will not, the raise is a two-burn transfer to the circular orbit that
- * decays back down to the one committed from *just as the window opens*. So the
- * injection is flown from the orbit it always was, and the margin at the window
- * is not a tolerance: it is that orbit's entire remaining life, some 270-370 h.
- * Flown as two planned nodes, so it shows in the flight plan like any other
- * burn and the pilot can see — or delete — what the flight computer decided.
+ * Evaluated every frame of the wait, so it allocates nothing, and the perigee
+ * test comes first: above the floor, which is almost always, there is no loop.
+ */
+function holdingForRaise() {
+  if (live.elements.periapsisRadius >= BODIES.earth.radius + PROFILE.injectionFloor) return false
+  const lo = mission.tli.loiter
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]
+    if (!n.executed && (n.id === lo.node1 || n.id === lo.node2)) return true
+  }
+  return false
+}
+
+/**
+ * Remake the plan from the orbit the vehicle is now in.
+ *
+ * Called when the pilot has changed the orbit during the wait — a burn of their
+ * own planned as a node, or thrust by hand. The committed orbit the raise was
+ * built around is no longer the one being flown: a retrograde trim can take a
+ * lifetime that comfortably covered the wait and leave a day of it, and a
+ * prograde one can make a planned raise pointless. Either way the old burns are
+ * withdrawn before the new plan is drawn up.
+ */
+function replanLoiter() {
+  const lo = mission.tli.loiter
+  const replans = lo.replans + 1
+  const corrections = lo.corrections
+  withdrawLoiterBurns()
+  resetLoiter()
+  lo.replans = replans
+  lo.corrections = corrections
+  planLoiter()
+}
+
+/**
+ * How many times a raise that has flown may be followed by another.
+ *
+ * A raise is flown to within a frame of thrust and timed from osculating
+ * elements, so a second, small correction is ordinary. A third means the
+ * vehicle cannot be kept up this way — out of propellant, or an orbit the
+ * theory does not describe — and it should be seen to fail rather than spend
+ * its tanks trying.
+ */
+const LOITER_CORRECTIONS = 2
+
+/** After the plan's last raise burn: did it buy the life it was for? */
+function verifyLoiter() {
+  const lo = mission.tli.loiter
+  if (lo.corrections >= LOITER_CORRECTIONS || !assessOrbit()) return
+  if (!shortOfWindow(_orbit) && !belowInjectionFloor(_orbit)) return
+  lo.corrections += 1
+  replanLoiter()
+}
+
+/** The orbit being flown, measured against the wait. Filled by `assessOrbit`. */
+const _orbit = { a: 0, e: 0, cosI: 0, dragK: 0, n: 0, meanAnomaly: 0, wait: 0, lifetime: 0, margin: 0, periapsisAtIgnition: 0 }
+
+/**
+ * Measure the orbit being flown against the wait for the window. False when
+ * there is no bound orbit to measure.
+ *
+ * The wait is a forecast (`predictTLIWindow`) and the remaining life a decay
+ * integral (`decay.js`), both from models the rest of the simulation already
+ * runs on. The vehicle needs to reach the window with one more parking orbit in
+ * hand — the craft comes round to the ignition point within one — and the
+ * injection burn on top.
+ */
+function assessOrbit() {
+  updateTLI()
+  const r = _rs.length()
+  const a = 1 / (2 / r - _vs.lengthSq() / MU_EARTH)
+  if (!(a > 0)) return false
+  _eh.crossVectors(_rs, _vs)
+  const hLen = _eh.length()
+  const o = _orbit
+  o.a = a
+  o.e = Math.sqrt(Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * a)))
+  o.cosI = (_eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]) / hLen
+  o.dragK = live.sim.dragK[0]
+  o.n = Math.sqrt(MU_EARTH / (a * a * a))
+  // e sin E and e cos E straight from the state, so a near-circle loses nothing to a division by e.
+  const eSinE = _rs.dot(_vs) / Math.sqrt(MU_EARTH * a)
+  o.meanAnomaly = Math.atan2(eSinE, 1 - r / a) - eSinE
+  o.wait = predictTLIWindow(a)
+  o.lifetime = orbitalLifetime(a, o.e, o.dragK, o.cosI)
+  o.margin = TWO_PI / o.n + burnTimeFor(mission.tli.deltaV)
+  // Perigee at the latest ignition: the window's opening, plus the orbit the craft
+  // can take to come round to it. Measured against flight, to under half a kilometre.
+  if (!Number.isFinite(o.wait)) o.periapsisAtIgnition = Infinity
+  else if (decayAfter(a, o.e, o.wait + TWO_PI / o.n, o.dragK, o.cosI)) o.periapsisAtIgnition = decayed[0] * (1 - decayed[1])
+  else o.periapsisAtIgnition = -Infinity
+  return true
+}
+
+/** Whether an assessed orbit falls short of its window, with the theory's tolerance taken off its life. */
+const shortOfWindow = (o) =>
+  Number.isFinite(o.wait) && o.lifetime * (1 - PROFILE.lifetimeTolerance) < o.wait + o.margin
+
+/**
+ * How far above the injection floor the flight computer judges and aims, m.
+ *
+ * More than the theory's error in perigee at ignition, which measured 0.43 km at
+ * worst across the flights that checked it. A raise aimed at the floor itself
+ * could arrive a few hundred metres under it, and an orbit predicted a few
+ * hundred metres over it could inject under it; judged and aimed a kilometre
+ * up, a hard floor stays hard.
+ */
+const PERIGEE_MARGIN = 1e3
+
+/** Whether an assessed orbit would reach its ignition with perigee under the injection floor. */
+const belowInjectionFloor = (o) =>
+  o.periapsisAtIgnition < BODIES.earth.radius + PROFILE.injectionFloor + PERIGEE_MARGIN
+
+/**
+ * Decide, at commitment and again whenever the orbit changes under the plan,
+ * whether it will outlast the wait — and if it will not, plan the orbit that
+ * does.
+ *
+ * The raise goes to the circular orbit that decays back down into the one it
+ * started from *just as the window opens*. So injection is flown from the orbit
+ * it always was, and the margin at the window is not a tolerance but that
+ * orbit's whole remaining life. It is flown as ordinary manoeuvre nodes, in the
+ * flight plan like any other burn, where the pilot can see what was decided or
+ * delete it.
+ *
+ * The burns sit at the apsides, where the transfer formulas are true. The first
+ * version burned two minutes after planning wherever the craft was, treating
+ * the orbit as a circle at its semi-major axis — harmless from a parking orbit
+ * with 6 km between its apsides, and not from one a pilot has just trimmed: a
+ * correct replan after a 25 m/s retrograde trim flew its raise from the wrong
+ * point and the vehicle was lost at MET 181.7 h. Now, when the target lies above
+ * apogee, the transfer starts at perigee and is rounded off at the target; when
+ * it lies inside the orbit, one burn at apogee lifts perigee to it and leaves
+ * apogee where it is, which only lengthens the life.
  *
  * This cannot move to the pad. Commitment is the pilot's, made in orbit, at
  * whatever time they choose; the flight computer's job is to survive the wait
@@ -1622,43 +1892,85 @@ function predictTLIWindow(r1) {
 function planLoiter() {
   const lo = mission.tli.loiter
   lo.planned = true
-
-  updateTLI()
-  const r = _rs.length()
-  const a = 1 / (2 / r - _vs.lengthSq() / MU_EARTH)
-  if (!(a > 0)) return
-  _eh.crossVectors(_rs, _vs)
-  const hLen = _eh.length()
-  const e = Math.sqrt(Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * a)))
-  const cosI = (_eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]) / hLen
-  const dragK = live.sim.dragK[0]
-  const halfOrbit = Math.PI * Math.sqrt((a * a * a) / MU_EARTH)
-
-  lo.wait = predictTLIWindow(a)
-  lo.lifetime = orbitalLifetime(a, e, dragK, cosI)
-  lo.margin = 2 * halfOrbit + burnTimeFor(mission.tli.deltaV)
-  const keep = 1 - PROFILE.lifetimeTolerance
-  if (!Number.isFinite(lo.wait) || lo.lifetime * keep >= lo.wait + lo.margin) return
+  if (!assessOrbit()) return
+  const o = _orbit
+  lo.wait = o.wait
+  lo.lifetime = o.lifetime
+  lo.margin = o.margin
+  lo.periapsisAtIgnition = o.periapsisAtIgnition
+  const short = shortOfWindow(o)
+  if (!short && !belowInjectionFloor(o)) return
   lo.needed = true
+  lo.reason = short ? 'lifetime' : 'floor'
   if (!PROFILE.loiterRaise) return
 
-  // Back down to the committed orbit — unless that orbit could not itself
-  // survive the alignment, as after a long wait before committing, in which
-  // case to the lowest one that can.
-  lo.arrive = a
-  if (orbitalLifetime(a, 0, dragK, cosI) * keep < lo.margin) {
-    lo.arrive = circularOrbitDecayingTo(BODIES.earth.radius + DECAY_FLOOR, lo.margin / keep, dragK, cosI)
+  const keep = 1 - PROFILE.lifetimeTolerance
+  const floor = BODIES.earth.radius + PROFILE.injectionFloor + PERIGEE_MARGIN
+  /**
+   * Where to have decayed to when the window comes. Short of life: back down into
+   * the orbit being flown, but never under the injection floor, which a pilot's
+   * trim can take it below. Only low: the floor itself — the least raise that keeps
+   * the injection above it. And never an orbit that could not survive the
+   * alignment itself.
+   */
+  lo.arrive = short ? Math.max(o.a, floor) : floor
+  if (orbitalLifetime(lo.arrive, 0, o.dragK, o.cosI) * keep < lo.margin) {
+    lo.arrive = Math.max(lo.arrive, circularOrbitDecayingTo(BODIES.earth.radius + DECAY_FLOOR, lo.margin / keep, o.dragK, o.cosI))
   }
 
-  // The first burn waits out a slew; the loiter clock starts when the second
-  // has circularised, half a transfer later.
-  const t1 = live.sim.t + 2 * PROFILE.nodeAlignMargin
-  lo.target = circularOrbitDecayingTo(lo.arrive, lo.wait - (t1 - live.sim.t) - halfOrbit, dragK, cosI)
-  const at = 0.5 * (a + lo.target)
-  lo.dv1 = Math.sqrt(MU_EARTH * (2 / a - 1 / at)) - Math.sqrt(MU_EARTH / a)
-  lo.dv2 = Math.sqrt(MU_EARTH / lo.target) - Math.sqrt(MU_EARTH * (2 / lo.target - 1 / at))
-  addNode(t1, { prograde: lo.dv1 })
-  addNode(t1 + Math.PI * Math.sqrt((at * at * at) / MU_EARTH), { prograde: lo.dv2 })
+  const rp = o.a * (1 - o.e)
+  const ra = o.a * (1 + o.e)
+  const period = TWO_PI / o.n
+  const slew = 2 * PROFILE.nodeAlignMargin
+  const until = (anomaly) => {
+    let dt = ((((anomaly - o.meanAnomaly) % TWO_PI) + TWO_PI) % TWO_PI) / o.n
+    while (dt < slew) dt += period
+    return dt
+  }
+  const toPerigee = until(0)
+  // The loiter clock starts once the orbit is up, half a transfer after perigee. An
+  // orbit aimed at the floor is aimed at the latest ignition, an orbit after the
+  // window opens, because that is where the floor is judged.
+  const aimAt = lo.arrive <= floor ? lo.wait + period : lo.wait
+
+  /**
+   * One burn at apogee when lifting perigee is enough, sized exactly: the lowest
+   * perigee whose orbit, decayed to `aimAt`, still has its perigee at `arrive`.
+   *
+   * The first version sized it as if the burn left a circle at the new perigee.
+   * It does not — apogee stays where it was, and an orbit with a high apogee
+   * decays far more slowly than a circle at its perigee — so a floor raise aimed
+   * at 140 km arrived at 152, and was not the least raise at all.
+   */
+  const toApogee = until(Math.PI)
+  const perigeeAtAim = (newPerigee) => {
+    const a1 = 0.5 * (newPerigee + ra)
+    const e1 = (ra - newPerigee) / (ra + newPerigee)
+    return decayAfter(a1, e1, aimAt - toApogee, o.dragK, o.cosI) ? decayed[0] * (1 - decayed[1]) : -Infinity
+  }
+  if (perigeeAtAim(ra) >= lo.arrive) {
+    let under = rp
+    let over = ra
+    for (let k = 0; k < 24 && over - under > 50; k++) {
+      const mid = 0.5 * (under + over)
+      if (perigeeAtAim(mid) >= lo.arrive) over = mid
+      else under = mid
+    }
+    lo.target = over
+    lo.dv1 = Math.sqrt(MU_EARTH * (2 / ra - 2 / (ra + lo.target))) - Math.sqrt(MU_EARTH * (2 / ra - 1 / o.a))
+    lo.dv2 = 0
+    lo.node1 = addNode(live.sim.t + toApogee, { prograde: lo.dv1 }).id
+    lo.node2 = -1
+  } else {
+    // Two burns to a circle above apogee, where a circle is what they leave.
+    lo.target = circularOrbitDecayingTo(lo.arrive, aimAt - toPerigee - 0.5 * period, o.dragK, o.cosI)
+    const at = 0.5 * (rp + lo.target)
+    lo.dv1 = Math.sqrt(MU_EARTH * (2 / rp - 1 / at)) - Math.sqrt(MU_EARTH * (2 / rp - 1 / o.a))
+    lo.dv2 = Math.sqrt(MU_EARTH / lo.target) - Math.sqrt(MU_EARTH * (2 / lo.target - 1 / at))
+    const t1 = live.sim.t + toPerigee
+    lo.node1 = addNode(t1, { prograde: lo.dv1 }).id
+    lo.node2 = addNode(t1 + Math.PI * Math.sqrt((at * at * at) / MU_EARTH), { prograde: lo.dv2 }).id
+  }
   lo.raised = true
 }
 
@@ -1906,11 +2218,28 @@ const PHASES = [
     label: 'Awaiting TLI window',
     enter() {
       ship.throttle = 0
-      // Entered again every time a planned burn hands back, so the flag is what
-      // keeps the loiter plan from planning itself a second pair of burns.
-      if (!mission.tli.loiter.planned) planLoiter()
+      /**
+       * Entered at commitment and again every time a planned burn hands back.
+       * A raise burn of the plan's own changes nothing about the plan; any other
+       * burn was the pilot's, and the orbit the plan was built around has gone.
+       */
+      const lo = mission.tli.loiter
+      const flown = mission.node.lastFlownId
+      mission.node.lastFlownId = -1
+      if (!lo.planned) planLoiter()
+      else if (flown < 0) return
+      else if (flown !== lo.node1 && flown !== lo.node2) replanLoiter()
+      else if (flown === (lo.node2 >= 0 ? lo.node2 : lo.node1)) verifyLoiter()
     },
     control() {
+      // Thrust here is the pilot's by hand — the flight computer does not burn in
+      // this phase — so replan once they let go.
+      const lo = mission.tli.loiter
+      if (ship.thrust > 0) lo.manual = true
+      else if (lo.manual) {
+        lo.manual = false
+        replanLoiter()
+      }
       aimPrograde()
       const tli = updateTLI()
       /**
@@ -1935,13 +2264,17 @@ const PHASES = [
               ? WARP.m1
               : WARP.x1
     },
-    done: () => mission.tli.alignment <= PROFILE.phaseTolerance,
+    done: () => mission.tli.alignment <= PROFILE.phaseTolerance && !holdingForRaise(),
     next: () => INDEX_OF.TLI_BURN,
   },
   {
     id: 'TLI_BURN',
     label: 'TLI burn',
     enter() {
+      // A raise still waiting to fly when the window arrives was planned against
+      // a later window — a pass the forecast would not count on, then caught.
+      // Left in the plan it would preempt the injection mid-burn.
+      withdrawLoiterBurns()
       ship.throttle = 1
       mission.warpRequest = WARP.m1
       mission.tli.burnStart = mission.t
@@ -2623,6 +2956,7 @@ const PHASES = [
       const node = mission.node.active
       if (node) {
         node.executed = true
+        mission.node.lastFlownId = node.id
         // The plan has changed even though nothing in the UI touched it: the
         // node stops being a plan the moment it is flown, and the editor has to
         // hear about that from here or it will keep offering handles for a burn

@@ -743,12 +743,12 @@ Launch → parking orbit → translunar injection → lunar capture, flown end t
 | Kennedy | MET 348.7 h | 80 × 110 km | 1,721 m/s |
 | Kourou | MET 413.1 h | 82 × 114 km | 1,825 m/s |
 | Baikonur | MET 270.1 h | 76 × 104 km | 1,534 m/s |
-| Vandenberg | MET 400.6 h | 79 × 106 km | 1,016 m/s |
+| Vandenberg | MET 400.3 h | 83 × 110 km | 1,015 m/s |
 
 Kennedy's row read 73 × 103 km and 1,720 m/s until it was flown again beside
 Vandenberg's: the flight had moved since the table was written, and the table
 had not. Vandenberg goes on to fly the return too — trans-Earth injection, entry,
-splashdown at MET 508.3 h — with 62 m/s left after the entry corridor trim.
+splashdown at MET 505.6 h — with 33 m/s left after the entry corridor trim.
 
 The mission elapsed times differ by 143 hours and nothing in the sequencer says
 so: each site's plane lines up with the Moon's at a different time, and the
@@ -856,48 +856,150 @@ runs on.
 drag-free copy of the simulation marched in half-hour steps, asking at each one
 the question `updateTLI` will ask when the day comes. The Hohmann flight time and
 the arrival direction are shared functions now, so the forecast cannot drift
-from the ignition test. What it forecasts is the *plane* window; the craft still
-has to come round to the right point of its own orbit, so injection follows
-within one parking orbit — 1.47 h:
+from the ignition test. The moment a window opens is interpolated between the
+samples either side of it, and what follows an opening is the craft coming round
+to the right point of its own orbit, within one parking orbit — 1.47 h:
 
 | pad | forecast | injected | late by |
 | --- | --- | --- | --- |
-| Baikonur | 136.0 h | 137.1 h | 1.08 h |
-| Kennedy | 218.5 h | 219.7 h | 1.23 h |
-| Kourou | 286.5 h | 286.9 h | 0.35 h |
-| Vandenberg | 281.5 h | 282.7 h | 1.15 h |
+| Baikonur | 135.95 h | 137.08 h | 1.12 h |
+| Kennedy | 218.41 h | 219.73 h | 1.32 h |
+| Kourou | 286.41 h | 286.85 h | 0.44 h |
+| Vandenberg | 281.37 h | 282.63 h | 1.25 h |
 
-**How long will the orbit last?** `decay.js` integrates King-Hele's theory, with
-semi-major axis and eccentricity marched together over the same density table,
-the same `dragK`, and air turning at the same rate. Two simpler forms were
-measured first and rejected. Circular at the semi-major axis reads 1.5–3.1% long
-on every pad, always long, because an eccentricity of 0.001 puts perigee 6.4 km
-below the mean against a 22.5 km scale height. Holding e fixed corrects the start
-and overshoots the end, since drag circularises the orbit while it lowers it.
-Marched together, against Vandenberg's orbit left to decay:
+A window already open at commitment is a different question, because open is
+not the same as usable. Ignition needs the arrival point within tolerance at the
+moment the craft passes the point opposite it, and that comes round once an
+orbit. So inside an open window the forecast finds the pass itself — craft and
+Moon propagated together in 20 s steps — and counts on it only if it falls 0.05°
+inside the tolerance. The bias is deliberate: a pass counted on that then misses
+leaves the vehicle waiting half a month with no raise planned, and a pass not
+counted on that then fires costs a raise that is withdrawn at ignition.
+
+**How long will the orbit last?** `decay.js` takes King-Hele's equations for one
+revolution as they stand — da/dE and de/dE over the eccentric anomaly — and
+integrates them numerically over the density table the integrator flies through,
+with the same `dragK` and the along-track part of the same rotating air at each
+point, marching semi-major axis and eccentricity together. Nothing about the
+atmosphere is approximated. Against Vandenberg's orbit left to decay:
 
 | flown | semi-major axis altitude | theory | error |
 | --- | --- | --- | --- |
-| 25 h | 176.93 km | 25.23 h | 0.92% |
-| 100 h | 169.99 km | 100.37 h | 0.37% |
-| 200 h | 155.32 km | 200.55 h | 0.28% |
-| 250 h | 140.71 km | 250.74 h | 0.30% |
-| lost at 274.58 h | — | 274.55 h | −0.01% |
+| 25 h | 176.93 km | 25.01 h | 0.02% |
+| 100 h | 169.99 km | 100.06 h | 0.06% |
+| 200 h | 155.32 km | 200.24 h | 0.12% |
+| 250 h | 140.71 km | 250.22 h | 0.09% |
+| lost at 274.58 h | — | 273.98 h | −0.22% |
+
+The last row is taken to the 100 km floor the theory stops at, 0.6 h before the
+craft reaches the surface.
+
+Two textbook forms came first and were replaced. Both treat the air as one
+exponential about a reference height and integrate analytically into Bessel
+functions. About the mean altitude it held 0.2–1% on these parking orbits and
+misled on anything else: 25% long at 150 × 250 km, 88% at 180 × 447 km, and an
+orbit that never came down at 180 × 1,636 km. About perigee it was 7–31% long
+across the same range, because no single scale height describes air whose scale
+height doubles over the first few hundred kilometres. Integrating the table
+removes the approximation instead of moving it:
+
+| orbit | e | flown | theory within |
+| --- | --- | --- | --- |
+| 172.5 × 185.2 km | 0.0010 | down at 299.2 h | 0.0% |
+| 150 × 250 km | 0.0076 | down at 408.3 h | 0.1% |
+| 180 × 312 km | 0.0100 | down at 2,074 h | 0.1% |
+| 160 × 400 km | 0.0180 | down at 2,035 h | 0.1% |
+| 180 × 870 km | 0.0500 | 3,000 h | 0.2% |
+| 180 × 1,636 km | 0.1000 | 3,000 h | 0.2% |
 
 If the orbit will not last the wait plus one more orbit and the injection burn —
 with 2% taken off the lifetime for the theory's error, a figure `verify-loiter`
-checks against this decay flown again — the flight computer plans a raise: a
-two-burn transfer to the circular orbit that decays back down into the one
-committed from *just as the window opens*. So injection is flown from the orbit
-it always was, and the margin at the window is not a tolerance but that orbit's
-whole remaining life. The raise is two ordinary manoeuvre nodes, in the flight
-plan like any other burn, where the pilot can see what was decided or delete it.
+checks against flown decay, near-circular and eccentric — the flight computer
+plans a raise to the circular orbit that decays back down into the one it started
+from *just as the window opens*. So injection is flown from the orbit it always
+was, and the margin at the window is not a tolerance but that orbit's whole
+remaining life. The burns are ordinary manoeuvre nodes, in the flight plan like
+any other, placed at the apsides where the transfer formulas are true: a transfer
+from perigee rounded off at the target when the target lies above apogee, and a
+single burn at apogee, sized exactly, when lifting perigee is enough. After the
+last burn the orbit is assessed again, and the plan remade if it still falls
+short — at most twice.
 
-Kennedy, Kourou and Baikonur last their waits and plan nothing, and their flights
-are bit-identical to before — injection time, delta-v and apoapsis, to seventeen
-significant figures. Vandenberg forecasts 281.5 h against a lifetime of 274.6 h,
-raises from 178.9 to 194.1 km for 4.54 + 4.54 m/s, has decayed back to 179.7 km
-at ignition — 0.8 km from where it aimed — and flies the whole mission.
+The plan follows the pilot. Any burn during the wait that was not the plan's — a
+node of their own, or thrust by hand — remakes it from the orbit being flown and
+withdraws raise burns that have not flown. A 25 m/s retrograde trim six hours in
+takes Vandenberg's raised orbit to about 110 × 194 km, with 9.7 h of life against
+275 h to the window; it is replanned into a single 19.6 m/s burn at apogee and
+injects. The first raise design burned wherever the craft happened to be,
+treating the orbit as a circle, and after that same trim it replanned correctly
+and lost the vehicle at MET 181.7 h. 33 m/s by hand before the raise has flown
+leaves 1,682 h of life, and the raise is withdrawn unflown. Anything still
+pending when the window arrives is withdrawn at ignition, so it cannot preempt
+the injection.
+
+At this epoch Kennedy, Kourou and Baikonur last their waits and plan nothing, and
+they fly bit-identically to before: injection time to seventeen significant
+figures, and delta-v left and apoapsis to the twelve they were compared at.
+Vandenberg forecasts 281.4 h against a lifetime of 274.0 h, raises from 178.9 to
+194.1 km for 2.65 + 6.41 m/s starting at perigee, has decayed back to 179.4 km at
+ignition — 0.5 km from where it aimed — and flies the whole mission. Planning
+takes 9–18 ms at commitment, the most when a single burn is sized by bisection:
+about a frame.
+
+**The injection floor.** No injection starts from under 140 km of perigee. That is
+a policy rather than a derivation, and what it guards is the steepness of a
+decaying orbit's last day: a Baikonur launch at +563.3 h lasted its 319 h wait and
+would have injected from a 126 km perigee with seven hours of life left. It is not
+drag during the burn, which measured 0.04 m/s from there — though the low start
+does cost more, because a lower circular orbit is deeper in the well: that
+injection spent 3,159 m/s from 126 km, against 3,149 m/s for the same pad from
+164 km.
+
+Perigee at ignition comes from the same decay theory, marched to the latest
+ignition, and matches flight to 0.03 km on the pads that do not raise. The flight
+computer judges and aims a kilometre above the floor, more than the theory's worst
+measured error of 0.43 km, so an orbit predicted just over it cannot inject just
+under it. An orbit that would reach its window lower is raised by the least that
+clears it, even with life to spare. When one burn at apogee is enough it is sized
+exactly, by bisection over the eccentric orbit the burn actually leaves: sized as
+if it left a circle, Baikonur's raise cost 2.12 m/s and arrived at 152 km, because
+an orbit that keeps its high apogee decays far more slowly than a circle at its
+perigee; sized exactly, 0.87 m/s and 142.0 km.
+
+The floor holds when there is no time to raise first. If the window comes with
+perigee under it and the raise has not flown, ignition waits and the window goes.
+A Vandenberg launch trimmed 15 m/s just before committing into a window that opens
+minutes later lets it go, raises at apogee an orbit on, and injects 320 h later
+from 161.8 km.
+
+**Every launch time.** One epoch proves little about a wait that depends on where
+the Moon is and which way the plane faces, so the four pads were flown from 156
+launch times each, every 4.3 hours across 27.8 days — a sidereal month, the
+period on which the Moon crosses a plane fixed against the stars, at a spacing
+that does not line up with the day. Each flight goes from the pad to lunar orbit.
+
+| | first sweep | after the fixes | with the 140 km floor |
+| --- | --- | --- | --- |
+| reached lunar orbit | 623 of 624 | 624 of 624 | 624 of 624 |
+| injected more than a minute before its forecast | 96 | 0 | 0 |
+| injected more than an orbit after it | 1 | 0 | 0 |
+| raised for lifetime | 36 | 37 | 37 |
+| raised for the floor | — | — | 39 |
+| least life left at ignition, unraised | 7.8 h | 7.0 h | 31.5 h |
+
+The first sweep is what found the open-window case. Seven launches committed
+inside a window; five caught their pass and two did not — one Vandenberg vehicle
+lost, and one Kennedy vehicle that waited 326.8 h and injected from 137.7 km with
+23 h of life left. The early injections were the forecast returning the half-hour
+sample after a window opened instead of the moment it did.
+
+With the floor in, the longest wait is 348.2 h, 14.5 days. The 37 raises for
+lifetime cost 8.7–10.6 m/s and reach the window within 0.87 km of their aim; the 39
+for the floor cost 0.01–0.87 m/s and inject from 141.0–142.8 km of perigee. No
+injection in the month starts under 140 km, and the least life an unraised vehicle
+still has at ignition is 31.5 h, where before the floor it was 7.0 h. Otherwise
+nothing moved: 39 flights changed, as many as raised for the floor, and the least
+delta-v left in lunar orbit went from 920 to 918 m/s.
 
 ### Planned burns under time warp
 

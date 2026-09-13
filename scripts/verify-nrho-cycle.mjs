@@ -16,16 +16,10 @@
  *   node --expose-gc scripts/verify-nrho-cycle.mjs [cycles]
  */
 
-import { flight, frame } from './flight.mjs'
+import { flight, flyMission, frame } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import {
-  currentPhase,
-  enterNrhoCycle,
-  mission,
-  PROFILE,
-  resetMission,
-} from '../src/sim/mission.js'
+import { currentPhase, enterNrhoCycle, mission, PROFILE } from '../src/sim/mission.js'
 import { synodic } from '../src/sim/cr3bp.js'
 
 const wanted = Number(process.argv[2] ?? 40)
@@ -35,8 +29,31 @@ const wanted = Number(process.argv[2] ?? 40)
 PROFILE.nrhoKeepInterval = 900
 PROFILE.nrhoKeepDuration = 60
 
+/**
+ * A vehicle that is actually in orbit.
+ *
+ * This used to enter the cycle straight after a reset, with the stack still
+ * standing on the pad — and NRHO_COAST does not clamp it there. It fell, and the
+ * cycle counted apolunes off the Earth-Moon distance from a craft sitting at the
+ * centre of the Earth, which is periodic enough to count and meant nothing. Once
+ * the sequencer learned to stop a vehicle inside a planet, the warm-up spun
+ * forever instead, because it had no cap either; before that, the run did not
+ * finish inside two minutes.
+ *
+ * Flown to the reference mission's own lunar orbit instead. The cycle hands over
+ * at apolune and this gate needs forty-eight of them. A halo is the orbit the
+ * cycle is named for, but left uncontrolled one departs in about six
+ * revolutions (verify-nrho-keeping), and holding it is that gate's question, not
+ * this one. The reference stays zero, so the keep phase solves nothing: the same
+ * coverage this gate always had, on a vehicle that is somewhere.
+ */
 resetSimulation()
-resetMission()
+refreshDerived()
+flyMission('LUNAR_ORBIT', { onPhase: () => {} })
+if (currentPhase().id !== 'LUNAR_ORBIT') {
+  console.error(`never reached lunar orbit: stopped in ${currentPhase().id}`)
+  process.exit(1)
+}
 refreshDerived()
 flight.warp = WARP.h1
 flight.pilotWarp = null
@@ -63,9 +80,23 @@ let phaseTAtSwitch = []
  */
 const gc = globalThis.gc
 const WARMUP = 8
-while (mission.nrho.cycles < WARMUP) {
+/**
+ * Capped, and checked for escape like the measured loop below. Without either, a
+ * cycle that stops advancing is a hang rather than a failure — which is how this
+ * gate spent a session looking like a slow test instead of a broken one.
+ */
+for (let i = 0; mission.nrho.cycles < WARMUP; i++) {
   flight.pilotWarp = mission.warpRequest === null ? WARP.h1 : null
   frame()
+  const id = currentPhase().id
+  if (id !== 'NRHO_COAST' && id !== 'NRHO_STATION_KEEP') {
+    console.error(`escaped the cycle into ${id} during warm-up`)
+    process.exit(1)
+  }
+  if (i >= 2_000_000) {
+    console.error(`warm-up stalled: ${mission.nrho.cycles} of ${WARMUP} cycles in ${i} frames`)
+    process.exit(1)
+  }
 }
 const cyclesAtStart = mission.nrho.cycles
 if (gc) {
@@ -75,7 +106,7 @@ if (gc) {
 const heapBefore = process.memoryUsage().heapUsed
 
 let frames = 0
-for (let i = 0; i < 20_000_000 && mission.nrho.cycles < wanted + WARMUP; i++) {
+for (let i = 0; i < 2_000_000 && mission.nrho.cycles < wanted + WARMUP; i++) {
   flight.pilotWarp = mission.warpRequest === null ? WARP.h1 : null
   frame()
   frames++
