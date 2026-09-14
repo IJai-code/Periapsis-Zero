@@ -111,16 +111,6 @@ const HANDOVER_Q = 1000
 /** Ascent profile. Tuned so the programmed turn reaches orbit without iteration. */
 export const PROFILE = {
   countdown: 10, // s
-  /**
-   * How far below the parking orbit periapsis may sit at cutoff, m.
-   *
-   * This replaces a flat 150 km target, which was the right idea for the wrong
-   * orbit: with the ascent lofting to over a thousand kilometres, "perigee
-   * above the air" was met while apoapsis was already in deep space. Measured
-   * against the vessel's own parking altitude it means what it says — the orbit
-   * has closed, near-circular, where it was meant to.
-   */
-  insertionMargin: 20e3,
 
   /**
    * Pointing error a planned burn will ignite on, radians, and how long before
@@ -654,25 +644,30 @@ function manageThrottle() {
 /**
  * Ascent steering, in two regimes.
  *
- * **Open loop, while apoapsis is still short of the parking orbit.** Pitch is a
- * function of speed alone — `90 deg x (v/vt)^n` — which is what a launch
- * vehicle wants low down, where the angle of attack has to stay near zero and
- * there is nothing useful to feed back on yet.
+ * **Open loop, until steering is free.** Pitch is a function of speed alone —
+ * `90 deg x (v/vt)^n` — which is what a launch vehicle wants low down, where the
+ * angle of attack has to stay near zero and there is nothing useful to feed back
+ * on yet. It hands over once the vehicle is above the initial climb and dynamic
+ * pressure is low enough to point off the velocity vector; handing over on
+ * apoapsis instead levelled Apollo 8 off at four kilometres.
  *
- * **Closed loop, once apoapsis reaches the target.** The open-loop law cannot
- * be the whole ascent, and the failure is not subtle: it knows the vehicle's
- * *speed* and nothing about where the orbit is going, so a vehicle that climbs
- * faster than the schedule assumed simply keeps climbing. Measured, Apollo 8
- * parked at 1,318 x 1,323 km against a real 185, and Artemis — at a
- * thrust-to-weight of 1.57 against 1.166 — reached 7,602 km. Higher thrust
- * lofts *worse*, because it finishes the velocity schedule sooner and spends
- * the rest of the burn pushing apoapsis outward.
+ * **Closed loop, from there to cutoff.** The open-loop law cannot be the whole
+ * ascent, and the failure is not subtle: it knows the vehicle's *speed* and
+ * nothing about where the orbit is going, so a vehicle that climbs faster than
+ * the schedule assumed simply keeps climbing. Measured, Apollo 8 parked at
+ * 1,318 x 1,323 km against a real 185, and Artemis — at a thrust-to-weight of
+ * 1.57 against 1.166 — reached 7,602 km. Higher thrust lofts *worse*, because it
+ * finishes the velocity schedule sooner and spends the rest of the burn pushing
+ * apoapsis outward.
  *
- * So once apoapsis is where it belongs, hold it there and put everything else
- * into horizontal speed. Commanding a flight-path angle proportional to the
- * apoapsis error does that with one gain and no vehicle-specific numbers: short
- * of target, pitch up; past it, pitch below the horizon; at it, fly level and
- * let periapsis climb. The loop is what makes the same code fly both vehicles.
+ * So the loop commands the vertical acceleration rather than an angle, with a
+ * climb rate that tapers as apoapsis nears the parking altitude, and converts it
+ * into the angle that delivers it at the thrust actually available. That
+ * conversion is what lets the same three gains fly both vehicles. A flight-path
+ * angle commanded straight from the apoapsis error was tried first and ran
+ * apoapsis out past escape. From Kennedy both vehicles now park at 172.0 x
+ * 185.0-185.1 km, at any warp — which took the step limit in `updateStepCeiling`
+ * as well as this loop.
  */
 function aimAscent() {
   const target = SHIP.parkingOrbit.altitude
@@ -2039,37 +2034,16 @@ const PHASES = [
       aimAscent()
     },
     /**
-     * Cut off on *perigee*, not apogee.
+     * Cut off when apoapsis reaches the parking altitude at better than half
+     * circular speed, or when the propellant runs out.
      *
-     * Apogee is the intuitive target and it is the wrong one: a ballistic lob
-     * reaches 200 km apogee at under 2 km/s, so an apogee trigger cuts the
-     * engines less than three minutes in, on a trajectory whose perigee is
-     * 6000 km below the surface. Perigee rising above the atmosphere is the
-     * condition that actually means "in orbit". The depletion clause is the
-     * fallback for a vehicle that cannot get there.
-     *
-     * What has changed is the number. It was a flat 150 km, which said nothing
-     * about *which* orbit; now it is the vessel's own parking altitude less a
-     * margin, so the test is "the orbit has closed where it was meant to"
-     * rather than merely "above the air". With the steering closing the loop on
-     * apoapsis, the two together are a direct insertion — which is what the
-     * S-IVB actually did.
-     */
-    /**
-     * Cut off when the orbit has actually closed where it was meant to.
-     *
-     * Three conditions were tried here and the first two are instructive.
-     * Perigee against a flat 150 km was the original: right idea, wrong orbit,
-     * because with the ascent lofting past a thousand kilometres "above the
-     * air" said nothing about *which* orbit. Apoapsis plus a speed gate was the
-     * second, and it cut Artemis off eighty metres a second into a *descent*,
-     * past apoapsis with periapsis at -57 km — an orbit whose next stop is the
-     * ground. Apoapsis is a target, not a state.
-     *
-     * Perigee against the vessel's own parking altitude is a state, and it is
-     * the one that means "in orbit, here". With the steering holding apoapsis
-     * at the target and never commanding below the horizon, reaching it is a
-     * direct insertion — which is what the S-IVB did.
+     * Perigee was the test before this, twice: against a flat 150 km, which said
+     * nothing about which orbit while the ascent lofted past a thousand
+     * kilometres, and then against the parking altitude, which burned on while
+     * apoapsis ran away. The comment inside `done` has the measurement. The
+     * -57 km periapsis an apoapsis cutoff once left Artemis with came from
+     * steering clamped never to point below the horizon, not from the cutoff,
+     * and it went with the vertical-acceleration law in `aimAscent`.
      */
     done: () => {
       const target = SHIP.parkingOrbit.altitude
@@ -3321,6 +3295,97 @@ const NODE_TIME_EPS = 1e-3
 export const stepCeiling = new Float64Array(1)
 
 /**
+ * Never step past the burns that reach orbit either.
+ *
+ * Both end on a test made once a frame: GRAVITY_TURN when apoapsis reaches the
+ * parking altitude, CIRCULARISE when eccentricity falls below the circular
+ * tolerance. With the engines lit a frame is up to 60 s of flight for each second
+ * of wall clock — a full second at 60 Hz, three at 20 — and both quantities race
+ * at the end, because near orbital speed each m/s is about 3.4 km of apoapsis or
+ * of perigee. Measured at 60x, Artemis's Core stage, held at the 4 g limit and
+ * reaching orbital speed at 152 km, had apoapsis rising 20 km/s over its last
+ * frame; the check caught it at 200.4 km, 15 km high, where the same flight at 1x
+ * cut off at 185.1. Circularising on the same stage at 51.8 m/s^2 raises perigee
+ * 174 km/s, so even at the 1x that phase asks for, one frame could carry perigee
+ * 2.9 km past its cutoff. Apollo 8, on an S-IVB at 8.9 m/s^2, lost a quarter of a
+ * kilometre of apoapsis the same way, and up to half a kilometre of perigee.
+ *
+ * So the step is held to half the time the cutoff quantity needs to close its
+ * remaining gap at the rate it is closing now, and never below the time to close
+ * 50 m, so the approach ends and the last step carries apoapsis or perigee at
+ * most that far past. The rate comes from the state, not from the last frame —
+ * near cutoff it doubles within a second — as the quantity's sensitivity to
+ * velocity along the thrust axis times the thrust acceleration: gravity alone
+ * leaves osculating elements where they are.
+ *
+ * Fifty metres is below the tenth of a kilometre parking orbits are quoted to.
+ * Flown with both burns stepped at 60x and at 1x, each vessel now reaches the
+ * same parking orbit to within 0.06 km, which verify-warp checks.
+ */
+const CUTOFF_TOLERANCE = 50 // m: of apoapsis in the gravity turn, of perigee when circularising
+const DV_PROBE = 0.01 // m/s along the thrust axis
+/** Geocentric r and v in 0..5; apoapsis radius, eccentricity and semi-major axis in 6..8. Scratch, per frame. */
+const _orb = new Float64Array(9)
+
+/** Fill `_orb[6..8]` from the state in `_orb[0..5]`. Apoapsis is Infinity when the orbit is unbound. */
+function orbitInto() {
+  const rx = _orb[0]
+  const ry = _orb[1]
+  const rz = _orb[2]
+  const vx = _orb[3]
+  const vy = _orb[4]
+  const vz = _orb[5]
+  const inverseA = 2 / Math.sqrt(rx * rx + ry * ry + rz * rz) - (vx * vx + vy * vy + vz * vz) / MU_EARTH
+  if (!(inverseA > 0)) {
+    _orb[6] = Infinity
+    _orb[7] = 1
+    _orb[8] = Infinity
+    return
+  }
+  const a = 1 / inverseA
+  const hx = ry * vz - rz * vy
+  const hy = rz * vx - rx * vz
+  const hz = rx * vy - ry * vx
+  const e2 = 1 - (hx * hx + hy * hy + hz * hz) / (MU_EARTH * a)
+  const e = Math.sqrt(e2 > 0 ? e2 : 0)
+  _orb[6] = a * (1 + e)
+  _orb[7] = e
+  _orb[8] = a
+}
+
+/**
+ * Lower `stepCeiling[0]` so this frame cannot carry what a burn cuts off on far
+ * past its threshold: apoapsis rising to the parking altitude in the gravity
+ * turn, eccentricity falling to the circular tolerance while circularising.
+ */
+function limitStepToCutoff(circularising) {
+  const thrust = ship.thrust
+  const mass = ship.mass
+  if (!(thrust > 0 && mass > 0)) return
+  const st = live.sim.state
+  const o = INDEX.ship * 6
+  const e = INDEX.earth * 6
+  for (let k = 0; k < 6; k++) _orb[k] = st[o + k] - st[e + k]
+  orbitInto()
+  const value = circularising ? _orb[7] : _orb[6]
+  const gap = circularising
+    ? value - PROFILE.circularTolerance
+    : BODIES.earth.radius + SHIP.parkingOrbit.altitude - value
+  if (!(gap > 0)) return
+  // Fifty metres of perigee, as eccentricity: a burn at apoapsis holds apoapsis,
+  // so perigee moves 2a for each unit of e.
+  const tolerance = circularising ? CUTOFF_TOLERANCE / (2 * _orb[8]) : CUTOFF_TOLERANCE
+  _orb[3] += ship.forward.x * DV_PROBE
+  _orb[4] += ship.forward.y * DV_PROBE
+  _orb[5] += ship.forward.z * DV_PROBE
+  orbitInto()
+  const closing = ((circularising ? value - _orb[7] : _orb[6] - value) / DV_PROBE) * (thrust / mass)
+  if (!(closing > 0 && closing < Infinity)) return
+  const limit = (gap > 2 * tolerance ? 0.5 * gap : tolerance) / closing
+  if (limit < stepCeiling[0]) stepCeiling[0] = limit
+}
+
+/**
  * Never step past the moment a planned burn has to start turning.
  *
  * Called by the frame loop *before* the sequencer, while this frame's step can
@@ -3347,12 +3412,13 @@ export function updateStepCeiling(now) {
     return
   }
   const node = nodeAhead(now)
-  if (!node) {
-    stepCeiling[0] = Infinity
-    return
+  if (!node) stepCeiling[0] = Infinity
+  else {
+    const togo = alignmentStart(node) - now
+    stepCeiling[0] = togo > NODE_TIME_EPS ? togo : 0
   }
-  const togo = alignmentStart(node) - now
-  stepCeiling[0] = togo > NODE_TIME_EPS ? togo : 0
+  const phase = PHASES[mission.index].id
+  if (phase === 'GRAVITY_TURN' || phase === 'CIRCULARISE') limitStepToCutoff(phase === 'CIRCULARISE')
 }
 
 export function updateMission(dt, simDt = dt) {

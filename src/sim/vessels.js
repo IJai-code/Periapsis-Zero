@@ -155,16 +155,22 @@ const APOLLO8 = {
   assistGain: 2.2,
   orbit: { altitude: 185e3, inclination: 32.5, phase: 0 },
   /**
-   * The parking orbit the real flight reached, for comparison rather than for
-   * targeting. Apollo 8 circularised at 185 km, 32.5 degrees.
+   * The parking orbit the real flight reached: Apollo 8 circularised at 185 km,
+   * 32.5 degrees.
    *
-   * The sequencer does not currently reach it: measured, this stack circularises
-   * at 1,318 x 1,323 km. The ascent lofts, and it lofts worse for a higher
-   * thrust-to-weight — Artemis, at T/W 1.57 against this vehicle's 1.166,
-   * reaches 7,602 km. The cause is an open-loop pitch programme with no altitude
-   * feedback and a cutoff on perigee rather than apoapsis, and it predates the
-   * vessel library by a long way; nothing had ever measured the orbit reached.
-   * Recorded here so it is a known number instead of an unnoticed one.
+   * The altitude is a target, not only a comparison. The ascent's closed loop
+   * (`aimAscent` in sim/mission.js) holds apoapsis to it, and the gravity turn
+   * cuts off when apoapsis reaches it at better than half circular speed. The
+   * inclination is not targeted — the pad's azimuth sets the plane — so from
+   * Kennedy, flying due east, this stack parks at 28.58 degrees.
+   *
+   * Measured, it parks at 172.0 x 185.1 km from Kennedy, and within 0.1 km of
+   * that from all four pads (verify-launch-sites). It did not
+   * always. When this vessel was added the ascent was open loop, with no
+   * altitude feedback, and parked it at 1,318 x 1,323 km — Artemis, at a higher
+   * thrust-to-weight, at 7,602. The very next commit closed the loop, and this
+   * comment went on quoting the old numbers until it was checked against a
+   * flight.
    */
   parkingOrbit: { altitude: 185e3, inclination: 32.5 },
   drag: { cd: 2.2, area: 12 },
@@ -264,7 +270,19 @@ const ARTEMIS = {
   rcsTorque: 6_000,
   assistGain: 2.2,
   orbit: { altitude: 400e3, inclination: 28.5, phase: 0 },
-  /** Artemis I inserted at 185 km before raising apogee on the ICPS. */
+  /**
+   * Artemis I inserted at 185 km before raising apogee on the ICPS.
+   *
+   * Measured, this stack parks at 172.0 x 185.0 km from Kennedy — Apollo 8's
+   * orbit — at any warp (verify-warp). It used to park at 188.7 x 200.4 km with
+   * the ascent flown at 60x, and the cause was the step rather than the stack.
+   * Its Core stage, held at the 4 g limit, reaches orbital speed at 152 km where
+   * Apollo 8's S-IVB reaches it at 174, and that close to circular speed apoapsis
+   * was rising 20 km/s when a cutoff tested once per one-second frame caught it,
+   * 15 km past. Circularising on the same stage raised perigee 174 km/s, with the
+   * same result on a smaller scale. `updateStepCeiling` in sim/mission.js now
+   * shortens the step as either cutoff approaches.
+   */
   parkingOrbit: { altitude: 185e3, inclination: 28.5 },
   drag: { cd: 2.2, area: 30 },
   ascent: { ...ASCENT_DEFAULTS },

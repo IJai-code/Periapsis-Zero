@@ -378,12 +378,18 @@ const periError = (f) => {
 }
 
 /**
- * A raise for height as well as life. Baikonur launched at +563.3 h lasts its
- * 319 h wait with hours to spare, so the lifetime rule alone plans nothing — and
- * it injected from a 126 km perigee. The floor makes that a raise, the least one
- * that reaches the window at 140 km.
+ * A raise for height as well as life: a launch that lasts its wait, so the
+ * lifetime rule alone plans nothing, but would reach the window with its perigee
+ * under the floor. The floor makes that a raise, the least one that clears it.
+ *
+ * Kourou at +623.5 h, chosen from the month's floor raises as the one furthest
+ * from both boundaries: 13 h of life to spare, and an unraised perigee at
+ * ignition of 134 km. The launch this section first flew, Baikonur at +563.3 h,
+ * was 8 h clear of the lifetime rule; when the ascent's cutoffs were stepped and
+ * the parking orbits came down by up to 0.8 km it went over, and raised for
+ * lifetime instead.
  */
-const low = toInjection('baikonur', 0, 563.3)
+const low = toInjection('kourou', 0, 623.5)
 
 /**
  * And a floor that holds. Vandenberg at +150.5 h commits inside a window whose
@@ -438,7 +444,7 @@ const held = heldFlight()
 
 console.log('\n=== 8. the injection floor ===')
 for (const f of kept) console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)} perigee at ignition ${km(f.injectPeri - R)} km, theory ${km(f.injectPeri + periError(f) - R)} km`)
-console.log(`  Baikonur +563.3 h: forecast ${hours(low.plan.wait)} h, lifetime ${hours(low.plan.lifetime)} h, perigee at ignition unraised ${km(low.plan.periapsisAtIgnition - R)} km;` +
+console.log(`  Kourou +623.5 h: forecast ${hours(low.plan.wait)} h, lifetime ${hours(low.plan.lifetime)} h, perigee at ignition unraised ${km(low.plan.periapsisAtIgnition - R)} km;` +
   ` raised for ${low.plan.reason} with ${(low.plan.dv1 + low.plan.dv2).toFixed(2)} m/s in ${low.plan.node2 >= 0 ? 2 : 1} burn(s); injected from ${km(low.injectPeri - R)} km; ${low.end}`)
 console.log(`  Vandenberg +150.5 h trimmed: raised for ${held.plan.reason}, forecast ${hours(held.plan.wait)} h;` +
   ` ${held.heldAt === null ? 'never held' : `held a window at ${hours(held.heldAt)} h`}; ${held.burns} burns; injected from ${held.injectPeri === null ? '-' : km(held.injectPeri - R)} km after ${hours(held.injectedAfter)} h; ${held.end}`)
@@ -489,7 +495,8 @@ const checks = [
     low.plan.reason === 'floor' && low.plan.raised && low.plan.periapsisAtIgnition < FLOOR && low.plan.lifetime > low.plan.wait],
   /**
    * Within 5 km of the floor, so the raise is the least one and not merely a
-   * sufficient one: sized as if it left a circle, this raise arrived at 152 km.
+   * sufficient one: sized as if it left a circle, the Baikonur raise this
+   * section first flew arrived at 152 km.
    */
   ['and injects just above the floor, for a few metres a second',
     low.end === 'TRANS_LUNAR' && low.injectPeri >= FLOOR && low.injectPeri < FLOOR + 5e3 && low.plan.dv1 + low.plan.dv2 < 5],

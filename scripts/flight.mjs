@@ -392,9 +392,10 @@ export function flyMission(untilPhase = 'LUNAR_APPROACH', opts = {}) {
         const id = currentPhase().id
         if (!committed && id === 'COAST') committed = commitTLI()
         // The sequencer only asks for warp from the apoapsis coast onward. Where
-        // it stays silent the pilot has the dial: 1 min/s through the ascent
-        // (the powered cap's own ceiling, and verified warp-invariant against
-        // 1x), and 6 h/s across the days-long lunar coast.
+        // it stays silent the pilot has the dial: 1 min/s through the ascent —
+        // the powered cap's own ceiling, and warp-invariant against 1x: flown
+        // both ways, each vessel reaches the same parking orbit to within
+        // 0.06 km, which verify-warp checks — and 6 h/s across the lunar coast.
         flight.pilotWarp = mission.warpRequest !== null ? null : id === 'LUNAR_APPROACH' ? WARP.h6 : WARP.m1
       },
       maxFrames: opts.maxFrames ?? 5_000_000,

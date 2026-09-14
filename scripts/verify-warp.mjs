@@ -12,6 +12,11 @@
  * the pilot can override — so this also flies a pilot who winds the dial up
  * *during* the count, which the request cannot catch.
  *
+ * And a second claim, which is an equality: the same flight with its burns
+ * stepped at 60x and at 1x reaches the same parking orbit. That one is about the
+ * length of a frame rather than where the dial was left, and it is flown per
+ * vessel in child processes, since a process flies only the vessel it loaded.
+ *
  *   node scripts/verify-warp.mjs
  */
 
@@ -25,6 +30,44 @@ import {
   resetMission,
 } from '../src/sim/mission.js'
 import { deltaV, ship, totalMass } from '../src/sim/ship.js'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { SHIP } from '../src/sim/constants.js'
+import { ACTIVE_VESSEL } from '../src/sim/vessels.js'
+
+/**
+ * Child mode: fly the active vessel from the pad to its parking orbit with every
+ * burn on the way held at one warp, and print the orbit it reaches.
+ *
+ * Circularisation is held too, though it asks for 1x: a pilot can turn the dial
+ * back up mid-burn to the powered ceiling, and 60x through that burn is the
+ * harshest step the parking orbit can be reached at.
+ */
+const PARK = process.argv.indexOf('--park')
+if (PARK >= 0) {
+  const force = WARP[process.argv[PARK + 1]]
+  const held = new Set(['PRE_LAUNCH', 'LIFTOFF', 'PITCH_KICK', 'GRAVITY_TURN', 'STAGING', 'MECO', 'CIRCULARISE'])
+  resetSimulation()
+  resetMission()
+  refreshDerived()
+  flight.warp = force
+  flight.lastWarpRequest = null
+  flight.warpBeforeBurn = null
+  flight.pilotWarp = null
+  beginCountdown()
+  for (let i = 0; i < 2_000_000 && currentPhase().id !== 'COAST'; i++) {
+    const id = currentPhase().id
+    flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
+    if (held.has(id)) {
+      flight.lastWarpRequest = mission.warpRequest
+      flight.warp = force
+    }
+    frame()
+  }
+  const e = live.elements
+  console.log(JSON.stringify({ vessel: ACTIVE_VESSEL, phase: currentPhase().id, perigee: e.perigee, apogee: e.apogee, target: SHIP.parkingOrbit.altitude }))
+  process.exit(0)
+}
 
 /**
  * Fly from the pad to `until`, starting at warp index `startWarp`.
@@ -137,6 +180,53 @@ console.log(`  none escaped: ${results.every(([, r]) => r.bound)}`)
 const worstPeak = Math.max(...results.map(([, r]) => r.maxSpeed))
 console.log(`  highest speed reached anywhere: ${(worstPeak / 1e3).toFixed(4)} km/s (orbital is ~8.8)`)
 
-const pass = allStable && worstPeak < 12e3
+/* ---------------------------------------------------------------- *
+ * The parking orbit does not depend on the step
+ * ---------------------------------------------------------------- */
+
+/**
+ * The equality the claim above refuses, and a different claim.
+ *
+ * Here both flights start from the same sky and differ only in how long a frame
+ * is while the engines burn. The two burns that reach orbit each end on a test
+ * made once a frame of something racing at the end — apoapsis rising to the
+ * parking altitude, eccentricity falling to circular — and at 60x a frame is a
+ * second of flight. Before the step was limited, Artemis parked at 188.7 x 200.4
+ * km at 60x and 174.0 x 185.1 km at 1x: its Core stage, at the 4 g limit, had
+ * apoapsis rising 20 km/s over its last frame, and circularising on the same
+ * stage at 51.8 m/s^2 raises perigee 174 km/s. With `updateStepCeiling` holding
+ * both burns to their cutoffs, the two warps must agree to within the limit's two
+ * 50 m tolerances; 200 m is allowed.
+ */
+const self = fileURLToPath(import.meta.url)
+const parked = {}
+for (const vessel of ['apollo8', 'artemis']) {
+  for (const warp of ['m1', 'x1']) {
+    const out = execFileSync(process.execPath, [self, '--park', warp], {
+      env: { ...process.env, SPXSIM_VESSEL: vessel },
+      encoding: 'utf8',
+    })
+    parked[`${vessel} ${warp}`] = JSON.parse(out.trim().split('\n').at(-1))
+  }
+}
+console.log('\n=== the parking orbit, with the burns stepped at 60x and at 1x ===')
+let parkOk = true
+for (const vessel of ['apollo8', 'artemis']) {
+  const coarse = parked[`${vessel} m1`]
+  const fine = parked[`${vessel} x1`]
+  const dPeri = Math.abs(coarse.perigee - fine.perigee)
+  const dApo = Math.abs(coarse.apogee - fine.apogee)
+  const onTarget = [coarse, fine].every((r) => Math.abs(r.apogee - r.target) < 200)
+  const ok = coarse.phase === 'COAST' && fine.phase === 'COAST' && dPeri < 200 && dApo < 200 && onTarget
+  parkOk = parkOk && ok
+  console.log(
+    `  ${vessel.padEnd(8)} 60x ${(coarse.perigee / 1e3).toFixed(2)} x ${(coarse.apogee / 1e3).toFixed(2)} km` +
+      `   1x ${(fine.perigee / 1e3).toFixed(2)} x ${(fine.apogee / 1e3).toFixed(2)} km` +
+      `   apart by ${(dPeri / 1e3).toFixed(3)} and ${(dApo / 1e3).toFixed(3)} km   ${ok ? 'same orbit' : 'DIFFERENT ORBIT'}`,
+  )
+}
+console.log(`  the parking orbit is the same at either step, apoapsis on target: ${parkOk}`)
+
+const pass = allStable && worstPeak < 12e3 && parkOk
 console.log(`\n  ${pass ? 'PASS' : 'FAIL'}`)
 process.exit(pass ? 0 : 1)
