@@ -1387,6 +1387,97 @@ A second trim burn at an apsis would take the remaining 17 km of spread out; one
 burn was the objective here, and the residual is reported rather than polished
 away.
 
+## Holding a halo orbit
+
+The near-rectilinear halo orbit is built in layers, each with its own gate. A
+corrector finds periodic orbits in the circular restricted problem and a
+continuation walks the L2 family into the NRHO regime (`verify-cr3bp`,
+`verify-nrho-family`). Put into this simulation's field — eccentric Moon, Sun
+included — a family member is not a natural trajectory: flown unguided its
+perilune drift doubles every revolution and it is gone after six, with a period
+of 7.15 days against the model's 6.56 (`verify-nrho-ephemeris`). Held on perilune
+radius one revolution ahead it survives, at 6.1 m/s a revolution against the
+0.1–1 m/s a real NRHO plan budgets — a recalled figure, not derived here. The gap
+is that perilune radius is one number and the orbit has six.
+
+### A reference the real field has
+
+`shootHalo` in `sim/halo.js` finds a trajectory this field actually flies, near
+the family member and continuous from one revolution to the next. The
+trajectory is split at patch points, each segment is flown on its own in the
+simulation's own integrator, and Newton's method moves the patch states until
+every segment arrives where the next begins:
+
+```
+D_k = phi(X_k; t_k -> t_k+1) - X_k+1          dX = -J^T (J J^T)^-1 D
+```
+
+J is each segment's state transition matrix, by central differences, and the −I
+that ties it to the next patch point. There are six more unknowns than
+equations — the choice of trajectory — and the minimum-norm update spends none
+of them, so the answer stays as close to the family member as continuity allows.
+
+Three choices were measured before any of it was written:
+
+- **Patch points at apolune only, a revolution apart.** Perilune is where the
+  orbit moves 1.7 km/s and turns fastest, so a slightly early or late arrival
+  there is a large mismatch: seeded from the member, segments ending at perilune
+  missed by a median of 1,900–15,500 km and 520–1,580 m/s across five seed
+  mappings, where apolune-to-apolune segments missed by 1,500 km and 7 m/s.
+- **The member placed about the Moon, in fixed CR3BP units.** Scaling it by the
+  instantaneous Earth–Moon separation, as `insertMember` does, seeded
+  2,900–3,100 km out. An NRHO's size is set by the Moon's gravity, not by how far
+  away the Earth happens to be.
+- **A fixed 30 s step and a fixed step count per segment.** Through a perilune
+  passage 30 s integrates to 0.04–0.19 m where 60 s is 0.8–2.8 m, and a
+  finite-difference Jacobian taken across runs with different step grids would
+  measure the grid.
+
+Fifteen revolutions converge in five Newton iterations and 4.5 s — the worst
+mismatch 3,813 km, then 234 km, 31 km, 59 m, 0.95 m and 4.6 cm — with the patch
+points moving up to 1,507 km and 14.8 m/s from the member. Re-flown at 15 s the
+segments still meet to 0.12 m. The result is quasi-periodic rather than a repeat:
+in a 13-revolution reference perilune runs 3,030–3,306 km, apolune 70,865–71,872
+km, and perilune to perilune 6.30–6.72 days. Flown unguided from its start, the
+craft stays within 0.1 km of it for twelve revolutions.
+
+### Keeping to it
+
+`solveHaloKeeping` burns at apolune for the state the reference has one
+revolution later — a three-component burn fitted in least squares to position
+and velocity together, in CR3BP units where a metre per second weighs as much as
+375 km. On the reference with nothing disturbing it there is nothing to correct,
+and so no cost to measure: a station-keeping budget exists only against errors,
+and this simulation has none of its own. `verify-nrho-keeping` supplies them. The
+controller solves from an estimate carrying Gaussian navigation error while the
+craft flies its true state, and every burn is delivered 1% and 1° off, one sigma
+each. Over twelve revolutions from the reference's start:
+
+| law | navigation error | per revolution | furthest from the reference |
+| --- | --- | --- | --- |
+| none | — | — | 0.1 km |
+| perilune radius | none | 3.28 m/s | 17,603 km |
+| reference | 0.1 km, 1 mm/s | 0.004 m/s | 1.8 km |
+| reference | 1 km, 1 cm/s | 0.026 m/s | 7.2 km |
+| reference | 10 km, 10 cm/s | 0.417 m/s | 125.5 km |
+
+Held on perilune radius, the craft is dragged off the orbit the field wants: that
+law forces perilune to a constant the real orbit does not keep. Matching position
+alone cost 0.143 m/s a revolution at the middle level against 0.045 for the full
+state, flown with the same errors. And each level is one seeded flight — a
+different seed moved the middle one from 0.026 to 0.045 m/s — which is why the
+gate's thresholds sit at twice the measured cost or more rather than at it.
+
+### Not yet
+
+Getting onto the reference. The gates place the craft with `insertMember`, and
+from that insertion no single burn captured it: a reference pinned to the craft
+at its first apolune started 5,635 km and 54 m/s out, Newton stalled 2,700 km
+short, and the burn it gave put the vehicle into the Moon. Arriving on the
+reference belongs with flying the vehicle onto the halo from lunar approach,
+which is still unwritten — and until it is, the sequencer's `NRHO_STATION_KEEP`
+still flies the perilune law.
+
 ## Coming home
 
 `LUNAR_ORBIT → TEI_ALIGN → TEI_BURN → TRANS_EARTH → EI_SOLVE → EI_BURN →
@@ -1981,7 +2072,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-cr3bp.mjs` | the halo corrector, against full-period closure |
 | `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
 | `verify-nrho-ephemeris.mjs` | the CR3BP seed in the real field, and how fast it diverges |
-| `verify-nrho-keeping.mjs` | station-keeping: held vs lost, and what it costs |
+| `verify-nrho-keeping.mjs` | station-keeping: the perilune law, then a real-field reference held against navigation and execution error |
 | `verify-director.mjs` | the camera director cuts on phases, not on frames |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |
