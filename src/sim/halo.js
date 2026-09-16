@@ -60,6 +60,8 @@ const SPEED = LENGTH / TIME
 const MOON = INDEX.moon * 6
 const BODY_SLOTS = 18
 const SHIP = 18
+/** The craft's slot in the simulation's own state, loaded into SHIP for a solve. */
+const CRAFT = INDEX.ship * 6
 
 /** A four-body integrator of the simulation's own kind: Sun, Earth, Moon and a massless craft. */
 function makeScratch(sim) {
@@ -433,7 +435,8 @@ export function solveHaloKeeping(
   const dv = [0, 0, 0]
 
   const residual = (dvx, dvy, dvz, into) => {
-    scratch.state.set(known.subarray(0, 24))
+    scratch.state.set(known.subarray(0, BODY_SLOTS))
+    for (let i = 0; i < 6; i++) scratch.state[SHIP + i] = known[CRAFT + i]
     scratch.state[SHIP + 3] += dvx
     scratch.state[SHIP + 4] += dvy
     scratch.state[SHIP + 5] += dvz

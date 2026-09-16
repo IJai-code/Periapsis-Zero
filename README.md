@@ -235,6 +235,13 @@ definition of which node is next, `nodeAhead`, because a clock held still for a
 node that nothing will hand over to — during staging, or with the vehicle lost —
 is a deadlock.
 
+**A burn cuts off once, and one shorter than a frame ends on its own mass.** The
+halo maintenance pass cut off on `ship.thrust`, which is last frame's, so the
+frame after a cutoff relit the engine: a 2.1e-6 m/s correction delivered 166 m/s
+and put the craft into the Moon. And a 1x frame of the service module's engine is
+0.0505 m/s, longer than most of those corrections, so each step of the burn is
+held to the time left to its cutoff mass (see *Holding a halo orbit*).
+
 **A reset discards the flight plan.** Node times are absolute simulated seconds
 and a reset returns the clock to the epoch, so a plan that survives one is a set
 of burns scheduled into the next flight.
@@ -1468,6 +1475,28 @@ state, flown with the same errors. And each level is one seeded flight — a
 different seed moved the middle one from 0.026 to 0.045 m/s — which is why the
 gate's thresholds sit at twice the measured cost or more rather than at it.
 
+`NRHO_STATION_KEEP` flies this law itself when `enterNrhoCycle` is handed a
+reference: the coast finds apolune from its own range samples, and the pass
+solves, slews and runs the service module's engine until the craft weighs what
+the correction leaves. Flown that way nothing idealises the delivery, and the
+first flight put the craft into the Moon. The pass cut off on last frame's
+thrust, so the frame after a cutoff saw none and the engine relit on alternate
+frames until the 120 s hold ran out: a 2.1e-6 m/s correction delivered 166 m/s.
+Cut off once, on the commanded throttle, every burn was still a whole 1x frame
+of engine, 0.0505 m/s, and with its state known exactly the craft cost 0.05 m/s
+a revolution and strayed 15 km. Each step of the burn is now held to the time
+left to its cutoff mass. Over twelve revolutions from the reference's start, on
+the Apollo 8 service module:
+
+| flown by the sequencer | burns | per revolution | off the reference at apolune |
+| --- | --- | --- | --- |
+| undisturbed | 6 in 11 passes, 1.1–2.2e-6 m/s each | 8e-7 m/s | 0.35 m at most |
+| kicked 10 cm/s along track | 11 in 11, the first 0.205 m/s | 0.029 m/s | 35.2 km, back to 0.28 km |
+
+Every burn delivers what it asked to within 1e-12 m/s and books that, and the
+limit allocates nothing, 0.01 B a call against a 56 B control. A solve takes
+34–38 ms on the reference and up to 86 ms off it, once a revolution.
+
 ### Not yet
 
 Getting onto the reference. The gates place the craft with `insertMember`, and
@@ -1475,8 +1504,9 @@ from that insertion no single burn captured it: a reference pinned to the craft
 at its first apolune started 5,635 km and 54 m/s out, Newton stalled 2,700 km
 short, and the burn it gave put the vehicle into the Moon. Arriving on the
 reference belongs with flying the vehicle onto the halo from lunar approach,
-which is still unwritten — and until it is, the sequencer's `NRHO_STATION_KEEP`
-still flies the perilune law.
+which is still unwritten, so nothing enters the cycle with a reference except a
+test that places the craft on it. And a reference ends: past its last patch point
+the solve reports failure and the pass flies nothing, and nothing extends one yet.
 
 ## Coming home
 
@@ -2072,7 +2102,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-cr3bp.mjs` | the halo corrector, against full-period closure |
 | `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
 | `verify-nrho-ephemeris.mjs` | the CR3BP seed in the real field, and how fast it diverges |
-| `verify-nrho-keeping.mjs` | station-keeping: the perilune law, then a real-field reference held against navigation and execution error |
+| `verify-nrho-keeping.mjs` | station-keeping: the perilune law, then a real-field reference held against navigation and execution error, and by the sequencer's own cycle |
 | `verify-director.mjs` | the camera director cuts on phases, not on frames |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |

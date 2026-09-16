@@ -4,12 +4,8 @@ import { activeStage, separate, ship, totalMass } from './ship.js'
 import { INDEX } from './system.js'
 import { activeSite, clampToSite, rotationBonus } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
-import {
-  projectPerigee,
-  solveMidCourse,
-  solveReturnCorridor,
-  solveStationKeeping,
-} from './targeting.js'
+import { projectPerigee, solveMidCourse, solveReturnCorridor } from './targeting.js'
+import { solveHaloKeeping } from './halo.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
 import {
@@ -296,13 +292,13 @@ export const PROFILE = {
    * that makes the correction necessary doubles an error every revolution, so
    * over two it amplifies a finite-difference probe fourfold and over three
    * eightfold; measured, the solver stops converging and drift reaches 2,000%.
-   * The control horizon is set by the Lyapunov time.
+   * The control horizon is set by the Lyapunov time. That was measured on the
+   * perilune-radius law; the reference law that replaced it has only been flown
+   * at one.
    */
   nrhoLookahead: 1,
   /** Largest maintenance burn that will be executed, m/s. A sanity backstop. */
   nrhoMaxDeltaV: 20,
-  /** Reference perilune radius to hold, m. Set on entry to the cycle. */
-  nrhoReference: 0,
 
   /**
    * Warp during entry, as an index.
@@ -506,13 +502,21 @@ export const mission = {
     prevRange: 0,
     prevPrevRange: 0,
     atApolune: false,
+    /** The real-field halo being held, from `shootHalo`; null solves nothing. */
+    reference: null,
     /** Last maintenance solve. */
     deltaV: 0,
     totalDeltaV: 0,
     solved: false,
     converged: false,
-    predicted: 0,
+    /** m: how far the craft would pass from the reference's state a revolution on, without the burn and with it. */
+    miss: 0,
+    missAfter: 0,
     targetMass: 0,
+    /** kg at the start of the pass, so a burn is booked as delivered rather than as asked. */
+    startMass: 0,
+    /** The pass's burn has cut off and must not be relit. */
+    burnt: false,
     perilune: Infinity, // m, closest to the Moon this revolution
     apolune: 0, // m, furthest
     lastPerilune: 0, // the revolution just completed
@@ -2986,6 +2990,11 @@ const PHASES = [
     /**
      * Solve the correction, once, on entry — the established shape for every
      * solver in this sequencer.
+     *
+     * For the reference's whole state a revolution on, not for perilune radius:
+     * held on that one number from the reference's start, the craft was dragged
+     * 17,603 km off the orbit for 3.28 m/s a revolution, because the orbit the
+     * field flies does not keep a constant perilune (verify-nrho-keeping).
      */
     enter() {
       ship.throttle = 0
@@ -2995,14 +3004,21 @@ const PHASES = [
       nr.solved = false
       nr.converged = false
       nr.deltaV = 0
+      nr.miss = 0
+      nr.missAfter = 0
+      nr.burnt = false
+      nr.startMass = totalMass()
 
-      if (!(PROFILE.nrhoReference > 0)) return
-      const sol = solveStationKeeping(PROFILE.nrhoReference, PROFILE.nrhoLookahead)
+      if (!nr.reference) return
+      const sol = solveHaloKeeping(nr.reference, live.sim, { lookahead: PROFILE.nrhoLookahead })
       nr.solved = true
-      nr.predicted = sol.approach
+      if (sol.before) {
+        nr.miss = sol.before.position
+        nr.missAfter = sol.after.position
+      }
       nr.converged = sol.converged && sol.magnitude <= PROFILE.nrhoMaxDeltaV
       nr.deltaV = sol.magnitude
-      if (nr.converged && sol.magnitude > 1e-6) {
+      if (nr.converged && sol.magnitude > KEEP_DV_RESOLUTION) {
         _ei.set(sol.world[0], sol.world[1], sol.world[2]).normalize()
         mission.ei.direction.copy(_ei)
         const stage = activeStage()
@@ -3013,9 +3029,9 @@ const PHASES = [
     },
     control() {
       const nr = mission.nrho
-      // Point at the solution if there is one to fly, otherwise hold the coast
-      // attitude. The burn itself is a few seconds at most.
-      if (nr.converged && nr.deltaV > 1e-6) {
+      // Point at the solution if there is one still to fly, otherwise hold the
+      // coast attitude. The burn itself is a second or two at most.
+      if (nr.converged && nr.deltaV > KEEP_DV_RESOLUTION && !nr.burnt) {
         aimThrust(mission.ei.direction)
         nr.pointingError = ship.forward.angleTo(mission.ei.direction)
         if (nr.pointingError < PROFILE.eiPointTolerance) ship.throttle = 1
@@ -3023,9 +3039,21 @@ const PHASES = [
         aimLunarPrograde()
       }
       trackHalo()
-      if (ship.thrust > 0 && totalMass() <= nr.targetMass) {
+      /**
+       * Cut off once, on the commanded throttle.
+       *
+       * This read `ship.thrust`, which `applyThrust` writes later in the frame,
+       * so the frame after a cutoff saw no thrust and skipped it, and the pointing
+       * test above opened the throttle again: the engine lit on alternate frames
+       * until the hold ran out. No burn had been flown here before the reference
+       * law, and its first correction, 2.1e-6 m/s, delivered 166 m/s and put the
+       * craft into the Moon.
+       */
+      if (ship.throttle > 0 && totalMass() <= nr.targetMass) {
         ship.throttle = 0
-        nr.totalDeltaV += nr.deltaV
+        nr.burnt = true
+        const stage = activeStage()
+        if (stage) nr.totalDeltaV += stage.isp * G0 * Math.log(nr.startMass / totalMass())
       }
     },
     /**
@@ -3150,12 +3178,13 @@ export const isClamped = () => Boolean(PHASES[mission.index].clamped)
 /**
  * Enter the halo-maintenance cycle.
  *
- * Separate from the linear mission for now: the corrector that would actually
- * place the vehicle on a halo is not written yet, so this establishes the
- * *control structure* — an indefinitely repeating pair — against which the
- * targeting can be built. Called from a test or the HUD, never automatically.
+ * Separate from the linear mission for now: nothing flies the vehicle onto a
+ * halo from lunar approach yet, so the caller places it on `reference` — a
+ * real-field halo from `shootHalo` — and each maintenance pass holds it there.
+ * Without a reference the pair still cycles and solves nothing. Called from a
+ * test, never automatically.
  */
-export function enterNrhoCycle(referenceRadius = 0) {
+export function enterNrhoCycle(reference = null) {
   setPhase(INDEX_OF.NRHO_COAST)
   const nr = mission.nrho
   nr.cycles = 0
@@ -3163,7 +3192,7 @@ export function enterNrhoCycle(referenceRadius = 0) {
   nr.prevRange = live.lunarRange
   nr.prevPrevRange = live.lunarRange
   nr.atApolune = false
-  PROFILE.nrhoReference = referenceRadius
+  nr.reference = reference
   return true
 }
 
@@ -3195,6 +3224,8 @@ export function resetMission() {
   mission.ei.solved = false
   mission.ei.converged = false
   mission.ei.magnitude = 0
+  // Tied to absolute epochs, like the flight plan.
+  mission.nrho.reference = null
   mission.entry.peakG = 0
   mission.entry.peakQ = 0
   mission.entry.peakHeatFlux = 0
@@ -3385,6 +3416,40 @@ function limitStepToCutoff(circularising) {
   if (limit < stepCeiling[0]) stepCeiling[0] = limit
 }
 
+/** Below this a halo maintenance burn is not flown, and to within it one is cut off, m/s. */
+const KEEP_DV_RESOLUTION = 1e-6
+
+/**
+ * Lower `stepCeiling[0]` so a halo maintenance burn ends on its own cutoff mass
+ * rather than on a frame boundary.
+ *
+ * Its corrections run from millionths to hundredths of a m/s, and the service
+ * module's engine delivers 0.05 m/s in a single 1x frame, so cut at the first
+ * frame past its mass every burn was at least that frame. Flown on the reference
+ * with its state known exactly, a 2.1e-6 m/s correction delivered 0.0505 m/s,
+ * the craft passed its next apolune 11.6 km off, and holding it cost 0.05 m/s a
+ * revolution and strayed 15 km: more than 1 km of navigation error costs in
+ * verify-nrho-keeping. Each step of a burn is now held to the time left to its
+ * cutoff mass, and never below the time to deliver `KEEP_DV_RESOLUTION`, so the
+ * last one always reaches it.
+ *
+ * The frame that lights the engine is decided after this, so a burn not yet lit
+ * is limited once it points, on the same test that opens the throttle — nothing
+ * moves the attitude between the two.
+ */
+function limitStepToKeepBurn() {
+  const nr = mission.nrho
+  if (!(nr.converged && nr.deltaV > KEEP_DV_RESOLUTION) || nr.burnt) return
+  const stage = activeStage()
+  if (!stage || !(stage.thrust > 0)) return
+  if (!(ship.throttle > 0) && !(ship.forward.angleTo(mission.ei.direction) < PROFILE.eiPointTolerance)) return
+  const mass = totalMass()
+  const togo = ((mass - nr.targetMass) * stage.isp * G0) / stage.thrust
+  const least = (KEEP_DV_RESOLUTION * mass) / stage.thrust
+  const limit = togo > least ? togo : least
+  if (limit < stepCeiling[0]) stepCeiling[0] = limit
+}
+
 /**
  * Never step past the moment a planned burn has to start turning.
  *
@@ -3419,6 +3484,7 @@ export function updateStepCeiling(now) {
   }
   const phase = PHASES[mission.index].id
   if (phase === 'GRAVITY_TURN' || phase === 'CIRCULARISE') limitStepToCutoff(phase === 'CIRCULARISE')
+  else if (phase === 'NRHO_STATION_KEEP') limitStepToKeepBurn()
 }
 
 export function updateMission(dt, simDt = dt) {

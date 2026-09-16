@@ -44,7 +44,7 @@ PROFILE.nrhoKeepDuration = 60
  * at apolune and this gate needs forty-eight of them. A halo is the orbit the
  * cycle is named for, but left uncontrolled one departs in about six
  * revolutions (verify-nrho-keeping), and holding it is that gate's question, not
- * this one. The reference stays zero, so the keep phase solves nothing: the same
+ * this one. It is given no reference, so the keep phase solves nothing: the same
  * coverage this gate always had, on a vehicle that is somewhere.
  */
 resetSimulation()

@@ -5,13 +5,14 @@
  * is the original test: a CR3BP family member inserted into the real field and
  * held on perilune radius. The second half flies against a reference the real
  * field actually has — `shootHalo` in sim/halo.js — with a law that tracks its
- * whole state.
+ * whole state, first applied by this script and then flown by the sequencer.
  *
- * Burns are applied as **impulses**, and that is honest here in a way it would
- * not be anywhere else in this mission: at a few tenths of a m/s on the service
- * module's 25.7 kN the engine runs well under a second, so there is no arc to
- * straddle and no gravity loss. The injection and capture burns needed
- * closed-loop cutoffs precisely because they were minutes long; these are not.
+ * Until that last section burns are applied as **impulses**, and that is honest
+ * for the orbit in a way it would not be anywhere else in this mission: at a few
+ * tenths of a m/s the service module's engine runs well under a second, so there
+ * is no arc to straddle and no gravity loss. The injection and capture burns
+ * needed closed-loop cutoffs precisely because they were minutes long; these are
+ * not. What an impulse hides is the delivery, and the last section flies that.
  *
  * Apolune is the control point because it is where the craft is slowest and a
  * given impulse buys the most change — the Oberth argument run backwards, since
@@ -37,15 +38,25 @@
  * too, and it does not hold this orbit at all: it forces perilune to a constant
  * the real orbit does not keep.
  *
+ * **What the sequencer showed.** Flown by `NRHO_STATION_KEEP` itself, the same
+ * law found two faults the impulses could not. The pass cut off on last frame's
+ * thrust, so the frame after a cutoff relit the engine, and the first correction,
+ * 2.1e-6 m/s, delivered 166 m/s and hit the Moon. And a burn cut at a frame
+ * boundary is at least a frame of engine, 0.0505 m/s at 1x: with its state known
+ * exactly the craft cost 0.05 m/s a revolution and strayed 15 km. Cut once, with
+ * its last step held to the cutoff mass, it stays within 0.35 m of the reference,
+ * and kicked 10 cm/s off it comes back to 0.28 km for 0.029 m/s a revolution.
+ *
  *   node scripts/verify-nrho-keeping.mjs [revolutions]
  */
 
 import { flight, frame } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import { PROFILE, enterNrhoCycle, resetMission } from '../src/sim/mission.js'
+import { PROFILE, currentPhase, enterNrhoCycle, mission, resetMission } from '../src/sim/mission.js'
+import { activeStage, separate, ship, totalMass } from '../src/sim/ship.js'
 import { INDEX } from '../src/sim/system.js'
-import { BODIES } from '../src/sim/constants.js'
+import { BODIES, G0, SHIP } from '../src/sim/constants.js'
 import { RK4NBody } from '../src/sim/rk4.js'
 import { continueFamily, correctPeriodicOrbit, insertMember, nrhoSeed } from '../src/sim/cr3bp.js'
 import { solveStationKeeping } from '../src/sim/targeting.js'
@@ -301,6 +312,109 @@ for (const n of noisy) row(`reference, navigation ${n.level.label}`, n)
 console.log('  (each reference-law flight also carries 1% and 1 degree of execution error per burn)')
 
 /* ---------------------------------------------------------------- *
+ * D. The sequencer's own cycle
+ * ---------------------------------------------------------------- */
+
+/**
+ * The reference law as the flight computer flies it, not as this script applies it.
+ *
+ * What C idealised is real here: `NRHO_COAST` finds apolune from its own range
+ * samples, and `NRHO_STATION_KEEP` solves, slews and runs the service module's
+ * engine, cutting off on mass. No errors are put in, because what is under test
+ * is the delivery: once undisturbed, where the corrections are millionths of a
+ * m/s, and once kicked along track, where the first takes several frames of
+ * engine.
+ */
+function flySequencer(kick) {
+  setup()
+  let engine = 0
+  SHIP.stages.forEach((s, i) => {
+    if (s.thrust > 0) engine = i
+  })
+  while (ship.stage < engine) separate()
+  mission.lastSeparations = ship.separations
+  const v = Math.hypot(reference.states[3], reference.states[4], reference.states[5])
+  for (let i = 0; i < 3; i++) {
+    live.sim.state[O + i] = live.sim.state[M + i] + reference.states[i]
+    live.sim.state[O + 3 + i] = live.sim.state[M + 3 + i] + reference.states[3 + i] * (1 + kick / v)
+  }
+  refreshDerived()
+  enterNrhoCycle(reference)
+
+  const stage = activeStage()
+  const startMass = totalMass()
+  const refNow = new Float64Array(6)
+  const passes = []
+  const perilunes = []
+  let current = null
+  let phase = currentPhase().id
+  let lit = false
+  let lost = null
+  let prev = live.lunarRange
+  let prevPrev = prev
+  for (let i = 0; i < 6_000_000; i++) {
+    const massBefore = totalMass()
+    frame()
+    const id = currentPhase().id
+    const r = live.lunarRange
+    if (id === 'LOST' || r < MOON_R) {
+      lost = 'impacted the Moon'
+      break
+    }
+    if (r > 200000e3) {
+      lost = 'left the lunar vicinity'
+      break
+    }
+    if (id !== phase) {
+      if (id === 'NRHO_STATION_KEEP') {
+        referenceStateAt(reference, live.sim.t, refNow)
+        const d = [0, 1, 2].map((k) => live.sim.state[O + k] - live.sim.state[M + k] - refNow[k])
+        current = { off: Math.hypot(d[0], d[1], d[2]), converged: mission.nrho.converged, massBefore, lightings: 0 }
+      } else if (current) {
+        current.burnt = mission.nrho.burnt
+        current.asked = mission.nrho.deltaV
+        current.delivered = stage.isp * G0 * Math.log(current.massBefore / totalMass())
+        passes.push(current)
+        current = null
+      }
+      phase = id
+    }
+    if (current) {
+      if (ship.thrust > 0 && !lit) current.lightings++
+      lit = ship.thrust > 0
+    }
+    if (prev < prevPrev && prev < r && prev < APSIS_SPLIT) {
+      perilunes.push(prev)
+      if (perilunes.length >= REVS) break
+    }
+    prevPrev = prev
+    prev = r
+  }
+  return {
+    passes,
+    perilunes,
+    lost,
+    total: stage.isp * G0 * Math.log(startMass / totalMass()),
+    booked: mission.nrho.totalDeltaV,
+  }
+}
+
+const calm = flySequencer(0)
+const kicked = flySequencer(0.1)
+const furthest = (f) => Math.max(...f.passes.map((p) => p.off))
+
+console.log("\n=== D. the sequencer's own cycle, from the reference's start ===")
+for (const [label, f] of [['undisturbed', calm], ['kicked 10 cm/s along track', kicked]]) {
+  const burns = f.passes.filter((p) => p.burnt)
+  console.log(
+    `  ${label}: ${outcome(f)}, ${burns.length} burns in ${f.passes.length} passes, ` +
+      `${f.total.toExponential(3)} m/s = ${(f.total / Math.max(1, f.perilunes.length)).toExponential(3)} m/s per revolution, booked ${f.booked.toExponential(3)}`,
+  )
+  console.log(`    off the reference at each apolune, m: ${f.passes.map((p) => (p.off < 10 ? p.off.toFixed(2) : p.off.toFixed(0))).join('  ')}`)
+  console.log(`    burns asked / delivered, m/s: ${burns.map((p) => `${p.asked.toExponential(3)} / ${p.delivered.toExponential(3)}`).join('   ')}`)
+}
+
+/* ---------------------------------------------------------------- *
  * What this establishes
  * ---------------------------------------------------------------- */
 
@@ -319,6 +433,12 @@ const checks = [
   ['and stays within 50 km of the reference', worstOff(noisy[1]) < 50e3],
   ['cost rises with navigation error', perRev(noisy[0]) < perRev(noisy[1]) && perRev(noisy[1]) < perRev(noisy[2])],
   ['and at 10 km and 10 cm/s stays under 1 m/s a revolution', perRev(noisy[2]) < 1],
+  ["the sequencer's own cycle holds the reference, every pass solving", [calm, kicked].every((f) => f.lost === null && f.perilunes.length >= REVS && f.passes.every((p) => p.converged))],
+  ['every maintenance burn lights once and delivers what it asked, to 1e-6 m/s', [calm, kicked].every((f) => f.passes.every((p) => p.lightings === (p.burnt ? 1 : 0) && Math.abs(p.delivered - (p.burnt ? p.asked : 0)) < 1e-6))],
+  ['and books what it delivered', [calm, kicked].every((f) => Math.abs(f.booked - f.total) < 1e-6)],
+  ['undisturbed, it is within 5 m of the reference at every apolune', furthest(calm) < 5],
+  ['kicked 10 cm/s along track, it is back within 1 km by the last', kicked.passes.at(-1).off < 1e3],
+  ['for under 0.06 m/s a revolution', kicked.total / kicked.perilunes.length < 0.06],
 ]
 let pass = true
 for (const [label, ok] of checks) {
