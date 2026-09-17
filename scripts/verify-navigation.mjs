@@ -7,6 +7,9 @@
  * AU, and a zoom speed fixed as a percentage per tick crosses a narrow range in
  * a flick and a wide one in seven hundred detents.
  *
+ * And the same argument one decade down: a standoff fixed in metres cannot serve
+ * a vehicle that sheds 97% of its length on the way to the Moon.
+ *
  *   node --expose-gc scripts/verify-navigation.mjs
  */
 
@@ -14,7 +17,20 @@ import { Vector3 } from 'three'
 import { live, refreshDerived, resetSimulation, updateNearestSurface } from '../src/sim/live.js'
 import { INDEX } from '../src/sim/system.js'
 import { BODIES, CRAFT } from '../src/sim/constants.js'
-import { FRAMING, ZOOM_DETENTS, detentsIn, detentsToCross, zoomSpeedFor } from '../src/gfx/framing.js'
+import {
+  CHASE_MULTIPLE,
+  FRAMING,
+  LIT_REACH,
+  STAGE_LENGTH,
+  VEHICLE_MULTIPLE,
+  ZOOM_DETENTS,
+  detentsIn,
+  detentsToCross,
+  stageLength,
+  zoomSpeedFor,
+} from '../src/gfx/framing.js'
+import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import { readFileSync } from 'node:fs'
 import {
   FLY_BOOST,
   FLY_FINE,
@@ -271,6 +287,219 @@ for (const c of KEYCASES) {
   )
 }
 
+/* ---- framing a vehicle that changes length as it flies ---- */
+/**
+ * The camera's field of view, read out of the source rather than restated.
+ *
+ * Everything below is a fraction of the frame, and the frame is whatever
+ * App.jsx gives the Canvas. A constant copied here would keep passing after
+ * somebody changed the lens.
+ */
+const APP = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
+const FOV = Number(APP.match(/camera=\{\{[^}]*fov:\s*([\d.]+)/)?.[1])
+const HALF = Math.tan(((FOV / 2) * Math.PI) / 180)
+
+/**
+ * The drawn silhouette, in hull lengths, taken off Placeholders.jsx: command
+ * module apex, service barrel, engine bell, and the exhaust cone that appears
+ * when the engine lights.
+ *
+ * Needed because the chase camera looks along the vehicle's own axis from
+ * behind it, so the vehicle's *length* is foreshortened to almost nothing and
+ * its width is not. How much of the frame it fills cannot be had by dividing a
+ * length by a frame height; it has to be projected.
+ */
+const HULL_POINTS = [
+  [0, 0, 0.51],
+  [0.22, 0, 0.19],
+  [0, 0.22, 0.19],
+  [0.22, 0, -0.23],
+  [0, 0.22, -0.23],
+  [0.19, 0, -0.46],
+  [0, 0.19, -0.46],
+]
+const PLUME_POINTS = [
+  [0.15, 0, -0.46],
+  [0, 0.15, -0.46],
+  [0, 0, -1.16],
+]
+
+/** Where the chase camera stands off a vehicle of this length, m. */
+const standoff = (length) =>
+  Math.sqrt((CHASE_MULTIPLE.back * length) ** 2 + (CHASE_MULTIPLE.up * length) ** 2)
+
+/**
+ * How much of the frame's height the drawn vehicle spans, from a camera on the
+ * rig's own offset `reach` hull lengths out, aimed at the craft.
+ */
+function fill(reach, lit) {
+  const cy = CHASE_MULTIPLE.up * reach
+  const cz = -CHASE_MULTIPLE.back * reach
+  const n = Math.sqrt(cy * cy + cz * cz)
+  // The camera looks at the craft, so the view axis is straight back down the
+  // offset; screen up is what is left of the offset plane.
+  const ay = -cy / n
+  const az = -cz / n
+  const uy = -az
+  const uz = ay
+  let lo = Infinity
+  let hi = -Infinity
+  for (const p of lit ? HULL_POINTS.concat(PLUME_POINTS) : HULL_POINTS) {
+    const dy = p[1] - cy
+    const dz = p[2] - cz
+    const along = dy * ay + dz * az
+    if (!(along > 0)) continue
+    const y = (dy * uy + dz * uz) / along / HALF
+    if (y < lo) lo = y
+    if (y > hi) hi = y
+  }
+  // Screen y runs -1 to 1 over the full height.
+  return (hi - lo) / 2
+}
+
+console.log('\n=== how much of the frame the vehicle fills ===')
+console.log('  stage             hull    standoff   in hulls      fills       before')
+const fills = []
+const fillsBefore = []
+for (let i = 0; i < STAGE_LENGTH.length; i++) {
+  const L = STAGE_LENGTH[i]
+  const now = standoff(L)
+  // What it did before: the standoff was built from stage 0 and never moved,
+  // which in this stage's own lengths is that much further out.
+  const wasInHulls = standoff(STAGE_LENGTH[0]) / L
+  fills.push(fill(1, false))
+  fillsBefore.push(fill(wasInHulls / (standoff(1) / 1), false))
+  console.log(
+    `  ${String(i).padEnd(6)}${L.toFixed(2).padStart(11)} m${now.toFixed(1).padStart(10)} m` +
+      `${(now / L).toFixed(2).padStart(11)}${(fills[i] * 100).toFixed(1).padStart(10)}%` +
+      `${(fillsBefore[i] * 100).toFixed(2).padStart(12)}%`,
+  )
+}
+const fillSpread = Math.max(...fills) / Math.min(...fills)
+const wasSpread = Math.max(...fillsBefore) / Math.min(...fillsBefore)
+console.log(
+  `\n  spread across the mission: ${fillSpread.toFixed(6)}x now, ${wasSpread.toFixed(1)}x before`,
+)
+
+/**
+ * Ignition, which is the other event the framing law has to answer to.
+ *
+ * The claim that wanted checking was that the plume would otherwise run out of
+ * frame. It does not, and by a long way: a lit vehicle with the camera held
+ * spans 16% of the frame's height against 45 degrees of frame. So easing back
+ * is not a rescue, it is the same law the stages obey — hold what is *drawn* at
+ * a constant fraction of frame, and the drawn object grows by 72% of its own
+ * length the moment the engine lights.
+ */
+const unlit = fill(1, false)
+const litHeld = fill(1, true)
+const litMoved = fill(LIT_REACH, true)
+console.log('\n=== the burn, from the chase camera ===')
+console.log(`  hull alone, engine out             ${(unlit * 100).toFixed(1).padStart(5)}% of the frame's height`)
+console.log(`  hull and plume, camera held        ${(litHeld * 100).toFixed(1).padStart(5)}%`)
+console.log(`  hull and plume, camera eased back  ${(litMoved * 100).toFixed(1).padStart(5)}%`)
+
+/**
+ * The step response, which is the whole of what "smooth" means here.
+ *
+ * Both filters are the rig's own: the chase camera lerps its offset toward the
+ * desired one at rate 6, and a locked camera moves its radius the same way. A
+ * step into an exponential cannot overshoot, so what is checked is that it
+ * settles quickly enough to read as a move rather than a cut, and that it never
+ * turns around — which a spring in the same place would.
+ */
+const RATE = 6
+const HZ = 60
+function settle(from, to) {
+  let x = from
+  let frames = 0
+  let monotone = true
+  const rising = to > from
+  for (; frames < HZ * 10; frames++) {
+    const next = x + (to - x) * (1 - Math.exp(-(1 / HZ) * RATE))
+    if (rising ? next < x - 1e-12 : next > x + 1e-12) monotone = false
+    x = next
+    if (Math.abs(x - to) <= Math.abs(to - from) * 0.01) break
+  }
+  return { seconds: frames / HZ, monotone }
+}
+console.log('\n=== how long the reframe takes ===')
+const MOVES = [
+  { what: 'first separation', from: standoff(STAGE_LENGTH[0]), to: standoff(STAGE_LENGTH[1]) },
+  { what: 'the last stage away', from: standoff(STAGE_LENGTH[2]), to: standoff(STAGE_LENGTH[3]) },
+  { what: 'ignition: the plume appears', from: standoff(STAGE_LENGTH[3]), to: standoff(STAGE_LENGTH[3]) * LIT_REACH },
+  { what: 'cutoff: it goes out', from: standoff(STAGE_LENGTH[3]) * LIT_REACH, to: standoff(STAGE_LENGTH[3]) },
+  { what: 'locked at 500 m, through staging', from: 500, to: (500 * STAGE_LENGTH[3]) / STAGE_LENGTH[2] },
+]
+let slowest = 0
+let allMonotone = true
+for (const m of MOVES) {
+  const r = settle(m.from, m.to)
+  if (r.seconds > slowest) slowest = r.seconds
+  if (!r.monotone) allMonotone = false
+  console.log(
+    `  ${m.what.padEnd(34)}${m.from.toFixed(1).padStart(8)} m ->${m.to.toFixed(1).padStart(8)} m` +
+      `   within 1% in ${r.seconds.toFixed(2)} s${r.monotone ? '' : '   OVERSHOOT'}`,
+  )
+}
+
+/* How close the lock camera may come, and how many detents its range takes. */
+console.log('\n=== approaching the vehicle ===')
+console.log('  stage           closest      in hulls        was    in hulls    detents')
+let worstApproach = 0
+let worstStageDetents = 0
+for (let i = 0; i < STAGE_LENGTH.length; i++) {
+  const L = STAGE_LENGTH[i]
+  const min = L * VEHICLE_MULTIPLE.min
+  const speed = zoomSpeedFor(min, FRAMING.ship.max)
+  const detents = detentsToCross(min, FRAMING.ship.max, speed)
+  worstApproach = Math.max(worstApproach, min / L)
+  worstStageDetents = Math.max(worstStageDetents, Math.abs(detents - ZOOM_DETENTS))
+  console.log(
+    `  ${String(i).padEnd(6)}${min.toFixed(2).padStart(13)} m${(min / L).toFixed(2).padStart(13)}` +
+      `${FRAMING.ship.min.toFixed(1).padStart(11)} m${(FRAMING.ship.min / L).toFixed(1).padStart(12)}` +
+      `${detents.toFixed(1).padStart(11)}`,
+  )
+}
+
+/**
+ * The rig reads the stage, not the stack.
+ *
+ * Everything above is the law; this is the one line of evidence that the camera
+ * obeys it, and it cannot be had by importing, because the rig is a component.
+ * `CHASE_OFFSET` is the pad-stack offset kept for the attitude replay — if it
+ * reappears in the rig, the standoff has been pinned to stage 0 again.
+ */
+const RIG = readFileSync(new URL('../src/components/CameraRig.jsx', import.meta.url), 'utf8')
+const rigScales = !/CHASE_OFFSET/.test(RIG) && /CHASE_MULTIPLE/.test(RIG) && /STAGE_LENGTH\[ship\.stage\]/.test(RIG)
+
+/* The frame path: an indexed read and three multiplies, measured. */
+const control = await knownAllocation()
+/** A typed slot to accumulate into: a plain `let` double is boxed on every write. */
+const sink = new Float64Array(1)
+let litFlag = false
+const noop = await bytesPerCall(() => {
+  sink[0] += 1
+}, { calls: 50000, warm: 50000 })
+const framePath = await bytesPerCall(
+  () => {
+    litFlag = !litFlag
+    const L = STAGE_LENGTH[3]
+    const reach = litFlag ? L * LIT_REACH : L
+    sink[0] += CHASE_MULTIPLE.back * reach + CHASE_MULTIPLE.up * reach
+  },
+  { calls: 50000, warm: 50000 },
+)
+const lookup = await bytesPerCall(() => {
+  sink[0] += stageLength(3)
+}, { calls: 50000, warm: 50000 })
+const bytes = (m) => (m ? `${m.bytes.toFixed(2)} B` : 'skipped')
+console.log('\n=== allocation, per call ===')
+console.log(`  control (a known allocation)        ${control ? control.bytes.toFixed(1) + ' B' : 'skipped'}`)
+console.log(`  the harness itself                  ${bytes(noop)}`)
+console.log(`  chase standoff, as the loop does it ${bytes(framePath)}`)
+console.log(`  stageLength()                       ${bytes(lookup)}   (sink ${sink[0].toFixed(0)})`)
+
 /* ---- allocation ---- */
 const gc = globalThis.gc
 for (let i = 0; i < 20000; i++) updateNearestSurface(cam)
@@ -301,6 +530,22 @@ const checks = [
   ['a detent means a detent on mouse and trackpad alike', normalised],
   ['a trackpad flick is not read as one tick per event', Math.abs(flickDetents - 30) > 20],
   ['nearest surface allocates nothing', !gc || Math.abs(delta) < 64 * 1024],
+  // Framing the vehicle that exists, rather than the one that left the pad.
+  ['the camera reads the field of view the scene actually uses', FOV > 0],
+  ['the vehicle fills the same fraction of frame at every stage', fillSpread < 1 + 1e-12],
+  ['it did not before: the last stage was 32x smaller in frame', wasSpread > 30],
+  ['the lit vehicle and its plume stay in frame', litMoved < 1],
+  // Not a rescue: it holds the drawn object at the size the unlit one had.
+  ['easing back on ignition holds the framing', Math.abs(litMoved / unlit - 1) < 0.1],
+  ['holding the camera would have grown it by half', litHeld / unlit > 1.5],
+  ['the rig frames the stage, not the stack', rigScales],
+  ['every reframe settles in under a second', slowest < 1],
+  ['and none of them overshoots', allMonotone],
+  ['every stage can be approached to about its own length', worstApproach < 1.5],
+  [`every stage's range still crosses in ${ZOOM_DETENTS} detents`, worstStageDetents < 1e-6],
+  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
+  ['the chase standoff allocates nothing', !framePath || framePath.bytes < SMALLEST_OBJECT / 2],
+  ['nor does the stage lookup', !lookup || lookup.bytes < SMALLEST_OBJECT / 2],
   // The speed law is only useful if it never stops and never inverts.
   ['speed is positive everywhere, inside a body included',
    [-1e9, 0, 1, 1e6, 1e12].every((d) => flySpeed(d) >= FLY_FLOOR)],

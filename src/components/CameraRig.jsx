@@ -5,7 +5,17 @@ import { live } from '../sim/live.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { BODIES, SHIP } from '../sim/constants.js'
-import { CHASE_OFFSET, FRAMING, detentsIn, pathFramingDistance, zoomSpeedFor } from '../gfx/framing.js'
+import {
+  CHASE_MULTIPLE,
+  FRAMING,
+  LIT_REACH,
+  STAGE_LENGTH,
+  VEHICLE_MULTIPLE,
+  detentsIn,
+  pathFramingDistance,
+  stageLength,
+  zoomSpeedFor,
+} from '../gfx/framing.js'
 import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
 import { mission } from '../sim/mission.js'
 import { MAX_NODE_FRAMES, plan, prediction } from '../sim/predict.js'
@@ -55,6 +65,20 @@ const PAD_AIM_SETTLE = 0.45
 
 /** How long the cut out of the pad shot takes to blend into the chase. */
 const CHASE_BLEND = 1.5
+
+/**
+ * How quickly a locked camera closes on a vehicle that has just changed size.
+ *
+ * The chase camera needs nothing here — its offset is already filtered at this
+ * rate, so a separation reaches it as a step into a filter that is running. A
+ * locked camera has no such filter: OrbitControls holds a radius the *user*
+ * chose, and the same rate moves it radially without touching the angles, so
+ * the pilot keeps the view they framed and only its scale follows the vehicle.
+ * 98% of the change in 4/6 s. The largest step a mission takes is a factor of
+ * 3.2 in length — 35.1 m to 11.0 m — which from the default lock at 4.5 lengths
+ * is a dolly from 158 m to 49.5 m.
+ */
+const REFRAME_RATE = 6
 
 /**
  * Free flight, in the craft-less sense: a viewpoint you steer rather than a
@@ -173,7 +197,25 @@ export function CameraRig() {
   const flyLook = useRef({ yaw: 0, pitch: 0, dragging: false, pointer: null, x: 0, y: 0 })
   const flyTrim = useRef(1)
   const cineT = useRef(0)
+  /** The drawn length last framed, and the radius a reframe is closing on. */
+  const hullSeen = useRef(STAGE_LENGTH[0])
+  const reframe = useRef(0)
   if (flyKeys.current === null) flyKeys.current = new Set()
+
+  /**
+   * How close and how far a locked camera may sit from the vehicle, for the
+   * stage flying now. The zoom speed is re-derived with them, because the whole
+   * point of `zoomSpeedFor` is that a wheel detent means the same fraction of
+   * whatever range it is crossing — and that range shrinks by 32x over a
+   * mission. Before this, a 3.47 m capsule could not be approached closer than
+   * 121.7 m: 35 of its own lengths, set by a stack it jettisoned days earlier.
+   */
+  function vehicleLimits() {
+    const min = stageLength(ship.stage) * VEHICLE_MULTIPLE.min
+    controls.minDistance = min
+    controls.maxDistance = FRAMING.ship.max
+    zoomBase.current = zoomSpeedFor(min, FRAMING.ship.max)
+  }
 
   /**
    * Scale `zoomSpeed` by how much the user actually scrolled, before
@@ -345,6 +387,9 @@ export function CameraRig() {
     controls.minDistance = frame.min
     controls.maxDistance = frame.max
     zoomBase.current = zoomSpeedFor(frame.min, frame.max)
+    if (focus === 'ship') vehicleLimits()
+    // A deliberate change of shot supersedes a reframe the vehicle asked for.
+    reframe.current = 0
     if (focus === 'free') {
       flight.current = null
       return
@@ -355,7 +400,7 @@ export function CameraRig() {
      * scaling with its distance from the body rather than with the body's size.
      * A 200 km parking orbit and a burn at the Moon are four decades apart.
      */
-    let distance = frame.distance
+    let distance = focus === 'ship' ? stageLength(ship.stage) * VEHICLE_MULTIPLE.distance : frame.distance
     if (map && focus !== 'node') {
       distance = pathFramingDistance(
         prediction.points,
@@ -412,6 +457,33 @@ export function CameraRig() {
   }, [focus, map, controls, camera])
 
   useFrame((_, delta) => {
+    /**
+     * A separation is a step change in the size of the thing being framed, and
+     * the only one in the mission that arrives without the user asking for it.
+     *
+     * The chase camera needs no help: its desired offset is rebuilt from this
+     * length every frame and the existing filter smooths the step. A locked
+     * camera is holding a radius the user chose, so what is preserved is their
+     * framing rather than their distance — the radius is scaled by the same
+     * ratio the vehicle shrank by, and eased in radially below. Watching the
+     * length rather than `ship.separations` also covers a reset, which puts the
+     * full stack back.
+     */
+    const hull = STAGE_LENGTH[ship.stage] ?? STAGE_LENGTH[0]
+    if (hull !== hullSeen.current) {
+      const ratio = hull / hullSeen.current
+      hullSeen.current = hull
+      if (controls && focus === 'ship') {
+        vehicleLimits()
+        const radius = camera.position.distanceTo(controls.target)
+        reframe.current = THREE.MathUtils.clamp(
+          radius * ratio,
+          controls.minDistance,
+          controls.maxDistance,
+        )
+      }
+    }
+
     if (!controls || focus === 'free') return
 
     /* The opening shot. No input, no state beyond the clock. */
@@ -521,8 +593,7 @@ export function CameraRig() {
       // Long lens: hold the vehicle at a roughly constant fraction of frame.
       const range = camera.position.distanceTo(live.pos.ship)
       const wanted =
-        (2 * Math.atan(SHIP.visual / (PAD_FOV.fill * 2 * Math.max(range, 1e-6))) * 180) /
-        Math.PI
+        (2 * Math.atan(hull / (PAD_FOV.fill * 2 * Math.max(range, 1e-6))) * 180) / Math.PI
       const fov = Math.min(PAD_FOV.max, Math.max(PAD_FOV.min, wanted))
       if (Math.abs(camera.fov - fov) > 1e-3) {
         camera.fov = fov
@@ -561,10 +632,13 @@ export function CameraRig() {
     if (focus === 'chase') {
       scratch.back.set(0, 0, -1).applyQuaternion(ship.quaternion)
       scratch.up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+      // The stage on screen, and its exhaust when there is one: a lit vehicle
+      // is 1.72 times the object an unlit one is, and the extra points this way.
+      const reach = ship.thrust > 0 ? hull * LIT_REACH : hull
       scratch.desired
         .set(0, 0, 0)
-        .addScaledVector(scratch.back, CHASE_OFFSET.back)
-        .addScaledVector(scratch.up, CHASE_OFFSET.up)
+        .addScaledVector(scratch.back, CHASE_MULTIPLE.back * reach)
+        .addScaledVector(scratch.up, CHASE_MULTIPLE.up * reach)
 
       const blend = flight.current
       if (blend?.chaseBlend) {
@@ -611,6 +685,23 @@ export function CameraRig() {
     scratch.delta.copy(target).sub(controls.target)
     controls.target.add(scratch.delta)
     camera.position.add(scratch.delta)
+
+    /**
+     * Close on the radius the new stage asks for, along the line the camera is
+     * already on. Radial by construction: OrbitControls recomputes its spherical
+     * coordinates from wherever the camera ends up, so moving it straight out or
+     * straight in changes the radius and leaves the pilot's angles untouched.
+     */
+    if (reframe.current > 0) {
+      scratch.dir.subVectors(camera.position, controls.target)
+      const radius = scratch.dir.length()
+      if (radius > 1e-9 && Math.abs(radius - reframe.current) > reframe.current * 1e-3) {
+        const step = (reframe.current - radius) * smooth(delta, REFRAME_RATE)
+        camera.position.addScaledVector(scratch.dir, step / radius)
+      } else {
+        reframe.current = 0
+      }
+    }
   }, 0)
 
   return null

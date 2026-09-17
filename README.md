@@ -2051,6 +2051,53 @@ never have to accelerate. The default stack is Artemis-like above Earth orbit:
 ICPS (4096 m/s, enough for the ~3150 m/s TLI) then Orion's service module
 (2701 m/s).
 
+### The camera frames the stage, not the stack
+
+A staged vehicle is not one object, and `Craft.jsx` already knew: the mesh and
+its length follow `ship.stage`, so Apollo 8 is a 110.6 m Saturn V on the pad and
+a 3.47 m capsule at splashdown. Every camera that framed it read `SHIP.visual`
+instead, which is derived from stage 0 and stays the pad stack for the whole
+flight — the comment on that derivation says in as many words that consumers who
+care what is on screen should read the active stage, and the cameras were the
+consumers that did not.
+
+So the chase camera stood 464 m off that capsule. Projecting the drawn
+silhouette into the frame, the vehicle ends the mission at a **thirty-second** of
+the size it starts it:
+
+| stage | hull | standoff | in hulls | fills the frame | before |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 110.60 m | 486.3 m | 4.40 | 11.3% | 11.27% |
+| 1 | 81.60 m | 358.8 m | 4.40 | 11.3% | 8.27% |
+| 2 | 35.10 m | 154.3 m | 4.40 | 11.3% | 3.53% |
+| 3 | 11.00 m | 48.4 m | 4.40 | 11.3% | 1.10% |
+| 4 | 3.47 m | 15.3 m | 4.40 | 11.3% | 0.35% |
+
+The law is one line — hold what is *drawn* at a constant fraction of frame — and
+both mission events fall out of it. A separation changes the hull; ignition adds
+the exhaust, which reaches 1.16 hull lengths behind a vehicle whose hull ends at
+0.46, and which points at a camera sitting behind the tail. Held still through
+ignition, the drawn object grows from 11.3% of the frame to 19.7%; easing back
+by the same 1.72 returns it to 10.6%.
+
+Worth stating plainly, because it was checked expecting the opposite: the plume
+does **not** run out of frame. At 45° there is room for it four times over. The
+ease-back is not a rescue, it is the same law the stages obey.
+
+Smoothness costs nothing extra. The chase camera already filters its offset at
+rate 6, so a separation arrives as a step into a filter that is running; a locked
+camera has no such filter, so its *radius* is moved at the same rate, which
+leaves the pilot's angles untouched — measured at 0.0000° of swing through a
+separation. Every reframe settles to 1% in 0.77 s and, being exponential, cannot
+overshoot. Flown in the browser at 60 Hz: the chase standoff reads 48.35 m
+against a predicted 48.36 for the 11.0 m CSM, eases to 83.18 m at capture
+ignition and back again at cutoff, and a lock at 49.5 m follows a separation down
+to 15.63 m against a predicted 15.615.
+
+It also makes the last stage approachable. The closest a lock could come was
+121.7 m — 35 lengths of the capsule it was pointed at — and is now 1.1 lengths at
+every stage, with each stage's range still crossing in the same 60 detents.
+
 ## Spacecraft meshes
 
 `public/models/` holds NASA's public-domain assets; the catalogue in
@@ -2245,6 +2292,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-nrho-keeping.mjs` | station-keeping: the perilune law, then a real-field reference held against navigation and execution error, and by the sequencer's own cycle |
 | `verify-nrho-capture.mjs` | the flown approach captured onto a halo, by hand and then by the flight computer |
 | `verify-director.mjs` | the camera director cuts on phases, not on frames |
+| `verify-navigation.mjs` | how far the nearest surface is, how many detents cross a range, and how much of the frame the flying stage fills |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |
 | `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
