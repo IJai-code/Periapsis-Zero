@@ -9,6 +9,7 @@ import { ShipControls } from './ShipControls.jsx'
 import { LagrangeProjector } from './LagrangeProjector.jsx'
 import { Trail } from './Trail.jsx'
 import { Trajectory } from './Trajectory.jsx'
+import { Osculating } from './Osculating.jsx'
 import { MapOverlay } from './MapOverlay.jsx'
 import { Markers } from './Markers.jsx'
 import { CameraRig } from './CameraRig.jsx'
@@ -90,6 +91,7 @@ export function Scene({ textures }) {
       />
 
       {!cinematic && <Trajectory />}
+      {!cinematic && <Osculating />}
       {!cinematic && <MapOverlay />}
       {!cinematic && <Markers />}
 

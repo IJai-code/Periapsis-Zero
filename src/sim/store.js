@@ -64,6 +64,8 @@ export const uiStore = createStore({
   trails: true,
   /** The forward projection of where the craft is going. */
   trajectory: true,
+  /** The Keplerian conic about the body the craft is falling round, beside the real path. */
+  osculating: true,
   labels: true,
   bloom: true,
   clouds: true,

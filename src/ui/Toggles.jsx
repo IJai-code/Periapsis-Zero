@@ -2,6 +2,7 @@ import { setUi, useUi } from '../sim/store.js'
 
 const OPTIONS = [
   { key: 'trajectory', label: 'Trajectory + nodes' },
+  { key: 'osculating', label: 'Osculating conic' },
   { key: 'trails', label: 'Orbit trails' },
   { key: 'lagrange', label: 'Lagrange points' },
   { key: 'clouds', label: 'Cloud layer' },

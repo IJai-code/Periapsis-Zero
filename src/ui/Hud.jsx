@@ -10,6 +10,7 @@ import { ShipTelemetry } from './ShipTelemetry.jsx'
 import { NodePanel } from './NodePanel.jsx'
 import { Presets } from './Presets.jsx'
 import { CaptureStatus } from './CaptureStatus.jsx'
+import { BurnPanel } from './BurnPanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
@@ -143,8 +144,9 @@ export function Hud() {
         </div>
       )}
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2">
+      <div className="absolute top-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
         <EclipseBanner />
+        <BurnPanel />
       </div>
 
       {/* Outside the panel toggle on purpose: it is the mode's own instructions,
