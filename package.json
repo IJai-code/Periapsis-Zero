@@ -23,6 +23,7 @@
     "verify:family": "node scripts/verify-nrho-family.mjs",
     "verify:ephemeris": "node scripts/verify-nrho-ephemeris.mjs",
     "verify:keeping": "node scripts/verify-nrho-keeping.mjs",
+    "verify:capture": "node --expose-gc scripts/verify-nrho-capture.mjs",
     "verify:director": "node --expose-gc scripts/verify-director.mjs",
     "verify:geometry": "node scripts/verify-geometry.mjs",
     "verify:vessels": "node scripts/verify-vessels.mjs",

@@ -1497,16 +1497,67 @@ Every burn delivers what it asked to within 1e-12 m/s and books that, and the
 limit allocates nothing, 0.01 B a call against a 56 B control. A solve takes
 34–38 ms on the reference and up to 86 ms off it, once a revolution.
 
+### Getting onto it
+
+A vehicle that has flown this mission cannot join a halo at perilune, and the
+obstacle is geometry rather than propellant. A Hohmann-class transfer arrives
+ahead of the Moon and is overtaken, so the craft's excess velocity points against
+the Moon's motion, and a 1,827 km flyby with that arrival has e = 1.3 and turns
+the velocity by only about 100 degrees. Whichever pole the craft passes it
+circulates the way the halo over the *other* pole does — measured at 178–179
+degrees from the halo's angular momentum at both, with nineteen Newton solves
+seeded to 400 m/s in six directions never leaving that branch. Matching velocity
+there is not a capture but a plane reversal: 3,419–3,451 m/s. Nor does the launch
+epoch help: across 28 launches spanning a month, the mirror of the family that is
+coplanar is always 131–133 degrees out of phase, and the mirror that is in phase
+is always retrograde.
+
+Three other routes closed on the way to this one. A reference pinned to the craft
+at its first apolune started 5,635 km and 54 m/s out, Newton stalled 2,700 km
+short, and the burn it gave put the vehicle into the Moon. Steering the approach
+onto the halo's perilune *works* — 5.93 m/s, four days out, lands the craft
+within 20 m of it at the right epoch — and arrives going the wrong way round.
+And capturing into a 71,000 km ellipse to wait for the apse line to come round
+costs 191 m/s and does not survive: perilune jumps from 1,827 to 16,863 km on the
+first revolution and the craft leaves the Moon on day 46.
+
+What works is what Artemis flies — meet the halo where both are slow.
+`solveHaloCapture` in `sim/capture.js` searches three burns:
+
+| burn | where | what it does | m/s |
+| --- | --- | --- | --- |
+| capture | periselene, 1,828 km | drops the hyperbola into an ellipse; below about 191 m/s it stays unbound | 191 |
+| plane | that ellipse's apolune, 62,109 km, where the craft makes some 80 m/s | rotates onto the halo's plane and aims at one of its apolune patch points | 283 |
+| insertion | the patch point, 70,841 km out | matches the reference's velocity | 105 |
+
+**580 m/s in all**, against the 819 m/s capture into low lunar orbit it replaces,
+out of the 2,563 m/s still in the tanks on arrival. Twelve cells — three transfer
+apolunes, two coast times, both mirrors — take 18.9 s and span 580–704 m/s.
+
+The second burn is seeded by Lambert, and that is the difference between working
+and not. Seeded from zero, or from a vis-viva guess, the real-field Newton
+wandered and finished 85,000–113,000 km out at every arrival epoch tried; seeded
+with the two-body arc from the transfer's apolune to the patch point, every cell
+converges to under 50 m. The seed is only a seed — out there the Earth pulls
+about as hard as the Moon, and the correction is hundreds of m/s — and across an
+8.5-day coast it becomes too poor to correct at all, missing by 20,000–50,000 km.
+The solver is checked against Vallado's worked Lambert example to 1 mm/s, because
+one that quietly returned nonsense would still converge somewhere.
+
+`verify-nrho-capture` flies all of it: off the pad, through the window and the
+injection, out to the Moon, and onto the halo 0.005 km and 0.000 m/s from the
+reference, which it then holds for four revolutions. Its burns are impulses, so
+the 191 m/s capture — 53 s of service module — is a few m/s optimistic.
+
 ### Not yet
 
-Getting onto the reference. The gates place the craft with `insertMember`, and
-from that insertion no single burn captured it: a reference pinned to the craft
-at its first apolune started 5,635 km and 54 m/s out, Newton stalled 2,700 km
-short, and the burn it gave put the vehicle into the Moon. Arriving on the
-reference belongs with flying the vehicle onto the halo from lunar approach,
-which is still unwritten, so nothing enters the cycle with a reference except a
-test that places the craft on it. And a reference ends: past its last patch point
-the solve reports failure and the pass flies nothing, and nothing extends one yet.
+The sequencer does not fly the capture. `solveHaloCapture` is called by a gate
+rather than by a phase, so a mission that ends on a halo is flown by a script and
+not by the flight computer. Nothing aims the *transfer* at a halo either, which
+is what would make the capture cheap: arriving at the halo's own perilune moving
+its way would cost 249 m/s rather than 580. And a reference ends — past its last
+patch point the keeping solve reports failure and the pass flies nothing, and
+nothing extends one yet.
 
 ## Coming home
 
@@ -2103,6 +2154,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
 | `verify-nrho-ephemeris.mjs` | the CR3BP seed in the real field, and how fast it diverges |
 | `verify-nrho-keeping.mjs` | station-keeping: the perilune law, then a real-field reference held against navigation and execution error, and by the sequencer's own cycle |
+| `verify-nrho-capture.mjs` | the flown approach captured onto a halo in three burns, and held there |
 | `verify-director.mjs` | the camera director cuts on phases, not on frames |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |
