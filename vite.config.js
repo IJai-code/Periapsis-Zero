@@ -16,7 +16,7 @@ import path from 'node:path'
  */
 function pruneUnusedModels() {
   return {
-    name: 'spxsim:prune-unused-models',
+    name: 'periapsis:prune-unused-models',
     apply: 'build',
     closeBundle() {
       const dir = path.resolve('dist/models')
@@ -75,7 +75,7 @@ function pruneUnusedModels() {
 function stampModules() {
   const root = path.resolve('src')
   return {
-    name: 'spxsim:build-stamp',
+    name: 'periapsis:build-stamp',
     apply: 'serve',
     transform(code, id) {
       const file = id.split('?')[0]
@@ -84,7 +84,7 @@ function stampModules() {
       // map stays honest without this having to rewrite one.
       const stamp = fs.statSync(file).mtimeMs
       return {
-        code: `${code}\n;globalThis.__SPXSIM_BUILD__ = Math.max(globalThis.__SPXSIM_BUILD__ ?? 0, ${stamp});`,
+        code: `${code}\n;globalThis.__PERIAPSIS_BUILD__ = Math.max(globalThis.__PERIAPSIS_BUILD__ ?? 0, ${stamp});`,
         map: null,
       }
     },

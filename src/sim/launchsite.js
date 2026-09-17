@@ -1,5 +1,6 @@
 import { BODIES } from './constants.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
+import { requested } from './requested.js'
 
 /**
  * Launch sites, and the body-fixed frame that carries them around with the
@@ -71,20 +72,11 @@ export const LAUNCH_SITES = {
  *
  * Module state rather than a store field, because two things outside React need
  * it before any component exists: `createSimulation` stands the vehicle on it,
- * and the sequencer steers by its azimuth. Overridable from the environment the
- * same way the vessel is — `SPXSIM_SITE=kourou node scripts/flight.mjs` — so a
- * headless run can fly from anywhere without editing source.
+ * and the sequencer steers by its azimuth. Chosen the same way the vessel is —
+ * `PERIAPSIS_SITE` under Node, `?site=` in a browser — so a headless run or a
+ * shared link can fly from anywhere without editing source.
  */
-const REQUESTED =
-  (typeof process !== 'undefined' && process.env && process.env.SPXSIM_SITE) || 'ksc'
-
-if (!LAUNCH_SITES[REQUESTED]) {
-  throw new Error(
-    `unknown launch site "${REQUESTED}" — known: ${Object.keys(LAUNCH_SITES).join(', ')}`,
-  )
-}
-
-let active = LAUNCH_SITES[REQUESTED]
+let active = LAUNCH_SITES[requested('PERIAPSIS_SITE', 'site', LAUNCH_SITES, 'ksc', 'launch site')]
 
 /** The pad the vehicle is standing on. */
 export const activeSite = () => active

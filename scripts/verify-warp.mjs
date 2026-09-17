@@ -203,7 +203,7 @@ const parked = {}
 for (const vessel of ['apollo8', 'artemis']) {
   for (const warp of ['m1', 'x1']) {
     const out = execFileSync(process.execPath, [self, '--park', warp], {
-      env: { ...process.env, SPXSIM_VESSEL: vessel },
+      env: { ...process.env, PERIAPSIS_VESSEL: vessel },
       encoding: 'utf8',
     })
     parked[`${vessel} ${warp}`] = JSON.parse(out.trim().split('\n').at(-1))

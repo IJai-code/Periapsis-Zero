@@ -64,7 +64,7 @@ export function Landing({ ready, progress, label, onEnter }) {
         <div className="max-w-xl">
           <div className="rule mb-3 text-hud/70">Sol · Terra · Luna · n-body</div>
           <h1 className="font-display text-6xl leading-none font-semibold tracking-[0.14em] text-white sm:text-7xl">
-            SPXSIM
+            PERIAPSIS ZERO
           </h1>
 
           <p className="mt-6 text-[15px] leading-relaxed text-white/70">

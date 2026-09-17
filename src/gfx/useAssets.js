@@ -53,7 +53,7 @@ export function useAssets() {
       .catch((err) => {
         // Not fatal, and not silent either: the scene is still flyable on the
         // procedural set, but a failed fetch should be findable.
-        console.error('[spxsim] NASA imagery failed to load', err)
+        console.error('[periapsis] NASA imagery failed to load', err)
         if (!cancelled) setUi({ hdStatus: 'error' })
         return { textures: {}, found: 0, missing: [] }
       })
@@ -92,7 +92,7 @@ export function useAssets() {
     }
 
     worker.onerror = (err) => {
-      console.error('[spxsim] texture generation failed', err)
+      console.error('[periapsis] texture generation failed', err)
       setState((s) => ({ ...s, label: 'generation failed' }))
     }
 

@@ -92,7 +92,7 @@ if (process.argv.includes('--fly')) {
    * have every mass right and still fly to the wrong place.
    *
    * Only the active vessel can be flown, since the flight model binds to one at
-   * load; run it once per vessel with SPXSIM_VESSEL.
+   * load; run it once per vessel with PERIAPSIS_VESSEL.
    */
   const { flyMission } = await import('./flight.mjs')
   const { live } = await import('../src/sim/live.js')

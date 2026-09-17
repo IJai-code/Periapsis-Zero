@@ -101,7 +101,7 @@ export function Hud() {
         <div className="pointer-events-auto">
           <div className="flex items-baseline gap-2">
             <div className="font-display text-lg leading-none font-semibold tracking-[0.28em] text-hud">
-              SPXSIM
+              PERIAPSIS ZERO
             </div>
             <button
               onClick={toggleMap}

@@ -19,7 +19,7 @@ export function Loading({ progress, label }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
       <div className="w-[min(30rem,86vw)] px-6">
         <div className="mb-1 font-display text-3xl font-semibold tracking-[0.3em] text-hud">
-          SPXSIM
+          PERIAPSIS ZERO
         </div>
         <div className="rule mb-8">Sol · Terra · Luna — RK4 N-body</div>
 

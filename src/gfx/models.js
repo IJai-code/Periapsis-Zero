@@ -137,7 +137,7 @@ export function loadModel(id) {
       return model
     } catch (err) {
       failed.set(id, err.message?.slice(0, 80) ?? 'parse failed')
-      console.error(`[spxsim] model "${id}" failed to load`, err)
+      console.error(`[periapsis] model "${id}" failed to load`, err)
       return null
     } finally {
       pending.delete(id)

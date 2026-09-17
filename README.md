@@ -1,4 +1,4 @@
-# SpxSim — Sol · Terra · Luna
+# Periapsis Zero — Sol · Terra · Luna
 
 A real-time three-body simulation of the Sun, Earth and Moon, integrated with a
 4th-order Runge-Kutta scheme and rendered with React Three Fiber.
@@ -2211,7 +2211,14 @@ after the sequencer's one-shot request has already been applied. Every one
 reaches a stable parking orbit; peak speed never exceeds 8.80 km/s, against the
 13.2 km/s the broken case reached before the vehicle left the system.
 
-`window.__spx` exposes the live simulation and the R3F state in dev builds.
+`window.__periapsis` exposes the live simulation and the R3F state in dev builds.
+
+The vessel and the pad come from outside the app and are read once, at load:
+`PERIAPSIS_VESSEL` and `PERIAPSIS_SITE` under Node, `?vessel=` and `?site=` in a
+browser, so `?vessel=artemis&site=vandenberg` is a link to that flight. A name the
+environment gets wrong throws, because that is a developer's typo; a name an
+address gets wrong falls back to Apollo 8 from Kennedy with a console warning,
+because that is a link someone was sent, and a blank page is no answer to it.
 
 ## Fetching the real imagery
 

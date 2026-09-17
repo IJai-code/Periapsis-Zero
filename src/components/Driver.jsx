@@ -91,7 +91,7 @@ export function Driver() {
   // hot-reloaded a module under a timestamp query, so poking at that would
   // silently mutate a second, unused store.
   useEffect(() => {
-    if (import.meta.env.DEV) window.__spx = {
+    if (import.meta.env.DEV) window.__periapsis = {
         live,
         three,
         ship,

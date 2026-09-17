@@ -25,7 +25,7 @@ import { decodePNG, encodePNG, toGray, pngInfo } from './png.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = path.join(ROOT, 'public', 'textures')
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'spxsim-hd-'))
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'periapsis-hd-'))
 const FORCE = process.argv.includes('--force')
 
 const THREE_ASSETS = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets'

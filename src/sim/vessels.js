@@ -1,3 +1,4 @@
+import { requested } from './requested.js'
 /**
  * Flyable vessels, as data.
  *
@@ -310,23 +311,11 @@ for (const v of Object.values(VESSELS_BY_ID)) {
 export const VESSELS = VESSELS_BY_ID
 
 /**
- * Which vessel is flown.
- *
- * Overridable from the environment so the headless harness can fly either one
- * without editing the source — `SPXSIM_VESSEL=artemis node scripts/flight.mjs`.
- * An unknown name throws here rather than resolving to `undefined` and failing
- * a hundred frames later inside the flight model.
+ * Which vessel is flown: `PERIAPSIS_VESSEL` under Node, `?vessel=` in a browser,
+ * Apollo 8 otherwise. Read once, at load, because every stage figure is built
+ * from it before anything flies — see `requested` for how each source fails.
  */
-const REQUESTED =
-  (typeof process !== 'undefined' && process.env && process.env.SPXSIM_VESSEL) || 'apollo8'
-
-if (!VESSELS_BY_ID[REQUESTED]) {
-  throw new Error(
-    `unknown vessel "${REQUESTED}" — known: ${Object.keys(VESSELS_BY_ID).join(', ')}`,
-  )
-}
-
-export const ACTIVE_VESSEL = REQUESTED
+export const ACTIVE_VESSEL = requested('PERIAPSIS_VESSEL', 'vessel', VESSELS_BY_ID, 'apollo8', 'vessel')
 
 /* Every stage must carry what the flight model reads off it. */
 for (const [id, v] of Object.entries(VESSELS)) {

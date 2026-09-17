@@ -12,7 +12,7 @@ createRoot(document.getElementById('root')).render(
 /**
  * Which code this page is actually running.
  *
- * `globalThis.__SPXSIM_BUILD__` is the newest mtime among the modules that have
+ * `globalThis.__PERIAPSIS_BUILD__` is the newest mtime among the modules that have
  * executed — see the stamp plugin in vite.config.js. Reported on a timeout
  * rather than inline because module bodies all run before any task does, and
  * the maximum is only complete once they have.
@@ -23,7 +23,7 @@ createRoot(document.getElementById('root')).render(
  */
 if (import.meta.env.DEV) {
   setTimeout(() => {
-    const stamp = globalThis.__SPXSIM_BUILD__
-    console.info(`spxsim running code as of ${stamp ? new Date(stamp).toLocaleString() : 'unknown'}`)
+    const stamp = globalThis.__PERIAPSIS_BUILD__
+    console.info(`periapsis zero running code as of ${stamp ? new Date(stamp).toLocaleString() : 'unknown'}`)
   }, 0)
 }
