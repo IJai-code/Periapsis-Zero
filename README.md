@@ -1549,13 +1549,56 @@ injection, out to the Moon, and onto the halo 0.005 km and 0.000 m/s from the
 reference, which it then holds for four revolutions. Its burns are impulses, so
 the 191 m/s capture — 53 s of service module — is a few m/s optimistic.
 
+### Flying it from the flight computer
+
+`armHaloCapture` plans the capture while the craft is still coasting to the Moon,
+and the sequencer flies it. The burns are ordinary nodes: `NODE_ALIGN` and
+`NODE_BURN` already centre a burn on its own instant, resolve its direction
+against the body whose sphere it happens in, cut off on delivered delta-v rather
+than on a stopwatch, keep a frame from stepping over the turn, and draw it on the
+map. Three bespoke phases would have been a second copy of all of that. What is
+new is one phase, `HALO_CAPTURE`, which holds the coast the burns fall in and
+hands over to the maintenance cycle at the end of it.
+
+Two of the four burns it flies are not the search's, and both are there because
+flown burns are not impulses.
+
+- **The transfer is re-aimed six hours after the plane change.** A couple of m/s
+  delivered off a 283 m/s burn is hundreds of km by the time the craft reaches
+  the patch point five days later. Flown without it the craft arrived 939 km out
+  — which looks captured and is not: the station-keeping law, which exists to
+  spend centimetres a second, was at its limit there, failing outright in one run
+  and clawing the craft back over four revolutions in another from an almost
+  identical state. The correction costs 0.8 m/s.
+- **The insertion is solved again at arrival**, against the state the craft
+  actually has rather than the one the search predicted five days earlier.
+
+Planting that correction on a clock instead of on the burn it corrects cost a
+run, and it is a trap named twice already in this document: a frame's step is
+fixed before the sequencer runs. At 6 h/s a frame is 360 s, so a node planned ten
+minutes ahead appeared *inside* a step the ceiling had already committed to, and
+the clock stepped straight over it. It is planned six hours out now, the moment
+the plane change has flown.
+
+Flown from the pad the sequence is
+
+```
+HALO_CAPTURE -> (NODE_ALIGN -> NODE_BURN -> HALO_CAPTURE) x4 -> NRHO_COAST
+```
+
+at **191.4 + 283.5 + 0.8 + 105.3 m/s**, which costs 581.6 m/s of propellant
+against the 580.2 m/s solved. The craft reaches its first maintenance pass 54.5
+km from the reference, and the cycle closes that to 19.8, 5.9 and 4.8 km over the
+next three, for 0.386 m/s in all — 0.097 m/s a revolution, inside the 0.1–1 m/s a
+real NRHO plan budgets.
+
 ### Not yet
 
-The sequencer does not fly the capture. `solveHaloCapture` is called by a gate
-rather than by a phase, so a mission that ends on a halo is flown by a script and
-not by the flight computer. Nothing aims the *transfer* at a halo either, which
-is what would make the capture cheap: arriving at the halo's own perilune moving
-its way would cost 249 m/s rather than 580. And a reference ends — past its last
+Nothing decides to go to a halo on its own. `armHaloCapture` is called by a gate
+or by the HUD, and a mission that is not armed captures into low lunar orbit
+exactly as it did before. Nothing aims the *transfer* at a halo either, which is
+what would make the capture cheap: arriving at the halo's own perilune moving its
+way would cost 249 m/s rather than 580. And a reference ends — past its last
 patch point the keeping solve reports failure and the pass flies nothing, and
 nothing extends one yet.
 
@@ -2154,7 +2197,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
 | `verify-nrho-ephemeris.mjs` | the CR3BP seed in the real field, and how fast it diverges |
 | `verify-nrho-keeping.mjs` | station-keeping: the perilune law, then a real-field reference held against navigation and execution error, and by the sequencer's own cycle |
-| `verify-nrho-capture.mjs` | the flown approach captured onto a halo in three burns, and held there |
+| `verify-nrho-capture.mjs` | the flown approach captured onto a halo, by hand and then by the flight computer |
 | `verify-director.mjs` | the camera director cuts on phases, not on frames |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |

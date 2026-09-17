@@ -17,18 +17,23 @@
  * the halo where both are slow instead: capture at periselene, rotate at the
  * transfer's apolune, match at one of the reference's own apolune patch points.
  *
- * **Burns are impulses here.** The capture burn is about 190 m/s, some 53 s on
- * the service module, so the flown cost will differ from the solved one by the
- * few m/s of a finite burn — the sequencer straddles its burns for exactly that
- * reason, and nothing in this gate does. What is checked is the solution and the
- * trajectory it produces, not the delivery.
+ * **Then it is flown twice.** First as impulses applied by this script, which
+ * checks the solution and the trajectory it produces but not the delivery: the
+ * capture burn alone is 53 s of service module. Then by the flight computer —
+ * planned as nodes on the approach, flown as finite burns centred on their
+ * instants, with a transfer correction and an insertion solved again against the
+ * states the craft actually reaches. Flown that way it spends 581.6 m/s against
+ * the 580.2 solved, and is 54.5 km off the reference at the first maintenance
+ * pass, which the cycle closes to 4.8 km in four revolutions.
  *
  *   node --expose-gc scripts/verify-nrho-capture.mjs [revolutions to hold]
  */
 
-import { flyMission } from './flight.mjs'
+import { flight, flyMission, frame } from './flight.mjs'
+import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import { currentPhase, resetMission } from '../src/sim/mission.js'
+import { armHaloCapture, currentPhase, mission, resetMission } from '../src/sim/mission.js'
+import { nodeMagnitude, nodes } from '../src/sim/nodes.js'
 import { INDEX } from '../src/sim/system.js'
 import { BODIES } from '../src/sim/constants.js'
 import { deltaV } from '../src/sim/ship.js'
@@ -197,6 +202,79 @@ for (const [i, k] of keeps.entries()) {
 console.log(`  ${lost ?? `${keeps.length} revolutions held`}, ${keepTotal.toFixed(3)} m/s in all`)
 
 /* ---------------------------------------------------------------- *
+ * F. The same capture, flown by the flight computer
+ * ---------------------------------------------------------------- */
+
+/**
+ * Everything above is impulses applied by this script. Here the sequencer flies
+ * it: the first two burns are planned as nodes on the approach and flown by the
+ * node phases, finite and centred on their instants, and the third is solved
+ * again at arrival from the state those two actually produced.
+ */
+resetSimulation()
+resetMission()
+refreshDerived()
+flyMission('LUNAR_APPROACH', { onPhase: () => {} })
+const armed = armHaloCapture(member, { revolutions: HOLD + 2 })
+const budgetBefore = deltaV()
+console.log('\n=== F. flown by the flight computer ===')
+console.log(
+  `  armed on the approach: ${armed.converged ? `${armed.total.toFixed(0)} m/s solved in ${(mission.capture.ms / 1000).toFixed(1)} s` : 'no solution — ' + armed.reason}`,
+)
+
+const route = []
+const passes = []
+let phase = currentPhase().id
+let sequencerLost = null
+let firstOff = Infinity
+let captured = false
+const nodeFlown = (id) => {
+  const node = nodes.find((n) => n.id === id)
+  return Boolean(node && node.executed)
+}
+const ORDER = ['capture', 'plane', 'correction', 'insertion']
+for (let i = 0; i < 8_000_000 && mission.nrho.cycles < HOLD; i++) {
+  flight.pilotWarp = mission.warpRequest !== null ? null : WARP.h6
+  frame()
+  const id = currentPhase().id
+  if (id !== phase) {
+    if (route.length < 14) route.push(id)
+    if (id === 'NRHO_STATION_KEEP' && mission.nrho.reference) {
+      relative(here)
+      if (referenceStateAt(mission.nrho.reference, live.sim.t, want)) {
+        const off = norm([here[0] - want[0], here[1] - want[1], here[2] - want[2]])
+        passes.push({ off, magnitude: mission.nrho.deltaV, converged: mission.nrho.converged })
+        if (passes.length === 1) firstOff = off
+      }
+    }
+    phase = id
+  }
+  if (id === 'LOST') {
+    sequencerLost = 'the vehicle was lost'
+    break
+  }
+  // Only once it is captured: on the approach the craft is still 190,000 km out
+  // and would trip an escape test that means nothing until it is in orbit.
+  if (captured && live.lunarRange > 200000e3) {
+    sequencerLost = 'left the lunar vicinity'
+    break
+  }
+  if (!captured) captured = nodeFlown(mission.capture.nodes.capture)
+}
+const spent = budgetBefore - deltaV()
+const planned = ORDER.map((key) => nodes.find((n) => n.id === mission.capture.nodes[key]))
+console.log(`  route: ${route.join(' -> ')}`)
+console.log(
+  `  burns: ${ORDER.map((key, i) => `${key} ${planned[i] ? nodeMagnitude(planned[i]).toFixed(1) : '-'}`).join(', ')} m/s; ${planned.filter((n) => n && n.executed).length} of 4 flown`,
+)
+console.log(`  propellant spent through the capture and ${mission.nrho.cycles} revolutions: ${spent.toFixed(1)} m/s against ${armed.converged ? armed.total.toFixed(1) : '-'} solved`)
+console.log(`  first maintenance pass ${(firstOff / 1e3).toFixed(1)} km off the reference`)
+for (const [i, pass] of passes.entries()) {
+  console.log(`    pass ${i + 1}: ${(pass.off / 1e3).toFixed(1).padStart(8)} km off, corrected ${pass.converged ? pass.magnitude.toFixed(3) + ' m/s' : 'SOLVE FAILED'}`)
+}
+console.log(`  ${sequencerLost ?? `${mission.nrho.cycles} maintenance cycles, ${mission.nrho.totalDeltaV.toFixed(3)} m/s`}`)
+
+/* ---------------------------------------------------------------- *
  * What this establishes
  * ---------------------------------------------------------------- */
 
@@ -214,6 +292,20 @@ const checks = [
   ['and within 1 m/s of its velocity', arrivalOffV < 1],
   [`it then holds the reference for ${HOLD} revolutions`, !lost && keeps.length >= HOLD && keeps.every((k) => k.converged)],
   ['never straying 100 km from it', worst < 100e3],
+  ['the flight computer plans the same capture from the approach', armed.converged],
+  ['and flies them as planned nodes, with a correction of its own', planned.every((n) => n && n.executed)],
+  [
+    'for the cost it solved plus that correction, within 5%',
+    armed.converged && Math.abs(spent - (armed.total + mission.capture.correction)) < 0.05 * armed.total,
+  ],
+  ['under 600 m/s in all', spent < 600],
+  ['arriving on the reference and entering the maintenance cycle', !sequencerLost && mission.nrho.cycles >= HOLD],
+  ['within 100 km of it at the first pass', firstOff < 100e3],
+  ['and every pass solving', passes.length > 0 && passes.every((p) => p.converged)],
+  [
+    'closing on the reference rather than drifting off it',
+    passes.length >= 4 && passes[passes.length - 1].off < passes[0].off / 5,
+  ],
 ]
 let pass = true
 for (const [label, ok] of checks) {

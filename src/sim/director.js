@@ -115,6 +115,9 @@ const SHOTS = {
   NODE_ALIGN: ['chase', 'Node attitude'],
   NODE_BURN: ['chase', 'Planned burn'],
 
+  /* The capture is a coast with three burns in it, and the burns are nodes —
+     which have their own shot, on the hull. This one watches the orbit change. */
+  HALO_CAPTURE: ['moon', 'Halo capture'],
   NRHO_COAST: ['moon', 'Halo coast'],
   NRHO_STATION_KEEP: ['chase', 'Station-keeping'],
 

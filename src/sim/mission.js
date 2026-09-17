@@ -5,12 +5,14 @@ import { INDEX } from './system.js'
 import { activeSite, clampToSite, rotationBonus } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
 import { projectPerigee, solveMidCourse, solveReturnCorridor } from './targeting.js'
-import { solveHaloKeeping } from './halo.js'
+import { referenceStateAt, solveHaloKeeping } from './halo.js'
+import { solveHaloCapture, solveHaloCorrection } from './capture.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
 import {
   addNode,
   clearNodes,
+  nodeBasis,
   nodeMagnitude,
   nodeRevision,
   nodes,
@@ -299,6 +301,24 @@ export const PROFILE = {
   nrhoLookahead: 1,
   /** Largest maintenance burn that will be executed, m/s. A sanity backstop. */
   nrhoMaxDeltaV: 20,
+  /**
+   * How long before its instant the halo insertion is solved, s.
+   *
+   * Early enough that the node exists before the sequencer has to start turning
+   * toward it — half a burn plus the slew margin, some 75 s for a 105 m/s
+   * insertion — and late enough that it is solved across a coast of minutes
+   * rather than the days the search predicted it across.
+   */
+  haloInsertionLead: 600,
+  /**
+   * How long after the plane change the transfer is re-aimed, s.
+   *
+   * Six hours: far enough ahead that the node exists long before the sequencer
+   * has to turn toward it, and early enough in the coast that the error is cheap
+   * to correct — the same miss costs roughly ten times as much to fix from one
+   * day out as from five.
+   */
+  haloCorrectionDelay: 6 * 3600,
 
   /**
    * Warp during entry, as an index.
@@ -524,6 +544,29 @@ export const mission = {
     synodicR: 0, // m, current distance from the Moon
     /** Out-of-plane excursion in the synodic frame — the halo's defining feature. */
     synodicZ: 0,
+  },
+
+  /**
+   * A capture onto a halo, planned from the lunar approach by `armHaloCapture`.
+   *
+   * The burns themselves are ordinary nodes, so the map draws them and the node
+   * phases fly them; these are the figures the search produced and the ids of
+   * the nodes it left behind.
+   */
+  capture: {
+    planned: false,
+    total: 0, // m/s, as solved
+    first: 0, // the capture at periselene
+    second: 0, // the plane change at the transfer's apolune
+    third: 0, // the insertion — replanned against the state the craft actually has
+    correction: 0, // the transfer correction, solved once the plane change has flown
+    arrival: 0, // simulation time the insertion is aimed at
+    correctionAt: 0, // and the instant the correction burns at
+    /** Node ids, in the order they fly. */
+    nodes: { capture: 0, plane: 0, correction: 0, insertion: 0 },
+    correctionPlanned: false,
+    insertionPlanned: false,
+    ms: 0, // how long the search took
   },
 
   /** Re-entry and descent. Peaks are tracked, not predicted. */
@@ -2395,10 +2438,17 @@ const PHASES = [
      * 187,000 km lunar periapsis while the craft was still 286,000 km out, and
      * a sequencer reading that would arm the capture burn three days early.
      */
-    done: () =>
-      live.insideLunarSOI &&
-      live.lunar.timeToPeriapsis > 0 &&
-      live.lunar.timeToPeriapsis <= loiIgnitionLead() + PROFILE.loiAlignMargin,
+    done() {
+      // A planned halo capture takes the approach over, because its first burn
+      // is at periselene too and LOI_ALIGN would spend the same minutes turning
+      // retrograde to fly the other capture entirely.
+      if (mission.capture.planned) return 'HALO_CAPTURE'
+      return (
+        live.insideLunarSOI &&
+        live.lunar.timeToPeriapsis > 0 &&
+        live.lunar.timeToPeriapsis <= loiIgnitionLead() + PROFILE.loiAlignMargin
+      )
+    },
     next: () => INDEX_OF.LOI_ALIGN,
   },
   {
@@ -2947,6 +2997,62 @@ const PHASES = [
     next: () => mission.resumeIndex,
   },
   {
+    id: 'HALO_CAPTURE',
+    label: 'Halo capture',
+    /**
+     * The coast the capture's burns fall in.
+     *
+     * The burns are nodes, flown by `NODE_ALIGN` and `NODE_BURN` like any other
+     * planned manoeuvre. Those already centre a burn on its instant, resolve its
+     * direction against the body whose sphere it happens in, cut off on
+     * delivered delta-v rather than on a stopwatch, keep the frame's step from
+     * carrying the clock past the turn, and draw the burn on the map. Three
+     * bespoke phases would be a second copy of all of that, and the first thing
+     * to drift out of step with it.
+     *
+     * What is left for this phase is to wait for them, to solve the last burn
+     * against the state the craft actually arrives with rather than the one the
+     * search predicted days earlier, and to hand over to the maintenance cycle
+     * once it has flown.
+     */
+    enter() {
+      ship.throttle = 0
+    },
+    control() {
+      aimLunarPrograde()
+      const cap = mission.capture
+      // The correction is planned the moment the burn it corrects has flown,
+      // six hours ahead of its own instant. Planning it on a clock instead put
+      // it barely ten minutes out, and a frame at 6 h/s — whose step is fixed
+      // before the sequencer runs, so the ceiling could not know a node had
+      // appeared inside it — stepped straight past it. It was never flown, and
+      // the craft arrived 939 km off the reference with the error intact.
+      const plane = nodeById(cap.nodes.plane)
+      if (!cap.correctionPlanned && plane && plane.executed) planHaloCorrection()
+      if (!cap.insertionPlanned && live.sim.t >= cap.arrival - PROFILE.haloInsertionLead) planHaloInsertion()
+      const node = pendingNode(live.sim.t)
+      const togo = (node ? alignmentStart(node) : cap.arrival) - live.sim.t
+      mission.warpRequest = togo > 7200 ? WARP.h6 : togo > 900 ? WARP.h1 : WARP.m1
+    },
+    /**
+     * Done when the insertion has flown, or when its instant has passed without
+     * one — which leaves the craft in whatever orbit the first two burns made,
+     * and the cycle's own solve to report that it is not on the reference. The
+     * alternative is a phase that never completes.
+     */
+    done() {
+      const cap = mission.capture
+      if (!cap.insertionPlanned) return false
+      const node = nodeById(cap.nodes.insertion)
+      if (node && !node.executed) return false
+      if (!node && live.sim.t < cap.arrival) return false
+      // The cycle counts from here, and its apolune search needs two samples
+      // before it can call one.
+      beginHaloTracking()
+      return 'NRHO_COAST'
+    },
+  },
+  {
     id: 'NRHO_COAST',
     label: 'NRHO coast',
     enter() {
@@ -3175,24 +3281,149 @@ export const isClamped = () => Boolean(PHASES[mission.index].clamped)
  * so the ascent is unchanged. The driver clamps the step regardless — that is
  * the structural guarantee; this only stops the situation arising.
  */
+/** A node by id, without the closure `find` would allocate on a per-frame path. */
+function nodeById(id) {
+  for (let i = 0; i < nodes.length; i++) if (nodes[i].id === id) return nodes[i]
+  return null
+}
+
+const _capP = new Vector3()
+const _capN = new Vector3()
+const _capO = new Vector3()
+const _capDv = new Vector3()
+const _capRef = new Float64Array(6)
+
 /**
- * Enter the halo-maintenance cycle.
+ * The components a world impulse has in the frame a node is written in, at the
+ * state it will be flown from.
  *
- * Separate from the linear mission for now: nothing flies the vehicle onto a
- * halo from lunar approach yet, so the caller places it on `reference` — a
- * real-field halo from `shootHalo` — and each maintenance pass holds it there.
- * Without a reference the pair still cycles and solves nothing. Called from a
- * test, never automatically.
+ * Against the body whose sphere of influence that state is in, because that is
+ * the rule `solveNodeBurn` resolves by — write the node in one frame and have it
+ * flown in another and the burn points somewhere else entirely.
  */
-export function enterNrhoCycle(reference = null) {
-  setPhase(INDEX_OF.NRHO_COAST)
+function nodeComponents(state, dv) {
+  const body = dominantBody({ state }, 'ship')
+  if (!nodeBasis(state, INDEX.ship * 6, INDEX[body] * 6, _capP, _capN, _capO)) return null
+  _capDv.set(dv[0], dv[1], dv[2])
+  return { prograde: _capDv.dot(_capP), normal: _capDv.dot(_capN), radial: _capDv.dot(_capO) }
+}
+
+/**
+ * Plan a capture onto a halo from the approach the craft is on.
+ *
+ * Called with a CR3BP family member while the vehicle is still coasting to the
+ * Moon; the search costs about 19 s, and the approach it plans from has hours in
+ * hand. Measured on Apollo 8's own arrival from Kennedy: 580 m/s, as 191 at
+ * periselene, 283 at the transfer's apolune and 105 at the halo's, against the
+ * 819 m/s the capture into low lunar orbit spends. See `sim/capture.js` for why
+ * it takes three burns rather than one.
+ *
+ * Only the first two are planned here. The transfer correction and the insertion
+ * are solved later, against the states the craft actually has rather than the
+ * ones a search days earlier predicted — see `planHaloCorrection` and
+ * `planHaloInsertion`.
+ */
+export function armHaloCapture(member, options = {}) {
+  const cap = mission.capture
+  const started = Date.now()
+  const solution = solveHaloCapture(live.sim, member, options)
+  cap.ms = Date.now() - started
+  cap.planned = false
+  cap.correctionPlanned = false
+  cap.insertionPlanned = false
+  if (!solution.converged) return solution
+  for (let i = 0; i < 2; i++) {
+    const burn = solution.burns[i]
+    const components = nodeComponents(burn.at, burn.dv)
+    if (!components) return { converged: false, reason: 'the node frame is degenerate at a burn', tried: solution.tried }
+    cap.nodes[i === 0 ? 'capture' : 'plane'] = addNode(burn.t, components).id
+  }
+  mission.nrho.reference = solution.reference
+  cap.first = solution.burns[0].magnitude
+  cap.second = solution.burns[1].magnitude
+  cap.third = solution.burns[2].magnitude
+  cap.arrival = solution.burns[2].t
+  cap.correctionAt = solution.burns[1].t + PROFILE.haloCorrectionDelay
+  cap.correction = 0
+  cap.total = solution.total
+  cap.planned = true
+  return solution
+}
+
+/**
+ * Re-aim the transfer once the plane change has been flown.
+ *
+ * See `solveHaloCorrection`: the burns are finite and the coast that follows
+ * them is long, so the arrival the search solved is not the one the craft is on.
+ */
+function planHaloCorrection() {
+  const cap = mission.capture
+  // One attempt, like the insertion: a second would be solved too late to fly.
+  cap.correctionPlanned = true
+  const reference = mission.nrho.reference
+  if (!reference) return
+  const solved = solveHaloCorrection(live.sim, reference, cap.correctionAt)
+  if (!solved) return
+  const magnitude = Math.hypot(solved.dv[0], solved.dv[1], solved.dv[2])
+  if (!(magnitude > 0)) return
+  const components = nodeComponents(solved.at, solved.dv)
+  if (!components) return
+  cap.nodes.correction = addNode(cap.correctionAt, components).id
+  cap.correction = magnitude
+}
+
+/**
+ * Plan the burn that puts the craft on the reference at the arrival instant.
+ *
+ * The search solved this one days ahead, against a trajectory two finite burns
+ * had not yet been flown along. This solves it again from what the craft will
+ * actually have — the same velocity difference, taken against a coast of
+ * minutes — and plans it as a node so the same machinery flies it.
+ */
+function planHaloInsertion() {
+  const cap = mission.capture
+  // One attempt: a second would be planned too late to turn toward.
+  cap.insertionPlanned = true
+  const reference = mission.nrho.reference
+  if (!reference || !referenceStateAt(reference, cap.arrival, _capRef)) return
+  const at = coastToNode(cap.arrival)
+  const o = INDEX.ship * 6
+  const m = INDEX.moon * 6
+  _capDv.set(
+    _capRef[3] - (at.state[o + 3] - at.state[m + 3]),
+    _capRef[4] - (at.state[o + 4] - at.state[m + 4]),
+    _capRef[5] - (at.state[o + 5] - at.state[m + 5]),
+  )
+  const magnitude = _capDv.length()
+  if (!(magnitude > 0)) return
+  const components = nodeComponents(at.state, [_capDv.x, _capDv.y, _capDv.z])
+  if (!components) return
+  cap.nodes.insertion = addNode(cap.arrival, components).id
+  cap.third = magnitude
+}
+
+/** Start the maintenance cycle's counters and its apolune search. */
+function beginHaloTracking() {
   const nr = mission.nrho
   nr.cycles = 0
   nr.totalDeltaV = 0
   nr.prevRange = live.lunarRange
   nr.prevPrevRange = live.lunarRange
   nr.atApolune = false
-  nr.reference = reference
+}
+
+/**
+ * Enter the halo-maintenance cycle.
+ *
+ * The linear mission reaches it through `HALO_CAPTURE`, which arrives on a
+ * reference and hands over. Called directly — from a test, or to establish the
+ * cycle around a craft placed on an orbit — it takes the reference to hold, and
+ * without one the pair still cycles and solves nothing.
+ */
+export function enterNrhoCycle(reference = null) {
+  setPhase(INDEX_OF.NRHO_COAST)
+  beginHaloTracking()
+  mission.nrho.reference = reference
   return true
 }
 
@@ -3226,6 +3457,9 @@ export function resetMission() {
   mission.ei.magnitude = 0
   // Tied to absolute epochs, like the flight plan.
   mission.nrho.reference = null
+  mission.capture.planned = false
+  mission.capture.correctionPlanned = false
+  mission.capture.insertionPlanned = false
   mission.entry.peakG = 0
   mission.entry.peakQ = 0
   mission.entry.peakHeatFlux = 0

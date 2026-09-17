@@ -39,10 +39,13 @@ import { shootHalo } from './halo.js'
  * seed: at these radii the Earth's pull is comparable to the Moon's, and the
  * correction is hundreds of m/s.
  *
- * Measured from Apollo 8's arrival at Kennedy's reference launch: 586 m/s, as
- * 192 + 282 + 112, against 819 m/s for the capture into low lunar orbit this
- * replaces. Transfers of 4-6 days converge; at 8.5 days the two-body seed is too
- * poor and the solve misses by 20,000-50,000 km.
+ * Searched from Apollo 8's arrival at Kennedy's reference launch: 580 m/s, as
+ * 191 + 283 + 105, against 819 m/s for the capture into low lunar orbit this
+ * replaces. A wider search found transfers of 4-6 days converge, and that at 8.5
+ * days the two-body seed is too poor and the solve misses by 20,000-50,000 km.
+ *
+ * Flown rather than applied, the burns are finite and the plan drifts; see
+ * `solveHaloCorrection` for the burn that puts it back.
  *
  * A one-shot solver in the architecture's sense, and an expensive one: each cell
  * of the search shoots its own reference.
@@ -382,8 +385,16 @@ export function solveHaloCapture(
             ...cell,
             reference,
             burns: [
-              { t: peri.t, dv: along.map((c) => -first * c), magnitude: first, label: 'capture' },
-              { t: apoT, dv: [...second.dv], magnitude: norm(second.dv), label: 'plane' },
+              {
+                t: peri.t,
+                dv: along.map((c) => -first * c),
+                magnitude: first,
+                label: 'capture',
+                // The state the burn is made from, so a caller can build the
+                // frame a planned node is written in at that instant.
+                at: Float64Array.from(peri.state),
+              },
+              { t: apoT, dv: [...second.dv], magnitude: norm(second.dv), label: 'plane', at: Float64Array.from(transfer) },
               { t: arriveAt, dv: third, magnitude: norm(third), label: 'insertion' },
             ],
           }
@@ -393,4 +404,30 @@ export function solveHaloCapture(
   }
   if (!best) return { converged: false, reason: 'no cell converged', tried }
   return { converged: true, ...best, tried }
+}
+
+/**
+ * Re-aim the transfer at the patch point, from where the craft actually is.
+ *
+ * The capture is solved against impulses days before it is flown, and the burns
+ * that fly it are not impulses: a 283 m/s plane change is some 79 s of service
+ * module, and a couple of m/s delivered off the solution is 475 km by the time
+ * the craft reaches the patch point, five days on. Flown without this the craft
+ * arrived 939 km out — close enough to look captured, far enough that the
+ * station-keeping law, which exists to spend centimetres a second, could not
+ * solve at all.
+ *
+ * So the same Newton runs again over the coast that is left, from the state the
+ * craft has rather than the one the search predicted. Solving at `burnAt` rather
+ * than now leaves the sequencer time to turn toward it.
+ */
+export function solveHaloCorrection(sim, reference, burnAt, { probe = 1e-3, step = 30, tolerance = 50, patch = 0 } = {}) {
+  const sc = scratchFor(sim)
+  const packed = pack(sim, new Float64Array(24))
+  const arrival = reference.epochs[patch]
+  if (!(burnAt > sim.t) || !(arrival > burnAt)) return null
+  const at = fly(sc, packed, sim.t, burnAt, step, new Float64Array(24))
+  const target = [reference.states[6 * patch], reference.states[6 * patch + 1], reference.states[6 * patch + 2]]
+  const solved = aimAt(sc, at, burnAt, arrival, target, [0, 0, 0], { probe, step, tolerance })
+  return { ...solved, at, burnAt, arrival }
 }
