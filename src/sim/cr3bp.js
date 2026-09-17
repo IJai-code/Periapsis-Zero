@@ -803,3 +803,28 @@ export function insertMember(state, member, shipOffset, { separation = null } = 
   state[shipOffset + 5] = craftV.z
   return { separation: sep, velocityUnit: vu }
 }
+
+/**
+ * The near-rectilinear halo this simulation holds, and captures onto.
+ *
+ * The L2 southern family continued from a near-polar lunar seed down to 2,200 km
+ * of perilune, and the member whose period is nearest the 9:2 synodic resonance,
+ * 6.562 days — the orbit planned for the Gateway. The same recipe, number for
+ * number, the NRHO gates each use. About 2.5 s of continuation, so a page asks a
+ * worker for it rather than blocking on it.
+ */
+export function nrhoGatewayMember() {
+  const L = 384400e3
+  const TU_DAYS = 27.321661 / (2 * Math.PI)
+  const PERIOD_DAYS = (2 * 29.530589) / 9
+  const seed = correctPeriodicOrbit(nrhoSeed(5237e3 / L, 70000e3 / L), { pin: 'z', maxIter: 60, damping: 0.5 })
+  const { members } = continueFamily(
+    { x: seed.x, z: seed.z, vy: seed.vy },
+    { target: 2200e3 / L, steps: 400, ds: 3e-4, dsMax: 2e-3 },
+  )
+  let best = members[0]
+  for (const m of members) {
+    if (Math.abs(m.period * TU_DAYS - PERIOD_DAYS) < Math.abs(best.period * TU_DAYS - PERIOD_DAYS)) best = m
+  }
+  return best
+}

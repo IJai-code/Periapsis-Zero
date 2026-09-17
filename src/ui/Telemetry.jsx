@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { live } from '../sim/live.js'
-import { AU } from '../sim/constants.js'
+import { AU, SHIP } from '../sim/constants.js'
 
 const km = (m) => (m / 1e3).toLocaleString('en-US', { maximumFractionDigits: 0 })
 const kms = (v) => (v / 1e3).toFixed(3)
@@ -30,8 +30,14 @@ const FIELDS = [
   { key: 'moonV', label: 'Luna rel. velocity', get: () => `${kms(live.metric.moonSpeed)} km/s` },
 ]
 
-/** Body ids as the HUD names them, for the nearest-surface row. */
-const DISPLAY_NAME = { sun: 'Sol', earth: 'Terra', moon: 'Luna', ship: 'Artemis', iss: 'ISS', hubble: 'Hubble' }
+/**
+ * Body ids as the HUD names them, for the nearest-surface row.
+ *
+ * The ship is whichever vessel the page loaded. This read "Artemis" from when it
+ * was the only one, and went on saying so over Apollo 8 — the vehicle every page
+ * flew until the address could choose.
+ */
+const DISPLAY_NAME = { sun: 'Sol', earth: 'Terra', moon: 'Luna', ship: SHIP.name, iss: 'ISS', hubble: 'Hubble' }
 
 const DIAGNOSTICS = [
   {

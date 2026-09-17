@@ -10,11 +10,14 @@
  * the craft and the epoch. Progress is posted after every cell.
  */
 import { solveHaloCapture } from '../capture.js'
+import { nrhoGatewayMember } from '../cr3bp.js'
 
 self.onmessage = (event) => {
   const { id, sim, member, options } = event.data
   try {
-    const solution = solveHaloCapture(sim, member, {
+    // No member sent means the Gateway's orbit, found here: its 2.5 s of
+    // continuation would block the page just as the search would.
+    const solution = solveHaloCapture(sim, member ?? nrhoGatewayMember(), {
       ...options,
       onCell: (done, total) => self.postMessage({ id, type: 'progress', done, total }),
     })

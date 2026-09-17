@@ -82,8 +82,14 @@ export function Driver() {
   // Arm the sequencer once. Without this the opening phase's enter() never
   // runs, so the autopilot is never engaged and the vehicle would leave the pad
   // under manual RCS with nobody at the controls.
+  //
+  // Only a mission that has not started, though. A preset flies the mission
+  // before this component mounts — the driver waits for the assets — and
+  // resetting that one put the sequencer back on the pad, whose clamp pulled a
+  // vehicle 240 hours out on its way to the Moon back onto Kennedy, and threw
+  // away the capture search it had started.
   useEffect(() => {
-    resetMission()
+    if (!mission.running) resetMission()
   }, [])
 
   // Dev-only inspection handle. Exposes the modules' *own* instances — a

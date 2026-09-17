@@ -7,6 +7,7 @@ import { Landing } from './ui/Landing.jsx'
 import { useAssets } from './gfx/useAssets.js'
 import { releaseDirector, resumeDirector } from './sim/director.js'
 import { setUi } from './sim/store.js'
+import { requestedPreset, startPreset } from './sim/presets.js'
 
 /**
  * Which half of the product is on screen, from the URL.
@@ -45,6 +46,18 @@ export default function App() {
       setUi({ focus: 'cinematic', paused: false })
     }
   }, [flight])
+
+  /**
+   * A preset in the address is flown now, before the frame loop mounts: the store
+   * opens paused and the driver waits for the assets, so nothing else has touched
+   * the simulation yet. Then the dial is handed over and the flight plays.
+   */
+  useEffect(() => {
+    const preset = requestedPreset()
+    if (!preset) return
+    const run = startPreset(preset)
+    setUi({ warp: run.warp, paused: false })
+  }, [])
 
   const enter = useCallback(() => {
     window.location.hash = FLIGHT

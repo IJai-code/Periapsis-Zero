@@ -8,6 +8,8 @@ import { Toggles } from './Toggles.jsx'
 import { ModelSelector } from './ModelSelector.jsx'
 import { ShipTelemetry } from './ShipTelemetry.jsx'
 import { NodePanel } from './NodePanel.jsx'
+import { Presets } from './Presets.jsx'
+import { CaptureStatus } from './CaptureStatus.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
@@ -120,6 +122,7 @@ export function Hud() {
           <div className="pointer-events-auto flex flex-col gap-3">
             <FocusMenu />
             {/* Setting the flight up, not flying it: out of the way on the map. */}
+            {!map && <Presets />}
             {!map && <LaunchSite />}
             {!map && <ModelSelector />}
             <Toggles />
@@ -132,6 +135,7 @@ export function Hud() {
           <div className="flex flex-col gap-3">
             {/* Above the instruments on purpose: telemetry is ambient, the
                 manoeuvre panel is whatever the pilot is doing right now. */}
+            <CaptureStatus />
             <NodePanel />
             <Telemetry />
             {!map && <ShipTelemetry />}

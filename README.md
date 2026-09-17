@@ -341,6 +341,39 @@ Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing
 angle survive the body moving underneath you.
 
+## Missions
+
+The HUD's Missions panel jumps into three flights, and none of them is a saved
+state. Each is a link — `?preset=…&vessel=…&site=…#flight` — because the vessel
+and the pad are fixed when the page loads. On load, before the frame loop mounts,
+the flight computer flies the real mission from the pad to the preset's starting
+point, then hands the dial back and plays:
+
+| preset | starts in | flown headlessly in |
+| --- | --- | --- |
+| Apollo 8 · lunar orbit | `LOI_ALIGN` at MET 348.7 h, turning for the capture burn, periselene 2.6 min out | 287 ms |
+| Artemis · halo capture | `LUNAR_APPROACH` at MET 243.0 h, then solves the four-burn capture in the worker | 202 ms |
+| Vandenberg · polar loiter | `TLI_ALIGN` at MET 0.9 h, the 2.63 and 6.51 m/s raise burns 7 and 51 min out | 82 ms |
+
+The frame loop lives in `sim/fastForward.js` for this, and `scripts/flight.mjs`
+re-exports it, so a preset flies exactly the code every figure in this document
+was measured with. Moved, the harness still reaches lunar approach at MET
+244.062 h in 43,768 frames.
+
+Wiring it in exposed two things. The driver armed the sequencer on mount with
+`resetMission()`, and it mounts only once the assets are ready — after a preset
+has flown — so that reset put a vehicle 240 hours out back on its pad and threw
+away the capture search it had started. It resets only a mission that has not
+started now. And the nearest-surface readout had named the ship "Artemis" since
+Artemis was the only vessel, over Apollo 8, on every page.
+
+The Halo capture panel reads `mission.capture` on the HUD's clock: the search's
+progress while the worker runs, then the burns it planned and which have flown.
+In the production build the Artemis preset fetches `capture.worker`, plans 586
+m/s — 193.7 and 284.2 m/s now, the correction and insertion solved later against
+the states the craft reaches — and flies on toward the capture burn at the
+sequencer's own warp.
+
 ## Flight planning
 
 The cyan line is where the craft goes if nothing is commanded; the amber one is

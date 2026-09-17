@@ -1,4 +1,5 @@
 import { solveHaloCapture } from './capture.js'
+import { nrhoGatewayMember } from './cr3bp.js'
 
 /**
  * Run the halo capture search in a worker, from the page.
@@ -9,7 +10,8 @@ import { solveHaloCapture } from './capture.js'
  * it got.
  *
  * Only data crosses to the worker: a copy of the state, the family member, and
- * the numeric options. A caller's `shoot` override is a function and cannot be
+ * the numeric options. A null member asks for the Gateway's orbit, built on
+ * whichever side of the call the search runs. A caller's `shoot` override is a function and cannot be
  * sent, so the worker always shoots with `shootHalo`.
  */
 
@@ -25,7 +27,7 @@ export function solveHaloCaptureInWorker(sim, member, options = {}, onProgress =
 
   if (typeof Worker === 'undefined') {
     try {
-      return Promise.resolve(solveHaloCapture(snapshot, member, { ...options, onCell }))
+      return Promise.resolve(solveHaloCapture(snapshot, member ?? nrhoGatewayMember(), { ...options, onCell }))
     } catch (error) {
       return Promise.reject(error)
     }
