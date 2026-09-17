@@ -1589,8 +1589,21 @@ HALO_CAPTURE -> (NODE_ALIGN -> NODE_BURN -> HALO_CAPTURE) x4 -> NRHO_COAST
 at **191.4 + 283.5 + 0.8 + 105.3 m/s**, which costs 581.6 m/s of propellant
 against the 580.2 m/s solved. The craft reaches its first maintenance pass 54.5
 km from the reference, and the cycle closes that to 19.8, 5.9 and 4.8 km over the
-next three, for 0.386 m/s in all — 0.097 m/s a revolution, inside the 0.1–1 m/s a
-real NRHO plan budgets.
+next three, for 0.386 m/s in all — 0.097 m/s a revolution. That is just under the
+0.1–1 m/s a real NRHO plan budgets, and it is not the same quantity: nothing in
+this flight has navigation error, so almost all of it is the arrival error being
+cleaned up, 0.224 m/s on the first pass and 0.029 by the fourth.
+
+In a page the search runs in a worker, through `armHaloCaptureInBackground`,
+because on the main thread it is some fifteen seconds in which nothing draws.
+Measured in the dev server from the same flown approach, it takes fifteen seconds
+either way; the page's main thread stalled for 52 ms at worst with the worker and
+for 14,998 ms without, and both found 579.5673572490836 m/s, which Node finds too.
+The flight carries on while the search runs, so a solution is checked before it
+is planned: one that arrives after the vehicle has burned, or after the capture
+burn's turn has begun, is refused, and a reset makes it nobody's.
+`mission.capture.solving`, `progress` and `error` are the loading state a page
+shows while it waits.
 
 ### Not yet
 

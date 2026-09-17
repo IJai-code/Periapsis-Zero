@@ -32,7 +32,7 @@
 import { flight, flyMission, frame } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import { armHaloCapture, currentPhase, mission, resetMission } from '../src/sim/mission.js'
+import { armHaloCaptureInBackground, currentPhase, mission, resetMission } from '../src/sim/mission.js'
 import { nodeMagnitude, nodes } from '../src/sim/nodes.js'
 import { INDEX } from '../src/sim/system.js'
 import { BODIES } from '../src/sim/constants.js'
@@ -215,7 +215,11 @@ resetSimulation()
 resetMission()
 refreshDerived()
 flyMission('LUNAR_APPROACH', { onPhase: () => {} })
-const armed = armHaloCapture(member, { revolutions: HOLD + 2 })
+// The page's own entry point. Under Node there is no Worker, so it solves in
+// place and resolves at once, but through the same staleness checks and the same
+// loading-state bookkeeping the page reads.
+const armed = await armHaloCaptureInBackground(member, { revolutions: HOLD + 2 })
+const loadingSettled = !mission.capture.solving && mission.capture.progress === 1 && mission.capture.error === ''
 const budgetBefore = deltaV()
 console.log('\n=== F. flown by the flight computer ===')
 console.log(
@@ -293,6 +297,7 @@ const checks = [
   [`it then holds the reference for ${HOLD} revolutions`, !lost && keeps.length >= HOLD && keeps.every((k) => k.converged)],
   ['never straying 100 km from it', worst < 100e3],
   ['the flight computer plans the same capture from the approach', armed.converged],
+  ["through the page's background entry point, its loading state settling", loadingSettled],
   ['and flies them as planned nodes, with a correction of its own', planned.every((n) => n && n.executed)],
   [
     'for the cost it solved plus that correction, within 5%',
@@ -302,10 +307,11 @@ const checks = [
   ['arriving on the reference and entering the maintenance cycle', !sequencerLost && mission.nrho.cycles >= HOLD],
   ['within 100 km of it at the first pass', firstOff < 100e3],
   ['and every pass solving', passes.length > 0 && passes.every((p) => p.converged)],
-  [
-    'closing on the reference rather than drifting off it',
-    passes.length >= 4 && passes[passes.length - 1].off < passes[0].off / 5,
-  ],
+  // Not "converging to zero": the law settles a few km from the reference, 4.8 km
+  // for Apollo 8 and 3.5-4.0 for Artemis, which arrives closer and so levels off
+  // sooner. A ratio of first pass to last failed Artemis for arriving well.
+  ['within 10 km of the reference by the last pass', passes.length >= 4 && passes[passes.length - 1].off < 10e3],
+  ['and never further from it than at the first', passes.length > 0 && passes.every((p) => p.off <= passes[0].off)],
 ]
 let pass = true
 for (const [label, ok] of checks) {

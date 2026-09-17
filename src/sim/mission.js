@@ -7,6 +7,7 @@ import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
 import { projectPerigee, solveMidCourse, solveReturnCorridor } from './targeting.js'
 import { referenceStateAt, solveHaloKeeping } from './halo.js'
 import { solveHaloCapture, solveHaloCorrection } from './capture.js'
+import { solveHaloCaptureInWorker } from './captureWorker.js'
 import { craftR, craftSynodic, synodic } from './cr3bp.js'
 import { WARP } from './warp.js'
 import {
@@ -567,6 +568,11 @@ export const mission = {
     correctionPlanned: false,
     insertionPlanned: false,
     ms: 0, // how long the search took
+    /** The loading state of a search running in the background — see `armHaloCaptureInBackground`. */
+    solving: false,
+    progress: 0, // 0..1 of the cells the search will try
+    error: '', // why the last search planned nothing, if it did not
+    request: 0, // the search the flight is waiting on; a reset forgets it
   },
 
   /** Re-entry and descent. Peaks are tracked, not predicted. */
@@ -3322,12 +3328,77 @@ function nodeComponents(state, dv) {
  * are solved later, against the states the craft actually has rather than the
  * ones a search days earlier predicted — see `planHaloCorrection` and
  * `planHaloInsertion`.
+ *
+ * Synchronous, for the harness and the gates. A page wants
+ * `armHaloCaptureInBackground`, which runs the same search in a worker.
  */
 export function armHaloCapture(member, options = {}) {
-  const cap = mission.capture
   const started = Date.now()
   const solution = solveHaloCapture(live.sim, member, options)
-  cap.ms = Date.now() - started
+  mission.capture.ms = Date.now() - started
+  return applyHaloCapture(solution)
+}
+
+let _captureRequests = 0
+
+/**
+ * Arm the same capture with the search in a worker, so the page keeps drawing.
+ *
+ * On the main thread the search is some 19 s of a page that neither renders nor
+ * answers. Off it the flight carries on while the search runs, and that is the
+ * risk: the solution is for the state the craft had when it was asked for. A
+ * burn flown in the meantime, or a capture burn whose turn has already begun,
+ * makes it a plan for a flight that is no longer happening, so both are checked
+ * before anything is planned. A reset or a newer request makes it nobody's.
+ *
+ * `mission.capture.solving`, `progress` and `error` are the loading state.
+ */
+export function armHaloCaptureInBackground(member, options = {}) {
+  const cap = mission.capture
+  const request = ++_captureRequests
+  const mass = totalMass()
+  const started = Date.now()
+  cap.request = request
+  cap.solving = true
+  cap.progress = 0
+  cap.error = ''
+  cap.planned = false
+  const current = () => cap.request === request
+  const refuse = (reason) => {
+    cap.error = reason
+    return { converged: false, reason, tried: [] }
+  }
+  return solveHaloCaptureInWorker(live.sim, member, options, (fraction) => {
+    if (current()) cap.progress = fraction
+  }).then(
+    (solution) => {
+      if (!current()) return { converged: false, reason: 'superseded by a reset or a newer request', tried: [] }
+      cap.solving = false
+      cap.ms = Date.now() - started
+      // Exact, because the mass moves only when propellant does.
+      if (totalMass() !== mass) return refuse('the vehicle burned while the capture was being solved')
+      if (solution.converged) {
+        const first = solution.burns[0]
+        const turn = first.t - burnTimeFor(first.magnitude) * 0.5 - PROFILE.nodeAlignMargin
+        if (!(turn > live.sim.t)) return refuse('the capture burn came due while it was being solved')
+      }
+      const applied = applyHaloCapture(solution)
+      if (!applied.converged) cap.error = applied.reason ?? 'no capture found'
+      return applied
+    },
+    (error) => {
+      if (current()) {
+        cap.solving = false
+        cap.error = error.message
+      }
+      return { converged: false, reason: error.message, tried: [] }
+    },
+  )
+}
+
+/** Put a solved capture into the flight plan: its first two burns as nodes, and the reference to hold. */
+function applyHaloCapture(solution) {
+  const cap = mission.capture
   cap.planned = false
   cap.correctionPlanned = false
   cap.insertionPlanned = false
@@ -3460,6 +3531,11 @@ export function resetMission() {
   mission.capture.planned = false
   mission.capture.correctionPlanned = false
   mission.capture.insertionPlanned = false
+  // A search still running belongs to the flight this reset just ended.
+  mission.capture.request = 0
+  mission.capture.solving = false
+  mission.capture.progress = 0
+  mission.capture.error = ''
   mission.entry.peakG = 0
   mission.entry.peakQ = 0
   mission.entry.peakHeatFlux = 0

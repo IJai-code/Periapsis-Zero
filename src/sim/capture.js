@@ -288,8 +288,16 @@ export function solveHaloCapture(
     probe = 1e-2,
     tolerance = 50,
     shoot = shootHalo,
+    /** Called after every cell as `(done, total)`, for a caller showing progress. */
+    onCell = null,
   } = {},
 ) {
+  const total = apolunes.length * mirrors.length * transfers.length
+  let done = 0
+  const report = (cells) => {
+    done += cells
+    if (onCell) onCell(done, total)
+  }
   const sc = scratchFor(sim)
   const peri = nextPeriselene(sim, { step })
   if (!peri) return { converged: false, reason: 'no periselene ahead', tried: [] }
@@ -313,7 +321,10 @@ export function solveHaloCapture(
     const a = (rPeri + target) / 2
     const want = Math.sqrt(MU_MOON * (2 / rPeri - 1 / a))
     const first = speed - want
-    if (!(first > 0)) continue
+    if (!(first > 0)) {
+      report(mirrors.length * transfers.length)
+      continue
+    }
     scratch.set(peri.state)
     for (let i = 0; i < 3; i++) scratch[SHIP + 3 + i] -= first * along[i]
 
@@ -333,7 +344,10 @@ export function solveHaloCapture(
       prevPrev = prev
       prev = r
     }
-    if (!apoT) continue
+    if (!apoT) {
+      report(mirrors.length * transfers.length)
+      continue
+    }
     fly(sc, scratch, peri.t, apoT, step, transfer)
     const apo = selenocentric(transfer, new Float64Array(6))
     const rA = [apo[0], apo[1], apo[2]]
@@ -361,7 +375,10 @@ export function solveHaloCapture(
           const dv = [0, 1, 2].map((i) => arc.v1[i] - vA[i])
           if (!seed || norm(dv) < norm(seed)) seed = dv
         }
-        if (!seed) continue
+        if (!seed) {
+          report(1)
+          continue
+        }
         const second = aimAt(sc, transfer, apoT, arriveAt, targetR, seed, { probe, step, tolerance })
 
         // Burn three: whatever velocity the reference has there that the craft does not.
@@ -380,6 +397,7 @@ export function solveHaloCapture(
           converged: second.miss < 5e3,
         }
         tried.push(cell)
+        report(1)
         if (cell.converged && (!best || cell.total < best.total)) {
           best = {
             ...cell,
