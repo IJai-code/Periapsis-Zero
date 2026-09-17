@@ -49,6 +49,38 @@ function pruneUnusedModels() {
 }
 
 /**
+ * The Draco decoders, kept present without being kept in the repository.
+ *
+ * Nearly half the model catalogue is `KHR_draco_mesh_compression`, and
+ * `public/draco` is gitignored — so a clone that has not run `models:scan`, and
+ * any machine building this from a fresh checkout, silently loads no compressed
+ * mesh at all. The files are 1.0 MB and already on disk inside three, at the
+ * version three expects, so the honest fix is to take them from there whenever
+ * they are missing rather than to commit a second copy or reach for a CDN.
+ *
+ * Only when missing: `models:scan` still owns the copy, and this does not
+ * overwrite what it put there.
+ */
+function provideDraco() {
+  const from = path.resolve('node_modules/three/examples/jsm/libs/draco')
+  const to = path.resolve('public/draco')
+  const NEEDED = ['draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrapper.js']
+  return {
+    name: 'periapsis:provide-draco',
+    buildStart() {
+      if (!fs.existsSync(from)) return
+      const missing = NEEDED.filter((f) => !fs.existsSync(path.join(to, f)))
+      if (missing.length === 0) return
+      fs.mkdirSync(to, { recursive: true })
+      for (const f of missing) {
+        if (fs.existsSync(path.join(from, f))) fs.copyFileSync(path.join(from, f), path.join(to, f))
+      }
+      this.info(`copied ${missing.length} Draco decoder files out of three into public/draco`)
+    },
+  }
+}
+
+/**
  * A stamp the running page can be asked for.
  *
  * Vite's dependency pre-bundle lives in `node_modules/.vite` and outlives the
@@ -91,7 +123,21 @@ function stampModules() {
   }
 }
 
+/**
+ * Where the site is served from.
+ *
+ * Every asset the app fetches at runtime — models, textures, the Draco decoders
+ * — is already built on `import.meta.env.BASE_URL`, so the whole of it follows
+ * this one value. GitHub Pages serves a project site under the repository name,
+ * so a deployment sets `PERIAPSIS_BASE=/periapsis-zero/`; a user site or a
+ * custom domain leaves it alone. Taken from the environment rather than written
+ * here so that `npm run dev` stays at the root, where a link to
+ * `localhost:5173` still works.
+ */
+const base = process.env.PERIAPSIS_BASE || '/'
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), pruneUnusedModels(), stampModules()],
+  base,
+  plugins: [react(), tailwindcss(), provideDraco(), pruneUnusedModels(), stampModules()],
   server: { port: 5173, host: true },
 })

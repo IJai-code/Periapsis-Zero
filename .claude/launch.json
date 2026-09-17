@@ -22,6 +22,21 @@
         "--strictPort"
       ],
       "port": 4173
+    },
+    {
+      "name": "periapsis-zero-pages",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "4174",
+        "--strictPort",
+        "--base",
+        "/periapsis-zero/"
+      ],
+      "port": 4174
     }
   ]
 }

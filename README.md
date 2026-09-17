@@ -2356,3 +2356,35 @@ The swap cannot disturb the integrator. Loading is async and off the render
 loop, and the physics driver clamps its frame delta to 1/20s, so even a stalled
 frame during GPU upload advances the simulation by a bounded amount rather than
 teleporting the planets.
+
+## Deploying it
+
+`.github/workflows/deploy.yml` runs the gates, builds, and publishes to GitHub
+Pages on a push to `main` or `master`. It is written and not yet wired to
+anything: there is no remote on this repository, so nothing happens until one
+exists.
+
+Two things about a static host this one has to answer.
+
+**The site does not live at the root.** Pages serves a project under the
+repository's own name, so the build takes its base path from
+`PERIAPSIS_BASE`, which the workflow derives from `$GITHUB_REPOSITORY` rather
+than writing down — a rename moves the site and the build follows. Every asset
+the app fetches at runtime already goes through `import.meta.env.BASE_URL`, so
+one value covers the models, the textures and the Draco decoders alike. Checked
+rather than assumed: built with `PERIAPSIS_BASE=/periapsis-zero/`, served from
+that path and flown, every request resolves under it — `assets`, `textures`,
+`draco`, and the three `.glb` hulls — with nothing on the console. `npm run dev`
+is untouched, because the variable is absent there and the base falls back to
+`/`.
+
+**The meshes are not in the repository.** `public/models` is 1.1 GB and
+gitignored, so a build from a checkout alone would ship placeholder hulls. The
+workflow does not fetch the originals; it downloads the *pruned* catalogue — the
+48 meshes the manifest actually refers to, 152 MB of the 1.1 GB — from a release
+asset, cached thereafter on its tag. The pruning happens during a build, so the
+archive comes from `dist` and not from `public`: `npm run build` and then
+`tar -czf models.tar.gz -C dist/models .`. Without that release the build still succeeds and still deploys; every
+craft simply wears the placeholder it already falls back to. `public/draco` is
+gitignored too and needs no release: the decoders are copied out of `three` by
+the build itself whenever they are missing, at the version `three` expects.

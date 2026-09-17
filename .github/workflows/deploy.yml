@@ -1,0 +1,109 @@
+# Build Periapsis Zero and publish it to GitHub Pages.
+#
+# The one thing this file has to solve is the models. `public/models` is 1.1 GB
+# of NASA meshes, fetched by a script rather than authored here, and gitignored —
+# so a checkout has none of them and a build from a checkout alone ships
+# procedural placeholder hulls. Downloading the originals in CI is out of the
+# question at that size.
+#
+# What is uploaded instead is the *pruned* catalogue: the 48 .glb and .gltf
+# files the generated manifest refers to, 152 MB against the 1.1 GB they are
+# pruned out of, published once as a release asset and reused by every build.
+# The pruning happens during a build, so the archive is made from `dist` and not
+# from `public` — the latter still holds the .max and .blend originals and the
+# .7z they arrived in:
+#
+#   npm run build
+#   tar -czf models.tar.gz -C dist/models .
+#   gh release create models models.tar.gz --notes 'Pruned model catalogue'
+#
+# Re-run it only when the catalogue changes. Without the asset the workflow
+# still succeeds and still deploys — every craft simply wears its placeholder,
+# which is the same fallback the app already has for a model that fails to load.
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# What `deploy-pages` needs, and nothing else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and the newest push wins: a queued build of code
+# that has already been superseded has nothing to publish.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The gates, before the build rather than after it. 171 checks in 31
+      # seconds, which is nothing against the cost of publishing a broken
+      # integrator, and they are the whole argument for trusting what ships.
+      - name: Verify
+        run: npm run verify:all
+
+      # Keyed on the release, so the 140 MB is fetched once and then reused.
+      # Bump the suffix when the catalogue is republished under the same tag;
+      # a new tag needs the download step's `models` changed with it.
+      - name: Restore the model catalogue
+        id: models
+        uses: actions/cache@v4
+        with:
+          path: public/models
+          key: models-release-v1
+
+      - name: Fetch the model catalogue
+        if: steps.models.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          if gh release download models --pattern 'models.tar.gz' --clobber; then
+            mkdir -p public/models
+            tar -xzf models.tar.gz -C public/models
+            rm models.tar.gz
+            echo "models: $(find public/models -name '*.glb' -o -name '*.gltf' | wc -l) meshes"
+          else
+            echo "models: no 'models' release; building with placeholder hulls"
+          fi
+
+      # Pages serves a project site under the repository's own name, so the
+      # base path is derived from it rather than written down — a rename moves
+      # the site and this follows. Every asset the app fetches at runtime is
+      # built on `import.meta.env.BASE_URL`, so this one value covers all of
+      # them. A user site (`<account>.github.io`) or a custom domain serves from
+      # the root instead: drop the variable and the build defaults to `/`.
+      - name: Build
+        run: PERIAPSIS_BASE="/${GITHUB_REPOSITORY#*/}/" npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
