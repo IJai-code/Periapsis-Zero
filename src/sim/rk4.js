@@ -113,6 +113,70 @@ export class RK4NBody {
      */
     this.testSoftening2 = 0
 
+    /**
+     * Bodies that pull but are not pulled: the rest of the solar system.
+     *
+     * Null unless a caller installs one. The shape is `{ count, mu, helio,
+     * sunOffset, refresh }` — `mu` is GM per body, `helio` is xyz per body
+     * measured from the Sun, `sunOffset` says which slot of the state vector
+     * the Sun occupies, and `refresh(t)` rewrites `helio` for a given time.
+     *
+     * They act on test particles only. Letting them act on the massive bodies
+     * would make the integrated three-body solution depend on a table of
+     * approximate elements, and every figure ever measured about it — the
+     * energy drift, the step ceilings, the flown missions — is a figure about
+     * a closed system of three.
+     *
+     * `refresh` is called once per step rather than once per stage: the same
+     * zero-order hold thrust already uses, for the same reason it is sound here
+     * — over a 900 s step Jupiter moves 1.5e-5 of its own orbital radius, and
+     * RK4 integrates a constant acceleration exactly.
+     */
+    this.rails = null
+
+    /**
+     * What the rails pull with, per test particle, held for the step.
+     *
+     * Evaluating seven extra bodies inside all four RK4 stages made the gate
+     * suite 4.6 times slower for an acceleration of order 1e-7 m/s^2 that
+     * changes by about one part in 1e8 across a step — the craft moves a few
+     * kilometres, the planet is 1e11 m away. So it is computed once from the
+     * state at the step's start and held, which is what `extAccel` already does
+     * with thrust and for a far better reason here.
+     */
+    this.railAccel = new Float64Array(3 * Math.max(0, this.n - massiveCount))
+
+    /**
+     * When the rails were last solved, in a slot rather than a field.
+     *
+     * The throttle used to live in the rails module behind `refresh(t)`, which
+     * meant a call through a property with a double argument on every step —
+     * 16,210 B a projection, all of it boxing that argument. Here the common
+     * case is a Float64Array read and a comparison, and the call happens only
+     * when the sky has actually moved.
+     */
+    this.railClock = new Float64Array(1)
+    this.railClock[0] = NaN
+
+    /**
+     * Whether this integrator is the one that moves the planets.
+     *
+     * The live simulation is; a projection is not. A forecast borrows whatever
+     * sky the live run last solved and holds it, which is both cheaper and more
+     * honest — the drawn path and the flown path are then answering to exactly
+     * the same planetary positions, which is the agreement this codebase has
+     * paid for losing before.
+     *
+     * A projection does not recompute the pull either, it inherits the value.
+     * That costs nothing in accuracy — the planet is 1e11 m away, so moving the
+     * craft the width of a translunar coast changes its pull by about a part in
+     * a thousand of an acceleration already down at 1e-7 m/s^2 — and it is the
+     * whole of the cost. Recomputed per step in a projection it measured
+     * 16,178 B against a 1,024 B budget, because a method called from nowhere
+     * else is never hot enough for the optimiser and boxes its intermediates.
+     */
+    this.movesRails = true
+
     this.initialEnergy = this.energy()
   }
 
@@ -177,6 +241,14 @@ export class RK4NBody {
         out[op + 3] += a * dx
         out[op + 4] += a * dy
         out[op + 5] += a * dz
+      }
+
+      // And the planets, as a constant for this step. See `railAccel`.
+      if (this.rails !== null) {
+        const or = (p - M) * 3
+        out[op + 3] += this.railAccel[or]
+        out[op + 4] += this.railAccel[or + 1]
+        out[op + 5] += this.railAccel[or + 2]
       }
 
       const e = (p - M) * 3
@@ -276,6 +348,62 @@ export class RK4NBody {
     }
   }
 
+  /**
+   * The rails' pull on each test particle, frozen for the step like thrust.
+   *
+   * A method rather than inlined into `step`, and that is not a style choice.
+   * Written out inside `step` it allocated 16,178 B a projection *with the
+   * rails switched off entirely* — the block is large enough to push `step`
+   * past what the optimiser will take, and an unoptimised `step` boxes the
+   * doubles of the RK4 combination itself. The same code behind a call leaves
+   * `step` the shape it was.
+   */
+  applyRails() {
+    const rails = this.rails
+    const clock = this.railClock
+    // NaN on the first step, and any comparison with NaN is false, so the first
+    // call always solves. A jump in either direction re-solves too, which is
+    // what a reset or a back-propagated trail needs.
+    if (!(Math.abs(this.t - clock[0]) < rails.refreshAfter)) {
+      clock[0] = this.t
+      rails.refresh(this.t)
+    }
+    const y = this.state
+    const M = this.massiveCount
+    const n = this.n
+    const so = rails.sunOffset
+    const sx = y[so]
+    const sy = y[so + 1]
+    const sz = y[so + 2]
+    const helio = rails.helio
+    const mu = rails.mu
+    const count = rails.count
+    const accel = this.railAccel
+    const soft2 = this.testSoftening2
+    for (let p = M; p < n; p++) {
+      const op = p * 6
+      let ax = 0
+      let ay = 0
+      let az = 0
+      for (let j = 0; j < count; j++) {
+        const oj = j * 3
+        const dx = sx + helio[oj] - y[op]
+        const dy = sy + helio[oj + 1] - y[op + 1]
+        const dz = sz + helio[oj + 2] - y[op + 2]
+        const raw = dx * dx + dy * dy + dz * dz
+        const r2 = raw < soft2 ? soft2 : raw
+        const a = mu[j] / (r2 * Math.sqrt(r2))
+        ax += a * dx
+        ay += a * dy
+        az += a * dz
+      }
+      const or = (p - M) * 3
+      accel[or] = ax
+      accel[or + 1] = ay
+      accel[or + 2] = az
+    }
+  }
+
   /** One RK4 step of `dt` seconds. `dt` may be negative (back-propagation). */
   step(dt) {
     const { state: y, k1, k2, k3, k4, tmp } = this
@@ -307,6 +435,15 @@ export class RK4NBody {
    */
   advance(seconds, maxDt = this.maxDt, maxSubsteps = 2048) {
     if (seconds === 0) return 0
+    /*
+     * Here rather than in `step`, and the difference is 16,178 B a projection.
+     * `step` holds its RK4 coefficients in double locals that stay live across
+     * anything it calls, so a call it cannot inline forces every one of them
+     * onto the heap — the cost is paid on every step whether the call does
+     * anything or not. `advance` runs once a frame, and a frame's planets are
+     * frozen anyway.
+     */
+    if (this.rails !== null && this.movesRails) this.applyRails()
     const steps = Math.min(maxSubsteps, Math.max(1, Math.ceil(Math.abs(seconds) / maxDt)))
     const dt = seconds / steps
     for (let s = 0; s < steps; s++) this.step(dt)
@@ -362,6 +499,14 @@ export class RK4NBody {
     const copy = new RK4NBody(this.masses, this.state, this.massiveCount)
     copy.testSoftening2 = this.testSoftening2
     copy.maxDt = this.maxDt
+    // The same sky, or a projection would be drawn under different physics from
+    // the one that gets flown — which is the disagreement this codebase has
+    // paid for before, between the map and the autopilot.
+    copy.rails = this.rails
+    copy.movesRails = false
+    // Carry the field itself across, or a projection would fly with no planets
+    // in it at all while the craft it forecasts flies with seven.
+    copy.railAccel.set(this.railAccel)
     return copy
   }
 
@@ -383,6 +528,7 @@ export class RK4NBody {
   resetFrom(other) {
     this.state.set(other.state)
     this.t = other.t
+    this.railAccel.set(other.railAccel)
     this.extAccel.fill(0)
     this.dragK.set(other.dragK)
     if (this.liftK && other.liftK) this.liftK.set(other.liftK)

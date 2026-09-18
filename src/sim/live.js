@@ -13,6 +13,7 @@ import {
 } from './ship.js'
 import { computeLagrange } from './lagrange.js'
 import { soiRadius } from './soi.js'
+import { RAIL_IDS, RAIL_INDEX, railHelio } from './rails.js'
 import { density, radiativeFlux, speedOfSound } from './atmosphere.js'
 
 /** Sutton-Graves constant in SI, and the capsule's heat-shield curvature. */
@@ -76,6 +77,17 @@ export const live = {
    * single constant cannot serve a hull two metres away and a star at an AU.
    */
   nearest: { distance: Infinity, id: null },
+
+  /**
+   * Where the rail planets are drawn, rebased onto the floating origin.
+   *
+   * Filled from the same buffer the integrator pulls with, so what is on screen
+   * and what the craft feels are the same seven positions. They move on the
+   * integrator's refresh cadence rather than every frame — an hour of Mercury
+   * is four hundredths of a degree, which at any zoom that fits its orbit on
+   * screen is a fraction of a pixel.
+   */
+  railPos: Object.fromEntries(RAIL_IDS.map((id) => [id, new Vector3()])),
 
   /** Free-flight camera speed, m/s. Written by the rig, read by the HUD. */
   flySpeed: 0,
@@ -187,14 +199,42 @@ export function refreshDerived(originBody = null, originOffset = null) {
   for (const id of BODY_ORDER) readPosition(sim.state, INDEX[id], abs[id])
 
   // Pass two: choose the origin, record how far it moved, rebase everything.
+  const railOrigin = originBody === null ? undefined : RAIL_INDEX[originBody]
   if (originBody && abs[originBody]) _newOrigin.copy(abs[originBody])
-  else if (originOffset) _newOrigin.copy(live.origin).add(originOffset)
+  else if (railOrigin !== undefined) {
+    /*
+     * A planet on rails can hold the origin too, and has to be able to. Without
+     * it, locking onto Saturn leaves the origin back at Earth and the whole
+     * scene 1.4e12 m from it — far enough that the depth buffer gives out and
+     * the planet renders as nothing at all. Which is exactly what it did.
+     */
+    const o = railOrigin * 3
+    _newOrigin.set(
+      abs.sun.x + railHelio[o],
+      abs.sun.y + railHelio[o + 1],
+      abs.sun.z + railHelio[o + 2],
+    )
+  } else if (originOffset) _newOrigin.copy(live.origin).add(originOffset)
   else _newOrigin.copy(live.origin)
 
   live.originDelta.subVectors(_newOrigin, live.origin)
   live.origin.copy(_newOrigin)
 
   for (const id of BODY_ORDER) pos[id].subVectors(abs[id], live.origin)
+
+  /**
+   * And the seven that are not in the state vector: heliocentric offsets from
+   * the table, added to where the integrator says the Sun is, then rebased with
+   * everything else. Written in place, so this costs three subtractions a body.
+   */
+  for (let k = 0; k < RAIL_IDS.length; k++) {
+    const o = k * 3
+    live.railPos[RAIL_IDS[k]].set(
+      abs.sun.x + railHelio[o] - live.origin.x,
+      abs.sun.y + railHelio[o + 1] - live.origin.y,
+      abs.sun.z + railHelio[o + 2] - live.origin.z,
+    )
+  }
 
   live.sunDir.copy(pos.sun).sub(pos.earth).normalize()
 

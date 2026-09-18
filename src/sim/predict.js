@@ -643,23 +643,38 @@ export function project(sim, scratch, craft, reference, horizon = null, out = pr
    * interior extremum and is simply not found — which is where it always is at
    * the moment this sequencer hands over to TLI alignment, 2 s past apoapsis,
    * and the parking orbit's apoapsis vanished from the map.
+   *
+   * Both ends, and that is not pedantry. A revolution is only closed to the
+   * accuracy it was integrated at, so an apsis sitting on the seam falls on
+   * whichever side the last perturbation put it, and the scan used to run to
+   * `n - 1` — covering the seam from the start but never from the end. The
+   * parking orbit's apoapsis sat one sample inside the start, was found, and
+   * looked like a working detector. Adding the planets' 2.8e-7 m/s^2 moved it
+   * one sample past the end, where it stopped being found at all.
    */
   let apoStep = -1
   let periStep = -1
   const origin = lastNodeStep >= 0 ? lastNodeStep : 0
   const wrap = out.closed && n - origin >= 3
   const revolution = _time[n] - _time[origin]
-  for (let k = wrap ? origin : Math.max(1, origin + 1); k < n; k++) {
+  const last = wrap ? n : n - 1
+  for (let k = wrap ? origin : Math.max(1, origin + 1); k <= last; k++) {
+    // The two seams are the same point of the same orbit, approached from
+    // opposite sides: at `origin` the step before it is the step before the
+    // end, and at `n` the step after it is the step after the start.
     const seam = wrap && k === origin
+    const end = wrap && k === n
     const km = seam ? n - 1 : k - 1
     const tm = seam ? _time[n - 1] - revolution : _time[km]
     const rm = _radius[km]
     const r0 = _radius[k]
-    const rp = _radius[k + 1]
+    const kp = end ? origin + 1 : k + 1
+    const tp = end ? _time[origin + 1] + revolution : _time[kp]
+    const rp = _radius[kp]
     const isApo = apoStep < 0 && r0 >= rm && r0 >= rp
     const isPeri = periStep < 0 && r0 <= rm && r0 <= rp
     if (!isApo && !isPeri) continue
-    refine(tm, rm, _time[k], r0, _time[k + 1], rp)
+    refine(tm, rm, _time[k], r0, tp, rp)
     const when = wrap && _fit.time < _time[origin] ? _fit.time + revolution : _fit.time
     if (isApo) {
       apoStep = k

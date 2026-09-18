@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
+import { RAIL_BY_ID } from '../sim/rails.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { BODIES, SHIP } from '../sim/constants.js'
@@ -473,7 +474,7 @@ export function CameraRig() {
     // flat fully-lit disc you get looking straight down the sun vector.
     if (opening.current) {
       opening.current = false
-      const sunward = new THREE.Vector3().subVectors(live.pos.sun, live.pos[focus])
+      const sunward = new THREE.Vector3().subVectors(live.pos.sun, live.pos[focus] ?? live.railPos[focus])
       if (sunward.lengthSq() > 1e-8) {
         sunward.normalize()
         const right = new THREE.Vector3().crossVectors(WORLD_UP, sunward).normalize()
@@ -484,7 +485,7 @@ export function CameraRig() {
           .addScaledVector(WORLD_UP, 0.3)
           .normalize()
       }
-      controls.target.copy(live.pos[focus])
+      controls.target.copy(live.pos[focus] ?? live.railPos[focus])
       camera.position.copy(controls.target).addScaledVector(dir, frame.distance)
       flight.current = null
       return
@@ -713,7 +714,9 @@ export function CameraRig() {
         ? nodePosition(scratch.nodeAim)
           ? scratch.nodeAim
           : live.pos[plan.reference]
-        : live.pos[focus]
+        : // A planet on rails is not in `live.pos`, because it is not in the
+          // state vector. It is drawn from the same buffer it pulls with.
+          (RAIL_BY_ID[focus] ? live.railPos[focus] : live.pos[focus])
     const f = flight.current
 
     if (f) {

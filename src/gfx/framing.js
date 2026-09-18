@@ -9,6 +9,7 @@
  */
 import { AU, BODIES, CRAFT, SHIP } from '../sim/constants.js'
 import { ACTIVE_VESSEL } from '../sim/vessels.js'
+import { RAILS } from '../sim/rails.js'
 import { stageLengths } from './hulls.js'
 
 /**
@@ -122,6 +123,14 @@ export const FRAMING = {
   pad: { distance: 0, min: 0, max: 0 },
   iss: { distance: CRAFT.iss.visual * 4.4, min: CRAFT.iss.visual * 1.2, max: 1e9 },
   hubble: { distance: CRAFT.hubble.visual * 4.4, min: CRAFT.hubble.visual * 1.25, max: 1e9 },
+  /**
+   * The seven on rails, framed like any other body. Built from the table the
+   * integrator pulls with, so a planet added there becomes lockable here
+   * without a second list to keep in step.
+   */
+  ...Object.fromEntries(
+    RAILS.map((p) => [p.id, { distance: p.radius * 5.5, min: p.radius * 1.25, max: 4e12 }]),
+  ),
   /** Free flight roams the system: a metre off a hull out to a few AU. */
   free: { distance: 0, min: 1, max: 1e12 },
   /**

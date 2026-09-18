@@ -52,9 +52,9 @@ jobs:
 
       - run: npm ci
 
-      # The gates, before the build rather than after it. 171 checks in 31
-      # seconds, which is nothing against the cost of publishing a broken
-      # integrator, and they are the whole argument for trusting what ships.
+      # The gates, before the build rather than after it. A couple of minutes
+      # against the cost of publishing a broken integrator, and they are the
+      # whole argument for trusting what ships.
       - name: Verify
         run: npm run verify:all
 

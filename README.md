@@ -2203,6 +2203,72 @@ They render as DOM waypoints in the HUD, not geometry. The projector recomputes
 the camera's inverse itself rather than reading `matrixWorldInverse`, which R3F
 refreshes just before draw and is a frame stale at `useFrame` time.
 
+## The rest of the solar system
+
+Sol, Terra and Luna are integrated. The other seven planets are not, and that is
+a decision rather than a shortcut: putting them in tier one would change every
+figure ever measured about the integrated three — the energy drift, the step
+ceilings, the flown missions — in exchange for an effect on those three smaller
+than the gap between one ephemeris and another. So they are carried
+analytically, from Keplerian elements with secular rates, and they pull on the
+craft without perturbing the bodies whose solution is verified.
+
+The elements are the standard low-precision set for 1800–2050. Outside that
+window they drift, and Jupiter and Saturn's great inequality is absent
+altogether; the date is on the HUD and the limits are in `sim/rails.js`.
+
+**How you check a table you copied in.** Not against itself. The periods have to
+agree two ways — 360° at the tabulated mean-longitude rate, and Kepler's third
+law on the tabulated semi-major axis — and then with the books, which they do to
+0.05%. The real test is Earth. The integrator carries it as a massive body from
+J2000 initial conditions built by different code in a different frame; the same
+JPL table has a row for the Earth–Moon barycentre. Running both is an
+end-to-end test of epoch, frame, rotation order and units against a body this
+simulator computes by a route sharing no code with the one under test.
+
+They agree on the heliocentric distance to **279 parts per million**. They
+disagree on where along the orbit, by 1.0996°, and that turned out to be a fact
+about the simulator: its Earth's longitude of perihelion matches the JPL row to
+0.0095°, so it is the same orbit, but its mean anomaly puts the planet 1.12 days
+further round it. The gap also creeps by 0.048° a year, which is the simulator's
+own year being **365.2095 d against a sidereal 365.2564 — 67.5 minutes short**.
+Neither is changed here. Both are now measured, and the gate is bounded by the
+cause rather than by the observation.
+
+**What a craft feels.** 2.759 × 10⁻⁷ m/s² at Earth, near enough all of it Venus
+and Jupiter. On a parking orbit that moves apoapsis from 185.057 km to 185.058.
+It costs 17% a step — 837 ns against 978 — and the cost is kept there by holding
+the field for a step, the way thrust is held: the craft moves a few kilometres
+while the planet stays 10¹¹ m away, so the pull changes by about one part in
+10⁸. Projections do not recompute it at all; they inherit it, which is both
+cheaper and the only way the drawn path and the flown one answer to the same sky.
+
+Three things this cost, all of them recorded because each was a surprise:
+
+- Written inline in `step`, the rail update allocated **16,178 B a projection
+  with the rails switched off entirely**. `step` holds its RK4 coefficients in
+  double locals that stay live across anything it calls, so a call it cannot
+  inline forces every one of them onto the heap, every step, whether the call
+  does anything or not. It lives in `advance` now, and the budget is back to
+  193 B.
+- The parking orbit's apoapsis vanished from the map. It sits exactly on the
+  seam of a closed revolution, and the scan covered the seam from the start but
+  ran only to `n - 1`, never from the end. It had always been one perturbation
+  away from being missed; 2.8 × 10⁻⁷ m/s² was that perturbation. Both seams are
+  scanned now.
+- Locking onto Saturn rendered black. The floating origin followed only bodies
+  in the state vector, so the scene sat 1.4 × 10¹² m from it and the depth
+  buffer gave out. A planet on rails can hold the origin now, like anything else.
+
+**And they are points of light.** At true scale Jupiter subtends four hundredths
+of an arcsecond from Earth — a ten-thousandth of a pixel — so the disc is drawn
+at its real size and a small additive beacon is drawn with it at a fixed angular
+size. That is not a claim about how large a planet is; it is a claim about how
+bright one is, and Jupiter is plainly visible to the naked eye for exactly that
+reason. Fly close and the beacon is swallowed by a disc that was always the real
+one.
+
+
 ## Scale, and where it is honest
 
 A true-to-scale system is unwatchable: at one screen-width per AU the Earth is a

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { live, refreshDerived, updateNearestSurface } from '../sim/live.js'
+import { RAIL_IDS } from '../sim/rails.js'
 import { activeStage, applyThrust, input, integrateAttitude, ship } from '../sim/ship.js'
 import {
   applyClamp,
@@ -45,6 +46,8 @@ const POWERED_WARP_CAP = WARP.m1
 
 /** Which body the floating origin pins to, per camera mode. */
 const ORIGIN_BODY = {
+  // The seven on rails hold the origin under their own names.
+  ...Object.fromEntries(RAIL_IDS.map((id) => [id, id])),
   sun: 'sun',
   earth: 'earth',
   moon: 'moon',

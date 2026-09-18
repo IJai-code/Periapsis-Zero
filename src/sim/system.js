@@ -12,6 +12,7 @@ import {
 } from './constants.js'
 import { RK4NBody } from './rk4.js'
 import { OMEGA, dragCoefficient } from './atmosphere.js'
+import { RAIL_COUNT, RAIL_MU, RAIL_REFRESH, railHelio, updateRails } from './rails.js'
 import { activeSite, clampToSite } from './launchsite.js'
 
 const DEG = Math.PI / 180
@@ -203,6 +204,23 @@ export function createSimulation() {
   sim.dragBody = ORDER.indexOf('earth')
   sim.dragBodyRadius = BODIES.earth.radius
   sim.omega.set(OMEGA)
+
+  /**
+   * The rest of the solar system, pulling on the craft without being pulled.
+   *
+   * Installed here rather than built into the integrator, so the integrator
+   * stays a closed n-body solver and a test that wants the three-body solution
+   * alone can have it by leaving this off.
+   */
+  sim.rails = {
+    count: RAIL_COUNT,
+    mu: RAIL_MU,
+    helio: railHelio,
+    sunOffset: ORDER.indexOf('sun') * 6,
+    refreshAfter: RAIL_REFRESH,
+    refresh: updateRails,
+  }
+  updateRails(0)
 
   // Satellite ballistic coefficients are fixed. The ship's changes as it burns
   // propellant and sheds stages, so it is refreshed every frame instead.
