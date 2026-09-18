@@ -8,6 +8,8 @@
  * one, so the traversal figures quoted are the ones that ship.
  */
 import { AU, BODIES, CRAFT, SHIP } from '../sim/constants.js'
+import { ACTIVE_VESSEL } from '../sim/vessels.js'
+import { stageLengths } from './hulls.js'
 
 /**
  * How the camera frames each body when it locks on, and how close it may get.
@@ -34,7 +36,9 @@ import { AU, BODIES, CRAFT, SHIP } from '../sim/constants.js'
  * Held as a Float64Array because the chase camera reads it every frame, and an
  * indexed read is the one form this file can be sure costs nothing.
  */
-export const STAGE_LENGTH = Float64Array.from(SHIP.stages.map((s) => s.visual))
+export const STAGE_LENGTH =
+  stageLengths(ACTIVE_VESSEL, SHIP.stages[0].visual) ??
+  Float64Array.from(SHIP.stages.map((s) => s.visual))
 
 /** The same, with the index bounded, for callers outside the frame loop. */
 export const stageLength = (stage) =>

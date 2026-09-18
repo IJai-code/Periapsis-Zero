@@ -2068,10 +2068,14 @@ the size it starts it:
 | stage | hull | standoff | in hulls | fills the frame | before |
 | --- | --- | --- | --- | --- | --- |
 | 0 | 110.60 m | 486.3 m | 4.40 | 11.3% | 11.27% |
-| 1 | 81.60 m | 358.8 m | 4.40 | 11.3% | 8.27% |
-| 2 | 35.10 m | 154.3 m | 4.40 | 11.3% | 3.53% |
-| 3 | 11.00 m | 48.4 m | 4.40 | 11.3% | 1.10% |
-| 4 | 3.47 m | 15.3 m | 4.40 | 11.3% | 0.35% |
+| 1 | 59.99 m | 263.7 m | 4.40 | 11.3% | 6.05% |
+| 2 | 33.54 m | 147.5 m | 4.40 | 11.3% | 3.37% |
+| 3 | 9.64 m | 42.4 m | 4.40 | 11.3% | 0.96% |
+| 4 | 3.05 m | 13.4 m | 4.40 | 11.3% | 0.30% |
+
+Those hull lengths are the vehicle's own sections added up — see *The vehicles*
+below — and not a figure written per stage, which is how two of them came to be
+wrong.
 
 The law is one line — hold what is *drawn* at a constant fraction of frame — and
 both mission events fall out of it. A separation changes the hull; ignition adds
@@ -2097,6 +2101,49 @@ to 15.63 m against a predicted 15.615.
 It also makes the last stage approachable. The closest a lock could come was
 121.7 m — 35 lengths of the capsule it was pointed at — and is now 1.1 lengths at
 every stage, with each stage's range still crossing in the same 60 detents.
+
+## The vehicles
+
+The catalogue has one launch vehicle in it. The Saturn V is a single mesh of the
+whole stack whose body is one primitive running all 12.99 units from engine
+bells to escape tower, so it cannot be cut into stages by hiding parts of it —
+and it was bound to three of them. After first separation you were looking at a
+complete Saturn V, escape tower and all, squeezed to 81.6 m; after second, the
+same thing at 35.1 m. There is no SLS and no Orion in the catalogue at all, so
+Artemis flew as five procedural cones, and the ISS exists only as sixteen loose
+modules.
+
+So the vehicles are built from their own sections. A section is a real piece of
+a real rocket — a tank, an interstage, an adapter, a capsule, a strap-on booster
+— and a stage is the sum of the sections still attached, which makes staging a
+change of *what is drawn* rather than a change of scale. Measured in the running
+scene, the SLS comes out as a 7.49 x 57.6 m core with two 3.31 x 48.2 m boosters
+beside it and a 4.46 x 12.2 m ICPS above, which are the published figures.
+
+Two things this exposed, both of which had been quietly wrong:
+
+**Lengths only are normalised.** Published section heights double-count the
+interstages — the S-IC's 42.1 m and the S-II's 24.8 m both include the 5.5 m
+between them — so they sum 13.8% over a Saturn V's documented 110.6. One scale
+per vehicle fixes that without choosing which source to trim. Diameters are
+*not* scaled with them: doing so drew an S-II 12.07 m across, wider than the
+S-IC beneath it, so the vehicle fattened as it separated. Widths now run 10.10,
+10.10, 6.60, 3.90, 3.90 m down an Apollo stack and never increase.
+
+**Two stage lengths were wrong in the vessel table.** Apollo's second stage was
+recorded at 81.6 m against the 60.0 its sections come to, so every camera stood
+a third too far from it. Artemis' was recorded at 65.0 m, which treats two
+strap-on boosters as a stage underneath the core — dropping them takes nothing
+at all off the vehicle's height, and the figure should be 85.9. Both now come
+from the sections, so the drawn hull and the length the cameras frame it by are
+one number.
+
+The ISS is drawn from its dimensions rather than from those sixteen modules,
+because each of them is modelled about its own origin — Zarya and the ATV
+symmetric about theirs, the ELCs anchored at one end — so there is no shared
+station frame to drop them into and assembling them would be placing sixteen
+meshes by eye. It is the real 108.5 m truss, 73 m of pressurised modules, eight
+wings of 34.2 x 11.6 m in four pairs, and three radiators.
 
 ## Spacecraft meshes
 

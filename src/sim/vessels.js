@@ -80,7 +80,7 @@ const APOLLO8 = {
       isp: 421,
       drag: { cd: 0.35, area: 80 },
       visual: 81.6, // S-II base to escape tower tip
-      model: 'saturn_v',
+      model: null,
     },
     {
       name: 'S-IVB',
@@ -96,7 +96,7 @@ const APOLLO8 = {
       isp: 421,
       drag: { cd: 2.2, area: 30 }, // free-molecular above the sensible atmosphere
       visual: 35.1,
-      model: 'saturn_v',
+      model: null,
     },
     {
       name: 'Service Module',

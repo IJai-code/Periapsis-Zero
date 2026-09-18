@@ -8,6 +8,9 @@ import { CRAFT } from '../sim/constants.js'
 import { getModel, loadModel, useModel } from '../gfx/models.js'
 import { useUi } from '../sim/store.js'
 import { Placeholder } from './Placeholders.jsx'
+import { Hull } from './Hull.jsx'
+import { ACTIVE_VESSEL } from '../sim/vessels.js'
+import { stageLength } from '../gfx/framing.js'
 
 /**
  * One spacecraft: position from the integrator, hull from either a loaded glTF
@@ -41,7 +44,12 @@ export function Craft({ id }) {
 
   const override = useUi((s) => s.modelFor[id])
   const modelId = override ?? stageSpec?.model ?? null
-  const visual = stageSpec?.visual ?? spec.visual
+  /**
+   * For the ship this is the section-derived length, which is also what every
+   * camera frames it by — one number, so the hull and the framing cannot drift
+   * apart. Other craft keep their single figure.
+   */
+  const visual = id === 'ship' ? stageLength(stage) : (stageSpec?.visual ?? spec.visual)
   const source = useModel(modelId)
 
   /**
@@ -101,7 +109,15 @@ export function Craft({ id }) {
 
   return (
     <group ref={group}>
-      {model ? <primitive object={model} /> : <Placeholder id={id} size={visual} />}
+      {model ? (
+        <primitive object={model} />
+      ) : id === 'ship' ? (
+        /* The vehicle built from its own sections — see gfx/hulls.js for why a
+           borrowed full-stack mesh could not be made to serve three stages. */
+        <Hull vessel={ACTIVE_VESSEL} stage={stage} size={visual} />
+      ) : (
+        <Placeholder id={id} size={visual} />
+      )}
     </group>
   )
 }
