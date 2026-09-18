@@ -2145,6 +2145,68 @@ station frame to drop them into and assembling them would be placing sixteen
 meshes by eye. It is the real 108.5 m truss, 73 m of pressurised modules, eight
 wings of 34.2 x 11.6 m in four pairs, and three radiators.
 
+## Which way Earth leans
+
+The obliquity was pointing the wrong way, and had been. It tilted the pole
+toward +X — the direction of the equinox — when the pole leans away from the
+June solstice, perpendicular to the line of equinoxes. That is a quarter of a
+year: it put the Sun's declination at **+4.55 degrees on 1 January 2000 against
+a true -23.01**, so every launch site was lit as though it were early May, and
+no amount of work on the ground would have looked right under it.
+
+In ecliptic coordinates the pole is (0, -sin e, cos e), and system.js folds
+ecliptic into scene as (x, z, -y), which gives (0, cos e, -sin e). Against the
+state vector's own Sun that yields -22.94 degrees at J2000. `Earth.jsx` applies
+the matching rotation, because the air, the pad and the planet you can see
+turning have to share one axis.
+
+The prime meridian went with it. It used to be "any perpendicular" to the spin
+axis, on the stated grounds that longitude is cosmetic — true until the ground
+is drawn, at which point longitude decides what time of day it is at the pad.
+It is now anchored where Greenwich is: at J2000 the Greenwich meridian sits at
+right ascension 280.46062 degrees, which is Greenwich mean sidereal time. The
+derivation was checked against a fit rather than trusted — sweeping for the
+offset that best matched an almanac gave 100.50 degrees where the derivation
+implies 100.46.
+
+`verify-solar` compares the simulator's own sky against the Astronomical
+Almanac's low-precision solar position, which shares no code with it:
+
+| site | local noon | peak elevation | almanac |
+| --- | --- | --- | --- |
+| Kennedy | 12:30 local | 38.50° | 38.40° |
+| Baikonur | 13:56 local | 21.22° | 21.11° |
+| Kourou | 12:31 local | 61.83° | 61.74° |
+| Vandenberg | 12:10 local | 32.35° | 32.25° |
+
+What is left is 1.25 degrees of hour angle, and it is the same 1.0996 degrees
+`verify-rails` measures independently in Earth's own orbital position. The
+tolerances are set from that cause, so the gate fails if the obliquity, the
+meridian or the spin go wrong and not merely because Earth is where it has
+always been.
+
+**What it cost.** Moving the pole and the meridian moves every pad relative to
+the Moon, so every launch window moved with them. The whole suite still passes,
+and only three things had to change, none of them physics:
+
+- Vandenberg no longer needs a loiter raise — its window is now 118.75 h away
+  against a 269.31 h orbital lifetime — and **Baikonur** does, at 325.82 h
+  against 317.18. The gate named the site; it names the behaviour now and finds
+  whichever pad is waiting longer than its orbit will last.
+- Three scenarios in that gate are selected by launch hour, and those hours
+  encoded the old geometry. Re-locating them exposed a harness bug worth more
+  than the retune: the pad hold ran at a day a second, so every launch hour
+  inside the same day collapsed to one commitment and the arrival point at
+  commitment quantised. Held coarsely until the last hour and finely after, the
+  epoch asked for is the epoch flown, and both sides of a window flip are
+  reachable again — 0.023 degrees out and missing the pass at +119.66 h, 0.31
+  degrees out and catching it at +119.68.
+- A control in `verify-horizon` claimed equal-spaced sampling puts drawn chords
+  underground. From the new starting phase it does not, though it still loses
+  most of the clearance — 85.0 km under a path whose true low point is 184.5 —
+  so the check asserts the failure rather than that one symptom of it.
+
+
 ## The ground at each pad
 
 Real heights, about 70 km across each launch site at roughly 130 m a sample,

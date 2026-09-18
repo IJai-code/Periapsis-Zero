@@ -69,12 +69,24 @@ export function density(h) {
 /**
  * Earth's spin axis in the scene frame.
  *
- * Obliquity tilts the pole out of the ecliptic normal. The renderer applies the
- * same tilt as a rotation about +Z, which carries +Y toward +X — so the axis is
- * (sin e, cos e, 0). Sharing one definition keeps the air the craft flies
- * through aligned with the planet you can see turning.
+ * Obliquity tilts the pole out of the ecliptic normal, and *which way* it tilts
+ * is the whole of the seasons. The pole leans away from the June solstice
+ * direction, which is ecliptic longitude 270 — perpendicular to the line of
+ * equinoxes, not along it. This used to tilt toward +X, the equinox direction,
+ * which is a quarter of a year out: it put the Sun's declination at +4.55
+ * degrees on 1 January 2000 against a true -23.01, so every launch site was lit
+ * as though it were early May.
+ *
+ * In ecliptic coordinates the pole is (0, -sin e, cos e), and system.js folds
+ * ecliptic into scene as (x, z, -y), which gives (0, cos e, -sin e). Measured
+ * against the state vector's own Sun that yields a declination of -22.94
+ * degrees at J2000, against the almanac's -23.01.
+ *
+ * Earth.jsx applies the matching rotation, and it has to: sharing one definition
+ * keeps the air the craft flies through aligned with the planet you can see
+ * turning.
  */
-export const SPIN_AXIS = [Math.sin(BODIES.earth.tilt), Math.cos(BODIES.earth.tilt), 0]
+export const SPIN_AXIS = [0, Math.cos(BODIES.earth.tilt), -Math.sin(BODIES.earth.tilt)]
 
 /** Sidereal rotation rate, rad/s. */
 export const SPIN_RATE = (2 * Math.PI) / BODIES.earth.spin

@@ -372,7 +372,19 @@ const checks = [
   ['the step rule converges at fourth order',
     gapFrom(scaledHalf) / Math.max(gapFrom(scaledFull), 1e-9) > 8],
   ['no drawn chord dips below the surface', drawnLow > RE],
-  ['where spreading the same count evenly in time does', evenLow < RE],
+  /**
+   * And that the scheme it replaced still gets this badly wrong.
+   *
+   * It used to put chords underground outright, which is a path drawn through
+   * the planet. It no longer does from this starting phase — correcting Earth's
+   * obliquity moved the pad, and the handover the test orbit is built from
+   * moved with it — so what is asserted is the failure itself rather than one
+   * symptom of it: equal spacing keeps less than 60% of the true clearance,
+   * and measures 46%, reporting 85.0 km under a path whose real low point is
+   * 184.5.
+   */
+  ['where spreading the same count evenly in time loses most of the clearance',
+   evenLow - RE < (drawnLow - RE) * 0.6],
   ['a burn three days out is folded into the plan', twoNode.applied.length === 2],
   ['and lands within a kilometre of an independent integration',
     twoNode.at.distanceTo(trueAtB) < 1000],

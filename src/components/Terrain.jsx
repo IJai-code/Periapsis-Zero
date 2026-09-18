@@ -43,12 +43,22 @@ const yToLat = (y, z) => {
   return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
 }
 
-/** Per-site ground palette: sea, low ground, high ground. Shaded, not photographed. */
+/**
+ * Per-site ground palette: sea, low ground, high ground. Shaded, not
+ * photographed.
+ *
+ * Chosen as albedos rather than as pixels. three treats a hex as sRGB and
+ * linearises it, so the first set of these — picked by eye against a dark
+ * screenshot — came out at about 0.07 linear, a third of what dry ground
+ * actually reflects, and the terrain rendered nearly black under a Sun 32
+ * degrees up. These sit where the real materials do: ocean near 0.06, jungle
+ * 0.12, chaparral and marsh around 0.18, steppe and bare rock 0.25 to 0.30.
+ */
 const PALETTE = {
-  ksc: { sea: '#0b2436', low: '#3f4a33', high: '#6b6a4a' },
-  baikonur: { sea: '#12283a', low: '#7a6b4a', high: '#9c8b62' },
-  kourou: { sea: '#0d2b3a', low: '#24401f', high: '#4a5c30' },
-  vandenberg: { sea: '#0a2030', low: '#4a4632', high: '#7d7355' },
+  ksc: { sea: '#17384f', low: '#8c9070', high: '#b8b092' },
+  baikonur: { sea: '#1b3a52', low: '#c0ab82', high: '#dbcaa2' },
+  kourou: { sea: '#154055', low: '#5f7c4b', high: '#829863' },
+  vandenberg: { sea: '#13293d', low: '#9a8f6e', high: '#bcb08d' },
 }
 
 /** Decode one Terrarium PNG into metres. */
@@ -147,6 +157,13 @@ export function Terrain() {
     const d = new THREE.Vector3()
     const probe = { latitude: 0, longitude: 0 }
 
+    /*
+     * Sea level is at -datum once the field is shifted, not at zero. Zero is
+     * the pad, and at Vandenberg the pad is a hundred metres up a coastal
+     * bluff — so testing `height - datum <= 0` for water painted most of the
+     * surrounding land as ocean, which is exactly what it looked like.
+     */
+    const seaLevel = -datum
     let relief = 1
     for (let i = 0; i < heights.length; i++) {
       relief = Math.max(relief, heights[i] - datum)
@@ -161,8 +178,12 @@ export function Terrain() {
           xToLon(entry.tileX, entry.zoom) +
           (sx / (n - 1)) * (xToLon(entry.tileX + entry.tileSpan, entry.zoom) - xToLon(entry.tileX, entry.zoom))
 
-        const raw = heights[sy * n + sx] - datum
-        const h = Math.max(raw, 0)
+        const absolute = heights[sy * n + sx]
+        const raw = absolute - datum
+        // Water is drawn as a flat surface at sea level; the seabed under it is
+        // real data and not what someone on the pad can see.
+        const wet = absolute <= 0
+        const h = wet ? seaLevel : raw
         siteDirection(d, probe, 0)
         p.copy(d).multiplyScalar(R + h).sub(pad.clone().multiplyScalar(R))
 
@@ -172,8 +193,8 @@ export function Terrain() {
         positions[o + 1] = p.dot(pad)
         positions[o + 2] = p.dot(north)
 
-        if (raw <= 0) c.copy(sea)
-        else c.copy(low).lerp(high, Math.min(1, raw / relief))
+        if (wet) c.copy(sea)
+        else c.copy(low).lerp(high, Math.min(1, Math.max(0, absolute) / Math.max(relief, 1)))
         colours[o] = c.r
         colours[o + 1] = c.g
         colours[o + 2] = c.b
@@ -188,12 +209,19 @@ export function Terrain() {
         const b = a + 1
         const cIdx = a + N
         const dIdx = cIdx + 1
+        /*
+         * Counter-clockwise seen from above, which is what makes the normals
+         * point at the sky. Rows run north to south and columns west to east,
+         * so the other winding gives (1,0,0) x (0,0,-1) = (0,-1,0) — every
+         * normal into the ground, and a surface that renders unlit whatever the
+         * Sun is doing. Which is exactly how it looked.
+         */
         index[k++] = a
-        index[k++] = cIdx
-        index[k++] = b
         index[k++] = b
         index[k++] = cIdx
+        index[k++] = b
         index[k++] = dIdx
+        index[k++] = cIdx
       }
     }
 

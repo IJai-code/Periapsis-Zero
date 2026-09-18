@@ -122,7 +122,8 @@ export function Earth({ textures }) {
     <group ref={group}>
       {/* Obliquity is applied outside the spin, so the axis stays fixed in
           inertial space and the seasons come out right over a full orbit. */}
-      <group rotation={[0, 0, BODIES.earth.tilt]}>
+      {/* Matches SPIN_AXIS: about +X, carrying +Y toward -Z. See atmosphere.js. */}
+      <group rotation={[-BODIES.earth.tilt, 0, 0]}>
         <mesh ref={spin} material={surface}>
           <sphereGeometry args={[R, 160, 96]} />
         </mesh>

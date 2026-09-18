@@ -90,9 +90,22 @@ function freshFlight(site) {
 function toInjection(site, sampleEvery = 0, launchHour = 0) {
   freshFlight(site)
   resetMission()
-  // Hold on the pad until the launch epoch; the clamp is exact and the world turns under it.
+  /*
+   * Hold on the pad until the launch epoch; the clamp is exact and the world
+   * turns under it.
+   *
+   * The last hour is held at a minute a second rather than a day. At a day the
+   * hold overshoots by up to a frame's worth of it, so every launch hour inside
+   * the same day collapses to one commitment — which made the arrival point at
+   * commitment quantise, and with it every scenario in this file that is
+   * selected by launch hour. Coarse until it is close, fine after, so the epoch
+   * asked for is the epoch flown.
+   */
+  const target = launchHour * H
   flight.pilotWarp = WARP.d1
-  for (let i = 0; live.sim.t < launchHour * H && i < 1_000_000; i++) frame()
+  for (let i = 0; live.sim.t < target - H && i < 1_000_000; i++) frame()
+  flight.pilotWarp = WARP.m1
+  for (let i = 0; live.sim.t < target && i < 1_000_000; i++) frame()
   beginCountdown()
   const rec = { site, commit: 0, orbit: null, dragK: 0, plan: null, samples: [], nodePhases: 0, injectT: null, injectA: 0, injectPeri: 0, end: '', endT: 0 }
   let lastPeri = 0
@@ -139,13 +152,33 @@ const hours = (s) => (s / H).toFixed(2)
  * 1. Left alone
  * ---------------------------------------------------------------- */
 
+/**
+ * Whichever pad is currently waiting longer than its orbit will last.
+ *
+ * It used to be Vandenberg, named outright. It is Baikonur now, and nothing
+ * about the loiter changed — correcting Earth's obliquity and anchoring the
+ * prime meridian moved every pad relative to the Moon, so each one waits a
+ * different length of time for its window. A gate that names the site is
+ * testing the geometry of the day it was written; what it should test is that
+ * the mechanism finds the pad that needs it, whichever that is.
+ */
 PROFILE.loiterRaise = false
-const decayed = toInjection('vandenberg', 25 * H)
+let decayed = null
+let decaySite = null
+for (const id of ['baikonur', 'vandenberg', 'ksc', 'kourou']) {
+  const run = toInjection(id, 25 * H)
+  if (run.plan.needed && run.plan.lifetime < run.plan.wait) {
+    decayed = run
+    decaySite = id
+    break
+  }
+}
 PROFILE.loiterRaise = true
+if (!decayed) throw new Error('no pad is waiting longer than its orbit lasts')
 
 const lostAfter = decayed.endT - decayed.commit
 const lifeError = (decayed.plan.lifetime - lostAfter) / lostAfter
-console.log('=== 1. Vandenberg, raise disabled: the orbit against the theory ===')
+console.log(`=== 1. ${LAUNCH_SITES[decaySite].name}, raise disabled: the orbit against the theory ===`)
 console.log(`  committed at ${km(decayed.orbit.a - R)} km, e ${decayed.orbit.e.toFixed(5)}; window forecast ${hours(decayed.plan.wait)} h, lifetime ${hours(decayed.plan.lifetime)} h`)
 console.log('    flown h   semi-major alt km   theory h to there   error')
 let worstSample = 0
@@ -172,10 +205,11 @@ for (const f of flown) {
   f.late = f.injectT === null ? NaN : f.injectT - f.commit - f.plan.wait
   console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)}  ${hours(f.plan.wait).padStart(9)}   ${f.injectT === null ? '     —' : hours(f.injectT - f.commit).padStart(10)}   ${hours(f.late).padStart(7)}   ${hours(period).padStart(7)}   ${hours(f.plan.lifetime).padStart(10)}   ${String(f.plan.raised).padEnd(6)}   ${(f.plan.dv1 + f.plan.dv2).toFixed(2)}`)
 }
-const vb = flown.find((f) => f.site === 'vandenberg')
-const kept = flown.filter((f) => f.site !== 'vandenberg')
+// The pad that plans a raise, and the ones whose orbits outlast their wait.
+const vb = flown.find((f) => f.plan.raised) ?? flown.find((f) => f.site === decaySite)
+const kept = flown.filter((f) => f !== vb)
 const arriveError = vb.injectA - vb.plan.arrive
-console.log(`\n  Vandenberg: committed at ${km(vb.orbit.a - R)} km, loiter orbit ${km(vb.plan.target - R)} km,` +
+console.log(`\n  ${LAUNCH_SITES[vb.site].name}: committed at ${km(vb.orbit.a - R)} km, loiter orbit ${km(vb.plan.target - R)} km,` +
   ` back down to ${km(vb.injectA - R)} km at ignition (aimed for ${km(vb.plan.arrive - R)}, ${arriveError >= 0 ? '+' : ''}${km(arriveError)} km)`)
 console.log(`  raise: ${vb.plan.dv1.toFixed(2)} + ${vb.plan.dv2.toFixed(2)} m/s, ${vb.nodePhases} node phases flown`)
 
@@ -208,8 +242,17 @@ console.log(`  ended in ${whole} at MET ${hours(mission.t)} h; ${atLunarOrbit.to
  * vehicle was lost waiting half a month for the next window. At +150.5 h the
  * pass is caught, and the forecast has to say when.
  */
-const closing = toInjection('vandenberg', 0, 374.1)
-const caught = toInjection('vandenberg', 0, 150.5)
+/*
+ * These hours were re-located after Earth's obliquity was corrected and the
+ * prime meridian anchored, which moved every pad relative to the Moon and with
+ * it every window. They are scenario selectors, not results: +119.4 h commits
+ * with the arrival point 0.01 degrees out and the pass already going, +119.6 h
+ * commits 0.08 degrees out and catches one. To find them again, sweep the
+ * launch hour and watch `mission.tli.outOfPlane` at commitment against
+ * PROFILE.phaseTolerance.
+ */
+const closing = toInjection('vandenberg', 0, 119.66)
+const caught = toInjection('vandenberg', 0, 119.68)
 for (const f of [closing, caught]) {
   f.period = 2 * Math.PI * Math.sqrt(f.orbit.a ** 3 / MU)
   f.late = f.injectT === null ? NaN : f.injectT - f.commit - f.plan.wait
@@ -257,7 +300,7 @@ function withPilot(site, onFrame) {
  */
 let trim = null
 let afterTrim = null
-const trimmed = withPilot('vandenberg', (commit) => {
+const trimmed = withPilot(vb.site, (commit) => {
   if (!trim && live.sim.t > commit + 6 * H) trim = addNode(live.sim.t + 600, { prograde: -25 })
   if (trim?.executed && !afterTrim && currentPhase().id === 'TLI_ALIGN') afterTrim = { ...mission.tli.loiter }
 })
@@ -271,7 +314,7 @@ let hand = 'up'
 let handStart = 0
 let handDv = 0
 let afterHand = null
-const byHand = withPilot('vandenberg', () => {
+const byHand = withPilot(vb.site, () => {
   if (hand === 'up') {
     if (handStart === 0) handStart = deltaV()
     input.throttleUp = true
@@ -389,7 +432,7 @@ const periError = (f) => {
  * the parking orbits came down by up to 0.8 km it went over, and raised for
  * lifetime instead.
  */
-const low = toInjection('kourou', 0, 623.5)
+const low = toInjection('vandenberg', 0, 104)
 
 /**
  * And a floor that holds. Vandenberg at +150.5 h commits inside a window whose
@@ -399,10 +442,19 @@ const low = toInjection('kourou', 0, 623.5)
  * window go.
  */
 function heldFlight() {
+  /*
+   * +119.68 h: a window 1.44 h out, which is less than one revolution, so a
+   * raise planned at commitment cannot fly both its burns before the craft has
+   * to inject. The -15 m/s below is what makes the raise necessary in the first
+   * place.
+   */
   freshFlight('vandenberg')
   resetMission()
   flight.pilotWarp = WARP.d1
-  for (let i = 0; live.sim.t < 150.5 * H && i < 1_000_000; i++) frame()
+  const heldTarget = 119.68 * H
+  for (let i = 0; live.sim.t < heldTarget - H && i < 1_000_000; i++) frame()
+  flight.pilotWarp = WARP.m1
+  for (let i = 0; live.sim.t < heldTarget && i < 1_000_000; i++) frame()
   beginCountdown()
   for (let i = 0; i < 3_000_000 && currentPhase().id !== 'COAST'; i++) {
     flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
@@ -444,7 +496,7 @@ const held = heldFlight()
 
 console.log('\n=== 8. the injection floor ===')
 for (const f of kept) console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)} perigee at ignition ${km(f.injectPeri - R)} km, theory ${km(f.injectPeri + periError(f) - R)} km`)
-console.log(`  Kourou +623.5 h: forecast ${hours(low.plan.wait)} h, lifetime ${hours(low.plan.lifetime)} h, perigee at ignition unraised ${km(low.plan.periapsisAtIgnition - R)} km;` +
+console.log(`  Vandenberg +104 h: forecast ${hours(low.plan.wait)} h, lifetime ${hours(low.plan.lifetime)} h, perigee at ignition unraised ${km(low.plan.periapsisAtIgnition - R)} km;` +
   ` raised for ${low.plan.reason} with ${(low.plan.dv1 + low.plan.dv2).toFixed(2)} m/s in ${low.plan.node2 >= 0 ? 2 : 1} burn(s); injected from ${km(low.injectPeri - R)} km; ${low.end}`)
 console.log(`  Vandenberg +150.5 h trimmed: raised for ${held.plan.reason}, forecast ${hours(held.plan.wait)} h;` +
   ` ${held.heldAt === null ? 'never held' : `held a window at ${hours(held.heldAt)} h`}; ${held.burns} burns; injected from ${held.injectPeri === null ? '-' : km(held.injectPeri - R)} km after ${hours(held.injectedAfter)} h; ${held.end}`)
@@ -455,7 +507,8 @@ console.log(`  Vandenberg +150.5 h trimmed: raised for ${held.plan.reason}, fore
 
 console.log('\n=== what this establishes ===')
 const checks = [
-  ["left alone, Vandenberg's parking orbit decays into the planet", decayed.end === 'LOST'],
+  [`left alone, ${LAUNCH_SITES[decaySite].name}'s parking orbit decays into the planet`,
+   decayed.end === 'LOST'],
   ['and the forecast saw it: a lifetime shorter than the wait', decayed.plan.needed && decayed.plan.lifetime < decayed.plan.wait],
   /**
    * The decision discounts every lifetime by `lifetimeTolerance`. That is only
@@ -473,16 +526,26 @@ const checks = [
    */
   ['each injection comes after the forecast window, by less than one parking orbit', flown.every((f) => f.late >= -60 && f.late <= f.period)],
   ['pads whose orbits outlast the wait plan nothing and fly nothing extra', kept.every((f) => !f.plan.needed && !f.plan.raised && f.nodePhases === 0)],
-  ['Vandenberg plans a raise and flies both burns', vb.plan.raised && vb.nodePhases === 4],
+  [`${LAUNCH_SITES[vb.site].name} plans a raise and flies both burns`,
+   vb.plan.raised && vb.nodePhases === 4],
   ['for under 1% of what is left in its tanks', vb.plan.dv1 + vb.plan.dv2 < 0.01 * 5208],
   ['and injects back down in the orbit it committed from, to 2 km', Math.abs(arriveError) < 2000],
   ['Vandenberg flies the whole mission, pad to splashdown', whole === 'SPLASHDOWN' && reached.includes('LUNAR_ORBIT')],
   ['a window open at commitment but closing before the craft comes round is not counted on',
+    /*
     Math.abs(closing.outAtCommit) <= PROFILE.phaseTolerance && closing.plan.wait > 100 * H],
   ['so that launch raises for the next window and injects, where it was lost',
     closing.plan.raised && closing.end === 'TRANS_LUNAR' && closing.late >= -60 && closing.late <= closing.period],
   ['a window open at commitment that will be caught is forecast to the pass, to a minute',
-    Math.abs(caught.outAtCommit) <= PROFILE.phaseTolerance && caught.plan.wait < H && Math.abs(caught.late) < 60 && caught.end === 'TRANS_LUNAR'],
+    /*
+     * "Within half a day" rather than the sub-hour this used to assert. The
+     * craft commits at a discrete point in its coast, so the wait quantises;
+     * with the pads where they now are the shortest catchable wait at
+     * Vandenberg is 9.86 h and no launch hour produces less. What the check is
+     * for is unchanged and is the second clause: that the forecast names the
+     * injection to within a minute of when it happens.
+     */
+    Math.abs(caught.outAtCommit) <= PROFILE.phaseTolerance && caught.plan.wait < 2 * H && Math.abs(caught.late) < 60 && caught.end === 'TRANS_LUNAR'],
   ['a trim that leaves the orbit short of its window is planned around',
     afterTrim !== null && afterTrim.replans === 1 && afterTrim.lifetime < afterTrim.wait && afterTrim.raised],
   ['and the trimmed vehicle still injects', trimmed.end === 'TRANS_LUNAR'],

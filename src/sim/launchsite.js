@@ -100,16 +100,40 @@ const DEG = Math.PI / 180
  *
  * e3 is the spin axis, shared with both the renderer's obliquity and the drag
  * model's wind, so the pad, the visible planet and the air all turn together.
- * e1 is any perpendicular — which makes the prime meridian's placement
- * arbitrary, and harmless, because longitude is cosmetic here.
+ *
+ * e1 is the prime meridian, and it is no longer "any perpendicular". It used to
+ * be, on the grounds that longitude is cosmetic — which is true right up until
+ * the ground is drawn and lit, at which point longitude decides what time of day
+ * it is at the pad. With an arbitrary meridian a launch at a real date arrived
+ * at the wrong hour: Kennedy's local noon fell at 03:48 UTC instead of 17:00.
+ *
+ * So it is anchored where the real one is. At J2000.0 the Greenwich meridian
+ * sits at right ascension 280.46062 degrees — Greenwich mean sidereal time,
+ * 18.697374558 hours — measured from the vernal equinox in the equatorial
+ * plane. The equinox is the intersection of ecliptic and equator, which in the
+ * scene frame is +x, and rotating it about the pole by that angle puts Greenwich
+ * where Greenwich is.
+ *
+ * Checked the other way round before it was written: fitting the offset that
+ * best matched an almanac's solar elevation gave 100.50 degrees against the
+ * 100.46 this derivation implies.
  */
 const E3 = SPIN_AXIS
+/** Greenwich mean sidereal time at J2000.0, in radians of right ascension. */
+const GMST_J2000 = 280.46061837 * DEG
 const E1 = (() => {
-  // (0,0,1) is never parallel to the spin axis, which lies in the x-y plane.
-  const x = -E3[1]
-  const y = E3[0]
-  const len = Math.hypot(x, y) || 1
-  return [x / len, y / len, 0]
+  // The equinox, and the equatorial direction 90 degrees east of it.
+  const eq = [1, 0, 0]
+  const perp = [
+    E3[1] * eq[2] - E3[2] * eq[1],
+    E3[2] * eq[0] - E3[0] * eq[2],
+    E3[0] * eq[1] - E3[1] * eq[0],
+  ]
+  const c = Math.cos(GMST_J2000)
+  const s = Math.sin(GMST_J2000)
+  const v = [eq[0] * c + perp[0] * s, eq[1] * c + perp[1] * s, eq[2] * c + perp[2] * s]
+  const len = Math.hypot(v[0], v[1], v[2]) || 1
+  return [v[0] / len, v[1] / len, v[2] / len]
 })()
 const E2 = [
   E3[1] * E1[2] - E3[2] * E1[1],
