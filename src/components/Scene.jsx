@@ -13,6 +13,7 @@ import { Osculating } from './Osculating.jsx'
 import { MapOverlay } from './MapOverlay.jsx'
 import { Markers } from './Markers.jsx'
 import { Planets } from './Planets.jsx'
+import { Terrain } from './Terrain.jsx'
 import { CameraRig } from './CameraRig.jsx'
 import { Effects } from './Effects.jsx'
 import { useUi } from '../sim/store.js'
@@ -96,6 +97,7 @@ export function Scene({ textures }) {
       {!cinematic && <MapOverlay />}
       {!cinematic && <Markers />}
       {!cinematic && <Planets />}
+      {!cinematic && <Terrain />}
 
       {/* Tuned for weight rather than responsiveness: a slower rotate against
           0.05 damping makes the camera feel like it carries momentum, which is

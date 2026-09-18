@@ -2145,6 +2145,59 @@ station frame to drop them into and assembling them would be placing sixteen
 meshes by eye. It is the real 108.5 m truss, 73 m of pressurised modules, eight
 wings of 34.2 x 11.6 m in four pairs, and three radiators.
 
+## The ground at each pad
+
+Real heights, about 70 km across each launch site at roughly 130 m a sample,
+fetched once by `npm run terrain:fetch` and committed — 1.3 MB for the four
+sites, on the same terms as the textures. They come from the Terrarium tiles on
+AWS Open Data, which are SRTM repackaged as PNG and need no key and no account.
+That last part is the reason they are the source: a launch site that only
+renders for someone holding an API key would not belong in a repository that is
+otherwise self-contained.
+
+**Imagery is not fetched, and cannot be.** Ground-resolution satellite pictures
+of a launch complex are all commercial. The keyless public sets — NASA GIBS,
+MODIS, VIIRS — top out near 250 m a pixel, which puts an entire pad inside one
+pixel. So the ground is shaded from the site's own palette and the height data
+does the work. That is a limit, and it is better stated than papered over.
+
+Two deliberate departures from the data:
+
+- **The pad sits at exactly one Earth radius.** The flight model's launch site is
+  a point on a sphere, with no ellipsoid and no elevation in it, so the field is
+  shifted to put the pad's own sample at zero. Relief is preserved exactly and
+  only the datum moves; the alternative is a vehicle standing three metres
+  underground at Kennedy and ninety above the ground at Baikonur.
+- **Below the datum is sea.** Terrarium carries bathymetry, so the Pacific west
+  of Vandenberg arrives as a 3,532 m trench. What someone standing on that pad
+  sees is water at sea level.
+
+It is built on the sphere rather than on a plane, because at 70 km the curvature
+is not a detail: the far edge of the patch drops 96 m below the pad's tangent
+plane, which is more than most of the relief being drawn.
+
+**How you tell whether a heightfield is over the right place.** Not by looking at
+it — a mis-indexed grid is a perfectly plausible landscape belonging to
+somewhere else, and Web Mercator is not linear in latitude, so it is easy to
+produce one. `verify-terrain` samples each grid at its pad's own coordinates and
+compares against what is published for that complex:
+
+| site | published | measured |
+| --- | --- | --- |
+| Kennedy LC-39B | 3 m | **1.5 m** |
+| Kourou ELA-3 | 10 m | **12.4 m** |
+| Vandenberg SLC-6 | 100 m | **101.6 m** |
+| Baikonur 1/5 | 90 m | 111.6 m |
+
+Three within 2.4 m is where the confidence comes from. The Baikonur figure is
+the weaker reference rather than a worse sample: 90 m is published for the
+cosmodrome, which spans 72 to 143 m inside this grid alone, and is not a surveyed
+pad elevation the way the other three are. The gate also checks the three
+coastal sites carry water and the one a thousand kilometres from any sea does
+not, which is a cheap way of asking whether each grid is over the country it
+claims.
+
+
 ## Spacecraft meshes
 
 `public/models/` holds NASA's public-domain assets; the catalogue in
