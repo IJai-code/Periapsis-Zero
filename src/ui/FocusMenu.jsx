@@ -3,7 +3,7 @@ import { BODIES, SHIP } from '../sim/constants.js'
 
 const TARGETS = [
   { id: 'free', name: 'Free', hint: 'Unlocked', key: '1' },
-  { id: 'fly', name: 'Fly', hint: 'WASD · drag to look', key: '9' },
+  { id: 'fly', name: 'Fly', hint: 'WASD · click to steer', key: '9' },
   { id: 'sun', name: BODIES.sun.name, hint: 'G2V star', key: '2' },
   { id: 'earth', name: BODIES.earth.name, hint: 'Home', key: '3' },
   { id: 'moon', name: BODIES.moon.name, hint: 'Tidally locked', key: '4' },

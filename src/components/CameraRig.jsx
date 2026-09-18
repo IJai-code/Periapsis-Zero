@@ -194,7 +194,7 @@ export function CameraRig() {
   const focusRef = useRef(focus)
   focusRef.current = focus
   const flyKeys = useRef(null)
-  const flyLook = useRef({ yaw: 0, pitch: 0, dragging: false, pointer: null, x: 0, y: 0 })
+  const flyLook = useRef({ yaw: 0, pitch: 0, dragging: false, locked: false, pointer: null, x: 0, y: 0 })
   const flyTrim = useRef(1)
   const cineT = useRef(0)
   /** The drawn length last framed, and the radius a reframe is closing on. */
@@ -239,24 +239,62 @@ export function CameraRig() {
     const keys = flyKeys.current
     keys.clear()
 
+    /**
+     * Two ways to look, and the good one needs a gesture to start.
+     *
+     * Pointer lock is what this mode wants: the mouse steers on its own, both
+     * hands stay on the keys, and there is no button to hold while also holding
+     * W. The browser will only grant it from a user gesture, so a click asks for
+     * it and escape gives it back — that is the browser's own binding and it is
+     * the one people already know. Dragging still works, unchanged, for anyone
+     * who declines the lock or whose browser refuses it, so nothing is lost by
+     * asking.
+     */
+    const aim = (dx, dy) => {
+      look.yaw -= dx * LOOK_PER_PIXEL
+      look.pitch = THREE.MathUtils.clamp(look.pitch - dy * LOOK_PER_PIXEL, -PITCH_LIMIT, PITCH_LIMIT)
+    }
     const onPointerDown = (e) => {
       if (e.button !== 0) return
+      // The request can be refused — an embedded or background document gets a
+      // WrongDocumentError, and some browsers require a fresh gesture. It
+      // returns a promise in current browsers and nothing in older ones, and an
+      // unhandled rejection here would be a console error on every click in a
+      // context where dragging works perfectly well.
+      if (!look.locked) Promise.resolve(canvas.requestPointerLock?.()).catch(() => {})
       look.dragging = true
       look.pointer = e.pointerId
       look.x = e.clientX
       look.y = e.clientY
-      canvas.setPointerCapture?.(e.pointerId)
+      // Capture keeps a drag alive when the pointer leaves the canvas, and it
+      // throws InvalidStateError if that pointer is no longer active by the time
+      // it is asked — which an uncaught handler turns into a console error on
+      // every click. The drag does not depend on it.
+      try {
+        canvas.setPointerCapture?.(e.pointerId)
+      } catch {
+        /* no capture; the drag still tracks while the pointer is over the canvas */
+      }
     }
     const onPointerMove = (e) => {
+      if (look.locked) {
+        // movementX/Y is the only thing that means anything under lock: the
+        // pointer itself no longer moves, so clientX would never change.
+        aim(e.movementX ?? 0, e.movementY ?? 0)
+        return
+      }
       if (!look.dragging || e.pointerId !== look.pointer) return
-      look.yaw -= (e.clientX - look.x) * LOOK_PER_PIXEL
-      look.pitch = THREE.MathUtils.clamp(
-        look.pitch - (e.clientY - look.y) * LOOK_PER_PIXEL,
-        -PITCH_LIMIT,
-        PITCH_LIMIT,
-      )
+      aim(e.clientX - look.x, e.clientY - look.y)
       look.x = e.clientX
       look.y = e.clientY
+    }
+    const onLockChange = () => {
+      look.locked = document.pointerLockElement === canvas
+      live.flyLocked = look.locked
+      if (!look.locked) {
+        look.dragging = false
+        look.pointer = null
+      }
     }
     const onPointerUp = (e) => {
       if (e.pointerId !== look.pointer) return
@@ -276,6 +314,7 @@ export function CameraRig() {
     canvas.addEventListener('pointermove', onPointerMove)
     canvas.addEventListener('pointerup', onPointerUp)
     canvas.addEventListener('pointercancel', onPointerUp)
+    document.addEventListener('pointerlockchange', onLockChange)
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', onBlur)
@@ -284,10 +323,15 @@ export function CameraRig() {
       canvas.removeEventListener('pointermove', onPointerMove)
       canvas.removeEventListener('pointerup', onPointerUp)
       canvas.removeEventListener('pointercancel', onPointerUp)
+      document.removeEventListener('pointerlockchange', onLockChange)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
       keys.clear()
+      // Leaving the mode gives the pointer back, whatever else happens.
+      if (document.pointerLockElement === canvas) document.exitPointerLock?.()
+      look.locked = false
+      live.flyLocked = false
       look.dragging = false
       scratch.flyVel.set(0, 0, 0)
       live.flySpeed = 0

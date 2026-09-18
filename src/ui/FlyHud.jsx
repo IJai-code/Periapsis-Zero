@@ -24,7 +24,7 @@ const KEYS = [
   ['W S', 'forward · back'],
   ['A D', 'left · right'],
   ['R F', 'up · down'],
-  ['drag', 'look'],
+  ['mouse', 'look'],
   ['wheel', 'trim speed'],
   ['shift', 'x5'],
   ['ctrl', 'x0.2'],
@@ -44,8 +44,16 @@ export function FlyHud() {
     if (!flying) return
     const speed = root.current?.querySelector('[data-field="speed"]')
     const room = root.current?.querySelector('[data-field="room"]')
+    const lock = root.current?.querySelector('[data-field="lock"]')
     const tick = () => {
       if (speed) speed.textContent = speedText(live.flySpeed)
+      if (lock) {
+        const held = live.flyLocked
+        lock.textContent = held
+          ? 'Mouse captured · esc to release'
+          : 'Click the scene to steer with the mouse'
+        lock.style.color = held ? 'color-mix(in oklab, var(--color-hud) 55%, transparent)' : ''
+      }
       if (room) {
         const d = live.nearest.distance
         room.textContent = !Number.isFinite(d)
@@ -93,7 +101,17 @@ export function FlyHud() {
         ))}
       </div>
 
-      <p className="mt-2.5 border-t border-white/10 pt-2 text-[9px] leading-relaxed text-white/25">
+      {/* Written on the timer like the readouts above: the browser can drop the
+          lock at any moment — escape, a tab switch — and a stale line here would
+          be telling the pilot they have a mouse they do not have. */}
+      <p
+        data-field="lock"
+        className="mt-2.5 border-t border-white/10 pt-2 text-[9px] leading-relaxed text-white/40"
+      >
+        Click the scene to steer with the mouse
+      </p>
+
+      <p className="mt-2 text-[9px] leading-relaxed text-white/25">
         Speed scales with clearance to the nearest surface, so the same forty
         seconds crosses a hangar or an astronomical unit.
       </p>

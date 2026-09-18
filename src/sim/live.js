@@ -79,6 +79,8 @@ export const live = {
 
   /** Free-flight camera speed, m/s. Written by the rig, read by the HUD. */
   flySpeed: 0,
+  /** Whether free flight currently holds the pointer. Read by the HUD. */
+  flyLocked: false,
 
   /** Live osculating elements of the craft. Same object, refreshed in place. */
   elements,
