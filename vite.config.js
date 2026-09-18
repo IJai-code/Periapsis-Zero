@@ -124,17 +124,16 @@ function stampModules() {
 }
 
 /**
- * Where the site is served from.
+ * Where the site is served from: the root.
  *
  * Every asset the app fetches at runtime — models, textures, the Draco decoders
  * — is already built on `import.meta.env.BASE_URL`, so the whole of it follows
- * this one value. GitHub Pages serves a project site under the repository name,
- * so a deployment sets `PERIAPSIS_BASE=/periapsis-zero/`; a user site or a
- * custom domain leaves it alone. Taken from the environment rather than written
- * here so that `npm run dev` stays at the root, where a link to
- * `localhost:5173` still works.
+ * this one value. The site is published to periapsiszero.dev, and a custom
+ * domain serves from the root rather than from a project sub-path, so the
+ * repository name has no business appearing in an asset URL. Written here
+ * rather than derived: `PERIAPSIS_BASE` in the workflow no longer reaches this.
  */
-const base = process.env.PERIAPSIS_BASE || '/'
+const base = '/'
 
 export default defineConfig({
   base,
