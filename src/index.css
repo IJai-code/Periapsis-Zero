@@ -3,6 +3,13 @@
 @theme {
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   --font-display: 'Chakra Petch', system-ui, sans-serif;
+  /*
+   * Prose. The body is monospace because the whole instrument panel is, and an
+   * instrument should be: figures have to sit in the same column as they change.
+   * Sentences should not. Anything written to be *read* — the front door, a
+   * description — takes this instead.
+   */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --color-hud: oklch(0.86 0.13 200);
   --color-hud-dim: oklch(0.62 0.07 220);
 }
