@@ -1655,7 +1655,14 @@ export function resetLoiter() {
  * ---------------------------------------------------------------- */
 
 /** Sample spacing and reach of the window forecast, s. Half an hour is 0.3 deg of lunar motion. */
-const WINDOW_STEP = 1800
+/**
+ * The march step the window forecast is built on, seconds.
+ *
+ * Exported because it is also the resolution of the answer: a gate that checks
+ * the forecast against a flown injection is checking it to this, not to a
+ * second.
+ */
+export const WINDOW_STEP = 1800
 const WINDOW_HORIZON = 30 * 86400
 /** Spacing of the scan for the craft's pass through a window already open, s: 1.4 deg of its orbit. */
 const PASS_STEP = 20
@@ -1753,27 +1760,67 @@ function passInOpenWindow(horizon) {
 function predictTLIWindow(r1) {
   if (!_ephemeris) _ephemeris = live.sim.clone()
   loadGeocentric()
-  _eh.crossVectors(_rs, _vs).normalize()
+  _eh.crossVectors(_rs, _vs)
+  const hLen = _eh.length()
+  _eh.normalize()
   const planeX = _eh.x
   const planeY = _eh.y
   const planeZ = _eh.z
+
+  /**
+   * The plane the forecast compares against is not the plane the craft will be
+   * in, because the craft's own node regresses while the Moon is marched.
+   *
+   *   dOmega/dt = -(3/2) J_2 (R_E/p)^2 n cos i
+   *
+   * At parking altitude that is about -7.9 deg/day, so across Kennedy's 65-hour
+   * wait the plane the window was measured against was twenty degrees from the
+   * one the craft would actually have — and the pads injected 9 to 88 hours
+   * *early* against a forecast that had the alignment arriving that much later.
+   * The rate is the secular first-order term; the short-period wobble on top of
+   * it is a small fraction of a degree and is not what the window turns on.
+   *
+   * A spherical field makes this zero, so a comparison flight on a point mass
+   * forecasts exactly as it did before.
+   */
+  const field = fieldOf(live.sim)
+  const cosI = _eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]
+  const ecc2 = Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * r1))
+  const p = r1 * (1 - ecc2)
+  const omegaDot =
+    -1.5 * field.J[0] * (field.radius / p) * (field.radius / p) *
+    Math.sqrt(MU_EARTH / (r1 * r1 * r1)) * cosI
+  const ax = field.axis[0]
+  const ay = field.axis[1]
+  const az = field.axis[2]
+  const along = planeX * ax + planeY * ay + planeZ * az
 
   const tol = PROFILE.phaseTolerance
   const y = _ephemeris.state
   const e = INDEX.earth * 6
   const m = INDEX.moon * 6
-  const outAt = () => {
+  /** @param {number} t seconds from now, so the plane can be carried forward */
+  const outAt = (t) => {
     _em.set(y[m] - y[e], y[m + 1] - y[e + 1], y[m + 2] - y[e + 2])
     _ev.set(y[m + 3] - y[e + 3], y[m + 4] - y[e + 4], y[m + 5] - y[e + 5])
     const r2 = _em.length()
     arrivalDirection(_ef, _em, _ev, r2, (_ev.length() / r2) * transferTime(r1, r2))
-    const sine = planeX * _ef.x + planeY * _ef.y + planeZ * _ef.z
+    // Rodrigues about the spin axis, written out: this is on the commitment
+    // path and a rotation matrix per sample is not worth the allocation.
+    const theta = omegaDot * t
+    const c = Math.cos(theta)
+    const s = Math.sin(theta)
+    const omc = 1 - c
+    const nx = planeX * c + (ay * planeZ - az * planeY) * s + ax * along * omc
+    const ny = planeY * c + (az * planeX - ax * planeZ) * s + ay * along * omc
+    const nz = planeZ * c + (ax * planeY - ay * planeX) * s + az * along * omc
+    const sine = nx * _ef.x + ny * _ef.y + nz * _ef.z
     return Math.asin(sine > 1 ? 1 : sine < -1 ? -1 : sine)
   }
 
   _ephemeris.resetFrom(live.sim)
   let skipping = false
-  let last = outAt()
+  let last = outAt(0)
   if (Math.abs(last) <= tol) {
     const period = 2 * Math.PI * Math.sqrt((r1 * r1 * r1) / MU_EARTH)
     const pass = passInOpenWindow(2 * period)
@@ -1783,7 +1830,7 @@ function predictTLIWindow(r1) {
   }
   for (let k = 1; k * WINDOW_STEP <= WINDOW_HORIZON; k++) {
     _ephemeris.advance(WINDOW_STEP, WINDOW_STEP, 1)
-    const out = outAt()
+    const out = outAt(k * WINDOW_STEP)
     if (skipping) {
       if (Math.abs(out) > tol) skipping = false
     } else if (Math.abs(last) > tol && (Math.abs(out) <= tol || out > 0 !== last > 0)) {
