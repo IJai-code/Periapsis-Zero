@@ -750,12 +750,20 @@ honest — leaves five of its seven red: the samples along a decay, the arrival
 back in the orbit it committed from, the eccentric cases, perigee at ignition,
 and the floor case. Those are not the field's doing, and they are the gate's own
 re-baselining to answer for rather than a term in the physics. The two the field
-does decide are the lifetime at the end of a decay (7.3% against a 2% bar) and
-the injection timing: the pads now inject 9 to 88 hours *early* against their own
-forecast window, because `predictTLIWindow` holds the craft's orbital plane
-fixed while it propagates the Moon, and with J₂ live the node regresses several
-degrees over a wait that long. That is a nameable term the forecast is missing,
-not a tolerance to widen.
+does decide is the lifetime at the end of a decay (7.3% against a 2% bar), which
+is the eccentricity term above and wants Brouwer.
+
+The other was the injection timing, and it is fixed. `predictTLIWindow` used to
+hold the craft's orbital plane fixed while it marched the Moon — exact on a point
+mass, and wrong on an oblate planet, where the node regresses 7.9°/day at parking
+altitude. Across Kennedy's 65-hour wait the plane the window was measured against
+was twenty degrees from the one the craft would be in, and the fleet injected 9
+to 88 hours *early* against its own forecast. The plane normal is now carried
+forward about the spin axis at that rate at every march sample: Kennedy −19.27 h
+→ +0.81 h, Kourou −9.10 → +1.17, Baikonur −87.57 → −0.13, Vandenberg −13.51 →
++0.85. A spherical field makes the rate zero, so the point-mass comparison
+forecasts exactly as it did before — which is what let the two worlds be told
+apart in the first place.
 
 **The ascent still cuts off on osculating elements, and that is the larger
 effect.** `GRAVITY_TURN` waits for the *osculating* apoapsis to reach the 185 km

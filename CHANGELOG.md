@@ -81,6 +81,14 @@ require.
 
 ### Changed
 
+- **The TLI window forecast carries the craft's own nodal precession.**
+  `predictTLIWindow` held the craft's orbital plane fixed while it marched the
+  Moon — exact on a point mass, wrong on an oblate planet, where the node
+  regresses 7.9°/day at parking altitude. The fleet injected 9–88 hours early
+  against its own forecast; the plane normal is now carried forward about the
+  spin axis at that rate, and every injection lands within a march step of it
+  (−19.27 → +0.81 h at Kennedy, −87.57 → −0.13 h at Baikonur). A spherical field
+  makes the rate zero, so a point-mass comparison forecasts exactly as before.
 - **The loiter planner plans on mean elements.** `assessOrbit`
   (`src/sim/mission.js`) now takes its semi-major axis from the energy invariant
   `ā = −μ/(2E)` rather than the osculating value, which J₂ swings ±10 km with the
@@ -129,14 +137,13 @@ require.
   0.0005), and two kilometres of perigee is seven per cent of the drag. A
   revolution average was measured as a candidate and rejected — 155.8 h, worse
   than the osculating answer. See *Physics core & future roadmap* in the README.
-- **`verify:loiter` is red, for two reasons, and lifting the oblateness
-  separates them.** Five of its seven failures are also red on a point-mass
-  Earth, so they are the gate's own re-baselining rather than the field. The two
-  the field decides are the lifetime at the end of a decay (7.3% against a 2%
-  bar) and the injection timing: the pads inject 9–88 hours *early* against their
-  forecast window, because `predictTLIWindow` holds the craft's plane fixed while
-  it propagates the Moon and J₂ regresses the node several degrees over a wait
-  that long.
+- **`verify:loiter` is at 15 of 20, and lifting the oblateness separates what is
+  left.** Four of the five remaining failures are red on a point-mass Earth too,
+  so they belong to the gate's own re-baselining rather than to the field: the
+  sampled decay, the arrival back in the orbit it committed from, the eccentric
+  cases, and perigee at ignition. The fifth is the eccentricity term above —
+  7.3% against a 2% bar. The injection timing, the other field-caused failure,
+  is fixed; see *Changed*.
 - **Ascent guidance still cuts off on osculating elements.** `GRAVITY_TURN` and
   `CIRCULARISE` target osculating quantities, so each pad's *mean* parking orbit
   lands 8–21 km below the 185 km design and differs per pad (167.3 km at Kennedy,
