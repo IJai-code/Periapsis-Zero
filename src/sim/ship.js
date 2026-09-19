@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three'
 import { BODIES, G, G0, SHIP } from './constants.js'
-import { dragCoefficient } from './atmosphere.js'
+import { SPIN_AXIS, dragCoefficient } from './atmosphere.js'
 
 /**
  * Flight model for the spacecraft: attitude, throttle, propellant, and the
@@ -384,6 +384,21 @@ function computeInto(out, state, shipOffset, centreOffset, mu, bodyRadius) {
   const ez = (vx * hy - vy * hx) / mu - rz / r
   const e = Math.sqrt(ex * ex + ey * ey + ez * ez)
   out.eccentricity = e
+
+  /*
+   * Inclination, against the planet's own spin axis rather than the ecliptic's.
+   *
+   * Here because the osculating orbit's *shape* is not the whole story any more:
+   * the two things a zonal field does to it — the node walks and the apsides
+   * rotate — both depend on nothing else but this angle and the semi-major axis,
+   * and the geophysics panel computes them from what the HUD already knows. A
+   * retrograde orbit comes out above 90 degrees, which is the reading a pilot
+   * wants rather than a signed number. Measured as the angle between the orbit
+   * normal and the spin axis, so it is the same 51.6 degrees the station is.
+   */
+  const hMag = Math.sqrt(hx * hx + hy * hy + hz * hz)
+  const along = hx * SPIN_AXIS[0] + hy * SPIN_AXIS[1] + hz * SPIN_AXIS[2]
+  out.inclination = hMag > 0 ? Math.acos(Math.max(-1, Math.min(1, along / hMag))) : 0
 
   // a(1 - e) is the periapsis radius on both branches: on a hyperbola a is
   // negative and e > 1, so the two sign flips cancel.

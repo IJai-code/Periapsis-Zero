@@ -27,6 +27,7 @@ import { BODIES, G } from '../src/sim/constants.js'
 import { INDEX } from '../src/sim/system.js'
 import { WARP } from '../src/sim/warp.js'
 import { addNode, clearNodes, nodeBasis, nodes, removeNode, setNodeTime } from '../src/sim/nodes.js'
+import { J2, REFERENCE_RADIUS } from '../src/sim/prem.js'
 import { SAMPLES, packPolyline, plan, prediction, project } from '../src/sim/predict.js'
 import {
   CROSSING_PX,
@@ -46,6 +47,27 @@ import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs
 
 const MU = G * BODIES.earth.mass
 const R = BODIES.earth.radius
+
+/**
+ * How far the quadrupole can move a point on an orbit, metres.
+ *
+ * `3 J2 (R/r)^2` times the monopole's acceleration, turned into a length by the
+ * orbit's frequency — the bound `verify-nodes` uses, read from the same
+ * constant the field is built from. This gate's one orbital claim was a
+ * kilometre on a 1,400 km apoapsis, and that kilometre was written when Earth
+ * was a point mass here; the pull below is re-measured on a sphere and on the
+ * real Earth against this instead.
+ */
+const quadrupoleScale = (r) => (3 * J2 * REFERENCE_RADIUS * REFERENCE_RADIUS) / r
+
+/** The field is one-way state on the integrator, so it lifts for one pass. */
+const onSphere = (fn) => {
+  const saved = live.sim.zonal
+  live.sim.zonal = null
+  const value = fn()
+  live.sim.zonal = saved
+  return value
+}
 const WIDTH = 1600
 const HEIGHT = 900
 const LINEWIDTH = 1.4
@@ -433,6 +455,22 @@ const hAfter = r1 * vAfter
 const eAfter = Math.sqrt(Math.max(0, 1 - (hAfter * hAfter) / (MU * aAfter)))
 const apoExpected = aAfter * (1 + eAfter)
 const apoGot = plan.apoapsis.radius
+/**
+ * And the same drag, projected on a point-mass Earth.
+ *
+ * Vis-viva is a two-body statement, so it is checked where it is a two-body
+ * problem: with the field lifted, the drag has to land on the conic as tightly
+ * as it ever did. The real Earth is then allowed to move the answer by the
+ * quadrupole's own radial scale — 19.5 km at this altitude — which is the same
+ * allowance `verify-nodes` makes and is derived from the same constant rather
+ * than remembered. Both halves matter: without the first the check would stop
+ * testing the drag, and without the second it would stop noticing that Earth is
+ * oblate.
+ */
+const apoGotSphere = onSphere(() => {
+  project(live.sim, scratch, 'ship', 'earth', period * 1.8, plan, nodes)
+  return plan.apoapsis.radius
+})
 
 console.log('\n=== pulling the prograde handle ===')
 console.log(`  screen direction    (${axis2.x.toFixed(4)}, ${axis2.y.toFixed(4)}), unit ${Math.hypot(axis2.x, axis2.y).toFixed(9)}`)
@@ -441,6 +479,9 @@ console.log(`  ${DRAG_PX} px drag        ${dragged.toFixed(2)} m/s prograde at p
 console.log(`  vis-viva says       ${((apoExpected - R) / 1e3).toFixed(2)} km apoapsis`)
 console.log(`  projection draws    ${((apoGot - R) / 1e3).toFixed(2)} km` +
   `  — ${apoGot >= apoExpected ? '+' : ''}${((apoGot - apoExpected) / 1e3).toFixed(3)} km`)
+console.log(`  on a point mass     ${((apoGotSphere - R) / 1e3).toFixed(3)} km` +
+  `  — ${(apoGotSphere - apoExpected).toFixed(1)} m off the conic;` +
+  ` the oblateness accounts for the other ${((apoGot - apoGotSphere) / 1e3).toFixed(2)} km of a ${(quadrupoleScale(apoExpected) / 1e3).toFixed(1)} km scale`)
 console.log(`  a full ${DRAG_SPAN_PIXELS} px pull is ${(DRAG_SPAN_PIXELS * gain).toFixed(0)} m/s` +
   `, ${(DRAG_SPAN_FRACTION * 100).toFixed(0)}% of orbital speed`)
 
@@ -705,7 +746,49 @@ console.log(`  continuing from 118  picks ${selEpochs[pickAhead]} s (28 px neare
  */
 const axisTmp = new Vector2()
 const control = await knownAllocation()
-const mathBytes = await bytesPerCall(() => {
+/**
+ * The three per-frame calls, measured one at a time.
+ *
+ * They were one measurement with all three in a single loop body, and that
+ * measurement was not reproducible: the same commit read 0 B in some runs and 32
+ * in others, because with three calls in one body V8 stops inlining one of them
+ * and boxes its returned double — which of the three, and whether any, varies run
+ * to run. An assertion that fails a third of the time is worse than no assertion,
+ * so the sum is taken over three measurements that each keep to one call site.
+ *
+ * Measuring them apart is also the more faithful shape. In the frame each is
+ * called from its own site — `screenAxis` from `Craft`, the two segment lookups
+ * from the pointer path — and none of them shares a caller's inlining budget with
+ * the others. The combined figure is still printed below, as information, because
+ * the boxing it reveals is real even though it is a property of a benchmark loop
+ * the product does not have.
+ */
+const axisBytes = await bytesPerCall(
+  () => {
+    screenAxis(axisTmp, nodeWorld, fp, camera, WIDTH, HEIGHT)
+  },
+  { calls: 20000, warm: 100000, windows: 9 },
+)
+const paramBytes = await bytesPerCall(
+  () => {
+    paramOnSegment(prediction.points, 100, world.x, world.y, world.z)
+  },
+  { calls: 20000, warm: 100000, windows: 9 },
+)
+const epochBytes = await bytesPerCall(
+  () => {
+    epochOnSegment(prediction, 100, 0.5)
+  },
+  { calls: 20000, warm: 100000, windows: 9 },
+)
+const mathBytes = axisBytes &&
+  paramBytes &&
+  epochBytes && {
+    bytes: axisBytes.bytes + paramBytes.bytes + epochBytes.bytes,
+    windows: Math.min(axisBytes.windows, paramBytes.windows, epochBytes.windows),
+    calls: 20000,
+  }
+const combined = await bytesPerCall(() => {
   screenAxis(axisTmp, nodeWorld, fp, camera, WIDTH, HEIGHT)
   paramOnSegment(prediction.points, 100, world.x, world.y, world.z)
   epochOnSegment(prediction, 100, 0.5)
@@ -714,7 +797,9 @@ const hover = await bytesPerCall(() => pickEpoch(nodeWorld), { calls: 512, warm:
 
 console.log('\n=== allocation ===')
 if (mathBytes) {
-  console.log(`  gizmo maths     ${mathBytes.bytes.toFixed(1)} B per frame's worth of calls`)
+  console.log(`  gizmo maths     ${mathBytes.bytes.toFixed(1)} B over the three calls, separately:`)
+  console.log(`                  screenAxis ${axisBytes.bytes.toFixed(2)} B, paramOnSegment ${paramBytes.bytes.toFixed(2)} B, epochOnSegment ${epochBytes.bytes.toFixed(2)} B`)
+  console.log(`  the same three  ${combined.bytes.toFixed(1)} B in one loop body — ${combined.bytes >= 16 ? 'a boxed double, from the caller not inlining' : 'no boxing this run'}`)
   console.log(`  one hover pick  ${hover.bytes.toFixed(0)} B — raycast plus this harness's bookkeeping; pointer-gated, not per frame`)
   console.log(`  control object  ${control.bytes.toFixed(0)} B — proof the measurement can see one`)
 }
@@ -749,10 +834,15 @@ const checks = [
   ['the node fires when it was told to', Math.abs(firedAt - firedWanted) < 1e-6],
   ['the screen axis is a unit vector', Math.abs(Math.hypot(axis2.x, axis2.y) - 1) < 1e-12],
   /**
-   * A kilometre on a 1,400 km apoapsis: the same allowance verify-nodes makes,
-   * for the same reason — an n-body projection against a two-body formula.
+   * A kilometre on a 1,400 km apoapsis, on a point-mass Earth: the same
+   * allowance verify-nodes makes, for the same reason — an n-body projection
+   * against a two-body formula. On the real Earth the oblateness carries the
+   * same pull off the conic by a real fraction of its own scale.
    */
-  ['a 120 px pull reaches the apoapsis vis-viva predicts', Math.abs(apoGot - apoExpected) < 1000],
+  ['a 120 px pull reaches the apoapsis vis-viva predicts, on a point-mass Earth',
+    Math.abs(apoGotSphere - apoExpected) < 1000],
+  ['and on the real Earth lands inside the quadrupole scale, and not on the conic',
+    Math.abs(apoGot - apoExpected) < quadrupoleScale(apoExpected) && Math.abs(apoGot - apoExpected) > quadrupoleScale(apoExpected) / 20],
   ['a full drag spends the stated fraction of orbital speed',
     Math.abs(DRAG_SPAN_PIXELS * gain - speedNow * DRAG_SPAN_FRACTION) < 1e-6],
   ['fine and coarse bracket it', MODIFIERS.fine < 1 && MODIFIERS.coarse > 1],
@@ -787,20 +877,15 @@ const checks = [
   ['but a clearly nearer candidate is not overruled by continuity', pickAhead === 0],
   ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
   /**
-   * At most one heap number across all three calls.
+   * Each of the three, at its own call site, allocates nothing — and the budget
+   * is under half a heap number, so a boxed double in any one of them fails.
    *
-   * Not zero, and the distinction is measured rather than conceded. Each of the
-   * three costs nothing on its own — screenAxis 0.1 B, the other two 0.0 — and
-   * the three together cost 16 B in some runs and 0 in others, on the same
-   * commit, because with three calls in one loop body V8 stops inlining one of
-   * them and its returned double is boxed. Which run gets which is not
-   * something this gate can control, and an assertion that fails half the time
-   * teaches a reader to ignore it. Sixteen bytes a frame is a kilobyte a
-   * second; a *second* boxed double would mean something changed. Bounded
-   * below 32 rather than at 16, because the measurement is a median of ratios
-   * and lands a hair above a whole heap number as often as on it.
+   * The bound is not zero because the measurement has a floor: the median over
+   * clean windows lands a hair above a whole heap number as often as on it, and
+   * `screenAxis` reads 0.1 B. Half of the 12 bytes a pointer-compressed V8 needs
+   * for an object is the smallest thing this can honestly distinguish from noise.
    */
-  ['the per-frame maths cost under two boxed doubles', !mathBytes || mathBytes.bytes < 32],
+  ['the per-frame maths cost under half a heap number', !mathBytes || mathBytes.bytes < 6],
 ]
 let pass = true
 for (const [label, ok] of checks) {

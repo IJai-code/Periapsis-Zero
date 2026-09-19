@@ -1,7 +1,27 @@
-import { LAUNCH_SITES, activeSite, inclinationFor, rotationBonus, selectSite } from '../sim/launchsite.js'
+import {
+  LAUNCH_SITES,
+  activeSite,
+  inclinationFor,
+  rotationBonus,
+  selectSite,
+  siteDeflection,
+  siteGravity,
+} from '../sim/launchsite.js'
+import { G0, SHIP } from '../sim/constants.js'
 import { resetSimulation } from '../sim/live.js'
 import { resetMission } from '../sim/mission.js'
 import { setUi, useUi } from '../sim/store.js'
+
+/**
+ * The stack's liftoff mass and its thrust-to-weight, on standard gravity.
+ *
+ * Hoisted to module load rather than recomputed per render: the panel lists four
+ * pads and each one's figure is this divided by that pad's own g, which is the
+ * whole point of showing it. 1.166 is the number the vehicle is documented at,
+ * and it is the number the panel is meant to be checked against.
+ */
+const LIFTOFF_MASS = SHIP.stages.reduce((m, s) => m + s.dryMass + s.propellant, 0)
+const LIFTOFF_TW = SHIP.stages[0].thrust / (LIFTOFF_MASS * G0)
 
 /**
  * Which pad the stack is standing on.
@@ -53,12 +73,19 @@ export function LaunchSite() {
               <div className="text-[9px] tracking-[0.1em] text-white/30 uppercase">
                 {inclinationFor(site).toFixed(1)}° orbit · {downrange.toFixed(0)} m/s free
               </div>
+              <div className="font-mono text-[9px] text-white/25">
+                {siteGravity(site).toFixed(3)} m/s² · T/W{' '}
+                {(LIFTOFF_TW * (G0 / siteGravity(site))).toFixed(3)}
+              </div>
             </button>
           )
         })}
       </div>
       <div className="mt-2 border-t border-white/8 pt-2 text-[9px] leading-relaxed text-white/25">
-        The stack is held to its pad, so choosing one starts the count again.
+        The stack is held to its pad, so choosing one starts the count again. The g is the pad's
+        own, from Earth's interior rather than from 9.80665: a plumb line stands{' '}
+        {Math.abs(siteDeflection(activeSite()) * (180 / Math.PI)).toFixed(2)}° off the
+        geocentric radius here, so don't look for the tower to be radial.
       </div>
     </div>
   )

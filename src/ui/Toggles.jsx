@@ -9,6 +9,8 @@ const OPTIONS = [
   { key: 'atmosphere', label: 'Atmosphere' },
   { key: 'labels', label: 'Labels' },
   { key: 'bloom', label: 'Bloom / vignette' },
+  { key: 'audio', label: 'Engine audio' },
+  { key: 'geophysics', label: 'Terra interior' },
 ]
 
 function Switch({ on }) {

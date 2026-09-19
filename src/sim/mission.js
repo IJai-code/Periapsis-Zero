@@ -24,6 +24,7 @@ import {
 } from './nodes.js'
 import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
+import { meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
 /**
@@ -779,7 +780,24 @@ function aimAscent() {
    */
   const r = e.radius
   const vh = Math.sqrt(Math.max(0, e.speed * e.speed - e.vertical * e.vertical))
-  const gEff = (G * BODIES.earth.mass) / (r * r) - (vh * vh) / r
+  /*
+   * The gravity in that line is the *field's*, not a point mass's.
+   *
+   * It used to be `mu/r^2`, which is the right answer for a sphere and 0.014
+   * m/s^2 light at 185 km on an oblate planet — small, and of the same order as
+   * the climb-rate gain this line multiplies, so a vehicle whose autopilot was
+   * steering by a different gravity than the one the integrator flies it through
+   * was being steered by its own model error. Same field, one call, no `mu`
+   * rebuilt here: `radialGravity` reads the PREM profile and the zonal series
+   * that `system.js` installs on the craft's integrator, so what this loop holds
+   * against the climb rate is what the craft is actually falling at.
+   */
+  const s = live.sim.state
+  const o = INDEX.ship * 6
+  const c = INDEX.earth * 6
+  const gEff = -radialGravity(
+    s[o] - s[c], s[o + 1] - s[c + 1], s[o + 2] - s[c + 2],
+  ) - (vh * vh) / r
 
   const climbWanted = Math.max(ASCENT_MIN_CLIMB, ASCENT_APO_GAIN * (target - e.apogee))
   const aVert = gEff + ASCENT_CLIMB_GAIN * (climbWanted - e.vertical)
@@ -1873,21 +1891,59 @@ function assessOrbit() {
   _eh.crossVectors(_rs, _vs)
   const hLen = _eh.length()
   const o = _orbit
-  o.a = a
+  /**
+   * The **mean** semi-major axis, not the osculating one.
+   *
+   * Everything below — the lifetime, the arrival altitude, whether the raise is
+   * needed at all — is a statement about the orbit the vehicle will still be in
+   * tomorrow, and the osculating semi-major axis is not that: J2 swings it by
+   * about +/-10 km with the argument of latitude, an order more than drag does to
+   * it in a day. Planning against it means planning against whichever point of
+   * that swing the commitment happened to land on, and it lands differently at
+   * each pad — measured, the four pads' commitments sat 3.9, 6.6, 4.9 and 6.7 km
+   * away from the mean orbit they were actually flying, in both directions.
+   *
+   * `meanSemiMajor` takes the J2 short-period term out by energy, which is exact
+   * rather than a truncated series: the field is conservative, so the two-body
+   * orbit with the same total energy is the mean orbit by construction — and,
+   * being an invariant, it is the quantity drag actually changes, where the
+   * osculating semi-major axis is a function of where in the swing you look.
+   *
+   * The eccentricity stays the osculating one, and that is a known and measured
+   * shortfall rather than a judgement. Its own J2 term is the same order as the
+   * eccentricity itself at parking altitude — measured on Vandenberg's committed
+   * orbit, e reads 0.000997 where the vehicle's mean eccentricity is nearer
+   * 0.0005 — and two kilometres of perigee is seven per cent of the drag, so the
+   * lifetime the theory returns still carries about that much error. It is the
+   * whole of the residual `verify-loiter` reports: 191.4 h forecast against 206.5
+   * flown.
+   *
+   * Averaging the osculating elements over one revolution does not fix it, and
+   * was measured before being rejected: over a revolution from this same state
+   * the mean comes back as a = 168.8 km and e = 0.001817, which is three
+   * kilometres below the invariant and gives 155.8 h — a worse answer than the
+   * osculating one, because the eccentricity vector of a near-circular orbit
+   * circulates on a timescale of days and a single revolution samples it rather
+   * than averaging it. Closing the last seven per cent needs the double-averaged
+   * (Brouwer) elements, which is a first-order perturbation series per element;
+   * this takes the invariant instead, which is free and is most of the way.
+   */
+  o.a = meanSemiMajor(_rs.x, _rs.y, _rs.z, _vs.x, _vs.y, _vs.z, r * r)
+  if (!(o.a > 0)) return false
   o.e = Math.sqrt(Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * a)))
   o.cosI = (_eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]) / hLen
   o.dragK = live.sim.dragK[0]
-  o.n = Math.sqrt(MU_EARTH / (a * a * a))
+  o.n = Math.sqrt(MU_EARTH / (o.a * o.a * o.a))
   // e sin E and e cos E straight from the state, so a near-circle loses nothing to a division by e.
-  const eSinE = _rs.dot(_vs) / Math.sqrt(MU_EARTH * a)
-  o.meanAnomaly = Math.atan2(eSinE, 1 - r / a) - eSinE
-  o.wait = predictTLIWindow(a)
-  o.lifetime = orbitalLifetime(a, o.e, o.dragK, o.cosI)
+  const eSinE = _rs.dot(_vs) / Math.sqrt(MU_EARTH * o.a)
+  o.meanAnomaly = Math.atan2(eSinE, 1 - r / o.a) - eSinE
+  o.wait = predictTLIWindow(o.a)
+  o.lifetime = orbitalLifetime(o.a, o.e, o.dragK, o.cosI)
   o.margin = TWO_PI / o.n + burnTimeFor(mission.tli.deltaV)
   // Perigee at the latest ignition: the window's opening, plus the orbit the craft
   // can take to come round to it. Measured against flight, to under half a kilometre.
   if (!Number.isFinite(o.wait)) o.periapsisAtIgnition = Infinity
-  else if (decayAfter(a, o.e, o.wait + TWO_PI / o.n, o.dragK, o.cosI)) o.periapsisAtIgnition = decayed[0] * (1 - decayed[1])
+  else if (decayAfter(o.a, o.e, o.wait + TWO_PI / o.n, o.dragK, o.cosI)) o.periapsisAtIgnition = decayed[0] * (1 - decayed[1])
   else o.periapsisAtIgnition = -Infinity
   return true
 }

@@ -33,10 +33,48 @@ import { WARP } from '../src/sim/warp.js'
 import { addNode, clearNodes, nodeMagnitude, nodes, resolveNode } from '../src/sim/nodes.js'
 import { plan, prediction, project } from '../src/sim/predict.js'
 import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import { J2, REFERENCE_RADIUS } from '../src/sim/prem.js'
 import { Vector3 } from 'three'
 
 const MU = G * BODIES.earth.mass
 const R = BODIES.earth.radius
+
+/**
+ * How far the quadrupole can move a point, metres — the bound every gate below
+ * is now judged against instead of a remembered metre count.
+ *
+ * J2's radial perturbation is of order `3 J2 (R/r)^2` times the monopole's own
+ * acceleration at that radius, and dividing by the orbit's frequency turns that
+ * into a length: 19.5 km at 400 km altitude, 22 km on the parking orbit. It is
+ * read from the same constant the field is built from, so a J2 typed wrong
+ * moves the bound with it rather than being hidden by it.
+ *
+ * This gate did not have a field to be wrong about when its tolerances were
+ * written — a kilometre on the transfer, two on the radial swing — and none of
+ * those tolerances survive an oblate Earth, because the osculating apsis of a
+ * low orbit swings ten to sixteen kilometres every revolution. The tolerances
+ * below are re-derived rather than widened: each two-body claim is checked
+ * against a *point-mass* Earth, where it still has to hold exactly, and the gap
+ * the real Earth opens up is separately checked to be a real fraction of this
+ * scale and no more than it.
+ */
+const quadrupoleScale = (r) => (3 * J2 * REFERENCE_RADIUS * REFERENCE_RADIUS) / r
+
+/**
+ * The same measurement on a point-mass Earth.
+ *
+ * The field is one-way state on the simulation — `zonal` in rk4.js — so it can
+ * be lifted for a single projection and put back. This is what keeps the
+ * loosened tolerances meaningful: without it, widening a claim in an oblate
+ * world quietly stops testing the projector at all.
+ */
+const onSphere = (fn) => {
+  const saved = live.sim.zonal
+  live.sim.zonal = null
+  const value = fn()
+  live.sim.zonal = saved
+  return value
+}
 
 resetSimulation()
 resetMission()
@@ -99,8 +137,14 @@ project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
 const foldedIn = plan.applied.length
 const reachedAlt = (plan.apoapsis.radius - R) / 1e3
 const errAlt = plan.apoapsis.radius - r2
+const errAltSphere = onSphere(() => {
+  project(live.sim, scratch, 'ship', 'earth', period * 1.6, plan, nodes)
+  return plan.apoapsis.radius - r2
+})
 console.log(`  projection gives ${reachedAlt.toFixed(2)} km apoapsis` +
   `  — ${errAlt >= 0 ? '+' : ''}${(errAlt / 1e3).toFixed(3)} km against the target`)
+console.log(`  the same burn    on a point-mass Earth lands ${(errAltSphere / 1e3).toFixed(3)} km from it;` +
+  ` the ${((errAlt - errAltSphere) / 1e3).toFixed(2)} km between them is the quadrupole, whose radial scale at this orbit is ${(quadrupoleScale(r2) / 1e3).toFixed(1)} km`)
 console.log(`  nodes folded in  ${plan.applied.length} (${plan.applied.join(', ')})`)
 
 /* ---- the basis: what each axis is supposed to do, and only that ---- */
@@ -135,6 +179,10 @@ addNode(tBurn, { radial: 60 })
 project(live.sim, scratch, 'ship', 'earth', period, plan, nodes)
 const radialApo = plan.apoapsis.radius
 const radialPeri = plan.periapsis.radius
+const radialApoSphere = onSphere(() => {
+  project(live.sim, scratch, 'ship', 'earth', period, plan, nodes)
+  return plan.apoapsis.radius
+})
 
 /**
  * What a radial impulse at periapsis should do, in closed form.
@@ -247,10 +295,6 @@ console.log(`  finite-burn loss is expected: the projection is an impulse, the b
  * reading each node's orbit off the drawn line cannot work — and both have an
  * exact closed form to check against.
  */
-clearNodes()
-project(live.sim, scratch, 'ship', 'earth', period, prediction)
-const hohmannAt = live.sim.t + prediction.periapsis.time
-const rp = prediction.periapsis.radius
 /**
  * A target of its own, not the 400 km one above. By this point the sequencer
  * has already flown the craft to a 400 km apoapsis, so a transfer aimed there
@@ -258,26 +302,72 @@ const rp = prediction.periapsis.radius
  * no-op.
  */
 const rHigh = R + 1000e3
+
+/**
+ * The two-burn Hohmann, run in a stated field — each pass deriving its own
+ * epochs and its own periapsis from its own ballistic projection.
+ *
+ * That structure is the point. Comparing one flight's numbers against another
+ * field's closed form measures the epoch mismatch as much as it measures the
+ * oblateness: the node times, the periapsis radius and the burn magnitudes all
+ * come out of the projection, so a pass that flies a different gravity has to
+ * re-derive them or it is aiming at where the craft would have been. Measured
+ * the wrong way, the point-mass pass missed its own closed form by 2.6 km in a
+ * field that is not there; measured this way it should reproduce it exactly,
+ * which is what makes it a regression test for the pre-field behaviour rather
+ * than another tolerance.
+ */
+function hohmann(field) {
+  const saved = live.sim.zonal
+  live.sim.zonal = field
+  clearNodes()
+  project(live.sim, scratch, 'ship', 'earth', period, prediction)
+  const at = live.sim.t + prediction.periapsis.time
+  const peri = prediction.periapsis.radius
+  const semi = live.elements.semiMajor
+  const vPeri = Math.sqrt(MU * (2 / peri - 1 / semi))
+  const aTr = (peri + rHigh) / 2
+  const dv1 = Math.sqrt(MU * (2 / peri - 1 / aTr)) - vPeri
+  const dv2 = Math.sqrt(MU / rHigh) - Math.sqrt(MU * (2 / rHigh - 1 / aTr))
+  const half = Math.PI * Math.sqrt((aTr * aTr * aTr) / MU)
+  addNode(at, { prograde: dv1 })
+  addNode(at + half, { prograde: dv2 })
+  project(live.sim, scratch, 'ship', 'earth', null, plan, nodes)
+  live.sim.zonal = saved
+  return {
+    at,
+    peri,
+    dv1,
+    dv2,
+    half,
+    applied: plan.applied.length,
+    orbits: [plan.nodeApsides[0], plan.nodeApsides[1], plan.nodeApsides[2], plan.nodeApsides[3]],
+  }
+}
+
+const oblate = hohmann(live.sim.zonal)
+const sphere = hohmann(null)
+const hohmannAt = oblate.at
+const rp = oblate.peri
+const vTransferPeri = oblate.dv1 + Math.sqrt(MU * (2 / rp - 1 / live.elements.semiMajor))
 const vPeri = Math.sqrt(MU * (2 / rp - 1 / live.elements.semiMajor))
 const aTr = (rp + rHigh) / 2
-const vTransferPeri = Math.sqrt(MU * (2 / rp - 1 / aTr))
-const vTransferApo = Math.sqrt(MU * (2 / rHigh - 1 / aTr))
 const vCircle = Math.sqrt(MU / rHigh)
-const halfTransfer = Math.PI * Math.sqrt((aTr * aTr * aTr) / MU)
+const vTransferApo = Math.sqrt(MU * (2 / rHigh - 1 / aTr))
+const halfTransfer = oblate.half
+const firstOrbit = [oblate.orbits[0], oblate.orbits[1]]
+const secondOrbit = [oblate.orbits[2], oblate.orbits[3]]
+const sphereOrbits = sphere.orbits
+const bothApplied = oblate.applied
 
-addNode(hohmannAt, { prograde: vTransferPeri - vPeri })
-addNode(hohmannAt + halfTransfer, { prograde: vCircle - vTransferApo })
-project(live.sim, scratch, 'ship', 'earth', null, plan, nodes)
-
-const firstOrbit = [plan.nodeApsides[0], plan.nodeApsides[1]]
-const secondOrbit = [plan.nodeApsides[2], plan.nodeApsides[3]]
-const bothApplied = plan.applied.length
-
+const highScale = quadrupoleScale(rHigh)
 console.log('\n=== what each burn leaves behind ===')
-console.log(`  burn 1  ${(vTransferPeri - vPeri).toFixed(2)} m/s at periapsis` +
+console.log(`  on a point-mass Earth the same two burns leave ${((sphereOrbits[0] - R) / 1e3).toFixed(1)} x ${((sphereOrbits[1] - R) / 1e3).toFixed(1)}` +
+  ` and ${((sphereOrbits[2] - R) / 1e3).toFixed(1)} x ${((sphereOrbits[3] - R) / 1e3).toFixed(1)} km, against the closed forms below`)
+console.log(`  burn 1  ${oblate.dv1.toFixed(2)} m/s at periapsis` +
   ` — leaves ${((firstOrbit[0] - R) / 1e3).toFixed(1)} x ${((firstOrbit[1] - R) / 1e3).toFixed(1)} km` +
   `, closed form ${((rp - R) / 1e3).toFixed(1)} x ${((rHigh - R) / 1e3).toFixed(1)}`)
-console.log(`  burn 2  ${(vCircle - vTransferApo).toFixed(2)} m/s ${(halfTransfer / 60).toFixed(1)} min later` +
+console.log(`  burn 2  ${oblate.dv2.toFixed(2)} m/s ${(halfTransfer / 60).toFixed(1)} min later` +
   ` — leaves ${((secondOrbit[0] - R) / 1e3).toFixed(1)} x ${((secondOrbit[1] - R) / 1e3).toFixed(1)} km` +
   `, closed form ${((rHigh - R) / 1e3).toFixed(0)} circular`)
 
@@ -310,15 +400,25 @@ const perProjection = await bytesPerCall(
 )
 const PROJECTION_BUDGET = 1024
 
+const transferScale = quadrupoleScale(r2)
 console.log('\n=== what this establishes ===')
 /**
- * A kilometre on a 400 km target. The transfer is n-body over half a
- * revolution against a two-body formula, so exact agreement would mean the
- * projection had stopped modelling something; a kilometre is the room that
- * leaves, and the lofted ascent this replaces would have missed by thousands.
+ * A kilometre on a 400 km target — on an Earth that is a point mass.
+ *
+ * The transfer is n-body over half a revolution against a two-body formula, so
+ * exact agreement would mean the projection had stopped modelling something; a
+ * kilometre is the room that leaves, and the lofted ascent this replaces would
+ * have missed by thousands. On the real, oblate Earth the same burn is short of
+ * the target by a large fraction of `quadrupoleScale`, and that is as much a
+ * result as the two-body agreement is: the claim being made is now that the
+ * field moves the answer by the amount the field can move it, no more and —
+ * since a field that had silently stopped being applied would read zero — no
+ * less.
  */
 const checks = [
-  ['a vis-viva transfer reaches its target apoapsis to 1 km', Math.abs(errAlt) < 1000],
+  ['a vis-viva transfer reaches its target apoapsis to 1 km on a point-mass Earth', Math.abs(errAltSphere) < 1000],
+  ['and on the real Earth it comes up short by a real fraction of the quadrupole scale',
+    Math.abs(errAlt) > transferScale / 4 && Math.abs(errAlt) < transferScale],
   ['the node was actually folded into the projection', foldedIn === 1],
   // Normal turns the plane and leaves the orbit's size alone.
   ['a normal burn turns the plane', planeTurn > 0.1],
@@ -333,7 +433,9 @@ const checks = [
    * 45 km, and because the periapsis it was reading was the *pre-burn* one.
    */
   ['and lands where the eccentricity change says it should',
-    Math.abs(radialApo - radialApoExpected) < 2000],
+    Math.abs(radialApoSphere - radialApoExpected) < 2000],
+  ['which the oblateness also moves, by the same kind of fraction',
+    Math.abs(radialApo - radialApoSphere) > transferScale / 4 && Math.abs(radialApo - radialApoSphere) < transferScale],
   ['adding almost no energy: semi-major axis moves under a kilometre',
     Math.abs(aRadial - aCurrent) < 1000],
   /**
@@ -352,9 +454,25 @@ const checks = [
    * cannot agree exactly and it would be suspicious if they did.
    */
   ['the first burn reports the transfer orbit it puts the craft on',
-    Math.abs(firstOrbit[0] - rp) < 1000 && Math.abs(firstOrbit[1] - rHigh) < 1000],
+    Math.abs(sphereOrbits[0] - sphere.peri) < 1000 && Math.abs(sphereOrbits[1] - rHigh) < 1000],
   ['the second reports a circle at the target radius',
-    Math.abs(secondOrbit[0] - rHigh) < 1000 && Math.abs(secondOrbit[1] - rHigh) < 1000],
+    Math.abs(sphereOrbits[2] - rHigh) < 1000 && Math.abs(sphereOrbits[3] - rHigh) < 1000],
+  ['and the oblateness moves the far side of the transfer by its own scale, not more',
+    Math.abs(firstOrbit[1] - sphereOrbits[1]) < highScale],
+  /**
+   * The mean, and the spread.
+   *
+   * The second burn arrives at a radius that the oblateness has moved off the
+   * two-body 1,000 km by up to its own scale, so the orbit it leaves is not
+   * quite circular however exact the impulse is — the *mean* is still the
+   * target, and the apsides can be a scale apart on either side of it. Both
+   * are asserted, because only together do they say the burn did its job: the
+   * mean is a statement about the energy the burn added, the spread about
+   * whether it was applied where it was aimed.
+   */
+  ['and a circularising burn still lands at the target, its apsides inside twice the quadrupole scale',
+    Math.abs((secondOrbit[0] + secondOrbit[1]) / 2 - rHigh) < highScale &&
+    Math.abs(secondOrbit[1] - secondOrbit[0]) < 2 * highScale],
   ['and a burn to escape reports no far side at all', escapeOrbit[1] === Infinity],
   ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
   ['projecting with a node allocates under a kilobyte', !perProjection || perProjection.bytes < PROJECTION_BUDGET],
@@ -362,12 +480,21 @@ const checks = [
   ['and marked it flown', node.executed],
   ['it delivered what was asked, to 1 m/s', Math.abs(mission.node.delivered - dvHohmann) < 1],
   /**
-   * Two kilometres on a 400 km target. The gap is the finite-burn loss — an
-   * impulse in the projection against 20-odd seconds of thrust in the flight —
-   * and it is the quantity that would grow if the two ever stopped agreeing
-   * about what a node means.
+   * Two kilometres of finite-burn loss, plus the quadrupole's scale.
+   *
+   * The gap used to be the finite-burn loss alone — an impulse in the projection
+   * against twenty-odd seconds of thrust in the flight — and that is still most
+   * of what it is. What is added is the other, larger term, and it is not a
+   * fudge: the map reports the *highest point of the drawn path* while the
+   * flight reads the osculating apogee after the burn, and in an oblate field
+   * those two are different quantities that differ by the J2 swing — 10.7 km of
+   * it on the transfer above, measured both ways. Both numbers stay right; what
+   * the check guards is unchanged, that a node means the same thing to the map
+   * and to the autopilot. It would still fail on a node the projector and the
+   * sequencer disagreed about, which is the failure it was written for.
    */
-  ['the flown orbit matches the one the map drew, to 2 km', Math.abs(flownErr) < 2000],
+  ['the flown orbit matches the one the map drew, to the finite burn plus the J2 swing',
+    Math.abs(flownErr) < 2000 + quadrupoleScale(r2)],
 ]
 /**
  * Run after the checks above have been evaluated: the section below restores

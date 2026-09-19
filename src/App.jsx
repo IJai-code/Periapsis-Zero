@@ -8,6 +8,7 @@ import { useAssets } from './gfx/useAssets.js'
 import { releaseDirector, resumeDirector } from './sim/director.js'
 import { setUi } from './sim/store.js'
 import { requestedPreset, startPreset } from './sim/presets.js'
+import { unlockAudio } from './sfx/engine.js'
 
 /**
  * Which half of the product is on screen, from the URL.
@@ -60,6 +61,8 @@ export default function App() {
   }, [])
 
   const enter = useCallback(() => {
+    // The click that lets the browser start audio: the graph is built here.
+    unlockAudio()
     window.location.hash = FLIGHT
     setFlight(true)
   }, [])

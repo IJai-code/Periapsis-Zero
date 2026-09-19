@@ -5,6 +5,7 @@ import { live } from '../sim/live.js'
 import { RAIL_BY_ID } from '../sim/rails.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
+import { currentHullLift } from '../gfx/pads.js'
 import { BODIES, SHIP } from '../sim/constants.js'
 import {
   CHASE_MULTIPLE,
@@ -185,6 +186,7 @@ export function CameraRig() {
       flyEuler: new THREE.Euler(0, 0, 0, 'YXZ'),
       aim: new THREE.Vector3(),
       aimVel: new THREE.Vector3(),
+      padAim: new THREE.Vector3(),
       nodeAim: new THREE.Vector3(),
       anchor: new THREE.Vector3(),
     }),
@@ -626,10 +628,16 @@ export function CameraRig() {
 
       // The aim point is sprung, not snapped: a vehicle accelerating off a pad
       // is precisely the target whose velocity a first-order lag cannot carry.
+      // Aimed at the hull as drawn, not at the state: on the pad the hull is
+      // raised onto the deck (gfx/pads.js), and a camera aimed at the centre
+      // of mass would frame a vehicle standing in the top half of the shot.
+      scratch.padAim
+        .copy(live.pos.ship)
+        .addScaledVector(scratch.siteDir, currentHullLift(site.id))
       springFollow(
         scratch.aim,
         scratch.aim,
-        live.pos.ship,
+        scratch.padAim,
         scratch.aimVel,
         omegaForSettling(PAD_AIM_SETTLE),
         Math.min(delta, 1 / 20),

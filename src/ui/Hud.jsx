@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FocusMenu } from './FocusMenu.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
+import { Geophysics } from './Geophysics.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
 import { Toggles } from './Toggles.jsx'
@@ -125,6 +126,7 @@ export function Hud() {
             {/* Setting the flight up, not flying it: out of the way on the map. */}
             {!map && <Presets />}
             {!map && <LaunchSite />}
+            {!map && <Geophysics />}
             {!map && <ModelSelector />}
             <Toggles />
           </div>

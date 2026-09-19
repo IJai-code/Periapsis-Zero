@@ -13,6 +13,7 @@ import {
 import { RK4NBody } from './rk4.js'
 import { OMEGA, dragCoefficient } from './atmosphere.js'
 import { RAIL_COUNT, RAIL_MU, RAIL_REFRESH, railHelio, updateRails } from './rails.js'
+import { EARTH_FIELD } from './prem.js'
 import { activeSite, clampToSite } from './launchsite.js'
 
 const DEG = Math.PI / 180
@@ -204,6 +205,19 @@ export function createSimulation() {
   sim.dragBody = ORDER.indexOf('earth')
   sim.dragBodyRadius = BODIES.earth.radius
   sim.omega.set(OMEGA)
+
+  /**
+   * And Earth is not a sphere. Its oblateness rides on the field the craft
+   * feels, one-way, from the same model the pad's local gravity is read from:
+   * PREM's layered density, with the zonal coefficients the actual planet
+   * carries. Installed here rather than built into the integrator, like the
+   * rails, so the solver stays a solver.
+   *
+   * Nothing about the massive bodies changes when this is set — see rk4.js —
+   * which is what keeps every figure ever measured about the planetary solution
+   * a figure about three point masses and nothing else.
+   */
+  sim.zonal = { ...EARTH_FIELD, body: ORDER.indexOf('earth') }
 
   /**
    * The rest of the solar system, pulling on the craft without being pulled.

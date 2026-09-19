@@ -32,8 +32,39 @@ import {
   project,
 } from '../src/sim/predict.js'
 import { dominantBody } from '../src/sim/soi.js'
+import { J2, REFERENCE_RADIUS } from '../src/sim/prem.js'
 
 const MU_EARTH = G * BODIES.earth.mass
+
+/**
+ * How far the quadrupole can push a point on this orbit, metres.
+ *
+ * J2's radial perturbation is of order `3 J2 (R/r)^2` of the monopole's own
+ * acceleration, and dividing by the orbit's frequency turns that into a length —
+ * 19.5 km in the parking orbit. It is the same length `verify-nodes` judges its
+ * tolerances against, read from the same constant the field is built from.
+ */
+const quadrupoleScale = (r) => (3 * J2 * REFERENCE_RADIUS * REFERENCE_RADIUS) / r
+
+/**
+ * The same measurement on a point-mass Earth.
+ *
+ * Every claim below about a conic was written when Earth *was* a point mass
+ * here, and the tolerances were metres because of it. An oblate Earth moves the
+ * osculating apsis of a low orbit by kilometres — the whole of what the
+ * quadrupole does — so rather than widen a metre into ten kilometres, each
+ * claim is checked twice: against a sphere, where it must still hold as tightly
+ * as it ever did, and against the real field, where the gap is checked to be a
+ * real fraction of the quadrupole's scale and no more than it. Lifting the
+ * field is a single assignment — it is one-way state on the integrator.
+ */
+const onSphere = (fn) => {
+  const saved = live.sim.zonal
+  live.sim.zonal = null
+  const value = fn()
+  live.sim.zonal = saved
+  return value
+}
 
 /** Specific orbital energy about a body: constant on a conic, not otherwise. */
 function specificEnergy(state, craft, body, mu) {
@@ -123,10 +154,52 @@ const gap = Math.hypot(
   prediction.points[(prediction.count - 1) * 3 + 1] - prediction.points[1],
   prediction.points[(prediction.count - 1) * 3 + 2] - prediction.points[2],
 )
+/**
+ * The same projection, and the same two claims, on a point-mass Earth.
+ *
+ * Captured here rather than in the verdict because `prediction` is one object
+ * every pass writes into — the field-on numbers have to leave it before this
+ * runs, which is why `apoErr`, `periErr` and `gap` above are scalars.
+ */
+const spherePass = onSphere(() => {
+  project(live.sim, scratch, 'ship', 'earth', e.period)
+  return {
+    apo: prediction.apoapsis.radius - e.apoapsisRadius,
+    peri: prediction.periapsis.radius - e.periapsisRadius,
+    gap: Math.hypot(
+      prediction.points[(prediction.count - 1) * 3] - prediction.points[0],
+      prediction.points[(prediction.count - 1) * 3 + 1] - prediction.points[1],
+      prediction.points[(prediction.count - 1) * 3 + 2] - prediction.points[2],
+    ),
+  }
+})
+
+/**
+ * Why the closure gap is 71 km rather than nothing, worked out rather than
+ * observed: the quadrupole shortens the anomalistic period.
+ *
+ *   n' / n = 1 + (3/2) J2 (R/p)^2 sqrt(1 - e^2)
+ *
+ * so a projection that runs for exactly one *two-body* period ends with the
+ * craft still short of its starting point by that time times its speed — 5.3 s
+ * and 41 km here — and the radial swing it sits at adds the rest. The bound
+ * below is that sum; what is being asserted is not that the orbit closes, but
+ * that it fails to close by exactly the amount the field says it should, which
+ * is a much sharper statement than a percentage of the orbit.
+ */
+const p = e.semiMajor * (1 - Math.pow((e.apoapsisRadius - e.periapsisRadius) / (e.apoapsisRadius + e.periapsisRadius), 2))
+const ecc = (e.apoapsisRadius - e.periapsisRadius) / (e.apoapsisRadius + e.periapsisRadius)
+const periodShortening = e.period * 1.5 * J2 * (REFERENCE_RADIUS / p) ** 2 * Math.sqrt(1 - ecc * ecc)
+const closureBound = e.speed * periodShortening + 2 * quadrupoleScale(e.apoapsisRadius)
+
 console.log(`  cost             ${perProjection.toFixed(2)} ms per projection` +
   `  (${prediction.steps} steps, ${prediction.count} drawn)`)
 console.log(`  closure gap      ${(gap / 1e3).toFixed(3)} km after one revolution` +
   `  (${((gap / e.apoapsisRadius) * 100).toFixed(4)}% of the orbit)`)
+console.log(`  on a point mass  the same pass is ${(spherePass.apo.toFixed(1))} m off the conic at apoapsis` +
+  ` and closes to ${(spherePass.gap).toFixed(1)} m`)
+console.log(`  the gap, derived the anomalistic period shortens by ${periodShortening.toFixed(3)} s` +
+  ` (${(e.speed * periodShortening / 1e3).toFixed(1)} km along track), and the radial swing adds the rest to ${(closureBound / 1e3).toFixed(1)} km`)
 
 const leoCount = prediction.count
 /**
@@ -253,9 +326,24 @@ console.log('\n=== what this establishes ===')
 const checks = [
   ['the projection ran to a full revolution', Math.abs(leoSpan - leoPeriod) < 1e-6 && leoCount > 1],
   // Against the analytic conic, in the regime where the conic is trustworthy.
-  ['apoapsis agrees with the analytic conic to 2 km', Math.abs(apoErr) < 2000],
-  ['periapsis agrees with the analytic conic to 2 km', Math.abs(periErr) < 2000],
-  ['a bound orbit closes on itself', gap / e.apoapsisRadius < 0.01],
+  ['on a point-mass Earth the apoapsis agrees with the analytic conic to 2 km', Math.abs(spherePass.apo) < 2000],
+  /**
+   * And on the real one it does not, by design.
+   *
+   * The osculating conic is fitted to the state *now*; the projection reports the
+   * highest point of a revolution flown through a field the conic does not have.
+   * The gap is J2's radial swing — 10.4 km of the 19.4 the scale allows here —
+   * and it is asserted from both sides, because a gap of zero now would mean the
+   * oblateness had stopped being applied rather than that the conic had got
+   * better.
+   */
+  ['while the real Earth carries apoapsis off that conic, by a real fraction of the quadrupole scale',
+    Math.abs(apoErr) < quadrupoleScale(e.apoapsisRadius) && Math.abs(apoErr) > quadrupoleScale(e.apoapsisRadius) / 4],
+  ['periapsis agrees with the analytic conic to 2 km, on either Earth',
+    Math.abs(periErr) < 2000 && Math.abs(spherePass.peri) < 2000],
+  ['a bound orbit closes on a point-mass Earth', spherePass.gap / e.apoapsisRadius < 1e-3],
+  ['and on the real Earth misses by the period the quadrupole shortens, no more', gap < closureBound],
+  ['which is a gap of tens of kilometres, not the metres a sphere would close to', gap > 1e4],
   ['low orbit is nearly conic — energy flat to 0.1%', leo.spread < 1e-3],
   ...(lunar
     ? [

@@ -135,6 +135,32 @@ export class RK4NBody {
     this.rails = null
 
     /**
+     * A body whose field is not a point mass: its zonal harmonics.
+     *
+     * Shape `{ body, mu, radius, J, axis }` — the state-vector slot of the body
+     * whose field has the harmonics, its GM, the radius they are referenced to,
+     * the three coefficients J2/J3/J4, and its spin axis. Null unless a caller
+     * installs one, so the integrator stays a closed n-body solver by default
+     * and a test that wants a point-mass Earth can have one.
+     *
+     * **Test particles only, and that is a decision rather than a shortcut.**
+     * The oblateness is a fact about the craft's orbit, not about the solar
+     * system: applying it to the Earth-Sun and Earth-Moon interactions would
+     * make the integrated three-body solution depend on a multipole expansion,
+     * and every measured figure this project has — the energy drift, the step
+     * ceilings, the flown missions — is a figure about a closed system of three.
+     * The same line is drawn around the outer planets in `rails`, for the same
+     * reason, and it has the same useful consequence: with the field installed
+     * the massive bodies' accelerations are bit-identical.
+     *
+     * Unlike `rails`, this is *not* a zero-order hold. The harmonic terms vary
+     * as steeply with position as the monopole they ride on, so they are
+     * evaluated inside every RK4 stage exactly as drag is; freezing them for the
+     * step would drop the oblateness out of the integrator entirely.
+     */
+    this.zonal = null
+
+    /**
      * What the rails pull with, per test particle, held for the step.
      *
      * Evaluating seven extra bodies inside all four RK4 stages made the gate
@@ -186,7 +212,7 @@ export class RK4NBody {
    * and makes momentum conservation exact to floating point.
    */
   derivative(y, out) {
-    const { n, massiveCount: M, masses: m, extAccel, testSoftening2: soft2 } = this
+    const { n, massiveCount: M, masses: m, extAccel, testSoftening2: soft2, zonal } = this
 
     for (let i = 0; i < n; i++) {
       const o = i * 6
@@ -241,6 +267,69 @@ export class RK4NBody {
         out[op + 3] += a * dx
         out[op + 4] += a * dy
         out[op + 5] += a * dz
+      }
+
+      /*
+       * The body's own oblateness. Recomputed in every RK4 stage rather than
+       * held for the step, and floored by the same softened r^2 the monopole
+       * used — a craft driven into the planet has to decay toward the centre,
+       * and a 1/r^5 series left to its own devices does not.
+       *
+       * **Written out rather than called, and the measurement is why.**
+       * `prem.zonalAccel` is this same arithmetic, and calling it here cost
+       * 5.4 KB a projection: this block is past what the optimiser will inline,
+       * so the callee boxes its own intermediate doubles — the cost this
+       * repository has paid for twice before (see the note on node apsides in
+       * predict.js). Factored out and measured, inlined and measured again.
+       *
+       * The two copies have to agree, so the gate does not take it on trust:
+       * it measures the perturbation the integrator actually applies, by
+       * stepping a craft and differencing, against `zonalAccel` at the same
+       * point. A drift between them fails there rather than showing up as a
+       * slowly wrong orbit.
+       */
+      if (zonal !== null) {
+        const ob = zonal.body * 6
+        const hx = y[op] - y[ob]
+        const hy = y[op + 1] - y[ob + 1]
+        const hz = y[op + 2] - y[ob + 2]
+        const hraw = hx * hx + hy * hy + hz * hz
+        const hr2 = hraw < soft2 ? soft2 : hraw
+        const hr = Math.sqrt(hr2)
+        const inv = 1 / hr
+        const axis = zonal.axis
+        const along = hx * axis[0] + hy * axis[1] + hz * axis[2]
+        const u = along * inv
+        const u2 = u * u
+        const px = hx - along * axis[0]
+        const py = hy - along * axis[1]
+        const pz = hz - along * axis[2]
+        const J = zonal.J
+        const k = zonal.mu / (hr2 * hr)
+        const sc = zonal.radius * inv
+        const s2 = sc * sc
+        const c2 = k * J[0] * s2
+        const c3 = k * J[1] * s2 * sc
+        const c4 = k * J[2] * s2 * s2
+        // A_n and B_n, the same quartics prem.js uses.
+        const A2 = 1.5 * (5 * u2 - 1)
+        const B2 = 1.5 * u * (5 * u2 - 3)
+        const A3 = 2.5 * u * (7 * u2 - 3)
+        const B3 = 0.5 * (u2 * (35 * u2 - 30) + 3)
+        const A4 = (15 / 8) * (u2 * (21 * u2 - 14) + 1)
+        const B4 = (5 / 8) * u * (u2 * (63 * u2 - 70) + 15)
+        out[op + 3] +=
+          c2 * (A2 * px + hr * B2 * axis[0]) +
+          c3 * (A3 * px + hr * B3 * axis[0]) +
+          c4 * (A4 * px + hr * B4 * axis[0])
+        out[op + 4] +=
+          c2 * (A2 * py + hr * B2 * axis[1]) +
+          c3 * (A3 * py + hr * B3 * axis[1]) +
+          c4 * (A4 * py + hr * B4 * axis[1])
+        out[op + 5] +=
+          c2 * (A2 * pz + hr * B2 * axis[2]) +
+          c3 * (A3 * pz + hr * B3 * axis[2]) +
+          c4 * (A4 * pz + hr * B4 * axis[2])
       }
 
       // And the planets, as a constant for this step. See `railAccel`.
@@ -504,6 +593,10 @@ export class RK4NBody {
     // paid for before, between the map and the autopilot.
     copy.rails = this.rails
     copy.movesRails = false
+    // The same field, for the same reason: a projection drawn through a
+    // different gravity than the one that will be flown is the map disagreeing
+    // with the autopilot about the physics.
+    copy.zonal = this.zonal
     // Carry the field itself across, or a projection would fly with no planets
     // in it at all while the craft it forecasts flies with seven.
     copy.railAccel.set(this.railAccel)
@@ -531,6 +624,13 @@ export class RK4NBody {
     this.railAccel.set(other.railAccel)
     this.extAccel.fill(0)
     this.dragK.set(other.dragK)
+    /*
+     * The field comes across with the state, for the same reason drag does: it
+     * is a property of the world, not of the pilot. A projection that took the
+     * craft's state but not its gravity would draw a parking orbit that closes
+     * on schedule while the flown one precesses out of its plane.
+     */
+    this.zonal = other.zonal
     if (this.liftK && other.liftK) this.liftK.set(other.liftK)
     if (this.bank && other.bank) this.bank.set(other.bank)
     return this

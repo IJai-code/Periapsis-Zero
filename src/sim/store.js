@@ -70,7 +70,15 @@ export const uiStore = createStore({
   bloom: true,
   clouds: true,
   atmosphere: true,
+  /**
+   * Engine audio (sfx/engine.js). On by default; the context itself is still
+   * created only on the first gesture, so nothing sounds until the player has
+   * clicked into the flight.
+   */
+  audio: true,
   panelOpen: WIDE_ENOUGH_FOR_PANELS,
+  /** The planet's interior, and the two rates it puts on the craft's orbit. */
+  geophysics: true,
   assist: true, // RCS stability hold
   lagrange: true,
   /**

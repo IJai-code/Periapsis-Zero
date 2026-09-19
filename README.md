@@ -618,6 +618,176 @@ than one part in 10¹²; the HUD reports the live drift in parts per billion.
 Steps are subdivided so none exceeds 900s, capped at 96 substeps per frame so
 extreme time warp degrades accuracy gracefully rather than stalling the frame.
 
+## Earth's interior
+
+The planets are point masses with one exception, and the exception is on purpose:
+Terra is oblate. `src/sim/prem.js` holds both halves of why — a layered density
+profile, and the zonal harmonics that profile implies.
+
+**The profile** is the Preliminary Reference Earth Model (Dziewonski & Anderson,
+1981), oceanless, as eleven shells carrying their published polynomial fits:
+crust, upper mantle, transition zone, lower mantle, D″ layer, outer core, inner
+core. Integrating it encloses a mass within 0.06% of the 5.97219e24 kg the
+guidance flies, and a moment of inertia within 0.05% of the 8.0378e37 quoted for
+it — C/MR² = 0.3309 against 0.3307. The residual has three parts and the gate
+names all three: the truncated fit, the model's 1981 mass against this
+simulator's modern one, and the ocean the model has no water for. The gravity the
+profile produces peaks *inside* the planet — 10.689 m/s² at the core–mantle
+boundary, 3,480 km down, then falls away again — which is the fact the HUD's
+`Terra interior` panel is drawn around.
+
+**The field** is the same body seen from outside: J₂ = 1.08262668e-3,
+J₃ = −2.53241052e-6, J₄ = −1.61962159e-6, referenced to the 6,378,137 m
+equatorial radius, applied about the same spin axis the atmosphere turns on. It
+is installed on the simulation rather than built into the solver, exactly as the
+planetary rails are, and the massive bodies never read it: the planetary solution
+stays bit-identical to the three-point-mass one. Only the craft feels it, and it
+feels their pull unchanged. The integrator carries its own copy of the arithmetic
+(`src/sim/rk4.js`) because calling into `prem.js` from there measured 5.4 KB a
+projection; the gate measures the two copies against each other — stepping a
+craft and differencing against `zonalAccel` at the same point — rather than
+trusting them to stay in step.
+
+Two of those numbers are results rather than inputs. Darwin–Radau turns the
+profile's C/MR² into a hydrostatic flattening of 1/298.7 and a hydrostatic J₂ of
+0.9956 of the observed one — what a body in equilibrium with its own rotation
+would carry; the remaining 0.44% is the ice age. And the deflection of the
+vertical, the angle between a plumb line and the geocentric radius, falls out of
+the same arithmetic: largest at 45° latitude, leaning 0.1° equatorward, with a J₃
+residual two thousandths of a degree wide *at the equator* where J₂ and J₄
+contribute nothing radial at all.
+
+The same profile gives each pad its own gravity (`src/sim/launchsite.js`), which
+is what the launch-site panel prints — 9.795 m/s² at Baikonur against 9.802 at
+Kourou, and a liftoff thrust-to-weight of 1.167 rather than the one number that
+comes out of 9.80665.
+
+The consequence in flight is that low orbits no longer close. The `ISS` preset
+precesses at −5.02°/day against the real station's −5.0, and a parking orbit's
+apsidal line walks +3.7°/day. Neither is visible from one frame to the next, and
+both are why a window a fortnight out is not where a two-body conic puts it.
+
+`verify:prem` is 38 checks over the profile, the field, the pads' own gravity and
+what the panel draws. Five gates that had encoded two-body closed forms as exact
+claims rather than as the approximations they are were re-baselined against the
+flown result: `verify:nodes`, `verify:predict`, `verify:gizmo`, `verify:horizon`
+and `verify:warp`.
+
+### What the interior panel draws
+
+`src/ui/Geophysics.jsx`: density and gravity against radius, one curve per scale
+— the two differ by three orders of magnitude — with the shell boundaries ticked
+along the axis and the craft's own radius as a cursor on the curve. Below it, the
+pad's gravity and the two rates the field puts on the orbit, computed from the
+orbit the craft is actually on. It refuses to draw either rate for a craft that
+is not on one: held to its pad the stack sits a few kilometres off the centre,
+which reads as a bound orbit of a thousand kilometres with its periapsis inside
+the planet, and the closed forms — one carrying the mean motion, both carrying
+(R/p)² — returned three and a half million degrees a day until it was asked for
+an orbit outside the planet.
+
+## Physics core & future roadmap
+
+The interior model above is also the source of the two quantities that decide a
+parking orbit's fate. Both are worth stating in one place, along with the one
+piece of the physics that is deliberately still missing and the refactor that
+follows from it.
+
+**The mean orbit is the invariant, not an average.** The zonal field is
+conservative, so a craft's total specific energy
+
+```
+E = v²/2 − μ/r + Φ_J(r, u)
+```
+
+is constant along its path — drag aside, and drag is the one thing that changes
+it — so the two-body orbit sharing that energy *is* the mean orbit:
+
+```
+ā = −μ / (2E)
+```
+
+That is `meanSemiMajor` (`src/sim/prem.js`), and it is exact rather than a
+truncated series. Two cheaper-looking alternatives were measured before this one
+was chosen, and both fail.
+
+The phase-free first-order J₂ correction
+
+```
+ā ≈ a (1 − (3/2) J₂ (R/p)² √(1 − e²) (1 − (3/2) sin²i))
+```
+
+has no argument of latitude in it at all — and a short-period term must, because
+it is the phase that oscillates. Evaluated on Baikonur's committed orbit it
+returns −0.8 km, where the vehicle's mean orbit was 4.9 km *above* the osculating
+reading; it is not a small-accuracy problem, since the osculating `a` swings
+±10 km and a constant rescaling returns the same wrong answer at every instant.
+A one-revolution average of the osculating elements was the other candidate, and
+it is worse rather than better: from that same state it returns a = 168.8 km and
+e = 0.001817, three kilometres below the invariant, which is 155.8 h against the
+206.5 h flown — because a near-circular orbit's eccentricity vector circulates on
+a timescale of days, and a single revolution samples it rather than averaging it.
+`assessOrbit` (`src/sim/mission.js`) therefore plans the lifetime, the arrival
+altitude, the injection floor and the "is a raise needed at all" decision against
+the invariant.
+
+**The eccentricity is still osculating, and it is the whole of the residual.**
+J₂'s short-period term on `e` is the same order as `e` itself at parking
+altitude — 0.000997 at every pad's commitment, where the mean eccentricity is
+nearer 0.0005 — and two kilometres of perigee is seven per cent of the drag on a
+near-circular orbit, because the drag model's exponential density is weighted at
+perigee. So the lifetime the theory returns carries about that much error: 191.4 h
+forecast against 206.5 h flown, where the same comparison was 0.2% on a point
+mass. It is the whole of what `verify:loiter` reports — seven of its twenty checks
+are red because of it, and the earlier, larger errors it used to report are gone,
+because those were the semi-major axis. Closing the last of it needs the
+double-averaged Brouwer elements, a first-order series per element, and not a
+coefficient tuned against the flown lifetime: that is the only reference here
+finer than the bracket the two candidates already span, and tuning against it
+would fit the drag model to a single flight.
+
+**The ascent still cuts off on osculating elements, and that is the larger
+effect.** `GRAVITY_TURN` waits for the *osculating* apoapsis to reach the 185 km
+parking altitude, and `CIRCULARISE` looks for the *osculating* eccentricity
+minimum, so the orbit the vehicle actually parks in depends on where in the J₂
+swing the commit happens to land. The osculating apogee therefore arrives on
+target at every pad while the *mean* orbit it is flying does not:
+
+| pad | parking orbit the loop targets | mean orbit flown | off the 185 km design |
+| --- | --- | --- | --- |
+| Kennedy LC-39B | 171.8 × 184.9 km | 167.3 km | −17.7 km |
+| Baikonur 1/5 | 172.2 × 185.2 km | 176.5 km | −8.5 km |
+| Kourou ELA-3 | 171.6 × 184.7 km | 164.4 km | −20.6 km |
+| Vandenberg SLC-6 | 172.0 × 185.0 km | 164.7 km | −20.3 km |
+
+Read as offsets from the mean, those commitments sat 3.9, 4.9, 6.6 and 6.7 km
+away from the orbit they were flying, in **both** directions — which is why the
+shortfall differs per pad rather than being one bias that a constant could take
+out. A 21 km deficit at Kourou is a parking orbit that lasts about 250 h where
+the design intends roughly 410, so the mission a pad gets is partly a function of
+which point in the swing its MECO fell on.
+
+The refactor is to route that cutoff system through the mean element the planner
+already uses, and it is not a one-line reroute. `orbitInto` is what fills the
+osculating elements, but `limitStepToCutoff` *sizes the final step* from how fast
+the cutoff quantity moves per m/s of delta-v, so changing what is cut off changes
+where the step lands; `aimAscent` tapers its climb rate as apoapsis nears the
+parking altitude; and `CIRCULARISE` would still minimise the **osculating**
+eccentricity, so a mean semi-major axis alone would equalise the pads' altitude
+while leaving the mean eccentricity — and three kilometres of altitude with it —
+decided by the phase the burn ends on. That is the same quantity blocking the
+item above, so the two are one piece of work rather than two. Five gates encode
+the osculating target and would be re-baselined with it: `verify:warp`, which
+asserts both vehicles reach the same parking orbit to 0.06 km at 60× and at 1×,
+plus `verify:horizon`, `verify:predict`, `verify:director` and `verify:sites`.
+
+One gate-hygiene item landed with all of this, because a release runs the suite:
+`verify:gizmo`'s per-frame allocation bound was measuring three calls in one loop
+body, where they share a caller's inlining budget and V8 boxes whichever one it
+declines to inline — 16 B, differing per process, which failed the gate about one
+run in three. Each call is now measured at its own call site, which is also the
+faithful shape, and the sum is held under half a heap number.
+
 ## The spacecraft
 
 A controllable craft flies in the same integrator as the planets, as a **test
@@ -967,6 +1137,49 @@ single burn at apogee, sized exactly, when lifting perigee is enough. After the
 last burn the orbit is assessed again, and the plan remade if it still falls
 short — at most twice.
 
+### What J2 did to all of that
+
+The tables above were measured against a point-mass Earth, and since the zonal
+field went live they describe an orbit the vehicle is no longer in. Two things
+changed, and the first is the substance of the change.
+
+**The planner plans on mean elements.** The osculating semi-major axis the HUD
+reports swings by about ±10 km with the argument of latitude under J2 — an order
+of magnitude more than drag does to it in a day — so a commitment that read
+178.69 km was flying a mean orbit of 183.59 km, and the lifetime forecast from
+the osculating value was 319.8 h against a real 405.8. Worse, the sign of the
+bias is different at each pad, because each commitments sits at a different point
+in the swing: measured, the four pads' commitments read 3.9, 6.6, 4.9 and 6.7 km
+away from the mean orbit they were flying, in **both** directions. Minus eight of
+those kilometres and Baikonur's orbit stops outlasting its window; plus them and
+Vandenberg's is a hundred hours longer than the plan assumed.
+
+`meanSemiMajor` (`src/sim/prem.js`) is the fix, and it is one line of physics: the
+field is conservative, so total energy is the invariant of the motion, and the
+two-body orbit with the same energy *is* the mean orbit. Something the osculating
+value is not, and something a revolution average is not either — averaging over
+one revolution returns a number that still drifts, because a near-circular
+orbit's eccentricity vector circulates on a timescale of days.
+
+The effect on the mission is that nothing needs a raise at its nominal hour any
+more: with the short-period term taken out, the four pads' parking orbits last
+192, 246, 278 and 406 hours against waits of 119, 146, 66 and 326. The mechanism
+is still for something — the wait cycles with the Moon over a synodic month and
+the orbit's life does not, so Vandenberg at +144 h has 313 h of window against the
+191 h its orbit has, and a 2.63 m/s raise carries it there.
+
+**The residual is the eccentricity, and it is not yet fixed.** J2's short-period
+term on the eccentricity is the same order as the eccentricity itself at parking
+altitude — Vandenberg commits reading e = 0.000997 where its mean eccentricity is
+nearer 0.0005 — and two kilometres of perigee is seven per cent of the drag. So
+the lifetime the theory returns still carries about that much error: 191.4 h
+forecast against 206.5 h flown, where before the field went live the same
+comparison was 0.2%. Averaging the osculating elements over a revolution was
+measured as a candidate and rejected: from that same state it returns a = 168.8 km
+and e = 0.001817, three kilometres below the invariant, which is 155.8 h — worse
+than the osculating answer it would replace. Closing it needs the double-averaged
+Brouwer elements, a first-order series per element.
+
 The plan follows the pilot. Any burn during the wait that was not the plan's — a
 node of their own, or thrust by hand — remakes it from the orbit being flown and
 withdraws raise burns that have not flown. A 25 m/s retrograde trim six hours in
@@ -1095,6 +1308,37 @@ close 50 m, and both vehicles now reach the same parking orbit at 60x and at 1x 
 within 0.06 km, which `verify-warp` checks by flying each vessel both ways. It
 moved every pad's parking orbit down by up to 0.8 km, and the figures in this
 document are flown on it.
+
+### The pad itself
+
+Each site has its structures, built rather than loaded (`src/gfx/padGeometry.js`,
+dimensions in `src/gfx/pads.js`): Kennedy's umbilical tower on its mobile
+launcher over the 39 flame trench, Baikonur's tulip round the vehicle over the
+pit, Kourou's enclosed gantry rolled back past its lightning masts, Vandenberg's
+service tower and changeout room. Every member is merged into one mesh per
+material — four draw calls a complex — and every standoff is measured from the
+vehicle chosen at load, boosters included.
+
+The ground is graded to the datum for 400 m round the pad, the way a real
+complex is, so the foundations neither float nor sink into whichever slope the
+nearest 130 m SRTM sample carried. And the hull is *lifted*: the ship state is
+the centre of mass, which the clamp holds at one Earth radius, so a hull drawn
+about it stood with half a stage underground. It is raised by half a stack plus
+the deck height while on the pad and eased back over the first few hundred
+metres of climb — a visual correction only; the physics, the cameras' targets
+and every gate read the state they always did. `verify:pads` holds the contract
+and builds all four pads under Node to measure them.
+
+### Sound
+
+The engine is synthesised, not sampled (`src/sfx/engine.js`): brown noise
+through a lowpass whose corner follows mass flow, a detuned sub pair for the
+throb, bandpassed crackle for a large exhaust, and a rendered clunk at every
+separation — all scaled by the density of the air at the vehicle, so the ascent
+goes quiet as the sky goes black. Five numbers are written into the graph each
+frame and nothing is allocated doing it; `verify:audio` measures the mix and the
+parameter writes at zero bytes a call. The context is created on the first
+click, as browsers require, and the `Engine audio` toggle mutes and suspends it.
 
 ## Surface launch
 
@@ -2588,9 +2832,12 @@ teleporting the planets.
 ## Deploying it
 
 `.github/workflows/deploy.yml` runs the gates, builds, and publishes to GitHub
-Pages on a push to `main` or `master`. It is written and not yet wired to
-anything: there is no remote on this repository, so nothing happens until one
-exists.
+Pages on a push to `main` or `master`, or on a manual dispatch. It is live:
+`origin` is `IJai-code/Periapsis-Zero`, and the site is served at
+**https://periapsiszero.dev/** (the custom domain in `CNAME`) from the last
+green run. The gates run *before* the build rather than after it, so a red suite
+publishes nothing and the previous deployment stays up — which makes
+`npm run verify:all` the release gate and not just a test command.
 
 Two things about a static host this one has to answer.
 

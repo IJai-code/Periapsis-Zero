@@ -39,6 +39,7 @@ import { DECAY_FLOOR, decayAfter, decayTime, decayed as decayState } from '../sr
 import { deltaV, input, ship } from '../src/sim/ship.js'
 import { BODIES, G } from '../src/sim/constants.js'
 import { SPIN_AXIS } from '../src/sim/atmosphere.js'
+import { meanSemiMajor } from '../src/sim/prem.js'
 import { INDEX } from '../src/sim/system.js'
 import { WARP } from '../src/sim/warp.js'
 import { LAUNCH_SITES, selectSite } from '../src/sim/launchsite.js'
@@ -49,7 +50,23 @@ const H = 3600
 const C = INDEX.ship * 6
 const E = INDEX.earth * 6
 
-/** Osculating semi-major axis, eccentricity, and cos i against the spin axis, from the state itself. */
+/**
+ * The orbit from the state itself: osculating semi-major axis, eccentricity, and
+ * cos i against the spin axis — plus the **mean** semi-major axis, which is the
+ * one every number in this file is now measured against.
+ *
+ * Since J2 went live the two differ by five to seven kilometres at parking
+ * altitude, and in both directions depending on where in the short-period swing
+ * the flight happens to be: the four pads commit 3.9, 6.6, 4.9 and 6.7 km away
+ * from the mean orbit they are actually flying. Comparing a flown *osculating*
+ * quantity against a *mean* theory is comparing an oscillation against its
+ * average, which is how this file spent nine checks failing for reasons that had
+ * nothing to do with the theory.
+ *
+ * The eccentricity stays the osculating one, here and in the planner both, for
+ * the reason `assessOrbit` gives: at a per cent of the curvature its own J2 term
+ * is a few hundred metres of perigee.
+ */
 function orbitNow() {
   const s = live.sim.state
   const rx = s[C] - s[E]
@@ -58,14 +75,17 @@ function orbitNow() {
   const vx = s[C + 3] - s[E + 3]
   const vy = s[C + 4] - s[E + 4]
   const vz = s[C + 5] - s[E + 5]
-  const a = 1 / (2 / Math.hypot(rx, ry, rz) - (vx * vx + vy * vy + vz * vz) / MU)
+  const r2 = rx * rx + ry * ry + rz * rz
+  const a = 1 / (2 / Math.sqrt(r2) - (vx * vx + vy * vy + vz * vz) / MU)
   const hx = ry * vz - rz * vy
   const hy = rz * vx - rx * vz
   const hz = rx * vy - ry * vx
   const h = Math.hypot(hx, hy, hz)
+  const e = Math.sqrt(Math.max(0, 1 - (h * h) / (MU * a)))
   return {
     a,
-    e: Math.sqrt(Math.max(0, 1 - (h * h) / (MU * a))),
+    e,
+    am: meanSemiMajor(rx, ry, rz, vx, vy, vz, r2),
     cosI: (hx * SPIN_AXIS[0] + hy * SPIN_AXIS[1] + hz * SPIN_AXIS[2]) / h,
   }
 }
@@ -116,7 +136,15 @@ function toInjection(site, sampleEvery = 0, launchHour = 0) {
     if (!committed && id === 'COAST' && commitTLI()) {
       committed = true
       rec.commit = live.sim.t
-      rec.orbit = orbitNow()
+      /*
+       * The mean orbit, because it is the one the planner plans against and so
+       * the one this file has to compare it with. `rec.osc` keeps the osculating
+       * value, which is what the HUD reports and what the panel's two rates are
+       * functions of — the two are different questions.
+       */
+      const atCommit = orbitNow()
+      rec.osc = atCommit.a
+      rec.orbit = { ...atCommit, a: atCommit.am }
       rec.dragK = live.sim.dragK[0]
       rec.plan = { ...mission.tli.loiter }
       rec.outAtCommit = mission.tli.outOfPlane
@@ -125,15 +153,19 @@ function toInjection(site, sampleEvery = 0, launchHour = 0) {
     flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
     frame()
     const now = currentPhase().id
-    if (now === 'TLI_ALIGN') lastPeri = live.elements.periapsisRadius
+    if (now === 'TLI_ALIGN') {
+      const o = orbitNow()
+      lastPeri = o.am * (1 - o.e)
+    }
     if (now !== id && now.startsWith('NODE_')) rec.nodePhases++
     if (sampleEvery && now === 'TLI_ALIGN' && live.sim.t >= next) {
-      rec.samples.push([live.sim.t - rec.commit, orbitNow().a])
+      rec.samples.push([live.sim.t - rec.commit, orbitNow().am])
       next += sampleEvery
     }
     if (now === 'TLI_BURN' && rec.injectT === null) {
+      const o = orbitNow()
       rec.injectT = live.sim.t
-      rec.injectA = orbitNow().a
+      rec.injectA = o.am
       rec.injectPeri = lastPeri
     }
     if (now === 'TRANS_LUNAR' || now === 'LOST') {
@@ -162,11 +194,27 @@ const hours = (s) => (s / H).toFixed(2)
  * testing the geometry of the day it was written; what it should test is that
  * the mechanism finds the pad that needs it, whichever that is.
  */
+/**
+ * The launch hour each shortfall is selected by, and why the hour is a selector
+ * rather than a detail.
+ *
+ * The wait cycles with the Moon over a synodic month and the orbit's life does
+ * not, so which launch windows fall inside the orbit's remaining life is a
+ * function of the hour. Since the planner plans on *mean* elements the nominal
+ * hour on no pad falls short any more — with the J2 short-period term taken out,
+ * the four pads' parking orbits last 192, 246, 278 and 406 hours against waits of
+ * 119, 146, 66 and 326, and every one of them outlasts its window. The shortfall
+ * is still real; it is not at hour zero. To find these hours again, sweep the
+ * launch hour and watch `mission.tli.loiter.needed` against `.lifetime` and
+ * `.wait` at commitment.
+ */
+const SHORTFALL_HOUR = 144
+
 PROFILE.loiterRaise = false
 let decayed = null
 let decaySite = null
-for (const id of ['baikonur', 'vandenberg', 'ksc', 'kourou']) {
-  const run = toInjection(id, 25 * H)
+for (const [id, hour] of [['vandenberg', SHORTFALL_HOUR]]) {
+  const run = toInjection(id, 25 * H, hour)
   if (run.plan.needed && run.plan.lifetime < run.plan.wait) {
     decayed = run
     decaySite = id
@@ -178,8 +226,8 @@ if (!decayed) throw new Error('no pad is waiting longer than its orbit lasts')
 
 const lostAfter = decayed.endT - decayed.commit
 const lifeError = (decayed.plan.lifetime - lostAfter) / lostAfter
-console.log(`=== 1. ${LAUNCH_SITES[decaySite].name}, raise disabled: the orbit against the theory ===`)
-console.log(`  committed at ${km(decayed.orbit.a - R)} km, e ${decayed.orbit.e.toFixed(5)}; window forecast ${hours(decayed.plan.wait)} h, lifetime ${hours(decayed.plan.lifetime)} h`)
+console.log(`=== 1. ${LAUNCH_SITES[decaySite].name} at +${SHORTFALL_HOUR} h, raise disabled: the orbit against the theory ===`)
+console.log(`  committed at ${km(decayed.orbit.a - R)} km mean (${km(decayed.osc - R)} km osculating), e ${decayed.orbit.e.toFixed(5)}; window forecast ${hours(decayed.plan.wait)} h, lifetime ${hours(decayed.plan.lifetime)} h`)
 console.log('    flown h   semi-major alt km   theory h to there   error')
 let worstSample = 0
 for (const [t, a] of decayed.samples) {
@@ -197,7 +245,7 @@ console.log(`  ${decayed.end} after ${hours(lostAfter)} h; theory said ${hours(d
 const SITES = ['ksc', 'kourou', 'baikonur', 'vandenberg']
 const flown = SITES.map((site) => toInjection(site))
 
-console.log('\n=== 2-3. every pad, raise enabled ===')
+console.log('\n=== 2-3. every pad at its nominal hour, raise enabled ===')
 console.log('  pad                 forecast h   injected h   late by   orbit h   lifetime h   raised   dv m/s')
 for (const f of flown) {
   const period = 2 * Math.PI * Math.sqrt(f.orbit.a ** 3 / MU)
@@ -205,11 +253,23 @@ for (const f of flown) {
   f.late = f.injectT === null ? NaN : f.injectT - f.commit - f.plan.wait
   console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)}  ${hours(f.plan.wait).padStart(9)}   ${f.injectT === null ? '     —' : hours(f.injectT - f.commit).padStart(10)}   ${hours(f.late).padStart(7)}   ${hours(period).padStart(7)}   ${hours(f.plan.lifetime).padStart(10)}   ${String(f.plan.raised).padEnd(6)}   ${(f.plan.dv1 + f.plan.dv2).toFixed(2)}`)
 }
-// The pad that plans a raise, and the ones whose orbits outlast their wait.
-const vb = flown.find((f) => f.plan.raised) ?? flown.find((f) => f.site === decaySite)
-const kept = flown.filter((f) => f !== vb)
+
+/**
+ * And the launch the mechanism is actually for: Vandenberg at the hour its orbit
+ * cannot outlast the wait, raise enabled.
+ *
+ * These used to be one list. They are two now because the planner plans on mean
+ * elements and the pads' orbits are longer-lived than the osculating readout ever
+ * said, so no pad at its nominal hour plans anything — which is the correct
+ * behaviour and is asserted as such below, but it left this section with nothing
+ * to test. The four nominal flights are `kept`; the raise is `vb`.
+ */
+const vb = toInjection(decaySite, 0, SHORTFALL_HOUR)
+vb.period = 2 * Math.PI * Math.sqrt(vb.orbit.a ** 3 / MU)
+vb.late = vb.injectT === null ? NaN : vb.injectT - vb.commit - vb.plan.wait
+const kept = flown
 const arriveError = vb.injectA - vb.plan.arrive
-console.log(`\n  ${LAUNCH_SITES[vb.site].name}: committed at ${km(vb.orbit.a - R)} km, loiter orbit ${km(vb.plan.target - R)} km,` +
+console.log(`\n  ${LAUNCH_SITES[vb.site].name} at +${SHORTFALL_HOUR} h: committed at ${km(vb.orbit.a - R)} km mean, loiter orbit ${km(vb.plan.target - R)} km,` +
   ` back down to ${km(vb.injectA - R)} km at ignition (aimed for ${km(vb.plan.arrive - R)}, ${arriveError >= 0 ? '+' : ''}${km(arriveError)} km)`)
 console.log(`  raise: ${vb.plan.dv1.toFixed(2)} + ${vb.plan.dv2.toFixed(2)} m/s, ${vb.nodePhases} node phases flown`)
 
@@ -268,9 +328,19 @@ for (const [label, f] of [['closing', closing], ['caught', caught]]) {
  * ---------------------------------------------------------------- */
 
 /** Pad to commitment, then on to injection with `onFrame` run before every frame. */
-function withPilot(site, onFrame) {
+function withPilot(site, onFrame, launchHour = 0) {
   freshFlight(site)
   resetMission()
+  /*
+   * Held on the pad to the launch hour, the same way `toInjection` does it and
+   * for the same reason: the pilot's scenarios are selected by the geometry of
+   * the wait, and at the nominal hour there is no raise to perturb.
+   */
+  const target = launchHour * H
+  flight.pilotWarp = WARP.d1
+  for (let i = 0; live.sim.t < target - H && i < 1_000_000; i++) frame()
+  flight.pilotWarp = WARP.m1
+  for (let i = 0; live.sim.t < target && i < 1_000_000; i++) frame()
   beginCountdown()
   for (let i = 0; i < 3_000_000 && currentPhase().id !== 'COAST'; i++) {
     flight.pilotWarp = mission.warpRequest !== null ? null : WARP.m1
@@ -303,7 +373,7 @@ let afterTrim = null
 const trimmed = withPilot(vb.site, (commit) => {
   if (!trim && live.sim.t > commit + 6 * H) trim = addNode(live.sim.t + 600, { prograde: -25 })
   if (trim?.executed && !afterTrim && currentPhase().id === 'TLI_ALIGN') afterTrim = { ...mission.tli.loiter }
-})
+}, SHORTFALL_HOUR)
 
 /**
  * Thrust by hand straight after commitment, before the raise has flown, until
@@ -333,7 +403,7 @@ const byHand = withPilot(vb.site, () => {
     afterHand = { ...mission.tli.loiter }
     hand = 'done'
   }
-})
+}, SHORTFALL_HOUR)
 
 console.log('\n=== 6. the pilot changes the orbit during the wait ===')
 if (afterTrim) {
@@ -378,6 +448,14 @@ function eccentricDecay(periKm, apoKm, flyHours) {
   }
   live.sim.dragK[0] = K
   refreshDerived()
+  /**
+   * Mean elements on both sides, for the reason `orbitNow` gives: at these
+   * perigees the J2 short-period term on the semi-major axis is several
+   * kilometres, so a comparison of flown *osculating* altitude against a theory
+   * written about the mean orbit is a comparison of an oscillation with its own
+   * average. It read as a 60% error on the 150 x 250 km case and 1,191% on the
+   * 180 x 870 km one, both of which are the swing rather than the physics.
+   */
   const start = orbitNow()
   let t = 0
   let next = 50 * H
@@ -388,9 +466,9 @@ function eccentricDecay(periKm, apoKm, flyHours) {
     refreshDerived()
     t += 600
     const now = orbitNow()
-    const reached = now.a - R < DECAY_FLOOR
+    const reached = now.am - R < DECAY_FLOOR
     if (t >= next || reached) {
-      const predicted = decayTime(start.a, start.e, now.a, K, start.cosI)
+      const predicted = decayTime(start.am, start.e, now.am, K, start.cosI)
       worst = Math.max(worst, Math.abs((predicted - t) / t))
       next += 50 * H
     }
@@ -425,14 +503,15 @@ const periError = (f) => {
  * lifetime rule alone plans nothing, but would reach the window with its perigee
  * under the floor. The floor makes that a raise, the least one that clears it.
  *
- * Kourou at +623.5 h, chosen from the month's floor raises as the one furthest
- * from both boundaries: 13 h of life to spare, and an unraised perigee at
- * ignition of 134 km. The launch this section first flew, Baikonur at +563.3 h,
- * was 8 h clear of the lifetime rule; when the ascent's cutoffs were stepped and
- * the parking orbits came down by up to 0.8 km it went over, and raised for
- * lifetime instead.
+ * Relocated to Vandenberg at +288 h, found by the same sweep the shortfall hours
+ * came from: the wait is 180 h against the 191 h its orbit has, so the lifetime
+ * rule plans nothing and the floor rule does, because 180 h of drag out of that
+ * orbit brings perigee under it. Its predecessors were Kourou at +623.5 h and
+ * Vandenberg at +104 h, both of which were floor raises chosen from the month's
+ * supply under the osculating planner; with the planner on mean elements the
+ * condition moved, and the hour with it.
  */
-const low = toInjection('vandenberg', 0, 104)
+const low = toInjection('vandenberg', 0, 288)
 
 /**
  * And a floor that holds. Vandenberg at +150.5 h commits inside a window whose

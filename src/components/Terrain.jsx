@@ -6,6 +6,8 @@ import { BODIES } from '../sim/constants.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { SPIN_AXIS } from '../sim/atmosphere.js'
 import { mission } from '../sim/mission.js'
+import { FLAT_RADIUS } from '../gfx/pads.js'
+import { LaunchPad } from './LaunchPad.jsx'
 
 /**
  * The ground the vehicle actually leaves.
@@ -29,6 +31,12 @@ import { mission } from '../sim/mission.js'
  * Vandenberg arrives as a 3,532 m trench. What a person standing on that pad
  * sees is water at sea level, so anything under the datum is drawn flat and
  * shaded as sea.
+ *
+ * And the complex itself is graded. Within FLAT_RADIUS of the pad every vertex
+ * is held at the datum, which is what a real launch complex's civil works do
+ * and what lets the structures in LaunchPad.jsx stand on the ground rather than
+ * on whichever slope the nearest 130 m sample happened to carry — a foundation
+ * that is neither floating nor buried, by construction rather than by margin.
  */
 
 const R = BODIES.earth.radius
@@ -164,6 +172,7 @@ export function Terrain() {
      * surrounding land as ocean, which is exactly what it looked like.
      */
     const seaLevel = -datum
+    const padCentre = pad.clone().multiplyScalar(R)
     let relief = 1
     for (let i = 0; i < heights.length; i++) {
       relief = Math.max(relief, heights[i] - datum)
@@ -183,9 +192,13 @@ export function Terrain() {
         // Water is drawn as a flat surface at sea level; the seabed under it is
         // real data and not what someone on the pad can see.
         const wet = absolute <= 0
-        const h = wet ? seaLevel : raw
         siteDirection(d, probe, 0)
-        p.copy(d).multiplyScalar(R + h).sub(pad.clone().multiplyScalar(R))
+        // Ground distance from the pad first, to know whether this vertex is
+        // inside the graded complex; the height does not move it measurably.
+        p.copy(d).multiplyScalar(R).sub(padCentre)
+        const graded = Math.hypot(p.dot(east), p.dot(north)) < FLAT_RADIUS
+        const h = graded ? 0 : wet ? seaLevel : raw
+        p.copy(d).multiplyScalar(R + h).sub(padCentre)
 
         const o = (j * N + i) * 3
         // Into the pad's local frame: x east, y up, z north.
@@ -193,7 +206,7 @@ export function Terrain() {
         positions[o + 1] = p.dot(pad)
         positions[o + 2] = p.dot(north)
 
-        if (wet) c.copy(sea)
+        if (wet && !graded) c.copy(sea)
         else c.copy(low).lerp(high, Math.min(1, Math.max(0, absolute) / Math.max(relief, 1)))
         colours[o] = c.r
         colours[o + 1] = c.g
@@ -267,6 +280,8 @@ export function Terrain() {
       <mesh geometry={mesh} receiveShadow>
         <meshStandardMaterial vertexColors roughness={0.95} metalness={0.0} />
       </mesh>
+      {/* Same group, same frame, same datum: the pad cannot drift off the ground. */}
+      <LaunchPad site={site} />
     </group>
   )
 }

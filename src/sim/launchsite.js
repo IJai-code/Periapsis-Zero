@@ -1,5 +1,6 @@
 import { BODIES } from './constants.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
+import { deflectionOfVertical, surfaceGravity } from './prem.js'
 import { requested } from './requested.js'
 
 /**
@@ -197,6 +198,47 @@ export function siteDirection(out, site, t) {
 }
 
 /** Inclination reachable from a site at a given launch azimuth. */
+/**
+ * What a pad's own gravity is, m/s^2 — the local g of the interior model.
+ *
+ * The pad is the one place in this simulator where gravity is *felt* rather than
+ * fallen through: a clamped vehicle weighs what it weighs, the stack's thrust to
+ * weight is measured against this number and not against 9.80665, and the
+ * number is a function of latitude, because the planet is oblate. Kourou, five
+ * degrees off the equator, reads 9.80229; Vandenberg at 34.7 north reads 9.79780
+ * and Baikonur 45.9 north 9.79514. Standard gravity is none of them, and neither
+ * is the spherical 9.82025 the same field would give at the mean radius — a
+ * quarter of a per cent of the pad's weight is the difference between a sphere
+ * and a spin.
+ *
+ * The spin is included, because a pad is not in free fall — see `prem.js` for
+ * why the two are added here and not in the equations of motion.
+ *
+ * Read through `prem.js` rather than restated here. It is a function of the
+ * site's latitude and of nothing else, which is the whole content of a zonal
+ * field, and it is the same profile the craft's orbit is perturbed by.
+ */
+export function siteGravity(site = active) {
+  return surfaceGravity(site.latitude)
+}
+
+/**
+ * How far the pad's plumb line leans off the geocentric radius, radians,
+ * positive south.
+ *
+ * Zero at the equator and the poles, largest in between — 0.0172 degrees at
+ * Kourou against 0.0930 at Baikonur. Nothing in the *simulation* reads it: the
+ * pad's up-vector is radial, as the clamped state and the drawn sphere both are,
+ * and the towers are built along that. It is worth naming anyway because it is
+ * the oblateness seen sideways, and because it says how far the drawn pad is
+ * from a real one — a tower plumbed to the local vertical at Baikonur leans 18
+ * cm across a 110.6 m stack, which is a third of the beam of the vehicle
+ * standing beside it.
+ */
+export function siteDeflection(site = active) {
+  return deflectionOfVertical(site.latitude)
+}
+
 export function inclinationFor(site, azimuthDeg = site.azimuth) {
   return (
     (Math.acos(Math.cos(site.latitude * DEG) * Math.sin(azimuthDeg * DEG)) * 180) / Math.PI

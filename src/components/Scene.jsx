@@ -16,6 +16,7 @@ import { Planets } from './Planets.jsx'
 import { Terrain } from './Terrain.jsx'
 import { CameraRig } from './CameraRig.jsx'
 import { Effects } from './Effects.jsx'
+import { Audio } from './Audio.jsx'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
 import { DAY, YEAR } from '../sim/constants.js'
@@ -50,6 +51,7 @@ export function Scene({ textures }) {
   return (
     <>
       <Driver />
+      <Audio />
       <Skybox map={active['sky.sky']} />
 
       {/* Starlight fill only. Everything you can actually see is lit by the

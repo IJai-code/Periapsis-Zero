@@ -36,10 +36,39 @@ import {
   prediction,
   project,
 } from '../src/sim/predict.js'
+import { J2, REFERENCE_RADIUS } from '../src/sim/prem.js'
 import { Vector3 } from 'three'
 
 const MU = G * BODIES.earth.mass
 const RE = BODIES.earth.radius
+
+/**
+ * How far the quadrupole can move a point on the parking orbit, metres.
+ *
+ * `3 J2 (R/r)^2` of the monopole's acceleration, turned into a length by the
+ * orbit's frequency — the same bound `verify-nodes` and `verify-gizmo` use, read
+ * from the same constant the field is built from.
+ */
+const quadrupoleScale = (r) => (3 * J2 * REFERENCE_RADIUS * REFERENCE_RADIUS) / r
+
+/**
+ * The same projection on a point-mass Earth.
+ *
+ * Two claims below — that a revolution ends on schedule and that the apsides sit
+ * on the analytic conic to ten metres — were written when Earth *was* a point
+ * mass here, and ten metres is only a true statement about a conic. Rather than
+ * turn it into ten kilometres, each is made twice: once with the field lifted,
+ * where it has to hold exactly as before, and once against the real field, where
+ * the difference is checked against the quadrupole's own scale and against the
+ * period the quadrupole shortens.
+ */
+const onSphere = (fn) => {
+  const saved = live.sim.zonal
+  live.sim.zonal = null
+  const value = fn()
+  live.sim.zonal = saved
+  return value
+}
 const C = INDEX.ship * 6
 const E = INDEX.earth * 6
 const M = INDEX.moon * 6
@@ -84,8 +113,38 @@ console.log('=== a parking orbit, with nothing asked for ===')
 console.log(`  closed             ${leo.closed} after ${(leo.span / 60).toFixed(3)} min` +
   `  (the orbit's own period is ${(parking / 60).toFixed(3)})`)
 console.log(`  cost               ${leo.steps} steps, ${leo.count} drawn, ${leoCost.toFixed(2)} ms`)
+/**
+ * The same projection again on a sphere, and the period the quadrupole takes off.
+ *
+ *   T' / T = 1 - (3/2) J2 (R/p)^2 sqrt(1 - e^2)
+ *
+ * which is 8.1 s on an 87.9 minute orbit, and that is the whole of why the
+ * revolution below no longer lands on the two-body period: the projection ends a
+ * revolution later than the conic says, because the conic is not what it flew.
+ */
+const leoSphere = onSphere(() => {
+  project(live.sim, scratch, 'ship', 'earth', null)
+  return {
+    closed: prediction.closed,
+    span: prediction.span,
+    apo: prediction.apoapsis.radius,
+    peri: prediction.periapsis.radius,
+  }
+})
+const parkP = live.elements.semiMajor * (1 - Math.pow((leo.apoConic - leo.periConic) / (leo.apoConic + leo.periConic), 2))
+const parkE = (leo.apoConic - leo.periConic) / (leo.apoConic + leo.periConic)
+const parkScale = 1.5 * J2 * (REFERENCE_RADIUS / parkP) ** 2 * Math.sqrt(1 - parkE * parkE)
+const spanShift = (leo.span - parking) / parking
+const apoShift = leo.apo - leo.apoConic
+const periShift = leo.peri - leo.periConic
 console.log(`  apsides            ${((leo.peri - RE) / 1e3).toFixed(3)} x ${((leo.apo - RE) / 1e3).toFixed(3)} km` +
-  `  — ${(leo.peri - leo.periConic).toFixed(2)} m and ${(leo.apo - leo.apoConic).toFixed(2)} m from the analytic conic`)
+  `  — ${(periShift).toFixed(2)} m and ${(apoShift).toFixed(2)} m from the analytic conic`)
+console.log(`  on a point mass    ${(leoSphere.span / 60).toFixed(3)} min and closed ${leoSphere.closed},` +
+  ` apsides ${(leoSphere.peri - leo.periConic).toFixed(2)} m and ${(leoSphere.apo - leo.apoConic).toFixed(2)} m off the conic`)
+console.log(`  and the real one   runs ${(spanShift * 1e3).toFixed(3)} parts in a thousand ${spanShift < 0 ? 'long' : 'short'} of the two-body period,` +
+  ` against the ${(parkScale * 1e3).toFixed(3)} the quadrupole predicts`)
+console.log(`  which apsis moved  periapsis ${(periShift / 1e3).toFixed(3)} km, apoapsis ${(apoShift / 1e3).toFixed(3)} km,` +
+  ` against a ${(quadrupoleScale(leo.apoConic) / 1e3).toFixed(1)} km scale`)
 
 /* ---- 2 and 3. the orbit that broke the old scheme ---- */
 /**
@@ -340,16 +399,39 @@ console.log(`  a known one ${window(control)}`)
 /* ---- verdict ---- */
 console.log('\n=== what this establishes ===')
 const checks = [
-  ['a bound orbit ends after exactly one revolution',
-    leo.closed && Math.abs(leo.span - parking) / parking < 1e-4],
+  ['a bound orbit ends after exactly one revolution, on a point-mass Earth',
+    leoSphere.closed && Math.abs(leoSphere.span - parking) / parking < 1e-4],
+  /**
+   * And on the real Earth, one revolution of *this* orbit — which the quadrupole
+   * has made 1.5 parts in a thousand different from the two-body period. The
+   * claim is asserted from both sides: the shift is within a factor of two of
+   * the closed form, and it is not zero, because a shift of zero would mean the
+   * field had stopped being applied rather than that the orbit had changed.
+   */
+  ['and on the real Earth the revolution it finds is shortened by the quadrupole, to that order',
+    leo.closed && Math.abs(spanShift) > parkScale / 2 && Math.abs(spanShift) < parkScale * 2],
   /**
    * Ten metres on a 6,550 km orbit. What is being measured here is not the
    * integration — it is the gap between an n-body projection and a two-body
    * conic, which verify-predict measures at 1.3 m at apoapsis and gates at two
    * kilometres. A metre was tighter than that difference actually is.
    */
-  ['its apsides still match the analytic conic to ten metres',
-    Math.abs(leo.apo - leo.apoConic) < 10 && Math.abs(leo.peri - leo.periConic) < 10],
+  ['its apsides still match the analytic conic to ten metres on a point-mass Earth',
+    Math.abs(leoSphere.apo - leo.apoConic) < 10 && Math.abs(leoSphere.peri - leo.periConic) < 10],
+  /**
+   * Which apsis the field moves is a matter of where in the orbit the pass
+   * starts — here it is the periapsis that goes 12.5 km and the apoapsis that
+   * stays within forty metres, while `verify-predict` measures the same orbit
+   * from a different phase and finds the opposite. So what is asserted is the
+   * larger of the two shifts, which is the phase-independent statement: the
+   * field moves this orbit by a real fraction of its own scale and no more, and
+   * it does leave at least one apsis on the conic.
+   */
+  ['while the real Earth carries an apsis off it by a real fraction of the quadrupole scale',
+    Math.max(Math.abs(apoShift), Math.abs(periShift)) < quadrupoleScale(leo.apoConic) &&
+    Math.max(Math.abs(apoShift), Math.abs(periShift)) > quadrupoleScale(leo.apoConic) / 4],
+  ['and leaves the other where the conic put it, to a kilometre',
+    Math.min(Math.abs(apoShift), Math.abs(periShift)) < 1000],
   /**
    * One ordinary projection is the unit the two costs below are judged in, so
    * what is left for it to answer on its own is only that the machine has not

@@ -11,6 +11,9 @@ import { Placeholder } from './Placeholders.jsx'
 import { Hull } from './Hull.jsx'
 import { ACTIVE_VESSEL } from '../sim/vessels.js'
 import { stageLength } from '../gfx/framing.js'
+import { currentHullLift } from '../gfx/pads.js'
+import { mission } from '../sim/mission.js'
+import { activeSite } from '../sim/launchsite.js'
 
 /**
  * One spacecraft: position from the integrator, hull from either a loaded glTF
@@ -27,6 +30,13 @@ const _basis = new THREE.Matrix4()
 
 export function Craft({ id }) {
   const group = useRef()
+  /**
+   * The drawn hull, one node inside the state's group so it can be raised
+   * without moving the state. On the pad the ship state is the centre of mass
+   * at one Earth radius, and the hull is drawn about it — half of it under
+   * the ground until this lifts it onto the deck. See gfx/pads.js.
+   */
+  const lift = useRef()
   const spec = CRAFT[id]
 
   /**
@@ -90,6 +100,8 @@ export function Craft({ id }) {
       // nothing and keeps the stage out of the store.
       if (ship.stage !== stage) setStage(ship.stage)
       g.quaternion.copy(ship.quaternion)
+      // Body +Z is the nose, so the lift runs along it: up, on the pad.
+      if (lift.current) lift.current.position.z = currentHullLift((mission.site ?? activeSite()).id)
       return
     }
 
@@ -109,15 +121,17 @@ export function Craft({ id }) {
 
   return (
     <group ref={group}>
-      {model ? (
-        <primitive object={model} />
-      ) : id === 'ship' ? (
-        /* The vehicle built from its own sections — see gfx/hulls.js for why a
-           borrowed full-stack mesh could not be made to serve three stages. */
-        <Hull vessel={ACTIVE_VESSEL} stage={stage} size={visual} />
-      ) : (
-        <Placeholder id={id} size={visual} />
-      )}
+      <group ref={lift}>
+        {model ? (
+          <primitive object={model} />
+        ) : id === 'ship' ? (
+          /* The vehicle built from its own sections — see gfx/hulls.js for why a
+             borrowed full-stack mesh could not be made to serve three stages. */
+          <Hull vessel={ACTIVE_VESSEL} stage={stage} size={visual} />
+        ) : (
+          <Placeholder id={id} size={visual} />
+        )}
+      </group>
     </group>
   )
 }
