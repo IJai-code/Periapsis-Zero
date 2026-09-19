@@ -1915,8 +1915,10 @@ function assessOrbit() {
    * orbit, e reads 0.000997 where the vehicle's mean eccentricity is nearer
    * 0.0005 — and two kilometres of perigee is seven per cent of the drag, so the
    * lifetime the theory returns still carries about that much error. It is the
-   * whole of the residual `verify-loiter` reports: 191.4 h forecast against 206.5
-   * flown.
+   * largest term in the residual `verify-loiter` reports: 191.4 h forecast
+   * against 206.5 flown. It is not the whole of it, and lifting the oblateness
+   * is what separates the two — five of that gate's seven failures are red on a
+   * point-mass Earth as well, so they belong to the gate rather than the field.
    *
    * Averaging the osculating elements over one revolution does not fix it, and
    * was measured before being rejected: over a revolution from this same state

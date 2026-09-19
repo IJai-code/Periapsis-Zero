@@ -731,20 +731,31 @@ a timescale of days, and a single revolution samples it rather than averaging it
 altitude, the injection floor and the "is a raise needed at all" decision against
 the invariant.
 
-**The eccentricity is still osculating, and it is the whole of the residual.**
+**The eccentricity is still osculating, and it is the largest term left.**
 J₂'s short-period term on `e` is the same order as `e` itself at parking
 altitude — 0.000997 at every pad's commitment, where the mean eccentricity is
 nearer 0.0005 — and two kilometres of perigee is seven per cent of the drag on a
 near-circular orbit, because the drag model's exponential density is weighted at
 perigee. So the lifetime the theory returns carries about that much error: 191.4 h
 forecast against 206.5 h flown, where the same comparison was 0.2% on a point
-mass. It is the whole of what `verify:loiter` reports — seven of its twenty checks
-are red because of it, and the earlier, larger errors it used to report are gone,
-because those were the semi-major axis. Closing the last of it needs the
-double-averaged Brouwer elements, a first-order series per element, and not a
-coefficient tuned against the flown lifetime: that is the only reference here
-finer than the bracket the two candidates already span, and tuning against it
-would fit the drag model to a single flight.
+mass. Closing it needs the double-averaged Brouwer elements, a first-order series
+per element, and not a coefficient tuned against the flown lifetime: that is the
+only reference here finer than the bracket the two candidates already span, and
+tuning against it would fit the drag model to a single flight.
+
+**What `verify:loiter` reports is two things, and lifting the oblateness
+separates them.** Flying the same gate against a point mass — which the
+`--sphere` switch on `verify:warp` makes possible, and which `fieldOf` keeps
+honest — leaves five of its seven red: the samples along a decay, the arrival
+back in the orbit it committed from, the eccentric cases, perigee at ignition,
+and the floor case. Those are not the field's doing, and they are the gate's own
+re-baselining to answer for rather than a term in the physics. The two the field
+does decide are the lifetime at the end of a decay (7.3% against a 2% bar) and
+the injection timing: the pads now inject 9 to 88 hours *early* against their own
+forecast window, because `predictTLIWindow` holds the craft's orbital plane
+fixed while it propagates the Moon, and with J₂ live the node regresses several
+degrees over a wait that long. That is a nameable term the forecast is missing,
+not a tolerance to widen.
 
 **The ascent still cuts off on osculating elements, and that is the larger
 effect.** `GRAVITY_TURN` waits for the *osculating* apoapsis to reach the 185 km

@@ -114,17 +114,29 @@ require.
   vertical; every pad's gravity; and what the panel draws, including its refusal
   to draw a rate for a craft on the ground.
 - `verify:pads`, `verify:pad-geometry` and `verify:audio` cover the new ground
-  structures and the audio engine.
+  structures and the audio engine. All three were added to the suite and to CI,
+  where they had not previously run: the chain stopped before them.
+- `verify:all` is a runner rather than a `&&` chain. Every gate runs whether or
+  not an earlier one failed, the log ends with a per-gate summary, and the exit
+  code is the suite's rather than the first gate's — so a red gate still fails
+  the build but cannot hide the eighteen behind it.
 
 ### Known limitations
 
-- **The eccentricity is still osculating**, and it is the remaining error in the
-  loiter forecast: J₂'s short-period term on `e` is the same order as `e` itself
-  at parking altitude (0.000997 at commitment, against a mean nearer 0.0005), and
-  two kilometres of perigee is seven per cent of the drag. Seven of
-  `verify:loiter`'s twenty checks are red because of it. A revolution average was
-  measured as a candidate and rejected — 155.8 h, worse than the osculating
-  answer. See *Physics core & future roadmap* in the README.
+- **The eccentricity is still osculating**, and it is the largest term left in
+  the loiter forecast: J₂'s short-period term on `e` is the same order as `e`
+  itself at parking altitude (0.000997 at commitment, against a mean nearer
+  0.0005), and two kilometres of perigee is seven per cent of the drag. A
+  revolution average was measured as a candidate and rejected — 155.8 h, worse
+  than the osculating answer. See *Physics core & future roadmap* in the README.
+- **`verify:loiter` is red, for two reasons, and lifting the oblateness
+  separates them.** Five of its seven failures are also red on a point-mass
+  Earth, so they are the gate's own re-baselining rather than the field. The two
+  the field decides are the lifetime at the end of a decay (7.3% against a 2%
+  bar) and the injection timing: the pads inject 9–88 hours *early* against their
+  forecast window, because `predictTLIWindow` holds the craft's plane fixed while
+  it propagates the Moon and J₂ regresses the node several degrees over a wait
+  that long.
 - **Ascent guidance still cuts off on osculating elements.** `GRAVITY_TURN` and
   `CIRCULARISE` target osculating quantities, so each pad's *mean* parking orbit
   lands 8–21 km below the 185 km design and differs per pad (167.3 km at Kennedy,
