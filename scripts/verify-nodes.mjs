@@ -441,11 +441,18 @@ const checks = [
   /**
    * Relative to the orbit, because splitting the integration at the node is
    * two RK4 steps where the ballistic pass takes one, and the truncation error
-   * differs in the last bits. Measured at 0.38 mm on a 6,550 km orbit — six
-   * parts in a hundred billion — which is a rounding difference and not an
-   * impulse.
+   * differs in the last bits — a rounding difference and not an impulse.
+   *
+   * The bar is a metre rather than a millimetre, and the two machines are why:
+   * the same code and the same step land at 0.2 mm on arm64 (3.1e-11 relative)
+   * and 7.4 mm on the x86-64 CI runner (1.1e-9). FMA contraction moving the last
+   * bits is enough for the two to straddle a 1e-9 bar, so that bar was measuring
+   * the platform. This one is 0.65 m on a 6,550 km orbit — six orders below
+   * anything this file treats as a real effect, where the transfer it is checked
+   * against gets a two kilometre allowance — and the gap is printed above on
+   * every run, so a genuine regression is visible rather than absorbed.
    */
-  ['a zero node changes nothing', zeroGap / r1 < 1e-9],
+  ['a zero node changes nothing', zeroGap / r1 < 1e-7],
   ['a node carries its own magnitude', Math.abs(nodeMagnitude(nodes[0]) - dvHohmann) < 1e-9],
   ['both burns of a two-burn plan are folded in', bothApplied === 2],
   /**
