@@ -372,6 +372,25 @@ export const EARTH_FIELD = {
   axis: Float64Array.from(SPIN_AXIS),
 }
 
+/**
+ * The same planet with the harmonics taken out.
+ *
+ * A gate can lift the oblateness to fly the other world — `verify:warp` flies
+ * both ascents against it — and every quantity derived from the field has to be
+ * evaluated in the field the craft is actually in, or it is a mixture of two
+ * planets. This is the other one.
+ */
+export const SPHERICAL_EARTH = { ...EARTH_FIELD, J: [0, 0, 0] }
+
+/**
+ * The field a simulation has installed.
+ *
+ * `sim.zonal` is null when the oblateness has been lifted; the mass is Earth's
+ * either way, so the caller gets a field it can integrate energy in rather than
+ * a null it has to remember to handle.
+ */
+export const fieldOf = (sim) => sim.zonal ?? SPHERICAL_EARTH
+
 /* ---------------------------------------------------------------- *\
  * Mean elements
  *\ ---------------------------------------------------------------- */

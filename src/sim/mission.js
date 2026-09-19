@@ -24,7 +24,7 @@ import {
 } from './nodes.js'
 import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
-import { meanSemiMajor, radialGravity } from './prem.js'
+import { fieldOf, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
 /**
@@ -1927,8 +1927,13 @@ function assessOrbit() {
    * than averaging it. Closing the last seven per cent needs the double-averaged
    * (Brouwer) elements, which is a first-order perturbation series per element;
    * this takes the invariant instead, which is free and is most of the way.
+   *
+   * Evaluated in the field the craft is actually in rather than the model's
+   * default: a gate that lifts the oblateness to fly a point-mass comparison
+   * would otherwise load a J2 term into the energy that the trajectory does not
+   * have, and the "mean" orbit would be a mixture of two planets.
    */
-  o.a = meanSemiMajor(_rs.x, _rs.y, _rs.z, _vs.x, _vs.y, _vs.z, r * r)
+  o.a = meanSemiMajor(_rs.x, _rs.y, _rs.z, _vs.x, _vs.y, _vs.z, r * r, fieldOf(live.sim))
   if (!(o.a > 0)) return false
   o.e = Math.sqrt(Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * a)))
   o.cosI = (_eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]) / hLen
