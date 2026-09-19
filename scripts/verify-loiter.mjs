@@ -39,7 +39,7 @@ import { DECAY_FLOOR, decayAfter, decayTime, decayed as decayState } from '../sr
 import { deltaV, input, ship } from '../src/sim/ship.js'
 import { BODIES, G } from '../src/sim/constants.js'
 import { SPIN_AXIS } from '../src/sim/atmosphere.js'
-import { fieldOf, meanSemiMajor } from '../src/sim/prem.js'
+import { fieldOf, meanEccentricity, meanSemiMajor } from '../src/sim/prem.js'
 import { INDEX } from '../src/sim/system.js'
 import { WARP } from '../src/sim/warp.js'
 import { LAUNCH_SITES, selectSite } from '../src/sim/launchsite.js'
@@ -93,6 +93,14 @@ function orbitNow() {
      * comparable — which is the whole point of having the second one.
      */
     am: meanSemiMajor(rx, ry, rz, vx, vy, vz, r2, fieldOf(live.sim)),
+    /**
+     * And the mean eccentricity, for the same reason: the planner predicts a
+     * decay from mean elements, so a perigee measured from the osculating ones
+     * is a different question being answered and reads as error that is not
+     * there. The osculating value is kept as `e` because it is what the HUD
+     * reports and what the field's two rates are functions of.
+     */
+    em: meanEccentricity(rx, ry, rz, vx, vy, vz, r2, fieldOf(live.sim)),
     cosI: (hx * SPIN_AXIS[0] + hy * SPIN_AXIS[1] + hz * SPIN_AXIS[2]) / h,
   }
 }
@@ -151,6 +159,13 @@ function toInjection(site, sampleEvery = 0, launchHour = 0) {
        */
       const atCommit = orbitNow()
       rec.osc = atCommit.a
+      rec.osc_e = atCommit.e
+      /*
+       * The theory's eccentricity stays the osculating one, which is measured
+       * rather than assumed: see the note in `assessOrbit`. The mean one is
+       * computed and printed beside it because the comparison is what shows why
+       * — the two differ by half, and the perigee between them swings 31 km.
+       */
       rec.orbit = { ...atCommit, a: atCommit.am }
       rec.dragK = live.sim.dragK[0]
       rec.plan = { ...mission.tli.loiter }
@@ -234,7 +249,7 @@ if (!decayed) throw new Error('no pad is waiting longer than its orbit lasts')
 const lostAfter = decayed.endT - decayed.commit
 const lifeError = (decayed.plan.lifetime - lostAfter) / lostAfter
 console.log(`=== 1. ${LAUNCH_SITES[decaySite].name} at +${SHORTFALL_HOUR} h, raise disabled: the orbit against the theory ===`)
-console.log(`  committed at ${km(decayed.orbit.a - R)} km mean (${km(decayed.osc - R)} km osculating), e ${decayed.orbit.e.toFixed(5)}; window forecast ${hours(decayed.plan.wait)} h, lifetime ${hours(decayed.plan.lifetime)} h`)
+console.log(`  committed at ${km(decayed.orbit.a - R)} km mean (${km(decayed.osc - R)} km osculating), e ${decayed.osc_e.toFixed(5)} osculating (${decayed.orbit.em.toFixed(5)} mean); window forecast ${hours(decayed.plan.wait)} h, lifetime ${hours(decayed.plan.lifetime)} h`)
 console.log('    flown h   semi-major alt km   theory h to there   error')
 let worstSample = 0
 for (const [t, a] of decayed.samples) {

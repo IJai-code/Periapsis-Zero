@@ -28,6 +28,15 @@ craft feels the oblateness. Low orbits no longer close: an ISS-height orbit
 precesses at −5.02°/day against the real station's −5.0, and a parking orbit's
 apsidal line walks +3.7°/day.
 
+**Mean eccentricity from the J₂ short-period series** (`meanEccentricity`,
+`src/sim/prem.js`) — the companion of `meanSemiMajor`: the osculating
+eccentricity vector with its first-order short-period term taken off, in the node
+frame, where `u` is the argument of latitude. Verified against a numerically
+averaged vector rather than a closed form: 1.409e-3 against 1.528e-3 on a pad's
+committed orbit, and the vector's spread cut by 8× there and up to 205× across
+inclinations. It is deliberately *not* what the planner uses; see *Known
+limitations*.
+
 **Per-pad surface gravity** (`src/sim/launchsite.js`, `src/ui/LaunchSite.jsx`) —
 g(r, φ) from the same profile, per pad: 9.799 m/s² at Kennedy, 9.795 at
 Baikonur, 9.802 at Kourou, giving a liftoff thrust-to-weight of 1.167 rather
@@ -131,12 +140,17 @@ require.
 
 ### Known limitations
 
-- **The eccentricity is still osculating**, and it is the largest term left in
-  the loiter forecast: J₂'s short-period term on `e` is the same order as `e`
-  itself at parking altitude (0.000997 at commitment, against a mean nearer
-  0.0005), and two kilometres of perigee is seven per cent of the drag. A
-  revolution average was measured as a candidate and rejected — 155.8 h, worse
-  than the osculating answer. See *Physics core & future roadmap* in the README.
+- **The lifetime forecast substitutes one perigee for a swing of 31 km.** J₂'s
+  short-period term on the eccentricity vector is larger than the eccentricity
+  itself at parking altitude, and on Vandenberg's committed orbit the perigee
+  runs from 133.6 km to 164.9 km over one cycle — air densities a factor of four
+  apart. `meanEccentricity` corrects the vector (1.409e-3 against a numerically
+  averaged 1.528e-3, spread cut eightfold, up to 205× in a clean sweep), but
+  feeding it to the planner made the forecast *worse* — 188.4 h against the flown
+  206.5, where the osculating value gives 191.4 — because no single perigee
+  describes that swing. The fix belongs in `decay.js`, averaging density over the
+  cycle, not in the eccentricity. A revolution average was measured too and
+  rejected: 155.8 h. See *Physics core & future roadmap* in the README.
 - **`verify:loiter` is at 15 of 20, and lifting the oblateness separates what is
   left.** Four of the five remaining failures are red on a point-mass Earth too,
   so they belong to the gate's own re-baselining rather than to the field: the

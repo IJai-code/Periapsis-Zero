@@ -24,7 +24,7 @@ import {
 } from './nodes.js'
 import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
-import { fieldOf, meanSemiMajor, radialGravity } from './prem.js'
+import { fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
 /**
@@ -1956,18 +1956,19 @@ function assessOrbit() {
    * being an invariant, it is the quantity drag actually changes, where the
    * osculating semi-major axis is a function of where in the swing you look.
    *
-   * The eccentricity stays the osculating one, and that is a known and measured
-   * shortfall rather than a judgement. Its own J2 term is the same order as the
-   * eccentricity itself at parking altitude — measured on Vandenberg's committed
-   * orbit, e reads 0.000997 where the vehicle's mean eccentricity is nearer
-   * 0.0005 — and two kilometres of perigee is seven per cent of the drag, so the
-   * lifetime the theory returns still carries about that much error. It is the
-   * largest term in the residual `verify-loiter` reports: 191.4 h forecast
-   * against 206.5 flown. It is not the whole of it, and lifting the oblateness
-   * is what separates the two — five of that gate's seven failures are red on a
-   * point-mass Earth as well, so they belong to the gate rather than the field.
+   * The eccentricity stays the osculating one, and that is measured rather than
+   * left over. `meanEccentricity` is built and verified — it reproduces the
+   * numerically averaged eccentricity vector to eight per cent and cuts the
+   * wobble's spread eightfold — and feeding it here made the lifetime forecast
+   * *worse* on the one flight that measures it: 188.4 h against the flown 206.5,
+   * where the osculating value gives 191.4. The reason is in the same measurement.
+   * On that committed orbit the perigee swings from 133.6 km to 164.9 km as the
+   * wobble goes round, and those are air densities a factor of four apart. A
+   * decay theory that substitutes *one* perigee cannot be repaired by choosing a
+   * better one — the mean vector sits at 151.6 km and the answer needs the swing
+   * integrated, which is a change to the decay integral and not to this number.
    *
-   * Averaging the osculating elements over one revolution does not fix it, and
+   * Averaging the osculating elements over one revolution does not do this, and
    * was measured before being rejected: over a revolution from this same state
    * the mean comes back as a = 168.8 km and e = 0.001817, which is three
    * kilometres below the invariant and gives 155.8 h — a worse answer than the

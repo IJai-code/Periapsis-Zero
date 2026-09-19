@@ -731,17 +731,24 @@ a timescale of days, and a single revolution samples it rather than averaging it
 altitude, the injection floor and the "is a raise needed at all" decision against
 the invariant.
 
-**The eccentricity is still osculating, and it is the largest term left.**
-J₂'s short-period term on `e` is the same order as `e` itself at parking
-altitude — 0.000997 at every pad's commitment, where the mean eccentricity is
-nearer 0.0005 — and two kilometres of perigee is seven per cent of the drag on a
-near-circular orbit, because the drag model's exponential density is weighted at
-perigee. So the lifetime the theory returns carries about that much error: 191.4 h
-forecast against 206.5 h flown, where the same comparison was 0.2% on a point
-mass. Closing it needs the double-averaged Brouwer elements, a first-order series
-per element, and not a coefficient tuned against the flown lifetime: that is the
-only reference here finer than the bracket the two candidates already span, and
-tuning against it would fit the drag model to a single flight.
+**The eccentricity is still the osculating one, and the limitation is not which
+eccentricity you pick.** J₂'s short-period term on the eccentricity *vector* is
+larger than the eccentricity itself at parking altitude, and the direction of the
+difference is the opposite of the obvious guess: on Vandenberg's committed orbit
+the osculating value reads 9.97e-4 where the numerically averaged vector is
+**1.53e-3**. What matters more is the swing. Over one short-period cycle that same
+orbit's perigee runs from **133.6 km to 164.9 km**, and those are air densities a
+factor of four apart.
+
+`meanEccentricity` takes the wobble out, and is verified rather than asserted: it
+returns 1.409e-3 against that 1.528e-3 average, cuts the vector's spread eightfold
+on the committed orbit and by up to 205× in a clean sweep from 28.5° to 111° of
+inclination. Feeding it to the planner made the forecast *worse* — 188.4 h against
+the flown 206.5, where the osculating value gives 191.4 — and the swing above is
+why: a decay theory that substitutes one perigee for the whole cycle cannot be
+repaired by substituting a better one. That substitution, not this number, is what
+is left of the lifetime error, and closing it means averaging the density over the
+perigee cycle inside `decay.js`.
 
 **What `verify:loiter` reports is two things, and lifting the oblateness
 separates them.** Flying the same gate against a point mass — which the
@@ -1189,8 +1196,9 @@ the orbit's life does not, so Vandenberg at +144 h has 313 h of window against t
 
 **The residual is the eccentricity, and it is not yet fixed.** J2's short-period
 term on the eccentricity is the same order as the eccentricity itself at parking
-altitude — Vandenberg commits reading e = 0.000997 where its mean eccentricity is
-nearer 0.0005 — and two kilometres of perigee is seven per cent of the drag. So
+altitude — Vandenberg commits reading e = 0.000997 osculating against a
+eccentricity vector averaging 1.53e-3, with perigee swinging 31 km over the cycle
+— and two kilometres of perigee is seven per cent of the drag. So
 the lifetime the theory returns still carries about that much error: 191.4 h
 forecast against 206.5 h flown, where before the field went live the same
 comparison was 0.2%. Averaging the osculating elements over a revolution was
