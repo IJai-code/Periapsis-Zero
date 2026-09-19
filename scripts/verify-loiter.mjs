@@ -33,7 +33,7 @@
 
 import { flight, flyMission, frame } from './flight.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
-import { PROFILE, beginCountdown, commitTLI, currentPhase, mission, resetMission } from '../src/sim/mission.js'
+import { PROFILE, WINDOW_STEP, beginCountdown, commitTLI, currentPhase, mission, resetMission } from '../src/sim/mission.js'
 import { addNode, clearNodes } from '../src/sim/nodes.js'
 import { DECAY_FLOOR, decayAfter, decayTime, decayed as decayState } from '../src/sim/decay.js'
 import { deltaV, input, ship } from '../src/sim/ship.js'
@@ -600,10 +600,18 @@ const checks = [
   ['with the flight computer deciding, every pad injects', flown.every((f) => f.end === 'TRANS_LUNAR')],
   /**
    * The forecast is of the *plane* window. Ignition also needs the craft at
-   * the right point of its own orbit, which comes round once a revolution —
-   * so the injection is late by up to one parking orbit and never early.
+   * the right point of its own orbit, which comes round once a revolution — so
+   * the injection is late by up to one parking orbit.
+   *
+   * Early by up to one march step, and not a second, because that is the
+   * forecast's own resolution: it carries the plane forward through half-hour
+   * samples and interpolates the crossing between two of them. Measured at
+   * worst 468 s, a quarter of a step, since the plane stopped being held still.
+   * The minute this used to allow was satisfiable only by accident, while a
+   * frozen plane happened to put the forecast's error on the late side.
    */
-  ['each injection comes after the forecast window, by less than one parking orbit', flown.every((f) => f.late >= -60 && f.late <= f.period)],
+  ['each injection lands within a march step of its window, and inside one parking orbit after it',
+    flown.every((f) => f.late >= -WINDOW_STEP && f.late <= f.period)],
   ['pads whose orbits outlast the wait plan nothing and fly nothing extra', kept.every((f) => !f.plan.needed && !f.plan.raised && f.nodePhases === 0)],
   [`${LAUNCH_SITES[vb.site].name} plans a raise and flies both burns`,
    vb.plan.raised && vb.nodePhases === 4],
