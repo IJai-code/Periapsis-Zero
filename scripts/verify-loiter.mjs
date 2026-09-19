@@ -39,7 +39,7 @@ import { DECAY_FLOOR, decayAfter, decayTime, decayed as decayState } from '../sr
 import { deltaV, input, ship } from '../src/sim/ship.js'
 import { BODIES, G } from '../src/sim/constants.js'
 import { SPIN_AXIS } from '../src/sim/atmosphere.js'
-import { meanSemiMajor } from '../src/sim/prem.js'
+import { fieldOf, meanSemiMajor } from '../src/sim/prem.js'
 import { INDEX } from '../src/sim/system.js'
 import { WARP } from '../src/sim/warp.js'
 import { LAUNCH_SITES, selectSite } from '../src/sim/launchsite.js'
@@ -85,7 +85,14 @@ function orbitNow() {
   return {
     a,
     e,
-    am: meanSemiMajor(rx, ry, rz, vx, vy, vz, r2),
+    /**
+     * In the field the simulation actually has installed, for the reason
+     * `assessOrbit` does it: a gate that lifts the oblateness to fly the
+     * point-mass world would otherwise read a mean orbit with a J2 term in it
+     * that the trajectory does not have, and the two worlds stop being
+     * comparable — which is the whole point of having the second one.
+     */
+    am: meanSemiMajor(rx, ry, rz, vx, vy, vz, r2, fieldOf(live.sim)),
     cosI: (hx * SPIN_AXIS[0] + hy * SPIN_AXIS[1] + hz * SPIN_AXIS[2]) / h,
   }
 }
