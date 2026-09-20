@@ -29,7 +29,14 @@ import {
   stageLength,
   zoomSpeedFor,
 } from '../src/gfx/framing.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 import { readFileSync } from 'node:fs'
 import {
   FLY_BOOST,
@@ -493,12 +500,11 @@ const framePath = await bytesPerCall(
 const lookup = await bytesPerCall(() => {
   sink[0] += stageLength(3)
 }, { calls: 50000, warm: 50000 })
-const bytes = (m) => (m ? `${m.bytes.toFixed(2)} B` : 'skipped')
 console.log('\n=== allocation, per call ===')
-console.log(`  control (a known allocation)        ${control ? control.bytes.toFixed(1) + ' B' : 'skipped'}`)
-console.log(`  the harness itself                  ${bytes(noop)}`)
-console.log(`  chase standoff, as the loop does it ${bytes(framePath)}`)
-console.log(`  stageLength()                       ${bytes(lookup)}   (sink ${sink[0].toFixed(0)})`)
+console.log(`  control (a known allocation)        ${sampleText(control)}`)
+console.log(`  the harness itself                  ${sampleText(noop)}`)
+console.log(`  chase standoff, as the loop does it ${sampleText(framePath)}`)
+console.log(`  stageLength()                       ${sampleText(lookup)}   (sink ${sink[0].toFixed(0)})`)
 
 /* ---- allocation ---- */
 const gc = globalThis.gc
@@ -543,9 +549,9 @@ const checks = [
   ['and none of them overshoots', allMonotone],
   ['every stage can be approached to about its own length', worstApproach < 1.5],
   [`every stage's range still crosses in ${ZOOM_DETENTS} detents`, worstStageDetents < 1e-6],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ['the chase standoff allocates nothing', !framePath || framePath.bytes < SMALLEST_OBJECT / 2],
-  ['nor does the stage lookup', !lookup || lookup.bytes < SMALLEST_OBJECT / 2],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('the chase standoff allocates nothing', framePath, SMALLEST_OBJECT / 2),
+  allocatesNothing('nor does the stage lookup', lookup, SMALLEST_OBJECT / 2),
   // The speed law is only useful if it never stops and never inverts.
   ['speed is positive everywhere, inside a body included',
    [-1e9, 0, 1, 1e6, 1e12].every((d) => flySpeed(d) >= FLY_FLOOR)],

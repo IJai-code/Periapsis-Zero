@@ -43,7 +43,15 @@ import {
   screenAxis,
   viewDepth,
 } from '../src/gfx/gizmo.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+  unmeasured,
+} from './allocation.mjs'
 
 const MU = G * BODIES.earth.mass
 const R = BODIES.earth.radius
@@ -781,13 +789,22 @@ const epochBytes = await bytesPerCall(
   },
   { calls: 20000, warm: 100000, windows: 9 },
 )
-const mathBytes = axisBytes &&
-  paramBytes &&
-  epochBytes && {
-    bytes: axisBytes.bytes + paramBytes.bytes + epochBytes.bytes,
-    windows: Math.min(axisBytes.windows, paramBytes.windows, epochBytes.windows),
-    calls: 20000,
-  }
+/**
+ * The three calls added up, which is only a measurement if all three were. A
+ * missing part cannot be substituted with zero here: zero is the answer this
+ * whole gate is looking for, so a part that was never taken would read as the
+ * best possible result for that third of the maths.
+ */
+const mathBytes =
+  axisBytes.measured && paramBytes.measured && epochBytes.measured
+    ? {
+        bytes: axisBytes.bytes + paramBytes.bytes + epochBytes.bytes,
+        windows: Math.min(axisBytes.windows, paramBytes.windows, epochBytes.windows),
+        calls: 20000,
+        measured: true,
+        why: '',
+      }
+    : unmeasured([axisBytes, paramBytes, epochBytes].find((s) => !s.measured).why)
 const combined = await bytesPerCall(() => {
   screenAxis(axisTmp, nodeWorld, fp, camera, WIDTH, HEIGHT)
   paramOnSegment(prediction.points, 100, world.x, world.y, world.z)
@@ -796,13 +813,15 @@ const combined = await bytesPerCall(() => {
 const hover = await bytesPerCall(() => pickEpoch(nodeWorld), { calls: 512, warm: 500, windows: 5 })
 
 console.log('\n=== allocation ===')
-if (mathBytes) {
-  console.log(`  gizmo maths     ${mathBytes.bytes.toFixed(1)} B over the three calls, separately:`)
-  console.log(`                  screenAxis ${axisBytes.bytes.toFixed(2)} B, paramOnSegment ${paramBytes.bytes.toFixed(2)} B, epochOnSegment ${epochBytes.bytes.toFixed(2)} B`)
-  console.log(`  the same three  ${combined.bytes.toFixed(1)} B in one loop body — ${combined.bytes >= 16 ? 'a boxed double, from the caller not inlining' : 'no boxing this run'}`)
-  console.log(`  one hover pick  ${hover.bytes.toFixed(0)} B — raycast plus this harness's bookkeeping; pointer-gated, not per frame`)
-  console.log(`  control object  ${control.bytes.toFixed(0)} B — proof the measurement can see one`)
-}
+console.log(`  gizmo maths     ${sampleText(mathBytes)}, separately:`)
+console.log(`                  screenAxis, paramOnSegment, epochOnSegment —`)
+console.log(`                  ${sampleText(axisBytes)}`)
+console.log(`                  ${sampleText(paramBytes)}`)
+console.log(`                  ${sampleText(epochBytes)}`)
+console.log(`  the same three  ${sampleText(combined)} in one loop body` +
+  (combined.measured ? ` — ${combined.bytes >= 16 ? 'a boxed double, from the caller not inlining' : 'no boxing this run'}` : ''))
+console.log(`  one hover pick  ${sampleText(hover)} — raycast plus this harness's bookkeeping; pointer-gated, not per frame`)
+console.log(`  control object  ${sampleText(control)} — proof the measurement can see one`)
 
 /* ---- verdict ---- */
 console.log('\n=== what this establishes ===')
@@ -875,7 +894,7 @@ const checks = [
   ['with no gesture in progress the nearest pixel wins', pickCold === 0],
   ['at a crossing, the candidate that continues the gesture wins', pickCrossing === 1],
   ['but a clearly nearer candidate is not overruled by continuity', pickAhead === 0],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
+  seesAllocation('the allocation measurement can see an allocation', control),
   /**
    * Each of the three, at its own call site, allocates nothing — and the budget
    * is under half a heap number, so a boxed double in any one of them fails.
@@ -885,7 +904,7 @@ const checks = [
    * `screenAxis` reads 0.1 B. Half of the 12 bytes a pointer-compressed V8 needs
    * for an object is the smallest thing this can honestly distinguish from noise.
    */
-  ['the per-frame maths cost under half a heap number', !mathBytes || mathBytes.bytes < 6],
+  allocatesNothing('the per-frame maths cost under half a heap number', mathBytes, 6),
 ]
 let pass = true
 for (const [label, ok] of checks) {

@@ -23,7 +23,14 @@ import { AU, BODIES, ELEMENTS, G } from '../src/sim/constants.js'
 
 const EARTH_A = ELEMENTS.earth.a
 import { RAILS, RAIL_COUNT, RAIL_ELEMENTS, railHelio, updateRails } from '../src/sim/rails.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 
 const DAY = 86400
 const CENTURY = 36525 * DAY
@@ -267,8 +274,8 @@ const checks = [
   ['every planet stays between its own periapsis and apoapsis, 1800-2050', boundsOk],
   ['they come out in order of distance from the Sun', ordered],
   ['none strays further off the ecliptic than its inclination allows', worstTilt < 0.01],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ['stepping every planet allocates nothing', !bytes || bytes.bytes < SMALLEST_OBJECT / 2],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('stepping every planet allocates nothing', bytes, SMALLEST_OBJECT / 2),
 ]
 let pass = true
 for (const [label, ok] of checks) {
@@ -293,6 +300,6 @@ console.log(
     ` short by ${((tableYear - simYear) * 24 * 60).toFixed(1)} minutes, which is` +
     ` ${(((tableYear - simYear) / tableYear) * 360).toFixed(4)} deg of phase a year.`,
 )
-console.log(`  updateRails: ${bytes ? bytes.bytes.toFixed(2) + ' B a call' : 'not measured'}`)
+console.log(`  updateRails: ${sampleText(bytes)}`)
 console.log(`  ${pass ? 'PASS' : 'FAIL'}`)
 process.exit(pass ? 0 : 1)

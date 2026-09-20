@@ -58,7 +58,14 @@ import { createSimulation, INDEX } from '../src/sim/system.js'
 import { BODIES, G, G0, SHIP } from '../src/sim/constants.js'
 import { LAUNCH_SITES, siteDeflection, siteGravity } from '../src/sim/launchsite.js'
 import { SPIN_AXIS } from '../src/sim/atmosphere.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 
 const MU = G * BODIES.earth.mass
 const R = BODIES.earth.radius
@@ -565,12 +572,10 @@ const gravityBytes = await bytesPerCall(
   },
   { calls: 20000, warm: 20000 },
 )
-if (control) {
-  console.log('\n=== allocation ===')
-  console.log(`  zonalAccel        ${fieldBytes.bytes.toFixed(2)} B a call`)
-  console.log(`  radialGravity     ${gravityBytes.bytes.toFixed(2)} B a call`)
-  console.log(`  a known one       ${control.bytes.toFixed(0)} B`)
-}
+console.log('\n=== allocation ===')
+console.log(`  zonalAccel        ${sampleText(fieldBytes)}`)
+console.log(`  radialGravity     ${sampleText(gravityBytes)}`)
+console.log(`  a known one       ${sampleText(control)}`)
 
 /**
  * And the series the geophysics panel draws, plus the elements it reads.
@@ -663,8 +668,9 @@ const checks = [
   ['the inclination the HUD reports is the one the orbit was given, prograde', inclinationOk],
   ['and a retrograde orbit reads over ninety degrees, not negative', retrogradeOk],
   ['the panel\'s two rates are the closed forms, in degrees a day', Math.abs(rates.node + 5.0234) < 0.05 && Math.abs(rates.apsis - 3.7466) < 0.05],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ["and neither the field nor the pad's gravity allocates", (!fieldBytes || fieldBytes.bytes < SMALLEST_OBJECT / 2) && (!gravityBytes || gravityBytes.bytes < SMALLEST_OBJECT / 2)],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('the zonal field allocates nothing', fieldBytes, SMALLEST_OBJECT / 2),
+  allocatesNothing("nor the pad's own gravity", gravityBytes, SMALLEST_OBJECT / 2),
 ]
 let pass = true
 for (const [label, ok] of checks) {

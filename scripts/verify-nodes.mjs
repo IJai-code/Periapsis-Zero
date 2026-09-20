@@ -32,7 +32,14 @@ import { BODIES, G } from '../src/sim/constants.js'
 import { WARP } from '../src/sim/warp.js'
 import { addNode, clearNodes, nodeMagnitude, nodes, resolveNode } from '../src/sim/nodes.js'
 import { plan, prediction, project } from '../src/sim/predict.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 import { J2, REFERENCE_RADIUS } from '../src/sim/prem.js'
 import { Vector3 } from 'three'
 
@@ -481,8 +488,8 @@ const checks = [
     Math.abs((secondOrbit[0] + secondOrbit[1]) / 2 - rHigh) < highScale &&
     Math.abs(secondOrbit[1] - secondOrbit[0]) < 2 * highScale],
   ['and a burn to escape reports no far side at all', escapeOrbit[1] === Infinity],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ['projecting with a node allocates under a kilobyte', !perProjection || perProjection.bytes < PROJECTION_BUDGET],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('projecting with a node allocates under a kilobyte', perProjection, PROJECTION_BUDGET),
   ['the sequencer preempted the coast to fly the node', sawAlign && sawBurn],
   ['and marked it flown', node.executed],
   ['it delivered what was asked, to 1 m/s', Math.abs(mission.node.delivered - dvHohmann) < 1],
@@ -582,9 +589,11 @@ for (const [label, ok] of checks) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}`)
   if (!ok) pass = false
 }
-if (perProjection) {
+if (perProjection.measured) {
   console.log(`\n  allocation: ${perProjection.bytes.toFixed(0)} B per projection (budget ${PROJECTION_BUDGET}),` +
     ` control object ${control.bytes.toFixed(0)} B`)
+} else {
+  console.log(`\n  allocation: ${sampleText(perProjection)}`)
 }
 console.log(`  ${pass ? 'PASS' : 'FAIL'}`)
 process.exit(pass ? 0 : 1)

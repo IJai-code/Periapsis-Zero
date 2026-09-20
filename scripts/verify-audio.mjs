@@ -27,7 +27,14 @@ import {
 } from '../src/sfx/engine.js'
 import { density } from '../src/sim/atmosphere.js'
 import { G0, SHIP } from '../src/sim/constants.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 
 const first = SHIP.stages[0]
 /** The lightest engine the vehicle carries — not the capsule, which has none. */
@@ -127,15 +134,11 @@ const densityBytes = await bytesPerCall(
   },
   { calls: 50000, warm: 50000 },
 )
-if (control) {
-  console.log('\n=== allocation ===')
-  console.log(`  mixFor       ${mixBytes.bytes.toFixed(2)} B a call`)
-  console.log(`  applyMix     ${applyBytes.bytes.toFixed(2)} B a call`)
-  console.log(`  density      ${densityBytes.bytes.toFixed(2)} B a call`)
-  console.log(`  control      ${control.bytes.toFixed(0)} B`)
-} else {
-  console.log('\n  (run with --expose-gc to measure allocation)')
-}
+console.log('\n=== allocation ===')
+console.log(`  mixFor       ${sampleText(mixBytes)}`)
+console.log(`  applyMix     ${sampleText(applyBytes)}`)
+console.log(`  density      ${sampleText(densityBytes)}`)
+console.log(`  control      ${sampleText(control)}`)
 
 /* ------------------------------------------------------------------ *
  * verdict
@@ -150,10 +153,10 @@ const checks = [
   ['and crackles more', crackles],
   ['the gate mutes the level and leaves the timbre alone', gateMutes],
   ['every parameter is finite and inside its range', inRange],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ['the mix allocates nothing', !mixBytes || mixBytes.bytes < SMALLEST_OBJECT / 2],
-  ['writing it to the graph allocates nothing', !applyBytes || applyBytes.bytes < SMALLEST_OBJECT / 2],
-  ['nor does the density lookup it depends on', !densityBytes || densityBytes.bytes < SMALLEST_OBJECT / 2],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('the mix allocates nothing', mixBytes, SMALLEST_OBJECT / 2),
+  allocatesNothing('writing it to the graph allocates nothing', applyBytes, SMALLEST_OBJECT / 2),
+  allocatesNothing('nor does the density lookup it depends on', densityBytes, SMALLEST_OBJECT / 2),
 ]
 let pass = true
 for (const [label, ok] of checks) {

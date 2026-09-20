@@ -26,7 +26,14 @@ import {
 import { LAUNCH_SITES } from '../src/sim/launchsite.js'
 import { stageLength } from '../src/gfx/framing.js'
 import { ACTIVE_VESSEL } from '../src/sim/vessels.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 
 const STYLES = new Set(['umbilical', 'tulip', 'gantry', 'service'])
 const L = stageLength(0)
@@ -92,11 +99,9 @@ const liftBytes = await bytesPerCall(
   },
   { calls: 50000, warm: 50000 },
 )
-if (control) {
-  console.log('\n=== allocation ===')
-  console.log(`  currentHullLift   ${liftBytes.bytes.toFixed(2)} B a call`)
-  console.log(`  control           ${control.bytes.toFixed(0)} B`)
-}
+console.log('\n=== allocation ===')
+console.log(`  currentHullLift   ${sampleText(liftBytes)}`)
+console.log(`  control           ${sampleText(control)}`)
 
 console.log('\n=== what this establishes ===')
 const checks = [
@@ -111,8 +116,8 @@ const checks = [
   // A smoothstep's steepest slope is 1.5 over its width; anything past that is a discontinuity.
   ['and never jumps: no steeper than the smoothstep it is', maxStep < 1.6 / (LIFT_FADE * L)],
   ['on the pad the state reads a full lift', Math.abs(currentHullLift('ksc') - kscLift) < 1e-9],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ['the per-frame lift allocates nothing', !liftBytes || liftBytes.bytes < SMALLEST_OBJECT / 2],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('the per-frame lift allocates nothing', liftBytes, SMALLEST_OBJECT / 2),
 ]
 let pass = true
 for (const [label, ok] of checks) {

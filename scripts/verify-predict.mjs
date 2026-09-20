@@ -32,6 +32,7 @@ import {
   project,
 } from '../src/sim/predict.js'
 import { dominantBody } from '../src/sim/soi.js'
+import { costOf } from './timing.mjs'
 import { J2, REFERENCE_RADIUS } from '../src/sim/prem.js'
 
 const MU_EARTH = G * BODIES.earth.mass
@@ -136,9 +137,18 @@ console.log(`  phase            ${currentPhase().id} at MET ${(mission.t / 60).t
 console.log(`  analytic orbit   ${((e.periapsisRadius - BODIES.earth.radius) / 1e3).toFixed(1)}` +
   ` x ${((e.apoapsisRadius - BODIES.earth.radius) / 1e3).toFixed(1)} km, period ${(e.period / 60).toFixed(2)} min`)
 
-const t0 = process.hrtime.bigint()
-for (let i = 0; i < 20; i++) project(live.sim, scratch, 'ship', 'earth', e.period)
-const perProjection = Number(process.hrtime.bigint() - t0) / 1e6 / 20
+/**
+ * Warmed and medianed, by the same helper the rest of the suite times with.
+ *
+ * This was `process.hrtime` around twenty calls that were the first this
+ * process had ever made down this path — `project` is not called anywhere above
+ * this line — which is the shape that made `verify-horizon`'s cost ratios read
+ * 2.69 on one run and 7.16 on the next. It measured 1.20-1.24 ms over ten fresh
+ * processes here, a 3% spread, so this one had 8x of headroom and was never the
+ * flake the other was; it is warmed now because the figure is quoted and because
+ * a plan folded into this path later would bring the fragility with it.
+ */
+const perProjection = costOf(() => project(live.sim, scratch, 'ship', 'earth', e.period))
 const R = BODIES.earth.radius
 const apoErr = prediction.apoapsis.index >= 0 ? prediction.apoapsis.radius - e.apoapsisRadius : NaN
 const periErr = prediction.periapsis.index >= 0 ? prediction.periapsis.radius - e.periapsisRadius : NaN
@@ -369,6 +379,13 @@ const checks = [
    * Cheap enough to redraw continuously. Five times a second is the map's
    * refresh, so 10 ms would be 5% of a core; the flight integrator's own
    * substepping put it at 154 ms, which is 77%.
+   *
+   * The bar is deliberately far above the measurement rather than near it: what
+   * it is for is a machine that has fallen over, not a tight budget, and the
+   * figure it is compared against moved by 2.2x when the warm-up came out of it
+   * — 0.55 ms now, where the cold mean of twenty reported 1.20-1.24. Both pass,
+   * which is the point: this check was never the flake, and the number printed
+   * beside it was nonetheless wrong by a factor of two.
    */
   ['a projection costs under 10 ms', perProjection < 10],
   ['the drawn line is contiguous — no gaps between segments', contiguous],

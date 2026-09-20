@@ -29,7 +29,14 @@ import { WARP } from '../src/sim/warp.js'
 import { addNode, clearNodes, nodeBasis, nodes, resolveNode } from '../src/sim/nodes.js'
 import { plan, prediction, project } from '../src/sim/predict.js'
 import { dominantBody, soiRadius } from '../src/sim/soi.js'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+} from './allocation.mjs'
 
 const C = INDEX.ship * 6
 const E = INDEX.earth * 6
@@ -381,12 +388,10 @@ const lunarProjection = await bytesPerCall(
   () => project(live.sim, scratchAlloc, 'ship', 'moon', 7200, plan, nodes),
   { calls: 512, warm: 3000, windows: 5 },
 )
-if (control) {
-  console.log('\n=== allocation ===')
-  console.log(`  dominantBody          ${soiBytes.bytes.toFixed(1)} B a call`)
-  console.log(`  lunar projection      ${lunarProjection.bytes.toFixed(0)} B a projection (budget 1024)`)
-  console.log(`  control object        ${control.bytes.toFixed(0)} B`)
-}
+console.log('\n=== allocation ===')
+console.log(`  dominantBody          ${sampleText(soiBytes)}`)
+console.log(`  lunar projection      ${sampleText(lunarProjection)} (budget 1024)`)
+console.log(`  control object        ${sampleText(control)}`)
 
 /* ------------------------------------------------------------------ *
  * verdict
@@ -423,9 +428,9 @@ const checks = [
   ['the craft is captured, above the surface', flown.bound && flown.peri > 0],
   ['and in the orbit the map drew, to the finite-burn scale',
     Math.abs(flown.peri - drawn.peri) < apsisAllowance && Math.abs(flown.apo - drawn.apo) < apsisAllowance],
-  ['the allocation measurement can see an allocation', !control || control.bytes >= SMALLEST_OBJECT],
-  ['the sphere test allocates nothing', !soiBytes || soiBytes.bytes < SMALLEST_OBJECT / 2],
-  ['a lunar projection allocates under a kilobyte', !lunarProjection || lunarProjection.bytes < 1024],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('the sphere test allocates nothing', soiBytes, SMALLEST_OBJECT / 2),
+  allocatesNothing('a lunar projection allocates under a kilobyte', lunarProjection, 1024),
 ]
 let pass = true
 for (const [label, ok] of checks) {

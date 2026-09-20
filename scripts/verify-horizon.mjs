@@ -22,7 +22,16 @@
  */
 
 import { flyMission } from './flight.mjs'
-import { SMALLEST_OBJECT, bytesPerCall, knownAllocation } from './allocation.mjs'
+import {
+  SMALLEST_OBJECT,
+  allocatesNothing,
+  bytesPerCall,
+  knownAllocation,
+  sampleText,
+  seesAllocation,
+  unmeasured,
+} from './allocation.mjs'
+import { costOf } from './timing.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { BODIES, G } from '../src/sim/constants.js'
 import { INDEX } from '../src/sim/system.js'
@@ -103,12 +112,14 @@ const leo = {
   apoConic: live.elements.apoapsisRadius,
   periConic: live.elements.periapsisRadius,
 }
-let leoCost = 0
-{
-  const t0 = performance.now()
-  for (let i = 0; i < 20; i++) project(live.sim, scratch, 'ship', 'earth', null)
-  leoCost = (performance.now() - t0) / 20
-}
+/**
+ * The three costs below are warmed and medianed by `costOf` — see
+ * `scripts/timing.mjs` for why, and for the audit of every clock the suite
+ * reads. They were the mean of ten or twenty calls, nearly all of them the
+ * first the process had ever made down that path, which is what put a JIT
+ * tier-up inside the figure these ratios are judged on.
+ */
+const leoCost = costOf(() => project(live.sim, scratch, 'ship', 'earth', null))
 console.log('=== a parking orbit, with nothing asked for ===')
 console.log(`  closed             ${leo.closed} after ${(leo.span / 60).toFixed(3)} min` +
   `  (the orbit's own period is ${(parking / 60).toFixed(3)})`)
@@ -282,12 +293,7 @@ const twoNode = {
   truncated: plan.truncated,
   at: new Vector3(plan.nodeFrames[12], plan.nodeFrames[13], plan.nodeFrames[14]),
 }
-let twoNodeCost = 0
-{
-  const t0 = performance.now()
-  for (let i = 0; i < 10; i++) project(live.sim, scratch, 'ship', 'earth', null, plan, nodes)
-  twoNodeCost = (performance.now() - t0) / 10
-}
+const twoNodeCost = costOf(() => project(live.sim, scratch, 'ship', 'earth', null, plan, nodes))
 
 /** The same two impulses, integrated independently at two-second steps. */
 const chunk = (seconds, h) => {
@@ -368,16 +374,13 @@ console.log(`  400 m/s retrograde ends on ${crash.body} at ${((endRadius - BODIE
 clearNodes()
 addNode(live.sim.t + 30 * 86400, { prograde: 10 })
 /**
- * Averaged, like the two costs above it. This one was a single cold call, which
- * carries the optimiser's warm-up into the figure the budget is judged on — the
- * least reliable of the three measurements, gated the most tightly.
+ * The same measurement as the two above it, warm and medianed. This one was a
+ * single cold call, which carries the optimiser's warm-up into the figure the
+ * budget is judged on — the least reliable of the three measurements, gated the
+ * most tightly — and then a mean of ten, which is one tier-up away from the same
+ * failure.
  */
-let budgetCost = 0
-{
-  const t0 = performance.now()
-  for (let i = 0; i < 10; i++) project(live.sim, scratch, 'ship', lunarBody, null, plan, nodes)
-  budgetCost = (performance.now() - t0) / 10
-}
+const budgetCost = costOf(() => project(live.sim, scratch, 'ship', lunarBody, null, plan, nodes))
 const budget = { truncated: plan.truncated, steps: plan.steps, applied: plan.applied.length, count: plan.count }
 console.log('\n=== a burn a month away ===')
 console.log(`  truncated ${budget.truncated} at ${budget.steps} steps (cap ${MAX_STEPS}), ${budget.count} drawn,` +
@@ -391,10 +394,9 @@ addNode(live.sim.t + 600, { prograde: 60 })
 const planned = await bytesPerCall(() => project(live.sim, scratch, 'ship', 'earth', null, plan, nodes), { calls: 256, warm: 2000, windows: 5 })
 const control = await knownAllocation()
 console.log('\n=== allocation ===')
-const window = (r) => (r ? `${r.bytes.toFixed(0)} B over ${r.windows} windows of ${r.calls}` : 'n/a')
-console.log(`  ballistic   ${window(bare)}`)
-console.log(`  planned     ${window(planned)}`)
-console.log(`  a known one ${window(control)}`)
+console.log(`  ballistic   ${sampleText(bare)}`)
+console.log(`  planned     ${sampleText(planned)}`)
+console.log(`  a known one ${sampleText(control)}`)
 
 /* ---- verdict ---- */
 console.log('\n=== what this establishes ===')
@@ -491,8 +493,24 @@ const checks = [
    * hardware does not.
    */
   ['and hitting the cap costs under ten of them', budgetCost < leoCost * 10],
-  ['projecting allocates under a kilobyte', bare.bytes < 1024 && planned.bytes < 1024],
-  ['and the measurement can see one when there is one', !control || control.bytes >= SMALLEST_OBJECT],
+  allocatesNothing('a projection allocates under a kilobyte', bare, 1024),
+  allocatesNothing('and a planned one likewise', planned, 1024),
+  seesAllocation('and the measurement can see one when there is one', control),
+  /**
+   * And a sample that does not exist fails rather than reading as zero.
+   *
+   * This gate was reported as flaky on the strength of two runs that threw
+   * here, and the tempting repair for a red allocation check is to default the
+   * missing figure to zero — which is the value being looked for, so a gate
+   * that could not measure would report that the code allocates nothing. Zero
+   * is not the failure mode; silence is. Both helpers are exercised against a
+   * measurement that was never taken, so an edit that reaches for a default
+   * fails this check instead of turning every gate green.
+   */
+  ['an absent sample fails rather than passing as a zero',
+    allocatesNothing('x', unmeasured('nothing was measured'), 1024)[1] === false &&
+    seesAllocation('x', unmeasured('nothing was measured'))[1] === false &&
+    allocatesNothing('x', unmeasured('nothing was measured'), 1024)[0].includes('nothing was measured')],
 ]
 let pass = true
 for (const [label, ok] of checks) {
