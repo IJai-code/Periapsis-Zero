@@ -9,6 +9,8 @@ import { getModel, loadModel, useModel } from '../gfx/models.js'
 import { useUi } from '../sim/store.js'
 import { Placeholder } from './Placeholders.jsx'
 import { Hull } from './Hull.jsx'
+import { Plume } from './Plume.jsx'
+import { SECTIONS, bellSeats } from '../gfx/hulls.js'
 import { ACTIVE_VESSEL } from '../sim/vessels.js'
 import { stageLength } from '../gfx/framing.js'
 import { currentHullLift } from '../gfx/pads.js'
@@ -61,6 +63,19 @@ export function Craft({ id }) {
    */
   const visual = id === 'ship' ? stageLength(stage) : (stageSpec?.visual ?? spec.visual)
   const source = useModel(modelId)
+
+  /*
+   * Where this stage's bells sit, taken from the same section table the
+   * procedural hull is built from — a mesh is scaled to the stack's length, so
+   * the tail is at -L/2 whichever way the stage is drawn.
+   */
+  const plume = useMemo(() => {
+    if (id !== 'ship') return null
+    const sec = SECTIONS[ACTIVE_VESSEL]?.find((x) => x.stage === stage && x.engines > 0)
+    if (!sec) return null
+    const bell = sec.bell ?? 2
+    return { seats: bellSeats(sec.engines, (sec.diameter / 2) * 0.55), bell }
+  }, [id, stage])
 
   /**
    * Fetch whatever mesh this craft is bound to.
@@ -123,7 +138,14 @@ export function Craft({ id }) {
     <group ref={group}>
       <group ref={lift}>
         {model ? (
-          <primitive object={model} />
+          <>
+            <primitive object={model} />
+            {/* A glTF hull carries no exhaust, and the stage that flies one is
+                the S-IC — the only stage with shock diamonds. See Plume.jsx. */}
+            {id === 'ship' && plume && (
+              <Plume stage={stage} seats={plume.seats} bell={plume.bell} z={-visual / 2 - plume.bell} />
+            )}
+          </>
         ) : id === 'ship' ? (
           /* The vehicle built from its own sections — see gfx/hulls.js for why a
              borrowed full-stack mesh could not be made to serve three stages. */

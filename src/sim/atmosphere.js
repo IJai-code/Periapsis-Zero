@@ -183,6 +183,37 @@ export function radiativeFlux(rho, v, noseRadius) {
   return 1e4 * 4.736e4 * Math.pow(noseRadius, a) * Math.pow(rho, 1.22) * f
 }
 
+/**
+ * Ratio of specific heats for air. The same 1.4 `speedOfSound` is built on.
+ */
+export const GAMMA_AIR = 1.4
+
+/**
+ * Ambient static pressure at geometric altitude `h`, Pa.
+ *
+ * Not a third table. `a^2 = gamma p / rho` is the definition of the speed of
+ * sound in an ideal gas, so the pressure follows from the two models already
+ * here and cannot drift from either of them:
+ *
+ *   p = rho a^2 / gamma
+ *
+ * What that inherits is the density table's own accuracy, and `verify-plume`
+ * measures it rather than leaving it implied: against the US Standard
+ * Atmosphere this reads 101,322 Pa at sea level against 101,325, and 26% low at
+ * 11 km, where the table carries a single 7.249 km scale height across the whole
+ * 0-25 km band. The ratio of the derived pressure to the standard one equals the
+ * ratio of the densities at every altitude, which is the point: a plume
+ * expanding against this pressure is expanding against the same air the
+ * integrator is dragging the vehicle through, and self-consistency is worth more
+ * here than agreement with a table nothing else in the simulator uses.
+ */
+export function pressure(h) {
+  const rho = density(h)
+  if (!(rho > 0)) return 0
+  const a = speedOfSound(h)
+  return (rho * a * a) / GAMMA_AIR
+}
+
 export function speedOfSound(h) {
   const km = h / 1000
   let T

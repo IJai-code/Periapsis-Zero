@@ -14,7 +14,7 @@ import {
 import { computeLagrange } from './lagrange.js'
 import { soiRadius } from './soi.js'
 import { RAIL_IDS, RAIL_INDEX, railHelio } from './rails.js'
-import { density, radiativeFlux, speedOfSound } from './atmosphere.js'
+import { GAMMA_AIR, density, radiativeFlux, speedOfSound } from './atmosphere.js'
 
 /** Sutton-Graves constant in SI, and the capsule's heat-shield curvature. */
 const SUTTON_GRAVES = 1.7415e-4
@@ -138,6 +138,8 @@ export const live = {
   maxQ: 0,
   /** Mach number against the co-rotating air. Gates parachute deployment. */
   mach: 0,
+  /** Ambient static pressure at the ship, Pa. What an exhaust plume expands into. */
+  ambientPressure: 0,
   /** Aerodynamic deceleration, in g. The load the vehicle actually feels. */
   decelG: 0,
   /**
@@ -327,7 +329,17 @@ export function refreshDerived(originBody = null, originOffset = null) {
     // Everything below is the same relative wind, so a capsule's Mach, load and
     // heating all agree with the drag the integrator actually applied.
     const vRel = Math.sqrt(vRel2)
-    live.mach = vRel / speedOfSound(alt)
+    const sound = speedOfSound(alt)
+    live.mach = vRel / sound
+    /*
+     * Ambient *static* pressure, off the same density lookup the drag term just
+     * used: p = rho a^2 / gamma. It lives here rather than being worked out in
+     * the renderer because a plume is a function of it and there are up to five
+     * engine bells asking — and because the obvious thing to reach for over
+     * there, `dynamicPressure`, reads zero on the pad by construction. See
+     * `gfx/plume.js`.
+     */
+    live.ambientPressure = rhoLocal > 0 ? (rhoLocal * sound * sound) / GAMMA_AIR : 0
     // a = dragK * rho * |v|^2, with dragK = Cd A / 2m — the integrator's own form.
     live.decelG = (sim.dragK[0] * rhoLocal * vRel2) / 9.80665
     live.heatFlux =

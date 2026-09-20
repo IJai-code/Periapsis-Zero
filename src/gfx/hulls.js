@@ -186,3 +186,22 @@ export function stageLengths(vessel, stackHeight) {
   const stages = Math.max(...all.map((s) => s.stage)) + 1
   return Float64Array.from({ length: stages }, (_, i) => sectionHeight(vessel, i) * scale)
 }
+
+/**
+ * Where the bells sit under a stage: one on the axis, the rest in a ring.
+ *
+ * Here rather than in a component because both ways of drawing a vehicle need
+ * it — `Hull.jsx` to place the bells it builds, and `Craft.jsx` to place the
+ * plume under a stage whose hull is a glTF and has no bells to measure.
+ */
+export function bellSeats(count, radius) {
+  if (count <= 1) return [[0, 0]]
+  const out = []
+  const ring = count % 2 === 1 ? count - 1 : count
+  if (count % 2 === 1) out.push([0, 0])
+  for (let i = 0; i < ring; i++) {
+    const a = (i / ring) * Math.PI * 2 + Math.PI / 4
+    out.push([Math.cos(a) * radius, Math.sin(a) * radius])
+  }
+  return out
+}

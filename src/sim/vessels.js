@@ -68,6 +68,8 @@ const APOLLO8 = {
        * would under-fly the real vehicle by most of a stage.
        */
       isp: 288,
+      /** F-1: 5 at sea level. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 16, chamberPressure: 7e+06 },
       drag: { cd: 0.35, area: 80 }, // 10.1 m diameter, streamlined, continuum flow
       visual: 110.6, // full stack, pad to the tip of the escape tower
       model: 'saturn_v',
@@ -78,6 +80,8 @@ const APOLLO8 = {
       propellant: 443_200, // LH2 and LOX
       thrust: 5_141_000, // 5 x J-2, vacuum
       isp: 421,
+      /** J-2. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 27.5, chamberPressure: 5.26e+06 },
       drag: { cd: 0.35, area: 80 },
       visual: 81.6, // S-II base to escape tower tip
       model: null,
@@ -94,6 +98,8 @@ const APOLLO8 = {
       propellant: 106_600,
       thrust: 1_033_000, // 1 x J-2, vacuum
       isp: 421,
+      /** J-2. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 27.5, chamberPressure: 5.26e+06 },
       drag: { cd: 2.2, area: 30 }, // free-molecular above the sensible atmosphere
       visual: 35.1,
       model: null,
@@ -104,6 +110,8 @@ const APOLLO8 = {
       propellant: 18_410,
       thrust: 91_190, // SPS
       isp: 314,
+      /** AJ10-137, the service propulsion system. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 62.5, chamberPressure: 700000 },
       drag: { cd: 2.2, area: 12 },
       visual: 11.0, // CSM, docking probe to engine bell
       model: 'apollo_csm',
@@ -203,6 +211,8 @@ const ARTEMIS = {
       propellant: 1_523_000, // booster load plus the core's share over 126 s
       thrust: 39_440_000, // 2 x 16.0 MN + 4 x 1.86 MN at sea level
       isp: 283,
+      /** five-segment solid boosters. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 7.7, chamberPressure: 6.3e+06 },
       drag: { cd: 0.35, area: 90 },
       visual: 98.1,
       model: null,
@@ -213,6 +223,8 @@ const ARTEMIS = {
       propellant: 718_000,
       thrust: 9_120_000, // 4 x RS-25 in vacuum
       isp: 452,
+      /** RS-25. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 69, chamberPressure: 2.06e+07 },
       drag: { cd: 0.35, area: 55 },
       visual: 65.0,
       model: null,
@@ -223,6 +235,8 @@ const ARTEMIS = {
       propellant: 26_853,
       thrust: 110_100,
       isp: 462,
+      /** RL10B-2, the widest nozzle flown. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 280, chamberPressure: 4.4e+06 },
       drag: { cd: 2.2, area: 20 },
       visual: 20.0,
       model: null,
@@ -240,6 +254,8 @@ const ARTEMIS = {
       propellant: 8_600,
       thrust: 25_700,
       isp: 316,
+      /** AJ10-190, the Orion main engine. Area ratio and chamber pressure, Pa — what the plume expands from. */
+      nozzle: { areaRatio: 55, chamberPressure: 860000 },
       drag: { cd: 2.2, area: 20 },
       visual: 8.0,
       model: null,

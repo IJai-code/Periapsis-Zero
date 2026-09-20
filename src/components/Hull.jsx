@@ -1,9 +1,6 @@
-import { useMemo, useRef } from 'react'
-import { AdditiveBlending } from 'three'
-import { useFrame } from '@react-three/fiber'
-import { ship } from '../sim/ship.js'
-import { live } from '../sim/live.js'
-import { SECTIONS, sectionHeight } from '../gfx/hulls.js'
+import { useMemo } from 'react'
+import { Plume } from './Plume.jsx'
+import { SECTIONS, bellSeats, sectionHeight } from '../gfx/hulls.js'
 
 /**
  * A launch vehicle, drawn from the sections still attached to it.
@@ -23,31 +20,15 @@ const DARK = { color: '#2a2f38', metalness: 0.6, roughness: 0.5 }
 const BELL = { color: '#4a4038', metalness: 0.85, roughness: 0.35 }
 const PANEL = { color: '#16233f', metalness: 0.35, roughness: 0.28 }
 
-/** Where the bells sit under a stage: one on the axis, the rest in a ring. */
-function bellPositions(count, radius) {
-  if (count <= 1) return [[0, 0]]
-  const out = []
-  const ring = count % 2 === 1 ? count - 1 : count
-  if (count % 2 === 1) out.push([0, 0])
-  for (let i = 0; i < ring; i++) {
-    const a = (i / ring) * Math.PI * 2 + Math.PI / 4
-    out.push([Math.cos(a) * radius, Math.sin(a) * radius])
-  }
-  return out
-}
-
-/** The engine bells under one section, plus the plume when the engine is lit. */
-function Engines({ count, bell, radius, z }) {
-  const flame = useRef()
-  useFrame(() => {
-    if (!flame.current) return
-    const t = ship.thrust > 0 ? ship.throttle : 0
-    flame.current.scale.set(1, 1, t * (0.86 + 0.14 * Math.sin(live.sim.t * 47.3)))
-    flame.current.visible = t > 0.001
-  }, -2)
-
+/**
+ * The engine bells under one section, and the plume when that stage is burning.
+ *
+ * The plume itself is `Plume.jsx`, because the same exhaust has to be drawn for
+ * a stage whose hull is a glTF rather than these sections — see the note there.
+ */
+function Engines({ count, bell, radius, z, stage }) {
   const spread = count > 1 ? radius * 0.55 : 0
-  const seats = bellPositions(count, spread)
+  const seats = useMemo(() => bellSeats(count, spread), [count, spread])
   return (
     <group position={[0, 0, z]}>
       {seats.map(([x, y], i) => (
@@ -56,21 +37,7 @@ function Engines({ count, bell, radius, z }) {
           <meshStandardMaterial {...BELL} side={2} />
         </mesh>
       ))}
-      <group ref={flame} position={[0, 0, -bell]}>
-          {seats.map(([x, y], i) => (
-            <mesh key={i} position={[x, y, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <coneGeometry args={[bell * 0.34, bell * 7, 10, 1, true]} />
-              <meshBasicMaterial
-                color="#9ad8ff"
-                transparent
-                opacity={0.6}
-                blending={AdditiveBlending}
-                depthWrite={false}
-                toneMapped={false}
-              />
-            </mesh>
-        ))}
-      </group>
+      <Plume stage={stage} seats={seats} bell={bell} z={-bell} />
     </group>
   )
 }
@@ -156,7 +123,7 @@ function Section({ s, z, scale }) {
                 <coneGeometry args={[r, r * 3.2, 16]} />
                 <meshStandardMaterial color={s.colour ?? '#e8eaed'} {...SHELL} />
               </mesh>
-              <Engines count={1} bell={s.bell ?? 3} radius={r} z={z} />
+              <Engines count={1} bell={s.bell ?? 3} radius={r} z={z} stage={s.stage} />
             </group>
           )
         })}
@@ -217,7 +184,7 @@ function Section({ s, z, scale }) {
           )
         })}
       {s.engines > 0 && (
-        <Engines count={s.engines} bell={s.bell ?? 2} radius={r} z={z} />
+        <Engines count={s.engines} bell={s.bell ?? 2} radius={r} z={z} stage={s.stage} />
       )}
     </group>
   )
