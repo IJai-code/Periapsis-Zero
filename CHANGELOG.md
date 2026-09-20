@@ -92,6 +92,69 @@ require.
 
 ### Changed
 
+- **The exhaust plume is drawn from the nozzle's gas dynamics**
+  (`src/gfx/plumeShader.js`, `src/components/Plume.jsx`) — a unit tube deformed
+  in the vertex shader to the straight-sided cone a Prandtl-Meyer expansion
+  makes, so changing its shape is four uniform writes and no allocation.
+  Measured in pixels at Kennedy: **28,066 px with shock diamonds at sea level**,
+  the diamonds gone by the F-1's matched altitude of 4.7 km, opening through
+  10.5° at 10 km and 38° at 30 km to the declared 60° cap in vacuum, where the
+  footprint is largest at 37,706 px. Ambient pressure comes from
+  `live.ambientPressure`, computed once a frame beside the drag term rather than
+  once per engine bell.
+- **A plume belongs to the stage that is burning.** Sections are drawn whenever
+  `s.stage >= ship.stage`, so the whole stack is on screen at liftoff, and the
+  flame this replaces keyed off `ship.thrust` alone — lighting the S-II's bells,
+  the S-IVB's and the service module's while the S-IC was still on the pad. Four
+  plumes on a Saturn V, one of them real.
+- **The plume is attached to the glTF stages too** (`src/components/Craft.jsx`).
+  A loaded mesh carries no exhaust, and the stage that flies one is the S-IC —
+  the only stage with shock diamonds. Both draw paths now place the bells from
+  one shared `bellSeats` in `gfx/hulls.js`.
+
+- **Ambient static pressure, derived rather than tabulated** (`src/sim/atmosphere.js`)
+  — `p = rho a^2 / gamma`, the ideal-gas identity on the density table and
+  temperature profile already there, so it cannot drift from either. 101,325 Pa
+  at sea level against the standard atmosphere's 101,325; 26% low at 11 km,
+  which is the density table's own single 0-25 km scale height showing through
+  and is measured by `verify-plume` rather than left implied.
+- **Plume shape from nozzle gas dynamics** (`src/gfx/plume.js`, `src/sim/vessels.js`)
+  — exit Mach from the area ratio by the isentropic area relation, exit pressure
+  from that and the chamber pressure, opening angle from the Prandtl-Meyer turn
+  between exit and ambient. No fitted constants. The F-1 comes out at Mach 3.60
+  and 47.4 kPa, which puts the S-IC over-expanded on the pad — Mach diamonds —
+  matched at 4.7 km, and flaring past it; the RL10B-2 on ICPS is matched at
+  32.5 km, which is what a 280:1 vacuum nozzle should say. **Not** keyed to
+  `live.dynamicPressure`, which is the obvious state to reach for and reads zero
+  on the pad by construction.
+
+- **The launch pad casts a shadow** (`src/gfx/sunlight.js`,
+  `src/components/GroundLight.jsx`, `src/components/Sun.jsx`) — and the
+  `castShadow` flags on 98 meshes stop being inert. Within `GROUND_RANGE` of a
+  pad the Sun's point light drops to zero and a parallel beam of the same
+  illuminance replaces it, which is a substitution rather than an addition: two
+  lights delivering the same illuminance to the same ground would light it twice.
+  Exact where it matters — the handover ratio measures 1.000000000000 at all four
+  sites, the convergence the beam flattens moves a shadow 1.5e-6 m against a
+  0.586 m texel, and the falloff it drops is 3.0e-6 across the terrain. Measured
+  in the renderer at Kennedy's local noon: 255,654 pixels change, all darker.
+
+- **The sky is the Hipparcos catalogue** (`scripts/fetch-stars.mjs`,
+  `src/gfx/stars.js`, `src/components/Starfield.jsx`) — 117,955 real stars
+  replacing 52,000 invented ones splatted into the backdrop texture. Positions
+  carried from J1991.25 to J2000.0 with the catalogue's own proper motions
+  (13,005 stars move more than an arcsecond; Barnard's Star moves 90.6″), stored
+  equatorial so the rotation into the scene comes out of `SPIN_AXIS` rather than
+  being baked in, and coloured by integrating Planck's law against the CIE 1931
+  observer. The Milky Way band stays procedural, because it is unresolved
+  starlight no catalogue lists. 1.18 MB, keyless, `npm run stars:fetch`.
+- **Star brightness is compressed by a stated law rather than an exposure.**
+  Feeding the tone mapper raw flux measured 103 lit pixels on a 3.1-megapixel
+  frame — the drawn range is 10⁵:1 into 256 levels. The shader raises flux to
+  Stevens' brightness exponent for a dark-adapted point source, about 1/3, which
+  is the same psychophysics that made the magnitude scale logarithmic. Measured
+  after: 20,205 lit pixels.
+
 - **The decay theory reads the air at the craft's own radius.** `rates`
   (`src/sim/decay.js`) is written about a *mean* orbit — `meanSemiMajor`, the
   two-body orbit carrying the craft's total energy — and sampled the density at
@@ -161,6 +224,27 @@ require.
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-plume`** — the derived ambient pressure against the standard
+  atmosphere, Prandtl-Meyer and the isentropic relations against theory and
+  against their own inverses, and every nozzle in the fleet against what a
+  sea-level or vacuum engine should do. It also records an allocation the
+  render-loop rule is not met by: see *Known limitations*.
+
+- **`verify-shadows`** — the parallel-beam substitution against the resolution it
+  serves, the handover against the point light's own falloff, and the shadow box
+  against what has to fit in it. It caught two things while being written: a doc
+  comment claiming the substitution's error was a thousandth of a texel when the
+  pairing was wrong twice over (it is 1/380,000, and over a different span), and
+  a shadow box that clipped every shadow below 41 degrees of sun elevation.
+
+- **`verify-stars`** — the catalogue against published positions (worst 3.5″
+  after 16-bit quantisation), the frame against the planet (**Polaris 0.736° off
+  `SPIN_AXIS`**, where the real pole star is), the colours against physics
+  (Planck-through-CIE against the Kim et al. Planckian locus: 0.0001 in x, y at
+  5772 K, worst 0.0036 at 2000 K), and the sky against the ephemeris (the
+  simulator's own Sun at RA 282.520° against the almanac's 281.286°, inside the
+  1.0996° Earth-position offset `verify-rails` measures independently).
 
 - **`verify-radial` verifies two short-period forms, and keeps them apart.** The
   semi-major axis's term and the radius's are both first order in J₂, both
@@ -282,6 +366,56 @@ require.
   176.5 at Baikonur, 164.4 at Kourou, 164.7 at Vandenberg), because the commit
   lands at a different point in the J₂ swing. The refactor is scoped in the
   README.
+- **A sky pinned by copying `camera.position` in a frame callback is 500 units
+  out.** Measured in the running app against a shell radius of 400 — the camera
+  sat outside its own backdrop. Fixed in both places that did it, and fixed so
+  that neither can drift again: `Starfield.jsx` drops the view translation in its
+  own vertex shader, `Skybox.jsx` positions itself in `onBeforeRender`, which
+  three calls before it composes `modelViewMatrix`. Measured after: 0.00.
+- **`renderer.autoClear` is false, and a probe that calls `gl.render` without
+  clearing measures the wrong frame.** This was briefly written up here as a 3%
+  brightness anomaly around Earth's limb when the backdrop was hidden. It was not
+  one: the extra `gl.render` call the measurement made accumulated additive
+  geometry — trails, the atmosphere shell, the star points — on top of the frame
+  the app had already drawn, wherever nothing opaque overwrote it, and the
+  backdrop is what overwrites it. The pixels showed it plainly at 2.00x exactly.
+  Clearing first, the backdrop *adds* 16.06 of mean level rather than subtracting
+  0.74, which is the sign physics requires. Destination alpha was 255 in every
+  configuration measured and the composer was not in the path, so neither alpha
+  nor bloom was involved.
+- **One shadow map cannot hold a dawn shadow and resolve the tower casting it.**
+  At 1,200 m of half-extent and 4,096 texels, shadows are whole down to 10.6
+  degrees of sun elevation and a texel is 0.586 m; below that the tip of the
+  longest shadow leaves the box, and a lattice tie narrower than a texel casts
+  the tower's shadow rather than its own. The penumbra is hard where the Sun's
+  0.53 degrees should make it 1.8 m soft at a 190 m tower's tip. All three want
+  cascades, which is a larger change.
+- **`plumeAt` boxes one double a call in its under-expanded branch.** 16.8 bytes
+  there, 0.8 in the other two regimes, 11.8 across a climb — reproducibly, in a
+  branch that is pure arithmetic on `Float64Array` elements. Which value V8 tags
+  was not found; `Math.pow` to `exp(e log x)` moved nothing, removing every
+  unreachable guard moved nothing, and caching the answer behind a comparison
+  made it worse at 23.4. What *did* work, taking it from 33 to 11.8, was
+  removing the object argument — a `Map.get` returns a shape V8 cannot pin, so
+  every double read off it boxed — and removing the call to `atmosphere.pressure`
+  so the caller reads the air once a frame rather than once an engine. Those two
+  also made the measurement repeatable: before them the same unchanged code read
+  48.80 and 17.61 bytes on alternating runs, and several intermediate "fixes"
+  were chasing that variance rather than the code.
+- **`npm run verify:alloc` has never worked as written.** `verify-allocation.mjs`
+  takes a flight snapshot as `process.argv[2]` and the npm script passes none, so
+  it throws in `loadSnapshot` before measuring anything. Record one first
+  (`npm run fly -- --until LUNAR_ORBIT --save orbit.json`) and pass it. The
+  allocation checks that do run in CI are the ones inside `verify-navigation`,
+  `verify-rails`, `verify-gizmo`, `verify-frames`, `verify-horizon`,
+  `verify-prem`, `verify-pads`, `verify-audio` and now `verify-plume`.
+- **A raw `ShaderMaterial` must write log depth or it draws nothing.** This
+  renderer runs `logarithmicDepthBuffer: true`, and a shader that does not
+  include three's `logdepthbuf` chunks leaves its fragments encoded linearly
+  while the rest of the scene is logarithmic — so they lose every depth
+  comparison. Measured on the plume before the chunks went in: **0 pixels with
+  depth testing on, 25,928 with it off**. Disabling depth testing is the wrong
+  repair; it draws the plume over the vehicle it comes out of.
 - Eclipse shadow resolution, as documented in the README.
 
 ### Deployment

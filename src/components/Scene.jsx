@@ -1,7 +1,9 @@
 import { OrbitControls } from '@react-three/drei'
 import { Driver } from './Driver.jsx'
 import { Skybox } from './Skybox.jsx'
+import { Starfield } from './Starfield.jsx'
 import { Sun } from './Sun.jsx'
+import { GroundLight } from './GroundLight.jsx'
 import { Earth } from './Earth.jsx'
 import { Moon } from './Moon.jsx'
 import { Craft } from './Craft.jsx'
@@ -53,6 +55,9 @@ export function Scene({ textures }) {
       <Driver />
       <Audio />
       <Skybox map={active['sky.sky']} />
+      {/* The Milky Way underneath is painted, because its band is unresolved
+          starlight no catalogue lists. Every individual star is Hipparcos. */}
+      <Starfield />
 
       {/* Starlight fill only. Everything you can actually see is lit by the
           point light inside the Sun; without this the night sides clip to pure
@@ -60,6 +65,8 @@ export function Scene({ textures }) {
       <ambientLight intensity={0.015} />
 
       <Sun />
+      {/* Takes the Sun's place near a pad, so the complex can cast a shadow. */}
+      <GroundLight />
       <Earth textures={textures} />
       <Moon textures={textures} />
       <Craft id="ship" />

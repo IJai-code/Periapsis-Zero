@@ -45,6 +45,10 @@
     "terrain:fetch": "node scripts/fetch-terrain.mjs",
     "verify:terrain": "node scripts/verify-terrain.mjs",
     "verify:solar": "node scripts/verify-solar.mjs",
+    "stars:fetch": "node scripts/fetch-stars.mjs",
+    "verify:stars": "node scripts/verify-stars.mjs",
+    "verify:shadows": "node scripts/verify-shadows.mjs",
+    "verify:plume": "node --expose-gc scripts/verify-plume.mjs",
     "verify:pads": "node --expose-gc scripts/verify-pads.mjs && node scripts/verify-pad-geometry.mjs",
     "verify:audio": "node --expose-gc scripts/verify-audio.mjs"
   },

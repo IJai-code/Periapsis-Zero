@@ -2875,6 +2875,127 @@ third of a pixel. The renderer applies three exaggerations, all declared in
   backwards*, so it shows real integrated history from the first frame rather
   than taking a simulated year to draw itself in.
 
+### The sky is a catalogue
+
+The backdrop used to be 52,000 invented stars splatted onto a procedural Milky
+Way. The band is still procedural, and should be — it is the light of hundreds of
+millions of stars no catalogue lists individually — but everything that reads as
+a *star* is now a measurement out of the **Hipparcos main catalogue**: 117,955 of
+them, fetched keyless from the CDS archive by `npm run stars:fetch` and stored as
+five 16-bit integers each, 1.18 MB.
+
+Three things happen to the catalogue on the way in, and `verify:stars` checks all
+of them.
+
+**The epoch moves.** Hipparcos astrometry is ICRS at J1991.25 and this simulator
+runs from J2000.0. Most stars do not care; 13,005 move more than an arcsecond in
+those 8.75 years and Barnard's Star moves 90.6″, which is visible against a planet
+that is in the right place. The catalogue's own proper motions are applied.
+
+**The frame is derived, not stored.** The file stays equatorial, and the rotation
+into the scene's ecliptic frame is read out of `SPIN_AXIS` — the same constant the
+atmosphere and the launch sites use. Baking the obliquity into the asset would put
+a second copy of it on disk, where it could not follow a correction to the first.
+Substituting the north celestial pole into that rotation returns `SPIN_AXIS`
+exactly, so the sky and the planet cannot disagree, and the gate checks it the way
+you would check it with your eyes: **Polaris comes out 0.736° off the spin axis**,
+which is where Polaris is.
+
+**The colours are computed, not chosen.** B−V goes to an effective temperature by
+Ballesteros (2012) — 0.65 returns 5778 K against the Sun's measured 5772 — and the
+temperature goes to a colour by integrating Planck's law against the CIE 1931
+observer, using the piecewise-Gaussian fits of Wyman, Sloan & Shirley (2013), then
+through the sRGB matrix. Checked against the Kim et al. approximation to the
+Planckian locus, which shares no code with it, the chromaticity agrees to
+**0.0001 in x and y at 5772 K and 6500 K**, worst 0.0036 at 2000 K.
+
+And one check crosses between the sky and the solar system: the simulator's own
+`sunDir` at J2000.0, brought back through the rotation, reads RA 282.520°,
+Dec −22.940° against the almanac's 281.286° and −23.033°. The 1.23° of right
+ascension is the Earth-position offset `verify:rails` measures independently at
+1.0996°, which is what the tolerance is set from — so the Sun sits in the right
+constellation for the right reason.
+
+**What is a display choice, and is labelled as one.** The data is flux, from the
+definition of a magnitude. Handing that to the tone mapper as linear radiance was
+tried first and measured by reading the frame back: **103 lit pixels on a
+3.1-megapixel screen**. The drawn range is a hundred thousand to one and a channel
+has 256 levels in it, so a compression is not optional. It is stated rather than
+smuggled in as an exposure: the shader raises flux to Stevens' brightness exponent
+for a point source seen by a dark-adapted eye, about a third — the same fact that
+made the magnitude scale logarithmic. That puts a sixth-magnitude star at 0.16 of
+unit brightness instead of 0.004, and the measured contribution at 20,205 lit
+pixels rather than 103. The point size is fixed, because a star is unresolved;
+what spreads the bright ones is the bloom pass, the same one that spreads the Sun.
+
+### A sky that was not where the camera was
+
+Both the star field and the Milky Way sphere are pinned to the camera, and the
+obvious way to do that — copy `camera.position` onto them in a `useFrame` — is
+wrong here. Measured in the running app, the sphere sat **500 units from a camera
+that was not moving, every frame**, against a radius of 400: the camera was outside
+its own sky, looking at the far wall of a ball rather than at a backdrop. Whatever
+frame ordering produces that, the defect is reading the camera from a callback
+that runs at some other point in the frame.
+
+Both are fixed, differently, and neither fix can drift. `Starfield.jsx` has its own
+vertex shader, so it drops the translation entirely — `mat3(viewMatrix)` rotates
+the catalogue direction into view space and places it at a fixed distance, which is
+exactly what a point at infinity projects to and needs no per-frame update at all.
+`Skybox.jsx` has no shader of its own, so it moves in `onBeforeRender`, which three
+calls with the camera that is about to render and *before* it composes
+`modelViewMatrix`. Measured after: 0.00 units, every frame.
+
+### A shadow on the pad
+
+`Sun.jsx` has said for a long time that this scene cannot have a shadow map, and
+it is right: a point light's cube shadow unwraps into a 4x2 atlas, so 2048 a face
+is 146,000 km per texel by the time it reaches Earth, against a planet 12,742 km
+wide. The consequence nobody had written down is that the `castShadow` and
+`receiveShadow` flags on the pads, the hulls and the station were **inert** —
+98 meshes asking for something no light was providing.
+
+On the ground that is fixable, and the fix is not a second light. Adding a
+directional light beside the point light would light the pad twice, because the
+point light already delivers the full solar illuminance there. What is right is a
+**substitution**: within `GROUND_RANGE` of a pad — the same 220 km at which
+`Terrain.jsx` draws the ground, so the shadow and the surface it falls on appear
+together — the point light drops to zero and a parallel beam of the same
+illuminance takes over. Both components ask the same pure function rather than
+one telling the other, because a flag written in one frame callback and read in
+another depends on which order they were registered in.
+
+The substitution throws away exactly two things, and `verify-shadows` measures
+both against the quantity each one damages:
+
+| what a beam ignores | measured | against |
+| --- | --- | --- |
+| the Sun's convergence across the shadow box | moves a shadow **1.5e-6 m** | a texel, 0.586 m — 3.8e5× larger |
+| its falloff across the drawn terrain | **3.0e-6** of the illuminance | — |
+
+and the handover itself is exact: the beam's intensity is the point light's own
+`intensity/r²` at the pad, so the ratio measures 1.000000000000 at all four
+sites.
+
+**What it cannot do is the part worth stating.** One map cannot hold a long
+shadow and resolve the tower casting it. Kennedy's tower tops out at 189.5 m, so
+at a 10° dawn it throws 1,075 m of shadow and at 5° it throws 2,166. At 1,200 m
+of half-extent and 4,096 texels a texel is 0.586 m and shadows are whole down to
+**10.6° of sun elevation**, measured across all four pads. Below that the tip
+leaves the box. Buying the last ten degrees means either a texel of 1.2 m, which
+stops resolving the tower that is casting, or a second cascade — which is what
+cascades are actually for, and is a larger change than this one. A lattice tie
+narrower than 0.586 m does not resolve either; its shadow is the tower's, not its
+own. The penumbra is wrong too: the Sun subtends 0.53°, so a 190 m tower's shadow
+edge should be 1.8 m soft at the tip, and a directional light's is hard.
+
+Verified in the running renderer rather than by eye. At Kennedy with the Sun 38.6°
+up — which is its local noon, and the figure `verify:solar` independently gets
+from the almanac — toggling `castShadow` changes **255,654 pixels**, all of them
+darker and none brighter, so nothing is leaking light. The pass costs 0.16 ms of
+CPU submission time for 98 casters; that is the draw-call cost and not a GPU
+measurement, since WebGL's `finish()` does not reliably block on the GPU.
+
 ### The blood-moon geometry
 
 `attachBloodMoon` in `src/gfx/shaders.js` builds the classical two-cone shadow

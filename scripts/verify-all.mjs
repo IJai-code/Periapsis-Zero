@@ -48,10 +48,13 @@ const GATES = [
   ['verify-prem', true],
   ['verify-terrain', false],
   ['verify-solar', false],
+  ['verify-stars', false],
   ['verify-loiter', false],
   ['verify-radial', false],
   ['verify-pads', true],
   ['verify-pad-geometry', false],
+  ['verify-shadows', false],
+  ['verify-plume', true],
   ['verify-audio', true],
 ]
 
