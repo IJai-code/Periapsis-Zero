@@ -616,11 +616,11 @@ const periError = (f) => {
 
 /**
  * And what bounds that error, per pad: the perigee J3 forces and the theory
- * cannot carry. `mission.js` sets the floor's own margin from the same quantity,
- * so this checks the bound the flight computer is relying on rather than a
- * number chosen to fit four flights — and it is a different number at each pad,
- * being proportional to sin i: 7.4 km at Vandenberg, 0.7 km at Kourou, where an
- * odd zonal has almost nothing to act on.
+ * cannot carry. `mission.js` keeps the floor above the same quantity, so this
+ * checks the bound the flight computer is relying on rather than a number chosen
+ * to fit four flights. It is a different number at each pad and at each launch
+ * hour, being the part of the forced eccentricity that *turns* inside that wait:
+ * 1.55, 1.06, 4.27 and 2.22 km here, against errors of 0.93, 0.10, 2.92 and 1.85.
  */
 const perigeeBound = (f) =>
   perigeeMargin(f.orbit.a, f.orbit.e, f.orbit.cosI, f.injectT - f.commit)
@@ -703,7 +703,7 @@ function heldFlight() {
 const held = heldFlight()
 
 console.log('\n=== 8. the injection floor ===')
-for (const f of kept) console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)} perigee at ignition ${km(f.injectPeri - R)} km, theory ${km(f.injectPeri + periError(f) - R)} km`)
+for (const f of kept) console.log(`  ${LAUNCH_SITES[f.site].name.padEnd(18)} perigee at ignition ${km(f.injectPeri - R)} km, theory ${km(f.injectPeri + periError(f) - R)} km, error ${km(periError(f))} against a bound of ${km(perigeeBound(f))} km`)
 console.log(`  ${LAUNCH_SITES[low.site].name} +96 h: forecast ${hours(low.plan.wait)} h, lifetime ${hours(low.plan.lifetime)} h, perigee at ignition unraised ${km(low.plan.periapsisAtIgnition - R)} km;` +
   ` raised for ${low.plan.reason} with ${(low.plan.dv1 + low.plan.dv2).toFixed(2)} m/s in ${low.plan.node2 >= 0 ? 2 : 1} burn(s); injected from ${km(low.injectPeri - R)} km; ${low.end}`)
 console.log(`  Vandenberg +150.5 h trimmed: raised for ${held.plan.reason}, forecast ${hours(held.plan.wait)} h;` +
@@ -815,10 +815,9 @@ const checks = [
       withOdd[0].worst > PROFILE.lifetimeTolerance],
   /*
    * Perigee at ignition, against the perigee J3 forces and `rates` cannot carry
-   * — the same bound `mission.js` keeps the floor above. Measured across the
-   * four pads: 0.9, 0.1, 2.9 and 1.9 km against bounds of 3.6, 0.7, 5.9 and
-   * 7.4. A flat kilometre stood here until the two errors that were cancelling
-   * under it were found.
+   * — the same bound `mission.js` keeps the floor above, printed beside each
+   * pad's error in section 8. A flat kilometre stood here until the two errors
+   * that were cancelling under it were found.
    */
   ['perigee at ignition is predicted to within the perigee J3 forces',
     kept.every((f) => Math.abs(periError(f)) < perigeeBound(f))],
