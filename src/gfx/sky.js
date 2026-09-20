@@ -1,4 +1,4 @@
-import { makeNoise, sampleField, sphereDir, clamp01, smoothstep, mix, mulberry32 } from './noise.js'
+import { makeNoise, sampleField, sphereDir, clamp01, smoothstep, mix } from './noise.js'
 
 /**
  * Equirectangular Milky Way skybox.
@@ -114,98 +114,14 @@ export function generateSky(report = () => {}) {
     }
   }
 
-  splatStars(out)
+  /*
+   * The stars this used to splat here are gone. There were 52,000 of them,
+   * invented, and `components/Starfield.jsx` now draws 115,000 real ones out of
+   * the Hipparcos catalogue in front of this backdrop. What is left is the part
+   * a catalogue cannot supply: the band itself is the light of hundreds of
+   * millions of stars too faint to list, so it stays a diffuse field.
+   */
   return { sky: { data: out, width: W, height: H } }
-}
-
-/** Rough blackbody colours across the main sequence, O through M. */
-const SPECTRAL = [
-  { w: 0.04, c: [0.62, 0.72, 1.0] }, // O/B
-  { w: 0.14, c: [0.83, 0.88, 1.0] }, // A
-  { w: 0.22, c: [1.0, 0.98, 0.96] }, // F
-  { w: 0.26, c: [1.0, 0.95, 0.82] }, // G
-  { w: 0.22, c: [1.0, 0.85, 0.65] }, // K
-  { w: 0.12, c: [1.0, 0.74, 0.55] }, // M
-]
-
-function pickSpectral(rand) {
-  let t = rand()
-  for (const s of SPECTRAL) {
-    t -= s.w
-    if (t <= 0) return s.c
-  }
-  return SPECTRAL[2].c
-}
-
-function add(out, x, y, r, g, b) {
-  if (y < 0 || y >= H) return
-  const i = ((y * W + ((x % W) + W) % W) * 4)
-  out[i] = Math.min(255, out[i] + r)
-  out[i + 1] = Math.min(255, out[i + 1] + g)
-  out[i + 2] = Math.min(255, out[i + 2] + b)
-}
-
-function splatStars(out) {
-  const rand = mulberry32(SEED + 77)
-  const COUNT = 52000
-
-  for (let n = 0; n < COUNT; n++) {
-    let dir
-    if (rand() < 0.55) {
-      // Concentrated toward the galactic plane: pick a random direction in the
-      // plane, then tilt off it by an exponentially-distributed angle.
-      const phi = rand() * Math.PI * 2
-      const tilt = -Math.log(1 - rand() * 0.999) * 0.10 * (rand() < 0.5 ? 1 : -1)
-      // Build a basis with POLE as the normal.
-      const a = Math.abs(POLE[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]
-      const e1 = norm(cross(a, POLE))
-      const e2 = cross(POLE, e1)
-      const ct = Math.cos(tilt)
-      const st = Math.sin(tilt)
-      dir = norm([
-        (e1[0] * Math.cos(phi) + e2[0] * Math.sin(phi)) * ct + POLE[0] * st,
-        (e1[1] * Math.cos(phi) + e2[1] * Math.sin(phi)) * ct + POLE[1] * st,
-        (e1[2] * Math.cos(phi) + e2[2] * Math.sin(phi)) * ct + POLE[2] * st,
-      ])
-    } else {
-      const z = 2 * rand() - 1
-      const t = rand() * Math.PI * 2
-      const s = Math.sqrt(1 - z * z)
-      dir = [s * Math.cos(t), z, s * Math.sin(t)]
-    }
-
-    const lat = Math.asin(dir[1])
-    const lon = Math.atan2(dir[2], dir[0])
-    const px = Math.floor(((lon + Math.PI) / (2 * Math.PI)) * W)
-    const py = Math.floor((lat / Math.PI + 0.5) * H)
-
-    // Magnitude: a steep power law, so a handful of stars dominate and the rest
-    // are a dusting. Same shape as the real cumulative count per magnitude.
-    const mag = Math.pow(rand(), 5.2)
-    const bright = 26 + mag * 320
-    const col = pickSpectral(rand)
-
-    add(out, px, py, bright * col[0], bright * col[1], bright * col[2])
-
-    if (bright > 90) {
-      const h = bright * 0.30
-      add(out, px + 1, py, h * col[0], h * col[1], h * col[2])
-      add(out, px - 1, py, h * col[0], h * col[1], h * col[2])
-      add(out, px, py + 1, h * col[0], h * col[1], h * col[2])
-      add(out, px, py - 1, h * col[0], h * col[1], h * col[2])
-    }
-    if (bright > 230) {
-      // Faint diffraction spikes on the brightest few hundred stars.
-      const g = bright * 0.16
-      for (let k = 2; k <= 5; k++) {
-        const f = g * (1 - (k - 2) / 4)
-        add(out, px + k, py, f * col[0], f * col[1], f * col[2])
-        add(out, px - k, py, f * col[0], f * col[1], f * col[2])
-        add(out, px, py + k, f * col[0], f * col[1], f * col[2])
-        add(out, px, py - k, f * col[0], f * col[1], f * col[2])
-      }
-    }
-  }
 }
 
 const cross = (a, b) => [

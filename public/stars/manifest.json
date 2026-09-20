@@ -1,0 +1,26 @@
+{
+  "catalogue": "Hipparcos main catalogue (ESA 1997), I/239/hip_main",
+  "source": "https://cdsarc.cds.unistra.fr/ftp/I/239/hip_main.dat",
+  "frame": "ICRS equatorial unit vectors",
+  "epoch": "J2000.0, proper motion applied from J1991.25",
+  "file": "hipparcos.bin",
+  "record": 10,
+  "layout": "Int16LE x, y, z (/32767), Vmag (x100), B-V (x1000; -32768 = unknown)",
+  "count": 117955,
+  "brightest": -1.44,
+  "faintest": 14.08,
+  "noColour": 1143,
+  "brighterThan": {
+    "1": 15,
+    "2": 49,
+    "3": 172,
+    "4": 515,
+    "5": 1606,
+    "6": 4992,
+    "7": 15397,
+    "8": 41057,
+    "10": 107753,
+    "12": 117453,
+    "6.5": 8785
+  }
+}
