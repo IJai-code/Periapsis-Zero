@@ -76,6 +76,14 @@ export default function App() {
          * where a 3x retina panel would quadruple the fill cost of a scene that
          * is already drawing an atmosphere shader per pixel.
          */
+        /**
+         * Shadow maps, for the one light that can usefully have one: the ground
+         * beam in `GroundLight.jsx`. Nothing else in the scene casts, and the
+         * beam only exists within 220 km of a pad, so this costs a depth pass
+         * over four pad draw calls and a hull while standing on the ground and
+         * nothing at all anywhere else.
+         */
+        shadows
         dpr={flight ? [1, 2] : [1, 3]}
         /**
          * One scene unit is one metre, so the camera has to span from a

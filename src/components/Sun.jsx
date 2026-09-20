@@ -1,31 +1,32 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { live } from '../sim/live.js'
-import { AU, BODIES } from '../sim/constants.js'
+import { BODIES } from '../sim/constants.js'
+import { mission } from '../sim/mission.js'
+import { activeSite } from '../sim/launchsite.js'
+import { SOLAR_INTENSITY, onTheGround } from '../gfx/sunlight.js'
 import { makeSunMaterial, makeCoronaMaterial, CORONA_SHELL } from '../gfx/shaders.js'
 
 const R = BODIES.sun.radius
 
-/**
- * Luminous intensity of the point light, in candela.
- *
- * three uses physical falloff, so illuminance at a distance r is intensity/r^2.
- * Stated as the illuminance wanted at one AU and multiplied back out, because
- * the scene is in metres now and the bare candela figure — 6.5e22 — carries no
- * meaning anyone can check. The illuminance is the same value the exaggerated
- * scene was tuned to, so the exposure does not move.
- */
-const SOLAR_ILLUMINANCE_AT_1AU = 42000 / 120 ** 2
-const SOLAR_INTENSITY = SOLAR_ILLUMINANCE_AT_1AU * AU * AU
-
 export function Sun() {
   const group = useRef()
   const spin = useRef()
+  const lamp = useRef()
+  const site = mission.site ?? activeSite()
   const surface = useMemo(makeSunMaterial, [])
   const corona = useMemo(makeCoronaMaterial, [])
 
   useFrame((state) => {
     group.current.position.copy(live.pos.sun)
+    /*
+     * Handing over to the ground beam. `GroundLight.jsx` lights the pad with a
+     * parallel beam of the same illuminance so that it can cast a shadow, and
+     * two lights delivering the same illuminance to the same ground would light
+     * it twice — so this one stops. Both ask `onTheGround` rather than one
+     * telling the other; see `gfx/sunlight.js`.
+     */
+    if (lamp.current) lamp.current.intensity = onTheGround(state.camera, site) ? 0 : SOLAR_INTENSITY
     const t = state.clock.elapsedTime
     surface.uniforms.uTime.value = t
     corona.uniforms.uTime.value = t
@@ -45,13 +46,19 @@ export function Sun() {
         * against an Earth 12,742 km wide. The planet does not fill a tenth of
         * one texel, and no map size recovers a factor of ten thousand.
         *
-        * Analytic ray-sphere shadowing is the replacement and is resolution
-        * independent. `detectEclipse()` in sim/live.js already computes exactly
-        * that umbra geometry for the HUD; promoting it to the shading path is
-        * its own change. Until then the blood-moon term keeps lunar eclipses,
-        * since it was always analytic.
+        * Analytic ray-sphere shadowing is the replacement at planetary scale
+        * and is resolution independent. `detectEclipse()` in sim/live.js already
+        * computes exactly that umbra geometry for the HUD; promoting it to the
+        * shading path is its own change. Until then the blood-moon term keeps
+        * lunar eclipses, since it was always analytic.
+        *
+        * On the ground there is a shadow map, and it belongs to a different
+        * light: near a pad this one goes dark and `GroundLight.jsx` lights the
+        * site with a parallel beam of the same illuminance, which is a
+        * substitution rather than an addition and is exact to a part in three
+        * hundred thousand over the ground that is drawn.
         */}
-      <pointLight intensity={SOLAR_INTENSITY} decay={2} distance={0} color="#fff4e0" />
+      <pointLight ref={lamp} intensity={SOLAR_INTENSITY} decay={2} distance={0} color="#fff4e0" />
 
       {/* Photosphere. Never a shadow caster — the light lives inside it. */}
       <mesh ref={spin} material={surface}>
