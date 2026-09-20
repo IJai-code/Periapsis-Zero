@@ -34,8 +34,10 @@ eccentricity vector with its first-order short-period term taken off, in the nod
 frame, where `u` is the argument of latitude. Verified against a numerically
 averaged vector rather than a closed form: 1.409e-3 against 1.528e-3 on a pad's
 committed orbit, and the vector's spread cut by 8× there and up to 205× across
-inclinations. It is deliberately *not* what the planner uses; see *Known
-limitations*.
+inclinations. Averaged over a revolution it reads 1.532e-3 against the
+radius's own first harmonic of 1.530e-3, which is the eccentricity a drag
+integral wants; it is what the planner uses, and see *Changed* for why it was not
+for a while.
 
 **Per-pad surface gravity** (`src/sim/launchsite.js`, `src/ui/LaunchSite.jsx`) —
 g(r, φ) from the same profile, per pad: 9.799 m/s² at Kennedy, 9.795 at
@@ -90,6 +92,43 @@ require.
 
 ### Changed
 
+- **The decay theory reads the air at the craft's own radius.** `rates`
+  (`src/sim/decay.js`) is written about a *mean* orbit — `meanSemiMajor`, the
+  two-body orbit carrying the craft's total energy — and sampled the density at
+  `a_mean (1 − e cos E)`, which is where the craft would be if J₂ did not hold it
+  anywhere else. Carrying J₂'s radial and transverse terms through the linearised
+  radial equation gives, for a near-circular orbit,
+
+  ```
+  r = a_mean [ 1 + ε ( 3/4 sin²i − 1/2 + 1/4 sin²i cos 2u ) ],  ε = J₂R²/a_mean²
+  ⟨Φ_J⟩ = μ ⟨δr⟩ / a_mean²
+  ```
+
+  the same offset twice, once as height and once as the potential holding the
+  craft at it, so the speed picks up `4μ⟨δr⟩/a²` rather than `2`. Checked against
+  a flown revolution by `verify:radial`: the form predicts a mean offset of
+  +1.549 km and a second harmonic of 1.638 km where the flight measures +1.554
+  and 1.638, and the drag integral goes from 1.037 of the flown arc's to **0.999**.
+  Flown, the Vandenberg lifetime forecast goes from 191.4 h to **204.8 h** against
+  206.5 h of flight, −7.3% to −0.8%, with no sample along the decay worse than
+  0.5%.
+- **`assessOrbit` plans on the mean eccentricity as well as the mean axis.**
+  Pairing a mean semi-major axis with an osculating eccentricity was a mixed
+  quantity: the osculating value swings 0.000555 to 0.002926 within one
+  revolution, fifteen kilometres of perigee on an orbit whose perigee does not
+  move 72 m in five revolutions. It was kept because feeding the mean one in
+  measured *worse* — and that was a measurement of the radius error above, which
+  gave the theory too much drag and so favoured the smallest candidate. With the
+  air read in the right place, mean axis with mean eccentricity measures −0.48%
+  against +0.89% for the mixed pair.
+- **The injection floor's margin is derived from J₃ rather than fixed.** A flat
+  kilometre stood on a worst measured perigee error of 0.43 km, taken when the
+  two errors above were cancelling under it. What a forecast actually misses is
+  how far the J₃-forced eccentricity *turns* inside the wait, bounded by
+  `2 a e_J3 |sin(ω̇ Δt / 2)|` — nothing for a wait of an hour, the full
+  `2 a e_J3` for one long enough to turn perigee half round. Kennedy at +96 h
+  waits 215 h, in which perigee turns 117°: 6.1 km, against 4.7 km of error
+  measured on that flight. A fixed margin is wrong at both ends of that range.
 - **The TLI window forecast carries the craft's own nodal precession.**
   `predictTLIWindow` held the craft's orbital plane fixed while it marched the
   Moon — exact on a point mass, wrong on an oblate planet, where the node
@@ -123,6 +162,70 @@ require.
 
 ### Gates
 
+- **`verify-radial` verifies two short-period forms, and keeps them apart.** The
+  semi-major axis's term and the radius's are both first order in J₂, both
+  derived, and behave nothing alike over a flown revolution: the axis's content
+  is second harmonic at 9.807 km with 0.016 of first, the radius's is first
+  harmonic at 10.010 km — its eccentricity — with 1.638 of second. Substituting
+  one for the other takes the drag integral from 4% out to 25% out, and that
+  measurement is kept as a counter-example so it is not tried a fourth time.
+- **`verify-loiter` checks the eccentric decays with J₃ lifted**, which is the
+  field the theory is a theory of, and measures beside them what the odd zonal
+  adds: 0.10% and 1.39% against 1.11% and 7.75%. It also asserts that J₃ moves
+  the eccentricity by what `J₃ R sin i / 2 J₂ p` says, to a fifth, so the
+  explanation has to stay the explanation.
+- **Two of `verify-loiter`'s checks had been deleted by a comment.** An
+  unterminated `/*` opened inside one entry of the checks array and was closed by
+  the doc comment of the entry two below it. That is valid JavaScript: the array
+  went on holding twenty entries, the label of the first was printed against the
+  expression of the last, and the gate reported PASS for a check it was no longer
+  making. Both are restored, and the gate is at 26 checks.
+
+- **The allocation harness cannot be read as a pass when it did not measure.**
+  `bytesPerCall` (`scripts/allocation.mjs`) returned nothing in two situations —
+  no `--expose-gc`, so the heap cannot be read across the loop, and no clean
+  window, so a scavenge landed in every one — and the two arrived as `null` and
+  as `Infinity`, which nine gates handled nine ways. Five printed
+  `.bytes.toFixed()` on a sample that could be absent and threw a TypeError; the
+  rest wrote `!sample || sample.bytes < limit`, where a missing measurement is
+  falsy and therefore **passes**. That is the blind-gate failure this module's
+  own header is about, in thirteen checks at once. Every sample now carries
+  `measured`, `bytes` is NaN when it is false, and `seesAllocation` /
+  `allocatesNothing` are the only supported way to turn one into a verdict: both
+  fail on an absent sample and print the reason in the label. The shrink stops at
+  64 calls rather than halving to one, because a one-call window reports the
+  harness's own few kilobytes as the call's cost. Unchanged where it measures —
+  `verify-horizon` reads 235 B / 209 B with a 56 B control, reproducibly — and
+  red where it cannot, instead of green.
+- **`verify:horizon`'s cost ratios are deterministic.** The two-node and
+  capped-plan costs were a mean over ten calls, nearly all of them the first the
+  process had made down that path, so the figure included a JIT tier-up whose
+  arrival inside the timed window is not deterministic. Measured back to back on
+  one machine: 2.16 ms against 5.84 ms for the same work, while the parking-orbit
+  cost sat still at 0.80 against 0.82 — the ratio read 2.69 on one run and 7.16
+  on the next against a bar of 4, which is the failure that had been reported as
+  a flake. All three costs now warm the path, then take the **median** of seven
+  short loops, the same remedy the allocation harness uses over its windows. The
+  ratios are 3.06–3.12 and 7.56–7.71 across six runs, a 2% spread where the old
+  figure varied by 166%. Warming also moved the released figure: the
+  parking-orbit cost is 0.56 ms warm, not the 0.80 ms a mean carrying its own
+  warm-up reported, so the ratios above are the honest ones. A separate pair of
+  `verify-horizon` failures, also reported as flake, were invocations of the gate
+  by hand without `--expose-gc`: those threw a TypeError on a null sample rather
+  than skipping it, and now go red naming the flag.
+- **Every clock the suite reads is audited, and there were two.** `costOf` now
+  lives in `scripts/timing.mjs` with the sweep recorded in its header, because an
+  audit you have to redo is one that gets redone differently. `verify-horizon`
+  reaches it for all three of its costs, and `verify-predict` for its only
+  asserted figure — `a projection costs under 10 ms`, which was a mean of twenty
+  calls that were the first the process had ever made down that path. Measured
+  over ten fresh processes it read 1.20–1.24 ms, a 3% spread against a 10 ms bar,
+  so unlike `verify-horizon` it was never at risk; warmed it reads **0.55 ms**,
+  a 2.2× correction to a figure the gate quotes. The remaining four clocks —
+  `verify-all`'s per-gate summary and the three NRHO gates — are printed and
+  asserted nowhere, so a slow gate reads as `20 s` rather than as a failure.
+  Absolute bars are kept where the claim is a real-time budget and ratios where
+  the claim is relative, which the audit states.
 - `verify:prem` (38 checks) added to `verify:all`: the profile against published
   mass, inertia and shell densities; dg/dr = 4πGρ − 2GM/r³ between the steps; the
   field against a numerical gradient of its own potential; the integrator's
@@ -133,6 +236,17 @@ require.
 - `verify:pads`, `verify:pad-geometry` and `verify:audio` cover the new ground
   structures and the audio engine. All three were added to the suite and to CI,
   where they had not previously run: the chain stopped before them.
+- `verify:radial` (11 checks, 1 s) is new, and it exists because three separate
+  proposals to close the loiter lifetime error by correcting the short-period
+  radial term have been argued rather than measured. It flies the same commitment
+  and pins what the argument needs: the first-order form
+  `a_osc − a_mean = −(J₂R²/a_mean)(3 sin²φ − 1)` matches the flight to 82 m at its
+  worst sample across a 26.4 km swing; the semi-major axis's short-period content
+  is second-harmonic at 9.8 km while the radius's is first-harmonic at 10.0 km
+  with only 1.6 km of the second; the shipped profile's drag integrand is 1.0373×
+  the flown one; adding the radial term alone takes that to 1.2470, further from
+  flight rather than closer; and the mean eccentricity brackets the answer either
+  way. It runs *after* `verify-loiter` in the suite only because it is newer.
 - `verify:all` is a runner rather than a `&&` chain. Every gate runs whether or
   not an earlier one failed, the log ends with a per-gate summary, and the exit
   code is the suite's rather than the first gate's — so a red gate still fails
@@ -140,24 +254,28 @@ require.
 
 ### Known limitations
 
-- **The lifetime forecast substitutes one perigee for a swing of 31 km.** J₂'s
-  short-period term on the eccentricity vector is larger than the eccentricity
-  itself at parking altitude, and on Vandenberg's committed orbit the perigee
-  runs from 133.6 km to 164.9 km over one cycle — air densities a factor of four
-  apart. `meanEccentricity` corrects the vector (1.409e-3 against a numerically
-  averaged 1.528e-3, spread cut eightfold, up to 205× in a clean sweep), but
-  feeding it to the planner made the forecast *worse* — 188.4 h against the flown
-  206.5, where the osculating value gives 191.4 — because no single perigee
-  describes that swing. The fix belongs in `decay.js`, averaging density over the
-  cycle, not in the eccentricity. A revolution average was measured too and
-  rejected: 155.8 h. See *Physics core & future roadmap* in the README.
-- **`verify:loiter` is at 15 of 20, and lifting the oblateness separates what is
-  left.** Four of the five remaining failures are red on a point-mass Earth too,
-  so they belong to the gate's own re-baselining rather than to the field: the
-  sampled decay, the arrival back in the orbit it committed from, the eccentric
-  cases, and perigee at ignition. The fifth is the eccentricity term above —
-  7.3% against a 2% bar. The injection timing, the other field-caused failure,
-  is fixed; see *Changed*.
+- **The decay theory cannot carry J₃, and that is what now limits it.** The odd
+  zonal forces an eccentricity that turns with perigee, `e_J3 = J₃ R sin i /
+  (2 J₂ p)` — 5.7e-4 at 30° of inclination, which is 3.7 km of perigee — and
+  `rates(a, e, dragK, cos i)` has no argument of perigee to receive it. Measured
+  directly: the mean eccentricity of an undisturbed 150 × 250 km orbit wanders
+  ±6.19e-4 over 30 days with the odd zonal in the field and ±7.0e-5 with it
+  lifted, against ±5.68e-4 from the closed form. With J₃ lifted the same theory,
+  unchanged, holds the eccentric cases to 0.10% on a near-circle and 1.39% at
+  e = 0.0064, where the full field gives 1.11% and 7.75%; `verify:loiter` makes
+  its tight check in the field the theory is a theory of and measures what J₃
+  adds beside it. Carrying it would mean threading the argument of perigee and
+  its J₂ secular rate through `decayTime`, `decayAfter`, `orbitalLifetime` and
+  `circularOrbitDecayingTo`. The **injection floor's margin** is derived from the
+  same quantity in the meantime, `2 a e_J3 |sin(ω̇Δt/2)|`, so the floor stays hard
+  without it.
+- **The second harmonic of the short-period radial term is not represented.**
+  `rates` is handed no argument of latitude, so it applies the revolution mean of
+  `r − a_mean` and not its 2u part. Measured on a flown revolution that part is
+  1.638 km against a 22.5 km scale height, worth **0.11%** of the drag integral,
+  where the mean it does carry is worth seven per cent. `verify:radial` asserts
+  both numbers, so the omission stays a decision rather than becoming an
+  oversight.
 - **Ascent guidance still cuts off on osculating elements.** `GRAVITY_TURN` and
   `CIRCULARISE` target osculating quantities, so each pad's *mean* parking orbit
   lands 8–21 km below the 185 km design and differs per pad (167.3 km at Kennedy,
