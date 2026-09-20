@@ -1,5 +1,6 @@
 import { BODIES, G } from './constants.js'
 import { density, SPIN_RATE } from './atmosphere.js'
+import { EARTH_FIELD } from './prem.js'
 
 /**
  * How long an orbit lasts, from the same air the integrator flies through.
@@ -34,10 +35,107 @@ import { density, SPIN_RATE } from './atmosphere.js'
  * scale height doubles over the first few hundred kilometres. Integrating the
  * table directly removes the approximation instead of moving it: within 0.2% of
  * flown decay on nine orbits from 172 x 185 km to 180 x 1,636 km.
+ *
+ * Where the air is read, and what reading it in the wrong place cost.
+ *
+ * The rates above are written about a *mean* orbit — `meanSemiMajor`, the
+ * two-body orbit carrying the craft's total energy, which is the quantity drag
+ * actually changes and the one that survives J2's short-period swing. The radius
+ * the density has to be read at is a different quantity, and this file spent a
+ * long time treating them as the same: it sampled `rho` at `a_mean (1 - e cos E)`,
+ * which is where the craft would be if J2 did not hold it anywhere else.
+ *
+ * It holds it higher, on a polar orbit, by about a kilometre and a half. Carrying
+ * J2's radial and transverse terms through the linearised radial equation for a
+ * near-circular orbit gives
+ *
+ *   r = a_mean [ 1 + eps ( 3/4 sin^2 i - 1/2 + 1/4 sin^2 i cos 2u ) ]
+ *   eps = J2 R^2 / a_mean^2,   u the argument of latitude
+ *
+ * and the same working gives the mean perturbing potential that goes with it,
+ *
+ *   <Phi_J> = mu <dr> / a_mean^2
+ *
+ * — the same offset twice, once as height and once as the potential holding the
+ * craft at it, which is why the speed picks up 4 mu <dr> / a^2 rather than 2.
+ * Both are first order in J2 and neither has a fitted constant in it.
+ *
+ * `verify-radial` checks the form against a flown revolution rather than against
+ * the algebra: on the parking orbit `verify-loiter` flies, it predicts a mean
+ * offset of +1.549 km and a second harmonic of 1.638 km where the flight measures
+ * +1.554 and 1.638. The second harmonic is not represented here — `rates` is
+ * handed no argument of latitude and could not evaluate it — and the reason that
+ * is acceptable is measured too: 1.638 km against a 22.5 km scale height is worth
+ * a tenth of a per cent of the integral, where the mean offset is worth seven.
+ *
+ * What it was worth, flown: the shipped theory forecast 191.37 h against 205.83 h
+ * of flight, -7.03%, and its error grew steadily along the decay — -4.38% at 25 h,
+ * -6.65% at 200 h. Reading the air at the craft's own radius takes that to +0.89%
+ * with the eccentricity left osculating, and to -0.48% once the eccentricity is
+ * the mean one as well, with no sample along the way worse than 0.45%.
+ *
+ * ── two claims this file used to make, both withdrawn ─────────────────
+ *
+ * The first was that a radius profile taken from the flight itself still left
+ * 198.5 h against 206.5 flown, so "whatever closes the rest is not this term".
+ * That was a one-revolution density ratio at the top of the decay, 1.0373,
+ * extrapolated as though it were constant. It is not constant: the scale height
+ * falls from 22.5 km at 172 km of altitude to 9.5 km by 125 km, so a fixed 1.55 km
+ * error in the datum is worth 6.6% of the air at the start and 16% at the end.
+ * That is exactly the growth the error table showed, and reading it as a floor
+ * was the mistake.
+ *
+ * The second was that the osculating eccentricity beats the mean one. It did,
+ * while the datum was wrong: the theory had too much air, a larger eccentricity
+ * gives it more, and the smallest of the candidates was closest for a reason that
+ * had nothing to do with which is right. With the air read in the right place the
+ * pairing that belongs together also measures better — mean axis with mean
+ * eccentricity, -0.48%, against +0.89% for the mixed pair.
+ *
+ * ── and two that stand ────────────────────────────────────────────────
+ *
+ * Multiplying the rate by I0(A/H), the textbook average of an exponential density
+ * over a sinusoidal perigee swing, is still wrong here, and not because the
+ * correction is small. This file already samples the profile point by point, and
+ * the swing it would be averaging over does not exist: measured under J2..J4 with
+ * drag off, the craft's actual perigee passages over five revolutions are 164.803,
+ * 164.821, 164.840, 164.858 and 164.875 km — 72 m apart and monotone. The 31 km
+ * often quoted for that orbit is the range of the *element* a(1-e) sampled
+ * wherever the craft happens to be, which is not where its perigee is, and I0 on
+ * that element's range is unbounded: the same element reaches -6365 km on the way
+ * down.
+ *
+ * And the short-period term on the semi-major axis is not the one above and must
+ * not be substituted for it. Both are verified against the same flown revolution:
+ *
+ *   a_osc - a_mean    mean -3.095   |1u| 0.016   |2u| 9.807 km
+ *   r     - a_mean    mean +1.554   |1u| 10.010  |2u| 1.638 km
+ *
+ * The axis's short-period content is second harmonic at 9.8 km; the radius's is
+ * first harmonic at 10.0 km, which is its eccentricity, and its second harmonic is
+ * 1.6 km. Feeding the axis's 9.8 km of 2u into the radius inflates the density
+ * where the craft is high and, at 22.5 km of scale height, is worth a quarter of
+ * the integral: it took the same orbit from 3.7% out to 24.7%. `verify-radial`
+ * keeps that measurement so the substitution is not made again.
  */
 
 const MU = G * BODIES.earth.mass
 const R = BODIES.earth.radius
+
+/**
+ * J2 R^2, out of the same field `system.js` installs on the integrator, so the
+ * short-period term below describes the planet the trajectory is actually flying
+ * around. Hoisted to a module constant because it is read on every step of every
+ * march: a double pulled out of an object's array inside `rates` boxes it.
+ *
+ * Unlike `prem.js`'s mean elements this takes no field argument, so a world with
+ * the oblateness lifted would get Earth's term applied to a sphere. Nothing drags
+ * in such a world today — `verify:horizon` is the only gate that lifts it, and it
+ * lifts it for projections — and the honest repair if one ever does is a field
+ * argument threaded through `decayTime`, `decayAfter` and `orbitalLifetime`,
+ * not a guess here.
+ */
+const J2_R2 = EARTH_FIELD.J[0] * EARTH_FIELD.radius * EARTH_FIELD.radius
 
 /**
  * Where lifetime is measured to, m of altitude. Below it the orbit is an entry
@@ -76,25 +174,45 @@ const _rate = new Float64Array(2)
 function rates(a, e, dragK, cosI) {
   const n = Math.sqrt(MU / (a * a * a))
   const h = Math.sqrt(MU * a * (1 - e * e))
+  const circ = MU / a
+  /*
+   * Where the craft is, rather than where the conic puts it, and the potential
+   * that holds it there. `a` is the energy-mean axis, so the J2 potential is
+   * already inside it; taking it back out is what puts the density sample at
+   * the right altitude and the speed at the right value. See the header.
+   */
+  const dr = (J2_R2 / a) * (0.75 * (1 - cosI * cosI) - 0.5)
+  const twoPhi = (2 * MU * dr) / (a * a)
   if (e < 1e-9) {
-    const rho = density(a - R)
-    const wind = 1 - (SPIN_RATE * h * cosI) / (MU / a)
-    _rate[0] = -2 * dragK * n * a * a * rho * wind * wind
+    const r = a + dr
+    const rho = density(r - R)
+    const v2 = MU * (2 / r - 1 / a) - twoPhi
+    const wind = 1 - (SPIN_RATE * h * cosI) / v2
+    _rate[0] = -2 * dragK * n * a * a * rho * wind * wind * Math.pow(v2 / circ, 1.5)
     _rate[1] = 0
     return
   }
-  const x = (a * e) / scaleHeight(a * (1 - e) - R)
+  const x = (a * e) / scaleHeight(a * (1 - e) + dr - R)
   const samples = Math.min(1024, Math.max(16, Math.ceil(24 * Math.sqrt(1 + (x > 0 && x < Infinity ? x : 0)))))
   let ia = 0
   let ie = 0
   for (let j = 0; j < samples; j++) {
     const c = Math.cos((2 * Math.PI * j) / samples)
-    const r = a * (1 - e * c)
+    const r = a * (1 - e * c) + dr
     const rho = density(r - R)
     if (!(rho > 0)) continue
-    const wind = 1 - (SPIN_RATE * h * cosI) / (MU * (2 / r - 1 / a))
-    const f = rho * wind * wind * Math.sqrt((1 + e * c) / (1 - e * c))
-    ia += f * (1 + e * c)
+    const v2 = MU * (2 / r - 1 / a) - twoPhi
+    if (!(v2 > 0)) continue
+    /*
+     * v^2 a / mu, which is (1 + e cos E) / (1 - e cos E) exactly when `dr` and
+     * `twoPhi` are zero — so this is King-Hele's integrand above written in the
+     * speed rather than in the conic, and identical to it wherever the field has
+     * no oblateness to displace the craft.
+     */
+    const V = v2 / circ
+    const wind = 1 - (SPIN_RATE * h * cosI) / v2
+    const f = rho * wind * wind * Math.sqrt(V)
+    ia += f * V * (1 - e * c)
     ie += f * c
   }
   const k = (2 * dragK * n) / samples

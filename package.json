@@ -30,6 +30,7 @@
     "verify:sites": "node scripts/verify-launch-sites.mjs",
     "verify:prem": "node --expose-gc scripts/verify-prem.mjs",
     "verify:loiter": "node scripts/verify-loiter.mjs",
+    "verify:radial": "node scripts/verify-radial.mjs",
     "verify:predict": "node --expose-gc scripts/verify-predict.mjs",
     "verify:nodes": "node --expose-gc scripts/verify-nodes.mjs",
     "verify:gizmo": "node --expose-gc scripts/verify-gizmo.mjs",

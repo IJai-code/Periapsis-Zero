@@ -490,10 +490,27 @@ export function meanSemiMajor(x, y, z, vx, vy, vz, r2, field = EARTH_FIELD) {
  * vector is 1.528e-3 — eight per cent, against a wobble half as large again as
  * the quantity itself.
  *
- * It is *not* what `assessOrbit` uses, and the same measurement is why: on that
- * orbit perigee swings from 133.6 km to 164.9 km over the short-period cycle, so
- * a decay theory that substitutes one perigee is not repaired by substituting a
- * better one. See the note in `mission.js`.
+ * It *is* what `assessOrbit` uses, and for a while it was not. Feeding it in made
+ * the lifetime forecast worse — 188.4 h against 206.5 flown, where the osculating
+ * value gave 191.4 — and that was taken as a measurement in its favour. It was a
+ * measurement of something else: `decay.js` was reading its air a kilometre and a
+ * half below where the craft actually flies, so the theory had too much drag,
+ * and of the three candidate eccentricities the smallest simply had the least of
+ * it. With the air read in the right place the pairing that belongs together is
+ * also the one that measures best. See the header of `decay.js`.
+ *
+ * What this is worth, on the same orbit: the osculating eccentricity ranges
+ * 0.000555 to 0.002926 over one revolution — a factor of 5.3 — and a commitment
+ * lands wherever in that swing it happens to fall, which is fifteen kilometres of
+ * perigee on an orbit whose perigee moves 72 m in five revolutions. Propagated
+ * under J2..J4 with drag off, those five perigee passages are 164.803, 164.821,
+ * 164.840, 164.858 and 164.875 km; the 31 km sometimes quoted beside them is the
+ * range of the *element* a(1-e) evaluated wherever the craft happens to be, which
+ * is not where its perigee is.
+ *
+ * Its own residual is measured too, and is what `verify-radial` checks: averaged
+ * over a revolution this returns 1.532e-3 where the radius's first harmonic —
+ * the eccentricity a drag integral actually wants — is 1.530e-3.
  *
  * An equatorial or retrograde-equatorial orbit has no node to measure from, so
  * the series is not applied there; a spherical field has no J2 and returns the

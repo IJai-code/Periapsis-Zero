@@ -16,6 +16,10 @@
  *
  *   node scripts/verify-all.mjs              all of them
  *   node scripts/verify-all.mjs nodes prem   only those whose name matches
+ *
+ * `verify-radial` is newer than the order it sits in and was put beside
+ * `verify-loiter` on purpose: it flies the same commitment and pins the
+ * measurements that gate's lifetime checks depend on.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -45,6 +49,7 @@ const GATES = [
   ['verify-terrain', false],
   ['verify-solar', false],
   ['verify-loiter', false],
+  ['verify-radial', false],
   ['verify-pads', true],
   ['verify-pad-geometry', false],
   ['verify-audio', true],

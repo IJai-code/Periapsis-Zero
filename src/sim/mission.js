@@ -24,7 +24,7 @@ import {
 } from './nodes.js'
 import { dominantBody } from './soi.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
-import { fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
+import { EARTH_FIELD, fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
 /**
@@ -1956,27 +1956,30 @@ function assessOrbit() {
    * being an invariant, it is the quantity drag actually changes, where the
    * osculating semi-major axis is a function of where in the swing you look.
    *
-   * The eccentricity stays the osculating one, and that is measured rather than
-   * left over. `meanEccentricity` is built and verified — it reproduces the
-   * numerically averaged eccentricity vector to eight per cent and cuts the
-   * wobble's spread eightfold — and feeding it here made the lifetime forecast
-   * *worse* on the one flight that measures it: 188.4 h against the flown 206.5,
-   * where the osculating value gives 191.4. The reason is in the same measurement.
-   * On that committed orbit the perigee swings from 133.6 km to 164.9 km as the
-   * wobble goes round, and those are air densities a factor of four apart. A
-   * decay theory that substitutes *one* perigee cannot be repaired by choosing a
-   * better one — the mean vector sits at 151.6 km and the answer needs the swing
-   * integrated, which is a change to the decay integral and not to this number.
+   * And the **mean** eccentricity, for the same reason and out of the same
+   * argument. J2's short-period term on the eccentricity vector is the size of
+   * the eccentricity itself at parking altitude — the osculating value swings
+   * 0.000555 to 0.002926 within one revolution of the orbit this is checked on,
+   * a factor of five, which is fifteen kilometres of perigee on an orbit whose
+   * perigee does not move 72 m in five revolutions. A mean axis paired with an
+   * osculating eccentricity is a mixed quantity.
    *
-   * Averaging the osculating elements over one revolution does not do this, and
-   * was measured before being rejected: over a revolution from this same state
-   * the mean comes back as a = 168.8 km and e = 0.001817, which is three
-   * kilometres below the invariant and gives 155.8 h — a worse answer than the
-   * osculating one, because the eccentricity vector of a near-circular orbit
+   * This file used to argue the opposite, and the record is worth keeping because
+   * the argument was not silly: feeding the mean eccentricity in *did* make the
+   * forecast worse, 188.4 h against 206.5 flown where the osculating value gave
+   * 191.4. That was the decay theory reading its air 1.5 km too low — it had too
+   * much drag, a larger eccentricity gives it more, and the smallest candidate
+   * won for a reason unrelated to which is right. With `decay.js` reading the air
+   * at the craft's own radius the pairing that belongs together is also the one
+   * that measures best: -0.48% of flown lifetime, against +0.89% for the mixed
+   * pair it replaces.
+   *
+   * Averaging the osculating elements over one revolution is *not* what this does,
+   * and that was measured before being rejected: over a revolution from this same
+   * state the mean comes back as a = 168.8 km and e = 0.001817, three kilometres
+   * below the invariant, because the eccentricity vector of a near-circular orbit
    * circulates on a timescale of days and a single revolution samples it rather
-   * than averaging it. Closing the last seven per cent needs the double-averaged
-   * (Brouwer) elements, which is a first-order perturbation series per element;
-   * this takes the invariant instead, which is free and is most of the way.
+   * than averaging it.
    *
    * Evaluated in the field the craft is actually in rather than the model's
    * default: a gate that lifts the oblateness to fly a point-mass comparison
@@ -1985,7 +1988,7 @@ function assessOrbit() {
    */
   o.a = meanSemiMajor(_rs.x, _rs.y, _rs.z, _vs.x, _vs.y, _vs.z, r * r, fieldOf(live.sim))
   if (!(o.a > 0)) return false
-  o.e = Math.sqrt(Math.max(0, 1 - (hLen * hLen) / (MU_EARTH * a)))
+  o.e = meanEccentricity(_rs.x, _rs.y, _rs.z, _vs.x, _vs.y, _vs.z, r * r, fieldOf(live.sim))
   o.cosI = (_eh.x * SPIN_AXIS[0] + _eh.y * SPIN_AXIS[1] + _eh.z * SPIN_AXIS[2]) / hLen
   o.dragK = live.sim.dragK[0]
   o.n = Math.sqrt(MU_EARTH / (o.a * o.a * o.a))
@@ -2008,19 +2011,77 @@ const shortOfWindow = (o) =>
   Number.isFinite(o.wait) && o.lifetime * (1 - PROFILE.lifetimeTolerance) < o.wait + o.margin
 
 /**
- * How far above the injection floor the flight computer judges and aims, m.
+ * The perigee J3 forces on a polar orbit, m — the scale of the margin below.
  *
- * More than the theory's error in perigee at ignition, which measured 0.43 km at
- * worst across the flights that checked it. A raise aimed at the floor itself
- * could arrive a few hundred metres under it, and an orbit predicted a few
- * hundred metres over it could inject under it; judged and aimed a kilometre
- * up, a hard floor stays hard.
+ * A raise aimed at the injection floor itself could arrive under it, and an orbit
+ * predicted just over it could inject under it, so the floor is judged and
+ * aimed at from a margin. What that margin has to cover is the decay theory's
+ * own error in perigee at ignition, and the term that sets it is **J3**.
+ *
+ * The odd zonal forces an eccentricity that a theory parameterised by (a, e)
+ * cannot carry, because it turns with perigee and `rates` is handed no argument
+ * of perigee:
+ *
+ *   e_J3 = J3 R sin i / (2 J2 p)      so   dr_perigee = a e_J3 -> |J3| R sin i / (2 J2)
+ *
+ * — 7.5 km at Vandenberg's inclination and nothing at all on the equator, where
+ * an odd zonal has no effect. That is the full swing, realised only if perigee
+ * turns right round inside the forecast; across the four pads' own flights the
+ * realised error measured 0.93, 0.10, 2.93 and 1.86 km, and with J3 lifted from
+ * the field the same theory reads 0.10% against 1.11% on the orbit
+ * `verify-loiter` checks it on. The margin is that bound rather than those four
+ * numbers, so it is a statement about the field and not about the day.
+ *
+ * It used to be a flat kilometre, on a measurement of 0.43 km taken when the
+ * decay theory read its air in the wrong place and the gate measured perigee
+ * with an osculating eccentricity — two errors of a few kilometres that happened
+ * to leave a small residual. It costs a few centimetres a second to raise.
  */
-const PERIGEE_MARGIN = 1e3
+export const J3_PERIGEE = (Math.abs(EARTH_FIELD.J[1]) * EARTH_FIELD.radius) / (2 * EARTH_FIELD.J[0])
+
+/**
+ * The margin, m, for an orbit and the interval the forecast has to cross.
+ *
+ * The forced eccentricity is not an error by itself — the mean eccentricity
+ * measured at commitment already contains it. What the forecast cannot carry is
+ * how it *turns*: it goes round with perigee, so what the theory misses over an
+ * interval is the difference between its value at each end, bounded by
+ *
+ *   2 a e_J3 |sin(omega_dot dt / 2)|,   omega_dot = 3/4 n J2 (R/p)^2 (5 cos^2 i - 1)
+ *
+ * which is nothing for a wait of an hour and the full 2 a e_J3 for one long
+ * enough to turn perigee half round. Kennedy at +96 h waits 215 h, in which
+ * perigee turns 117 degrees: 6.1 km, against 4.7 km of error measured on that
+ * flight. A fixed margin would be wrong at both ends of that range. The interval
+ * is clamped so the bound saturates rather than coming back down: perigee having
+ * turned 270 degrees does not put the forced term back where it started.
+ *
+ * Two inclinations return nothing, and both are right to. An equatorial orbit has
+ * no `sin i` for an odd zonal to act on. At the critical inclination, 63.435
+ * degrees, `omega_dot` vanishes and the forced eccentricity does not turn at all
+ * inside the forecast — so the commitment's own mean eccentricity carries it and
+ * there is nothing left to allow for. That leaves the floor with no cushion for
+ * anything *else*, which is a real edge and not one any flight here sits on; if a
+ * mission ever does, the term to add is the march's own 200 m step in
+ * `decayAfter` rather than a number chosen to look safe.
+ */
+export function perigeeMargin(a, e, cosI, interval) {
+  const sinI = Math.sqrt(Math.max(0, 1 - cosI * cosI))
+  const p = a * (1 - e * e)
+  const forced = (J3_PERIGEE * sinI * a) / p
+  const n = Math.sqrt(MU_EARTH / (a * a * a))
+  const rate =
+    ((0.75 * n * EARTH_FIELD.J[0] * EARTH_FIELD.radius * EARTH_FIELD.radius) / (p * p)) *
+    (5 * cosI * cosI - 1)
+  return 2 * forced * Math.abs(Math.sin(0.5 * rate * Math.min(interval, Math.PI / Math.abs(rate || 1e-30))))
+}
 
 /** Whether an assessed orbit would reach its ignition with perigee under the injection floor. */
 const belowInjectionFloor = (o) =>
-  o.periapsisAtIgnition < BODIES.earth.radius + PROFILE.injectionFloor + PERIGEE_MARGIN
+  o.periapsisAtIgnition <
+  BODIES.earth.radius +
+    PROFILE.injectionFloor +
+    perigeeMargin(o.a, o.e, o.cosI, o.wait + TWO_PI / o.n)
 
 /**
  * Decide, at commitment and again whenever the orbit changes under the plan,
@@ -2064,7 +2125,10 @@ function planLoiter() {
   if (!PROFILE.loiterRaise) return
 
   const keep = 1 - PROFILE.lifetimeTolerance
-  const floor = BODIES.earth.radius + PROFILE.injectionFloor + PERIGEE_MARGIN
+  const floor =
+    BODIES.earth.radius +
+    PROFILE.injectionFloor +
+    perigeeMargin(o.a, o.e, o.cosI, o.wait + TWO_PI / o.n)
   /**
    * Where to have decayed to when the window comes. Short of life: back down into
    * the orbit being flown, but never under the injection floor, which a pilot's
