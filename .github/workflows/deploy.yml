@@ -39,13 +39,23 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# The actions are on their Node 24 majors. GitHub deprecated Node 20 on the
+# runners in September 2025 and had been forcing those actions onto 24 anyway,
+# so this is catching up with where they were already running rather than a
+# change of behaviour. `upload-pages-artifact@v5` carries `upload-artifact@v7`
+# inside it, which is the sixth of the six warnings.
+#
+# `ubuntu-latest` is deliberately *not* pinned. It migrates to Ubuntu 26 on
+# 19 October 2026 and says so on every run, but that notice is the label doing
+# its job; pinning to today's image trades a dated warning for an image that
+# quietly stops being patched. The gates are what would catch a real break.
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -63,7 +73,7 @@ jobs:
       # a new tag needs the download step's `models` changed with it.
       - name: Restore the model catalogue
         id: models
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: public/models
           key: models-release-v1
@@ -92,9 +102,9 @@ jobs:
       - name: Build
         run: PERIAPSIS_BASE="/${GITHUB_REPOSITORY#*/}/" npm run build
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -106,4 +116,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

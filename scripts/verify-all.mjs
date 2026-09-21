@@ -27,6 +27,8 @@
  * `verify-heating` could not be in this list until it had a state to fly from
  * that did not arrive as a command-line argument. It has one now —
  * `scripts/fixtures/lunar-orbit.json`, 2.3 KB — and costs the suite 0.5 s.
+ * `verify-allocation` joins it from the same fixture, and goes last because it
+ * is the slowest thing here: it flies 280,000 frames to measure two regimes.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -65,6 +67,7 @@ const GATES = [
   ['verify-heating', false],
   ['verify-plasma', true],
   ['verify-audio', true],
+  ['verify-allocation', true],
 ]
 
 const wanted = process.argv.slice(2)
