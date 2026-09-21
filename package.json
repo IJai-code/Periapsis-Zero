@@ -51,7 +51,8 @@
     "verify:plume": "node --expose-gc scripts/verify-plume.mjs",
     "verify:plasma": "node --expose-gc scripts/verify-plasma.mjs",
     "verify:pads": "node --expose-gc scripts/verify-pads.mjs && node scripts/verify-pad-geometry.mjs",
-    "verify:audio": "node --expose-gc scripts/verify-audio.mjs"
+    "verify:audio": "node --expose-gc scripts/verify-audio.mjs",
+    "fixture:lunar": "node scripts/flight.mjs --until LUNAR_ORBIT --save scripts/fixtures/lunar-orbit.json"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",

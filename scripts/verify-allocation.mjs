@@ -11,20 +11,44 @@
  * merely churns shows up as a rising collected total, which is why the run is
  * long enough for that to be visible.
  *
- *   node --expose-gc scripts/verify-allocation.mjs <snapshot.json> [frames]
+ * ── what it is measuring, and what it is not ──────────────────────────
+ *
+ * Retention in *steady state*. The default is the checked-in lunar-orbit
+ * fixture and 60,000 frames, which is a run that begins and ends in TEI_ALIGN,
+ * and that pairing is deliberate: it is the loop doing the same work sixty
+ * thousand times, which is the thing the constraint is about.
+ *
+ * Run long enough to cross the phase boundaries instead — 200,000 frames, which
+ * reaches SPLASHDOWN — and it retains 219 KB. At 600,000 frames, 224 KB. Three
+ * times the frames for 2% more retention is a *one-time* cost paid crossing
+ * those boundaries, not a per-frame leak: 0.0115 bytes a frame between those two
+ * points. It is real, it is unexplained, and it is written here rather than
+ * hidden behind a frame count chosen to avoid it. What it is not is the render
+ * loop churning, which is what the bar below is set for.
+ *
+ *   node --expose-gc scripts/verify-allocation.mjs                 the fixture
+ *   node --expose-gc scripts/verify-allocation.mjs 200000          ... more frames
+ *   node --expose-gc scripts/verify-allocation.mjs state.json 1e5  some other state
  */
 
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_ORBIT_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { currentPhase, mission } from '../src/sim/mission.js'
 
 if (typeof globalThis.gc !== 'function') {
-  console.error('run with: node --expose-gc scripts/verify-allocation.mjs <snapshot.json>')
+  console.error('run with: node --expose-gc scripts/verify-allocation.mjs')
   process.exit(1)
 }
 
-const snap = process.argv[2]
-const FRAMES = Number(process.argv[3] ?? 60000)
+/*
+ * The snapshot is optional now that there is one checked in, which makes the
+ * first positional argument ambiguous — `... 200000` reads as a path. A number
+ * is a frame count; anything else is a state to load.
+ */
+const first = process.argv[2]
+const firstIsCount = first !== undefined && Number.isFinite(Number(first))
+const snap = firstIsCount ? LUNAR_ORBIT_FIXTURE : (first ?? LUNAR_ORBIT_FIXTURE)
+const FRAMES = Number((firstIsCount ? first : process.argv[3]) ?? 60000)
 loadSnapshot(snap)
 
 // Warm up: let V8 settle its inline caches and optimise the hot path, so the

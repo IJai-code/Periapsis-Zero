@@ -18,25 +18,29 @@
  * sees essentially none of it. Those are properties of the trajectory, not of a
  * remembered constant.
  *
- * The measured peak here is ~390 W/cm^2 total on a -6.32 deg entry. A steeper
- * lunar return would be materially higher — flux climbs fast with entry angle —
- * so this figure should be read as belonging to this corridor rather than to
- * lunar return in general.
+ * The measured peak is 494 W/cm^2 total, on the entry flown from the checked-in
+ * lunar-orbit fixture. A steeper lunar return would be materially higher — flux
+ * climbs fast with entry angle — so this figure should be read as belonging to
+ * that corridor rather than to lunar return in general. It is printed below on
+ * every run, so it cannot quietly stop being true.
  *
- *   node scripts/verify-heating.mjs <lunar-orbit-snapshot.json>
+ * The state is `scripts/fixtures/lunar-orbit.json`, which is why this gate can
+ * sit in the suite: holding the corridor still is what keeps it a test of the
+ * two correlations rather than of whatever TLI targeting did this week. The
+ * fixture's README argues that choice and states its cost, and the first check
+ * below is that the fixture still restores into LUNAR_ORBIT under this code.
+ *
+ *   node scripts/verify-heating.mjs                    the fixture
+ *   node scripts/verify-heating.mjs other-state.json   some other state
  */
 
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_ORBIT_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { radiativeFlux } from '../src/sim/atmosphere.js'
 
-const snap = process.argv[2]
-if (!snap) {
-  console.error('usage: node scripts/verify-heating.mjs <lunar-orbit-snapshot.json>')
-  process.exit(2)
-}
+const snap = process.argv[2] ?? LUNAR_ORBIT_FIXTURE
 
 const NOSE_RADIUS = 6.03 // as live.js uses
 
@@ -60,7 +64,20 @@ for (const v of [7800, 8500]) {
 }
 
 loadSnapshot(snap)
-console.log(`\nflying from ${currentPhase().id} at MET ${(mission.t / 3600).toFixed(2)} h`)
+/*
+ * A checked-in state does not follow the code that made it. If the simulator
+ * moves out from under the fixture this gate would go on flying it and report a
+ * heating profile for a mission this repository can no longer fly — passing,
+ * and meaningless. So the regime is asserted rather than assumed, here at the
+ * moment of load, and the check is listed with the others at the end.
+ */
+const restoredPhase = currentPhase().id
+const fixtureValid = restoredPhase === 'LUNAR_ORBIT'
+console.log(`\nflying from ${restoredPhase} at MET ${(mission.t / 3600).toFixed(2)} h`)
+if (!fixtureValid) {
+  console.log(`  the fixture restores into ${restoredPhase}, not LUNAR_ORBIT — it has drifted`)
+  console.log('  out of the regime this gate is written for; regenerate it with `npm run fixture:lunar`')
+}
 
 const samples = []
 let entered = false
@@ -80,6 +97,19 @@ for (let i = 0; i < 6_000_000; i++) {
     })
   }
   if (id === 'SPLASHDOWN') break
+}
+
+/*
+ * Everything below indexes into `samples`, so an empty one is a TypeError and a
+ * stack trace instead of a diagnosis. That is reachable: a state that never
+ * reaches the interface collects nothing, and this gate now runs unattended in
+ * the suite where the first line of the failure is the only one anybody reads.
+ */
+if (samples.length === 0) {
+  console.log('\n  flew the state and never crossed the entry interface — no heating to profile.')
+  console.log(`  ${fixtureValid ? 'the state restored into LUNAR_ORBIT, so this is the trajectory, not the fixture' : 'the fixture has drifted; regenerate it with `npm run fixture:lunar`'}`)
+  console.log('\n  FAIL')
+  process.exit(1)
 }
 
 const en = mission.entry
@@ -131,6 +161,7 @@ console.log('   9 km/s is truncated by the correlation\'s floor, not by physics)
 
 console.log('\n=== what this establishes ===')
 const checks = [
+  ['the fixture still restores into the regime this gate flies', fixtureValid],
   ['radiative exceeds convective', en.peakRadFlux > en.peakHeatFlux],
   ['radiative peaks above convective in altitude', peakRadAlt.alt > peakConvAlt.alt],
   [
