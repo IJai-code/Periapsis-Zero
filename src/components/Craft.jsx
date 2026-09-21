@@ -10,6 +10,7 @@ import { useUi } from '../sim/store.js'
 import { Placeholder } from './Placeholders.jsx'
 import { Hull } from './Hull.jsx'
 import { Plume } from './Plume.jsx'
+import { Plasma } from './Plasma.jsx'
 import { SECTIONS, bellSeats } from '../gfx/hulls.js'
 import { ACTIVE_VESSEL } from '../sim/vessels.js'
 import { stageLength } from '../gfx/framing.js'
@@ -137,6 +138,9 @@ export function Craft({ id }) {
   return (
     <group ref={group}>
       <group ref={lift}>
+        {/* The shock layer, which belongs to the vehicle rather than to the
+            hull it is drawn with — a capsule entering has no sections left. */}
+        {id === 'ship' && <Plasma size={visual} />}
         {model ? (
           <>
             <primitive object={model} />

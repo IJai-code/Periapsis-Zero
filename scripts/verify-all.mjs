@@ -55,6 +55,7 @@ const GATES = [
   ['verify-pad-geometry', false],
   ['verify-shadows', false],
   ['verify-plume', true],
+  ['verify-plasma', true],
   ['verify-audio', true],
 ]
 

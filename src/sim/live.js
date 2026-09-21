@@ -140,6 +140,8 @@ export const live = {
   mach: 0,
   /** Ambient static pressure at the ship, Pa. What an exhaust plume expands into. */
   ambientPressure: 0,
+  /** Unit vector the relative wind blows *from*, scene frame. The windward side. */
+  windDir: new Vector3(0, 0, 1),
   /** Aerodynamic deceleration, in g. The load the vehicle actually feels. */
   decelG: 0,
   /**
@@ -342,6 +344,13 @@ export function refreshDerived(originBody = null, originOffset = null) {
     live.ambientPressure = rhoLocal > 0 ? (rhoLocal * sound * sound) / GAMMA_AIR : 0
     // a = dragK * rho * |v|^2, with dragK = Cd A / 2m — the integrator's own form.
     live.decelG = (sim.dragK[0] * rhoLocal * vRel2) / 9.80665
+    /*
+     * Which way the air is coming from, as a unit vector in scene coordinates.
+     * The same relative wind everything else in this block is built on, so the
+     * plasma sheath glows on the face the drag is actually acting on rather
+     * than on the one that happens to point at the planet.
+     */
+    if (vRel > 0) live.windDir.set(-vx / vRel, -vy / vRel, -vz / vRel)
     live.heatFlux =
       rhoLocal > 0 ? SUTTON_GRAVES * Math.sqrt(rhoLocal / NOSE_RADIUS) * vRel * vRel * vRel : 0
     live.radiativeFlux = radiativeFlux(rhoLocal, vRel, NOSE_RADIUS)
