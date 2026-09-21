@@ -244,6 +244,45 @@ require.
   a third of its opacity, and a darkness check placed at 100 km where a faint
   glow is correct.
 
+- **`verify-j3`** — the two closed forms `mission.js` decides a parking orbit's
+  survival on, held to the field `rk4.js` actually integrates. The apsidal rate
+  `ω̇ = ¾ n J₂ (R/p)²(5cos²i − 1)` matches the integrated orbit to **0.38 deg/day,
+  11% where the rate is large enough for a ratio to mean anything**, across five
+  inclinations; at the critical inclination — computed as the root of
+  5cos²i = 1, not quoted — the apsis turns 0.11 deg/day against 2.75 anywhere
+  else, and reverses across it. The J₃ forced eccentricity is isolated by flying
+  the same state twice with J₃ on and off and differencing, over an apsidal cycle
+  each: **0.3% to 6.1%** of the closed form. Nothing is compared to published
+  tracking, which is not available offline.
+
+  It caught two mistakes in its own first draft. It read the eccentricity
+  vector's angle against a fixed direction — the longitude of perigee, with the
+  node regressing underneath it — and got −2.02 deg/day where theory says +3.57,
+  which looked like a sign error in the physics and was a sign error in the
+  measurement. And it flew circular orbits, where the eccentricity vector is the
+  J₂ ripple, so the "apsidal rate" came out at 360 deg/day at every inclination:
+  the orbital period, aliased.
+
+- **`verify-csm`** — what cascaded shadow maps would cost, measured before any
+  material was touched. Written first on purpose, and it changed the design.
+  `three-stdlib`'s CSM is **broken against three 0.180**: its `injectInclude()`
+  assigns `ShaderChunk.lights_pars_begin = CSMShader.lights_pars_begin`, a
+  property that does not exist, so constructing one sets a chunk every lit shader
+  includes to `undefined` process-wide. three's own `examples/jsm/csm` extends it
+  correctly. And `setupMaterial` overwrites `onBeforeCompile`, which
+  `gfx/shaders.js` already uses for the Earth's night lights and the Moon's
+  eclipse shading — patching those deletes their shaders, not patching them makes
+  them N times too bright.
+
+  The measurement that decided it: a cascade's shadow box is sized from its
+  frustum slice's far-plane **diagonal**, 1.690x its far distance at this
+  camera, not from the slice's depth. So the specified 800 m near split gives a
+  1,352 m box and **0.330 m a texel, not 0.195** — and does not resolve the 0.3 m
+  lattice tie it was specified for. Deriving the split from the texel instead
+  gives 473/1021/2200 m and 0.195/0.421/0.908 m, which does. That configuration
+  was not built: three 4096-square maps is 300-400 MB of GPU memory on a public
+  web page, against 100-134 MB now.
+
 - **`verify-heating` is in the suite**, which it could not be while it took its
   flight state as a command-line argument — the npm script passed none, so
   `npm run verify:heating` printed a usage line and exited, and the same was
@@ -444,6 +483,23 @@ require.
   also made the measurement repeatable: before them the same unchanged code read
   48.80 and 17.61 bytes on alternating runs, and several intermediate "fixes"
   were chasing that variance rather than the code.
+- **The shadow box is sized to the shadow, not to the worst case** — and slid
+  down the sun azimuth to sit on it rather than on the pad, which is worth a
+  factor approaching two because a shadow falls one way and a box centred on the
+  pad pays for both. Measured, at 4,096 texels: **0.195 m a texel at 23.7 deg of
+  sun elevation and above, 0.337 m at 10.6 deg where the fixed box gave 0.586,
+  0.467 m at 7 deg**, and whole shadows down to **5.33 deg against 10.6**, worst
+  pad Kennedy. Never coarser than the box it replaces, at any elevation.
+
+  `shadowExtentFor` boxed **16.62 bytes a call** until the cap it reads became a
+  module-local `const` rather than the exported `SHADOW_EXTENT`; then **0.83**.
+  V8 will fold a plain local into the function and will not fold a module cell,
+  so the returned double was being tagged. The likelier-looking culprits were all
+  tried and all wrong — the mixed Smi/double return that the plume hit,
+  `Math.min` for the ternary, nudging the cap off an integer — and every one
+  measured 31.86 B, worse than the fault. The literal appears once; the export is
+  an alias of it.
+
 - **Crossing the mission's phase boundaries retains ~220 KB, once.**
   `verify-allocation` measures −1.5 KB over 60,000 frames of steady state, which
   is the render-loop rule holding. Let the same run cross TEI, entry and

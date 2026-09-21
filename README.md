@@ -3157,7 +3157,9 @@ argues why that state is pinned rather than re-flown and what pinning it costs.
 | `verify-navigation.mjs` | how far the nearest surface is, how many detents cross a range, and how much of the frame the flying stage fills |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |
-| `verify-allocation.mjs` | heap delta over 60,000 frames of steady state, under `--expose-gc` |
+| `verify-allocation.mjs` | heap delta in two regimes — steady state and across the phase boundaries — under `--expose-gc` |
+| `verify-j3.mjs` | the apsidal rate and the J₃ forced eccentricity, against the integrated field |
+| `verify-csm.mjs` | what cascaded shadow maps would cost here, and why the single map is adaptive instead |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer
 setting of its own, because that is exactly the case that used to break — see the
