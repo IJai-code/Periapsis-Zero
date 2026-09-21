@@ -322,21 +322,49 @@ export function Landing({ ready, progress, label, onEnter }) {
             <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-white/22">
               Everything behind this page is the simulation itself, already running.
             </p>
+
+            {/*
+              The phone's way back up, in the flow of the column rather than
+              floating over it. On a narrow screen the column is the whole width,
+              so a floating control has nowhere to sit that is not on top of
+              something — measured, the two in the margin below overlapped a line
+              of body text at four of the five scroll positions sampled at 375 px.
+              A control that covers the sentence you are reading is not an
+              affordance. In the flow it can never collide, and a touch screen
+              scrolls by direct manipulation anyway, so the floating cue is
+              solving a wheel problem that a thumb does not have.
+            */}
+            <button
+              type="button"
+              onClick={() => scrollBy(-1)}
+              className="mt-8 border border-white/12 px-4 py-2.5 font-mono text-[10px] tracking-[0.24em] text-white/45 uppercase outline-none focus-visible:border-hud/60 sm:hidden"
+            >
+              ↑ Back to top
+            </button>
           </div>
         </div>
       </div>
 
       {/*
-        The two scroll controls. Neither is decoration: each appears only when it
-        has somewhere to go, and each does the thing it depicts. They sit outside
-        the scroller so they stay put while it moves.
+        The two scroll controls, as one rail down the right-hand margin. Neither
+        is decoration: each appears only when it has somewhere to go, each does
+        the thing it depicts, and each leaves the tab order when hidden so it
+        cannot become a keyboard trap. They sit outside the scroller so they stay
+        put while it moves.
+
+        The right margin rather than the centre, and that is a correction: the
+        cue was centred on the viewport, and the reading column is left-aligned
+        and ends around two-thirds across — so a centred button sat squarely in
+        the middle of the claims, and the live page read "The Moo[ MORE ]m away".
+        The column never reaches this margin, and the planet behind it is the
+        part of the frame with nothing to read on it.
       */}
       <button
         type="button"
         onClick={() => scrollBy(1)}
         aria-hidden={!more}
         tabIndex={more ? 0 : -1}
-        className={`absolute bottom-6 left-1/2 z-20 -translate-x-1/2 border border-white/12 bg-black/40 px-4 py-2 font-mono text-[9px] tracking-[0.26em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none ${
+        className={`absolute right-7 bottom-6 z-20 hidden border border-white/12 bg-black/40 px-4 py-2 font-mono text-[9px] tracking-[0.26em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none sm:right-16 sm:block lg:right-24 ${
           more ? 'pointer-events-auto opacity-100' : 'pointer-events-none translate-y-2 opacity-0'
         }`}
       >
@@ -349,7 +377,7 @@ export function Landing({ ready, progress, label, onEnter }) {
         aria-label="Back to top"
         aria-hidden={!scrolled}
         tabIndex={scrolled ? 0 : -1}
-        className={`absolute top-20 right-7 z-20 border border-white/12 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.24em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none sm:right-16 lg:right-24 ${
+        className={`absolute top-20 right-7 z-20 hidden border border-white/12 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.24em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none sm:right-16 sm:block lg:right-24 ${
           scrolled ? 'pointer-events-auto opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
         }`}
       >
