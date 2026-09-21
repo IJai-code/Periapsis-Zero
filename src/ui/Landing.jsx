@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { PRESETS, presetHref } from '../sim/presets.js'
 
 /**
@@ -19,15 +19,40 @@ import { PRESETS, presetHref } from '../sim/presets.js'
  * numbers were true and none of them told a visitor what they could do here.
  * The claims that survive are the three a person can act on, in plain words,
  * and the missions are on the door rather than behind it.
+ *
+ * ── the scroll, and why it was broken ─────────────────────────────────
+ *
+ * The column is taller than a laptop viewport — 1,079 px against 768 — and the
+ * element that scrolled it carried `pointer-events-none`. That flag was there so
+ * the planet behind stayed grabbable, and it meant the wheel never reached the
+ * scroller: the event went through to the canvas and OrbitControls zoomed
+ * instead. It appeared to work in patches, because the handful of children that
+ * re-enabled pointer events — the button, the three mission rows — *did* scroll
+ * when the cursor happened to be over one. Scrolling down moved those patches
+ * out from under the cursor, so the way back up was gone. A control that works
+ * in three bands of a page and nowhere else is worse than one that never works,
+ * because the visitor concludes the page is broken rather than that they missed.
+ *
+ * So the scroller takes pointer events, which costs nothing: this overlay is a
+ * sibling of the Canvas and is mounted only *before* flight, so there is no
+ * scene interaction behind it to preserve. The scrims move out of the scrolling
+ * box and become siblings of it, which also fixes them visually — they used to
+ * scroll away from the text they exist to make readable.
+ *
+ * And because a page that scrolls should say so, there is a cue at the foot
+ * while there is more below, and a way back to the top once you have left it.
+ * Both are real controls rather than decoration: the cue scrolls a page down,
+ * and neither appears when it would be a lie.
  */
 
 /**
  * The three claims that are actually load-bearing, in the order they matter.
  *
- * Set as a numbered list with hanging indices rather than as three equal cards.
- * A three-up grid of feature cards is the default shape of every landing page
- * built this decade, and it flattens three statements of different weight into
- * one row of equals. A list has a first item.
+ * Set as a definition list rather than three equal cards. A three-up grid of
+ * feature cards is the default shape of every landing page built this decade,
+ * and it flattens three statements of different weight into one row of equals.
+ * Deliberately not numbered either — the missions above already are, and two
+ * numbered lists stacked read like a form rather than a page.
  */
 const CLAIMS = [
   {
@@ -53,161 +78,283 @@ const step = (shown, i) => ({
 
 export function Landing({ ready, progress, label, onEnter }) {
   const [shown, setShown] = useState(false)
+  const scroller = useRef(null)
+  /** How far down we are, and whether there is anything below. Both drive controls. */
+  const [scrolled, setScrolled] = useState(false)
+  const [more, setMore] = useState(false)
+
   useEffect(() => {
     const id = requestAnimationFrame(() => setShown(true))
     return () => cancelAnimationFrame(id)
   }, [])
 
+  /*
+   * One handler for the scroller's own geometry, run on scroll and on resize,
+   * and once on mount because the page can already overflow before anything has
+   * moved. `ResizeObserver` rather than a window listener: the column's height
+   * changes when the button stops being a progress bar, not only when the window
+   * does.
+   */
+  const measure = useCallback(() => {
+    const el = scroller.current
+    if (!el) return
+    setScrolled(el.scrollTop > 120)
+    setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 24)
+  }, [])
+
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    return () => ro.disconnect()
+  }, [measure, ready])
+
+  const scrollBy = useCallback((sign) => {
+    const el = scroller.current
+    if (!el) return
+    el.scrollTo({ top: sign < 0 ? 0 : el.scrollTop + el.clientHeight * 0.82, behavior: 'smooth' })
+  }, [])
+
   const pct = Math.round((progress ?? 0) * 100)
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-y-auto font-sans">
+    <div className="absolute inset-0 font-sans">
       {/*
-        Lighter than it was. The old scrim ran to 92% black across the left half
-        to make room for a column of specifications; with less to read there, the
-        planet can be most of what you see.
+        The scrims sit outside the scrolling box now. Inside it they were laid
+        out at the top of a 1,079 px column and scrolled off with it, so the foot
+        of the page — the colophon, over the daylit Pacific — lost the fade that
+        made it legible at exactly the moment it came into view.
+
+        Lighter than it was across the left: with less to read there, the planet
+        can be most of what you see.
       */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/88 via-black/48 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/92 via-black/52 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/70 to-transparent" />
+
       {/*
-        The bottom fade is deep rather than shallow because the column is long:
-        at 800 px the colophon sits squarely over the daylit Pacific, and
-        white-on-cloud is unreadable at 11 px. Sized so the scrim covers the whole
-        column rather than its top third: the colophon sits 638 px down an 887 px
-        page, and the old 224 px fade ended long before it.
+        The title bar. Two readouts, hairline-ruled, in the mono face — the
+        register of a panel rather than of a nav. It is not a menu and does not
+        pretend to be one: there is one place to go from here.
       */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/92 via-black/55 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-white/[0.07] px-7 py-4 sm:px-16 lg:px-24">
+        <span
+          style={step(shown, 0)}
+          className="font-mono text-[10px] tracking-[0.34em] text-hud/70 uppercase"
+        >
+          Sol · Terra · Luna
+        </span>
+        <span
+          style={step(shown, 0)}
+          className="hidden font-mono text-[10px] tracking-[0.2em] text-white/25 uppercase sm:block"
+        >
+          Epoch J2000.0 · 117,955 stars
+        </span>
+      </div>
 
-      <div className="relative flex min-h-full items-center px-7 py-14 sm:px-16 lg:px-24">
-        <div className="w-full max-w-[36rem]">
-          <div
-            style={step(shown, 0)}
-            className="font-mono text-[10px] tracking-[0.34em] text-hud/70 uppercase"
-          >
-            Sol · Terra · Luna
-          </div>
-
-          <h1
-            style={step(shown, 1)}
-            className="mt-5 font-display text-[2.6rem] leading-[0.96] font-semibold tracking-[0.03em] text-white sm:text-[4.2rem] sm:tracking-[0.04em] lg:text-[4.8rem]"
-          >
-            Periapsis Zero
-          </h1>
-
-          <p style={step(shown, 2)} className="mt-6 max-w-[30rem] text-[17px] leading-[1.62] font-light text-white/80">
-            Fly the missions that were actually flown — Apollo&nbsp;8 to the Moon and
-            home, Artemis onto a halo orbit beyond it — through a solar system the
-            size it really is.
-          </p>
-
-          <div style={step(shown, 3)} className="mt-9">
-            <button
-              onClick={onEnter}
-              disabled={!ready}
-              /*
-               * Square, and no glow. A soft-cornered button with a coloured
-               * halo is the house style of every SaaS front page; an
-               * instrument's controls are rectilinear because a panel is
-               * machined, and that is the register this thing wants.
-               */
-              className={`pointer-events-auto relative w-full overflow-hidden px-9 py-4 font-display text-[13px] font-semibold tracking-[0.14em] uppercase transition-all duration-200 sm:w-auto ${
-                ready
-                  ? 'bg-hud text-black hover:bg-white'
-                  : 'cursor-progress border border-white/12 bg-transparent text-white/45'
-              }`}
+      {/*
+        The scroller. `overscroll-contain` so a flick at the bottom does not
+        hand the gesture to the page behind, and a focusable region so the
+        keyboard can drive it — a scrollable box that only answers to a wheel is
+        half a control.
+      */}
+      <div
+        ref={scroller}
+        onScroll={measure}
+        tabIndex={0}
+        aria-label="Introduction"
+        className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth outline-none"
+      >
+        <div className="relative flex min-h-full items-center px-7 pt-24 pb-24 sm:px-16 lg:px-24">
+          <div className="w-full max-w-[36rem]">
+            <h1
+              style={step(shown, 1)}
+              className="font-display text-[2.6rem] leading-[0.96] font-semibold tracking-[0.03em] text-white sm:text-[4.2rem] sm:tracking-[0.04em] lg:text-[4.8rem]"
             >
-              {/* While the world is being built the button *is* the progress bar. */}
-              {!ready && (
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 bg-white/10 transition-[width] duration-500"
-                  style={{ width: `${pct}%` }}
-                />
-              )}
-              <span className="relative">
-                {ready ? 'Begin flight' : `Building the world · ${pct}%`}
-              </span>
-            </button>
-            {!ready && label && (
-              <div className="mt-3 font-mono text-[10px] tracking-wider text-white/25 lowercase">
-                {label}
-              </div>
-            )}
-          </div>
+              Periapsis Zero
+            </h1>
 
-          {/* The missions, on the door rather than behind it. Each is a link: the
-              vessel and the pad are fixed at load, so a mission is an address. */}
-          <div style={step(shown, 4)} className="mt-11">
-            <div className="font-mono text-[10px] tracking-[0.26em] text-white/30 uppercase">
-              Or start inside one
-            </div>
-            <div className="mt-3 border-t border-white/10">
-              {PRESETS.map((p, i) => (
-                <a
-                  key={p.id}
-                  href={presetHref(p)}
-                  className="pointer-events-auto group flex items-baseline gap-5 border-b border-white/10 py-3.5 transition-colors duration-200 hover:bg-white/[0.045]"
-                >
-                  <span className="font-mono text-[10px] text-hud/45 tabular-nums">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-medium text-white/90">{p.title}</span>
-                    <span className="mt-1 block text-[12px] leading-snug text-white/45">
-                      {p.blurb}
-                    </span>
-                  </span>
-                  <span className="pr-1 text-hud/50 transition-transform duration-200 group-hover:translate-x-1">
-                    →
-                  </span>
-                </a>
-              ))}
-            </div>
-          </div>
+            <p
+              style={step(shown, 2)}
+              className="mt-6 max-w-[30rem] text-[17px] leading-[1.62] font-light text-white/80"
+            >
+              Fly the missions that were actually flown — Apollo&nbsp;8 to the Moon and
+              home, Artemis onto a halo orbit beyond it — through a solar system the
+              size it really is.
+            </p>
 
-          {/*
-            Ruled, but not numbered. The missions above are already a numbered
-            list, and two of them stacked reads like a form rather than a page —
-            so these are set as a definition list with the term in the display
-            face and the gloss beside it, which is a different shape doing a
-            different job.
-          */}
-          <dl style={step(shown, 5)} className="mt-12 border-t border-white/10">
-            {CLAIMS.map((c) => (
-              <div
-                key={c.k}
-                className="border-b border-white/[0.07] py-4 sm:flex sm:items-baseline sm:gap-6"
+            <div style={step(shown, 3)} className="mt-9">
+              <button
+                onClick={onEnter}
+                disabled={!ready}
+                /*
+                 * Square, and no glow. A soft-cornered button with a coloured
+                 * halo is the house style of every SaaS front page; an
+                 * instrument's controls are rectilinear because a panel is
+                 * machined, and that is the register this thing wants.
+                 */
+                className={`relative w-full overflow-hidden px-9 py-4 font-display text-[13px] font-semibold tracking-[0.14em] uppercase transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-hud/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:w-auto ${
+                  ready
+                    ? 'bg-hud text-black hover:bg-white'
+                    : 'cursor-progress border border-white/12 bg-transparent text-white/45'
+                }`}
               >
-                <dt className="font-display text-[11px] font-medium tracking-[0.1em] text-white/75 uppercase sm:w-[11.5rem] sm:shrink-0">
-                  {c.k}
-                </dt>
-                <dd className="mt-1.5 min-w-0 text-[11.5px] leading-relaxed text-white/40 sm:mt-0">
-                  {c.v}
-                </dd>
+                {/* While the world is being built the button *is* the progress bar. */}
+                {!ready && (
+                  <>
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 left-0 bg-white/10 transition-[width] duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                    {/* The sweep is already in the stylesheet, for exactly this. */}
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent motion-reduce:hidden"
+                      style={{ animation: 'sweep 2.4s linear infinite' }}
+                    />
+                  </>
+                )}
+                <span className="relative">
+                  {ready ? 'Begin flight' : `Building the world · ${pct}%`}
+                </span>
+              </button>
+              {!ready && label && (
+                <div className="mt-3 font-mono text-[10px] tracking-wider text-white/25 lowercase">
+                  {label}
+                </div>
+              )}
+            </div>
+
+            {/* The missions, on the door rather than behind it. Each is a link: the
+                vessel and the pad are fixed at load, so a mission is an address. */}
+            <div style={step(shown, 4)} className="mt-11">
+              <div className="font-mono text-[10px] tracking-[0.26em] text-white/30 uppercase">
+                Or start inside one
               </div>
-            ))}
-          </dl>
+              <div className="mt-3 border-t border-white/10">
+                {PRESETS.map((p, i) => (
+                  <a
+                    key={p.id}
+                    href={presetHref(p)}
+                    className="group relative flex items-baseline gap-5 border-b border-white/10 py-3.5 outline-none transition-colors duration-200 hover:bg-white/[0.045] focus-visible:bg-white/[0.06]"
+                  >
+                    {/*
+                      A hairline that grows down the left on hover, instead of the
+                      whole row lifting. An index card in a drawer does not rise
+                      when you touch it; the one you are on is simply marked.
+                    */}
+                    <span
+                      aria-hidden
+                      className="absolute top-0 bottom-0 -left-4 w-px origin-top scale-y-0 bg-hud/60 transition-transform duration-300 group-hover:scale-y-100 group-focus-visible:scale-y-100 motion-reduce:transition-none"
+                    />
+                    <span className="font-mono text-[10px] text-hud/45 tabular-nums transition-colors duration-200 group-hover:text-hud/80">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13.5px] font-medium text-white/90">{p.title}</span>
+                      <span className="mt-1 block text-[12px] leading-snug text-white/45">
+                        {p.blurb}
+                      </span>
+                    </span>
+                    <span className="pr-1 text-hud/50 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none">
+                      →
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
 
-          {/*
-            The colophon. A person made this and the page says so — plainly,
-            once, at the foot where a colophon belongs, rather than as a badge.
-            The figures beside it are the ones this simulator is actually built
-            on, and they are the kind of detail no template supplies.
-          */}
-          <div style={step(shown, 6)} className="mt-10 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-            <span className="text-[11.5px] text-white/45">
-              Built by <span className="font-medium text-white/75">Ishaan&nbsp;Jha</span>, a
-              high-school freshman.
-            </span>
-            <span className="font-mono text-[10px] tracking-[0.16em] text-white/22 uppercase">
-              Epoch J2000.0 · 117,955 stars · four pads
-            </span>
+            {/*
+              Ruled, but not numbered — see CLAIMS above for why this is a
+              definition list and not a row of cards.
+            */}
+            <dl style={step(shown, 5)} className="mt-12 border-t border-white/10">
+              {CLAIMS.map((c) => (
+                <div
+                  key={c.k}
+                  className="border-b border-white/[0.07] py-4 sm:flex sm:items-baseline sm:gap-6"
+                >
+                  <dt className="font-display text-[11px] font-medium tracking-[0.1em] text-white/75 uppercase sm:w-[11.5rem] sm:shrink-0">
+                    {c.k}
+                  </dt>
+                  {/*
+                    /50 rather than /40, and the notch is measured rather than
+                    eyeballed. Rendering the scene into an offscreen target and
+                    sampling the band this list sits in: the background is
+                    0.0191 relative luminance at the 95th percentile, where
+                    white/40 reads 6.67:1 and clears AA for small text easily.
+                    The tail is the problem — the brightest cloud tops in that
+                    same band reach 0.111, and white/40 falls to 3.2:1 against
+                    those. /50 takes the typical case to 8.1:1 and the tail to
+                    3.8:1. That last figure is still under 4.5, and is left
+                    written down rather than rounded up to a claim: clearing it
+                    everywhere needs white/65, which is the term's own weight
+                    and would flatten the list into one tone.
+                  */}
+                  <dd className="mt-1.5 min-w-0 text-[11.5px] leading-relaxed text-white/50 sm:mt-0">
+                    {c.v}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            {/*
+              The colophon. A person made this and the page says so — plainly,
+              once, at the foot where a colophon belongs, rather than as a badge.
+            */}
+            <div
+              style={step(shown, 6)}
+              className="mt-10 flex flex-wrap items-baseline gap-x-6 gap-y-2"
+            >
+              <span className="text-[11.5px] text-white/45">
+                Built by <span className="font-medium text-white/75">Ishaan&nbsp;Jha</span>, a
+                high-school freshman.
+              </span>
+              <span className="font-mono text-[10px] tracking-[0.16em] text-white/22 uppercase">
+                Four pads · one integrator
+              </span>
+            </div>
+
+            <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-white/22">
+              Everything behind this page is the simulation itself, already running.
+            </p>
           </div>
-
-          <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-white/22">
-            Everything behind this page is the simulation itself, already running.
-          </p>
         </div>
       </div>
+
+      {/*
+        The two scroll controls. Neither is decoration: each appears only when it
+        has somewhere to go, and each does the thing it depicts. They sit outside
+        the scroller so they stay put while it moves.
+      */}
+      <button
+        type="button"
+        onClick={() => scrollBy(1)}
+        aria-hidden={!more}
+        tabIndex={more ? 0 : -1}
+        className={`absolute bottom-6 left-1/2 z-20 -translate-x-1/2 border border-white/12 bg-black/40 px-4 py-2 font-mono text-[9px] tracking-[0.26em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none ${
+          more ? 'pointer-events-auto opacity-100' : 'pointer-events-none translate-y-2 opacity-0'
+        }`}
+      >
+        More ↓
+      </button>
+
+      <button
+        type="button"
+        onClick={() => scrollBy(-1)}
+        aria-label="Back to top"
+        aria-hidden={!scrolled}
+        tabIndex={scrolled ? 0 : -1}
+        className={`absolute top-20 right-7 z-20 border border-white/12 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.24em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none sm:right-16 lg:right-24 ${
+          scrolled ? 'pointer-events-auto opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
+        }`}
+      >
+        ↑ Top
+      </button>
     </div>
   )
 }
