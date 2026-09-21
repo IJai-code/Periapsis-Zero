@@ -60,6 +60,7 @@ const GATES = [
   ['verify-stars', false],
   ['verify-loiter', false],
   ['verify-radial', false],
+  ['verify-j3', false],
   ['verify-pads', true],
   ['verify-pad-geometry', false],
   ['verify-shadows', true],
