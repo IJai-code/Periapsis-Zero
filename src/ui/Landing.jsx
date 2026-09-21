@@ -21,7 +21,14 @@ import { PRESETS, presetHref } from '../sim/presets.js'
  * and the missions are on the door rather than behind it.
  */
 
-/** The three claims that are actually load-bearing, in the order they matter. */
+/**
+ * The three claims that are actually load-bearing, in the order they matter.
+ *
+ * Set as a numbered list with hanging indices rather than as three equal cards.
+ * A three-up grid of feature cards is the default shape of every landing page
+ * built this decade, and it flattens three statements of different weight into
+ * one row of equals. A list has a first item.
+ */
 const CLAIMS = [
   {
     k: 'Built at true scale',
@@ -61,7 +68,14 @@ export function Landing({ ready, progress, label, onEnter }) {
         planet can be most of what you see.
       */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/80 to-transparent" />
+      {/*
+        The bottom fade is deep rather than shallow because the column is long:
+        at 800 px the colophon sits squarely over the daylit Pacific, and
+        white-on-cloud is unreadable at 11 px. Sized so the scrim covers the whole
+        column rather than its top third: the colophon sits 638 px down an 887 px
+        page, and the old 224 px fade ended long before it.
+      */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/92 via-black/55 to-transparent" />
 
       <div className="relative flex min-h-full items-center px-7 py-14 sm:px-16 lg:px-24">
         <div className="w-full max-w-[36rem]">
@@ -89,10 +103,16 @@ export function Landing({ ready, progress, label, onEnter }) {
             <button
               onClick={onEnter}
               disabled={!ready}
-              className={`pointer-events-auto relative w-full overflow-hidden rounded-md px-8 py-4 text-[14px] font-semibold tracking-[0.02em] transition-all duration-300 sm:w-auto ${
+              /*
+               * Square, and no glow. A soft-cornered button with a coloured
+               * halo is the house style of every SaaS front page; an
+               * instrument's controls are rectilinear because a panel is
+               * machined, and that is the register this thing wants.
+               */
+              className={`pointer-events-auto relative w-full overflow-hidden px-9 py-4 font-display text-[13px] font-semibold tracking-[0.14em] uppercase transition-all duration-200 sm:w-auto ${
                 ready
-                  ? 'bg-hud text-black shadow-[0_8px_40px_-12px_currentColor] hover:-translate-y-px hover:brightness-110'
-                  : 'cursor-progress bg-white/8 text-white/50'
+                  ? 'bg-hud text-black hover:bg-white'
+                  : 'cursor-progress border border-white/12 bg-transparent text-white/45'
               }`}
             >
               {/* While the world is being built the button *is* the progress bar. */}
@@ -120,20 +140,23 @@ export function Landing({ ready, progress, label, onEnter }) {
             <div className="font-mono text-[10px] tracking-[0.26em] text-white/30 uppercase">
               Or start inside one
             </div>
-            <div className="mt-4 flex flex-col gap-px overflow-hidden rounded-md border border-white/10">
-              {PRESETS.map((p) => (
+            <div className="mt-3 border-t border-white/10">
+              {PRESETS.map((p, i) => (
                 <a
                   key={p.id}
                   href={presetHref(p)}
-                  className="pointer-events-auto group flex items-baseline gap-4 bg-white/[0.035] px-4 py-3.5 transition-colors duration-200 hover:bg-white/[0.09]"
+                  className="pointer-events-auto group flex items-baseline gap-5 border-b border-white/10 py-3.5 transition-colors duration-200 hover:bg-white/[0.045]"
                 >
+                  <span className="font-mono text-[10px] text-hud/45 tabular-nums">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-medium text-white/90">{p.title}</span>
-                    <span className="mt-0.5 block text-[12px] leading-snug text-white/45">
+                    <span className="block text-[13.5px] font-medium text-white/90">{p.title}</span>
+                    <span className="mt-1 block text-[12px] leading-snug text-white/45">
                       {p.blurb}
                     </span>
                   </span>
-                  <span className="text-hud/60 transition-transform duration-200 group-hover:translate-x-0.5">
+                  <span className="pr-1 text-hud/50 transition-transform duration-200 group-hover:translate-x-1">
                     →
                   </span>
                 </a>
@@ -141,19 +164,46 @@ export function Landing({ ready, progress, label, onEnter }) {
             </div>
           </div>
 
-          <div
-            style={step(shown, 5)}
-            className="mt-11 grid gap-6 border-t border-white/10 pt-7 sm:grid-cols-3"
-          >
+          {/*
+            Ruled, but not numbered. The missions above are already a numbered
+            list, and two of them stacked reads like a form rather than a page —
+            so these are set as a definition list with the term in the display
+            face and the gloss beside it, which is a different shape doing a
+            different job.
+          */}
+          <dl style={step(shown, 5)} className="mt-12 border-t border-white/10">
             {CLAIMS.map((c) => (
-              <div key={c.k}>
-                <div className="text-[12px] font-medium text-white/80">{c.k}</div>
-                <p className="mt-1.5 text-[11.5px] leading-relaxed text-white/40">{c.v}</p>
+              <div
+                key={c.k}
+                className="border-b border-white/[0.07] py-4 sm:flex sm:items-baseline sm:gap-6"
+              >
+                <dt className="font-display text-[11px] font-medium tracking-[0.1em] text-white/75 uppercase sm:w-[11.5rem] sm:shrink-0">
+                  {c.k}
+                </dt>
+                <dd className="mt-1.5 min-w-0 text-[11.5px] leading-relaxed text-white/40 sm:mt-0">
+                  {c.v}
+                </dd>
               </div>
             ))}
+          </dl>
+
+          {/*
+            The colophon. A person made this and the page says so — plainly,
+            once, at the foot where a colophon belongs, rather than as a badge.
+            The figures beside it are the ones this simulator is actually built
+            on, and they are the kind of detail no template supplies.
+          */}
+          <div style={step(shown, 6)} className="mt-10 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+            <span className="text-[11.5px] text-white/45">
+              Built by <span className="font-medium text-white/75">Ishaan&nbsp;Jha</span>, a
+              high-school freshman.
+            </span>
+            <span className="font-mono text-[10px] tracking-[0.16em] text-white/22 uppercase">
+              Epoch J2000.0 · 117,955 stars · four pads
+            </span>
           </div>
 
-          <p style={step(shown, 6)} className="mt-7 text-[11px] leading-relaxed text-white/25">
+          <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-white/22">
             Everything behind this page is the simulation itself, already running.
           </p>
         </div>
