@@ -244,6 +244,29 @@ require.
   a third of its opacity, and a darkness check placed at 100 km where a faint
   glow is correct.
 
+- **`verify-heating` is in the suite**, which it could not be while it took its
+  flight state as a command-line argument — the npm script passed none, so
+  `npm run verify:heating` printed a usage line and exited, and the same was
+  true of `npm run verify:alloc`. Both now default to one checked-in state,
+  `scripts/fixtures/lunar-orbit.json` (2.3 KB, `npm run fixture:lunar` to
+  regenerate), and the suite is 25 gates at 1 s more.
+
+  The point is what it closes. The sheath `verify-plasma` draws is lit from the
+  Sutton–Graves and Tauber–Sutton fluxes, and until now nothing in CI checked
+  those fluxes themselves — the downstream gate assumed them. Peak on the
+  fixture's corridor is **494 W/cm² total, radiative over convective by 2.46×,
+  356 W/cm² radiative peaking at 60.8 km against 145 W/cm² convective at
+  57.9 km**, over a 23.8 kJ/cm² integrated load.
+
+  A checked-in state does not follow the code that made it, so the gate's first
+  check is that the fixture still restores into `LUNAR_ORBIT` under the current
+  simulator; a drifted one fails there rather than passing meaninglessly. The
+  fixture is pinned rather than re-flown on purpose — flying to lunar orbit takes
+  0.36 s, so this buys no time, it holds the entry corridor still so the gate
+  fails when the heating model changes and not when TLI targeting does. Flown
+  from a different state the same entry peaks at 439 W/cm², which is the size of
+  what pinning it removes.
+
 - **`verify-plume`** — the derived ambient pressure against the standard
   atmosphere, Prandtl-Meyer and the isentropic relations against theory and
   against their own inverses, and every nozzle in the fleet against what a
@@ -421,13 +444,14 @@ require.
   also made the measurement repeatable: before them the same unchanged code read
   48.80 and 17.61 bytes on alternating runs, and several intermediate "fixes"
   were chasing that variance rather than the code.
-- **`npm run verify:alloc` has never worked as written.** `verify-allocation.mjs`
-  takes a flight snapshot as `process.argv[2]` and the npm script passes none, so
-  it throws in `loadSnapshot` before measuring anything. Record one first
-  (`npm run fly -- --until LUNAR_ORBIT --save orbit.json`) and pass it. The
-  allocation checks that do run in CI are the ones inside `verify-navigation`,
-  `verify-rails`, `verify-gizmo`, `verify-frames`, `verify-horizon`,
-  `verify-prem`, `verify-pads`, `verify-audio` and now `verify-plume`.
+- **Crossing the mission's phase boundaries retains ~220 KB, once.**
+  `verify-allocation` measures −1.5 KB over 60,000 frames of steady state, which
+  is the render-loop rule holding. Let the same run cross TEI, entry and
+  splashdown instead and it retains 219 KB at 200,000 frames and 224 KB at
+  600,000 — three times the frames for 2% more, so it is a one-time cost paid at
+  the transitions and not a per-frame leak (0.0115 bytes a frame between those
+  two points). What allocates, and whether it is the guidance solutions being
+  built once per phase, has not been established.
 - **A raw `ShaderMaterial` must write log depth or it draws nothing.** This
   renderer runs `logarithmicDepthBuffer: true`, and a shader that does not
   include three's `logdepthbuf` chunks leaves its fragments encoded linearly

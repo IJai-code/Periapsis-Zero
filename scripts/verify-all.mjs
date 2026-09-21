@@ -19,7 +19,14 @@
  *
  * `verify-radial` is newer than the order it sits in and was put beside
  * `verify-loiter` on purpose: it flies the same commitment and pins the
- * measurements that gate's lifetime checks depend on.
+ * measurements that gate's lifetime checks depend on. `verify-heating` sits
+ * immediately before `verify-plasma` for the same kind of reason: the sheath is
+ * lit from the two heat fluxes, so the gate on those fluxes runs first and a
+ * red one says which of the two to read.
+ *
+ * `verify-heating` could not be in this list until it had a state to fly from
+ * that did not arrive as a command-line argument. It has one now —
+ * `scripts/fixtures/lunar-orbit.json`, 2.3 KB — and costs the suite 0.5 s.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -55,6 +62,7 @@ const GATES = [
   ['verify-pad-geometry', false],
   ['verify-shadows', false],
   ['verify-plume', true],
+  ['verify-heating', false],
   ['verify-plasma', true],
   ['verify-audio', true],
 ]

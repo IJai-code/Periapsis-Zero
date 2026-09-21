@@ -3126,7 +3126,12 @@ node scripts/flight.mjs --until LUNAR_ORBIT --save orbit.json
 ```
 
 Alongside it are the checks each phase is claimed on. They take a snapshot so a
-phase can be re-flown without re-flying the mission:
+phase can be re-flown without re-flying the mission. Two of them —
+`verify-heating.mjs` and `verify-allocation.mjs` — default to a checked-in one,
+`scripts/fixtures/lunar-orbit.json`, so they run with no arguments and
+`verify-heating` can sit in the suite; either still accepts a path to some other
+state. `npm run fixture:lunar` regenerates it, and `scripts/fixtures/README.md`
+argues why that state is pinned rather than re-flown and what pinning it costs.
 
 | script | what it establishes |
 | --- | --- |
@@ -3138,7 +3143,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-warp.mjs` | the ascent from every warp level, and a pilot meddling mid-count; the same parking orbit at 60x and at 1x |
 | `verify-return.mjs` | departure, corridor trim, entry loads and splashdown |
 | `verify-tei-timing.mjs` | when the corridor trim is cheapest |
-| `verify-heating.mjs` | convective against radiative, down the whole entry |
+| `verify-heating.mjs` | convective against radiative, down the whole entry — 494 W/cm² peak, radiative leading by 2.46x |
 | `verify-entry-guidance.mjs` | lifting entry against ballistic, same trajectory |
 | `verify-nrho-cycle.mjs` | the sequencer's first cycle, and that it does not leak |
 | `verify-cr3bp.mjs` | the halo corrector, against full-period closure |
@@ -3152,7 +3157,7 @@ phase can be re-flown without re-flying the mission:
 | `verify-navigation.mjs` | how far the nearest surface is, how many detents cross a range, and how much of the frame the flying stage fills |
 | `record-attitude.mjs` | captures real attitude through the hardest phases to film |
 | `verify-camera-filter.mjs` | replays it through both follow filters, and measures |
-| `verify-allocation.mjs` | heap delta over 60,000 frames, under `--expose-gc` |
+| `verify-allocation.mjs` | heap delta over 60,000 frames of steady state, under `--expose-gc` |
 
 The harness starts at the store's own default of 1 day/s rather than at a safer
 setting of its own, because that is exactly the case that used to break — see the
