@@ -14,6 +14,8 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { live, refreshDerived } from '../src/sim/live.js'
 import { activeStage, applyThrust, integrateAttitude, ship, totalMass, deltaV } from '../src/sim/ship.js'
 import {
@@ -238,6 +240,15 @@ export function restore(snap) {
 
   refreshDerived()
 }
+
+/**
+ * The one checked-in state, resolved against this file rather than the working
+ * directory — `verify-all` spawns gates by absolute path and a relative default
+ * would break the moment anything ran from elsewhere.
+ *
+ * `scripts/fixtures/README.md` says what it is and how to regenerate it.
+ */
+export const LUNAR_ORBIT_FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'lunar-orbit.json')
 
 export const loadSnapshot = (path) => restore(JSON.parse(readFileSync(path, 'utf8')))
 export const saveSnapshot = (path) => writeFileSync(path, JSON.stringify(snapshot()))
