@@ -163,7 +163,33 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
           uStevens: { value: STEVENS },
         },
         vertexColors: true,
-        transparent: true,
+        /*
+         * `transparent: false`, and this one flag is the difference between a
+         * sky and a bug.
+         *
+         * The shell sits 400 units from the camera in view space, and this is a
+         * simulator where a unit is a metre — so every star is 400 m away and
+         * Earth's own surface is 6,378 km. The sky is *inside* everything. That
+         * is fine, because a sky is not at a distance, it is a direction; what
+         * has to be true instead is that it is drawn first and painted over.
+         *
+         * `depthTest: false` is half of that and was the whole of it, which is
+         * why the planets came out see-through. three keeps transparent objects
+         * in their own queue and renders it **after** all opaque geometry, and
+         * `renderOrder` only sorts within a queue — so a transparent starfield
+         * with depth testing off is drawn last, over the top of every body in
+         * the scene, additively. The bodies were never transparent. The sky was
+         * in front of them.
+         *
+         * Marking it opaque moves it into the opaque queue, where renderOrder
+         * -999 puts it immediately after `Skybox.jsx`'s -1000 and before
+         * everything real. Additive blending survives the change: three only
+         * drops blending when it is `NormalBlending` *and* the material is
+         * opaque, and this is neither. The fragment shader carries the point
+         * spread in its colour and writes alpha 1, so nothing depended on the
+         * transparent queue in the first place.
+         */
+        transparent: false,
         blending: THREE.AdditiveBlending,
         depthTest: false,
         depthWrite: false,
