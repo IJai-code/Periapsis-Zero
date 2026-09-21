@@ -65,33 +65,119 @@ export const SOLAR_INTENSITY = SOLAR_ILLUMINANCE_AT_1AU * AU * AU
 export const GROUND_RANGE = 220e3
 
 /**
- * Half-width of the shadow camera's box, m, and the resolution across it.
+ * The largest half-width the shadow box is allowed to take, m.
  *
- * These two are one decision, and it is a trade with a hard floor under it. What
- * has to fit in the box is not the structures — the widest pad reaches 212 m —
- * but the *shadows*, and a shadow's length is the caster's height over the
- * tangent of the sun's elevation. Kennedy's tower tops out at 189.5 m, so at a
- * 10 degree dawn it throws 1,075 m of shadow and at 5 degrees it throws 2,166.
+ * What has to fit in the box is not the structures — the widest pad reaches
+ * 212 m — but the *shadows*, and a shadow's length is the caster's height over
+ * the tangent of the sun's elevation. Kennedy's tower tops out at 189.5 m, so at
+ * a 10 degree dawn it throws 1,013 m of shadow and at 5 degrees it throws 2,166.
  *
- * One map cannot hold that and still resolve a lattice member. At 1,200 m and
- * 4,096 texels a texel is 0.586 m on the ground and shadows are complete down to
- * **10.6 degrees of sun elevation** — measured across all four pads by
- * `verify-shadows`, worst case Kennedy. Below that the tip of the tallest
- * shadow leaves the box. Buying the last ten degrees means either a texel of
- * 1.2 m, which stops resolving the tower that is casting, or a second cascade,
- * which is a larger change than this one and is the thing cascades are actually
- * for.
+ * This used to be the box's fixed size, and that is the thing that changed.
  *
- * The box is also more than `FLAT_RADIUS`, the 400 m Terrain grades flat, so a
+ * ── why the box is not centred on the pad ─────────────────────────────
+ *
+ * It was, and that was costing a factor of two for nothing. Shadows do not
+ * surround a pad; they fall in one direction, away from the Sun, which is a
+ * direction this simulator already knows every frame. A box centred on the pad
+ * has to be `reach + cast` wide to hold them; one slid half a shadow's length
+ * down the sun azimuth only has to be `reach + cast/2` — the same geometry in
+ * half the width, so every texel is worth twice the ground.
+ *
+ * ── and why it is sized per frame rather than once ────────────────────
+ *
+ * Because `cast` is a function of the sun's elevation, and sizing for the worst
+ * elevation means paying for it at every other one. Sized to the shadow being
+ * cast, the same 4,096 texels give:
+ *
+ *   sun 23.7 deg and above    0.195 m a texel
+ *   sun 10.6 deg              0.337 m      (where the fixed box gave 0.586)
+ *   sun  7.0 deg              0.467 m
+ *   sun  5.3 deg              the cap, 0.586 m — and below it the tip leaves
+ *
+ * So the old figure, 0.586 m, is the worst case now rather than the only case,
+ * and the elevation at which shadows stop being whole goes from **10.6 degrees
+ * to 5.3**. `verify-shadows` measures all of it, across the four pads.
+ *
+ * Cascades would do better still — sharp near *and* far at once, where this is
+ * sharp only when the sun is high — and `verify-csm` carries that measurement:
+ * three cascades split at 473/1021/2200 m give 0.195/0.421/0.908 m a texel. What
+ * they cost is three 4096-square maps instead of one. three allocates a shadow
+ * map as an RGBA8 render target with a depth buffer, so that is 300-400 MB of
+ * GPU memory on a public web page against 100-134 MB now, and every lit material
+ * in the scene has to be patched or it is silently lit N times over. That is the
+ * trade, and it was not taken.
+ *
+ * The cap is also more than `FLAT_RADIUS`, the 400 m Terrain grades flat, so a
  * shadow that runs off the graded apron still lands on the real ground.
  */
-export const SHADOW_EXTENT = 1200
+const CAP = 1200
+
+/**
+ * The cap, under its public name.
+ *
+ * Two names for one literal, and the second one is not redundant. `CAP` is what
+ * `shadowExtentFor` reads, and it has to be the module-local binding rather than
+ * the exported one: measured, reading `SHADOW_EXTENT` inside that function costs
+ * **16.62 bytes a call** and reading `CAP` costs **0.83**, on identical
+ * arithmetic, repeatably. An `export const` is a module cell that V8 will not
+ * fold into the function the way it folds a plain local, so the returned value
+ * stops being a raw double and gets boxed.
+ *
+ * Several likelier-looking culprits were tried first and were all wrong: the
+ * mixed Smi/double return that the plume hit, `Math.min` in place of the
+ * ternary, and nudging the cap off an integer. Those measured 31.86 B — worse
+ * than the thing being fixed. The literal appears once and the export is an
+ * alias of it, so nothing can drift.
+ */
+export const SHADOW_EXTENT = CAP
 
 /** Shadow map resolution. 4096 across 2 x SHADOW_EXTENT is 0.586 m a texel. */
 export const SHADOW_TEXELS = 4096
 
-/** Ground metres a shadow texel covers. Quoted by the gate, not asserted by eye. */
+/**
+ * Ground metres a texel covers at the cap — the *worst* the box ever resolves.
+ *
+ * Kept under its old name and its old value because that is what it still means:
+ * the figure to quote when saying what this shadow map is guaranteed to do. What
+ * it no longer is, is the only value — `shadowTexel` is the live one.
+ */
 export const SHADOW_TEXEL_METRES = (2 * SHADOW_EXTENT) / SHADOW_TEXELS
+
+/** Ground metres a texel covers for a given half-extent. */
+export const shadowTexel = (extent) => (2 * extent) / SHADOW_TEXELS
+
+/**
+ * The half-width the box needs for a pad's own geometry at this sun elevation.
+ *
+ * `sinElevation` is the sine of the Sun's angle above the local horizontal,
+ * which is `sunDir . up` at the pad and needs no trigonometry to obtain. A sun
+ * at or below the horizon casts no shadow worth sizing for, so it takes the cap
+ * rather than dividing by nothing.
+ */
+export function shadowExtentFor(reach, top, sinElevation) {
+  if (!(sinElevation > 0)) return CAP
+  const cosEl = Math.sqrt(1 - sinElevation * sinElevation)
+  const want = reach + 0.5 * ((top * cosEl) / sinElevation)
+  return want < CAP ? want : CAP
+}
+
+/**
+ * How far the box's centre slides from the pad, along the ground, away from the
+ * Sun. It is whatever width is left once the structures are held — half the
+ * shadow when that fits, and as much of it as the cap allows when it does not.
+ */
+export const shadowOffsetFor = (reach, extent) => extent - reach
+
+/**
+ * The lowest sun elevation at which a pad's longest shadow is still whole, rad.
+ *
+ * The inverse of the sizing above at the cap, so the two cannot disagree: at the
+ * cap the box holds 2 (SHADOW_EXTENT - reach) of shadow, and this is the
+ * elevation that casts exactly that.
+ */
+export function shadowFloorFor(reach, top) {
+  return Math.atan2(top, 2 * (SHADOW_EXTENT - reach))
+}
 
 /**
  * How far up the sun ray the light sits, m. Only the near and far planes care —

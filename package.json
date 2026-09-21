@@ -47,7 +47,7 @@
     "verify:solar": "node scripts/verify-solar.mjs",
     "stars:fetch": "node scripts/fetch-stars.mjs",
     "verify:stars": "node scripts/verify-stars.mjs",
-    "verify:shadows": "node scripts/verify-shadows.mjs",
+    "verify:shadows": "node --expose-gc scripts/verify-shadows.mjs",
     "verify:plume": "node --expose-gc scripts/verify-plume.mjs",
     "verify:plasma": "node --expose-gc scripts/verify-plasma.mjs",
     "verify:pads": "node --expose-gc scripts/verify-pads.mjs && node scripts/verify-pad-geometry.mjs",

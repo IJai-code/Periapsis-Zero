@@ -24,10 +24,11 @@
  *   node scripts/verify-shadows.mjs
  */
 import { Vector3 } from 'three'
+import { SMALLEST_OBJECT, allocatesNothing, bytesPerCall, knownAllocation, sampleText, seesAllocation } from './allocation.mjs'
 import { live, refreshDerived, resetSimulation } from '../src/sim/live.js'
 import { LAUNCH_SITES, selectSite } from '../src/sim/launchsite.js'
 import { AU, BODIES } from '../src/sim/constants.js'
-import { buildPad } from '../src/gfx/padGeometry.js'
+import { buildPad, padEnvelope } from '../src/gfx/padGeometry.js'
 import { padFor, vehicleFootprint } from '../src/gfx/pads.js'
 import { stageLength } from '../src/gfx/framing.js'
 import { ACTIVE_VESSEL } from '../src/sim/vessels.js'
@@ -44,6 +45,10 @@ import {
   onTheGround,
   padScenePoint,
   parallaxOver,
+  shadowExtentFor,
+  shadowFloorFor,
+  shadowOffsetFor,
+  shadowTexel,
 } from '../src/gfx/sunlight.js'
 
 const R = BODIES.earth.radius
@@ -142,15 +147,87 @@ console.log(`  against a texel of               ${SHADOW_TEXEL_METRES.toFixed(3)
 console.log(`  and over ${(GROUND_RANGE / 1e3).toFixed(0)} km of terrain it flattens a falloff of ${fade.toExponential(3)}`)
 
 console.log('\n=== the shadow map ===')
-console.log(`  box            ${2 * SHADOW_EXTENT} x ${2 * SHADOW_EXTENT} m at ${SHADOW_TEXELS} texels`)
-console.log(`  a texel is     ${SHADOW_TEXEL_METRES.toFixed(3)} m on the ground`)
+console.log(`  box            at most ${2 * SHADOW_EXTENT} x ${2 * SHADOW_EXTENT} m at ${SHADOW_TEXELS} texels`)
+console.log(`  a texel is     ${SHADOW_TEXEL_METRES.toFixed(3)} m on the ground at that cap, and finer above it`)
 console.log(`  depth range    ${1} to ${SHADOW_DISTANCE * 2} m, light sits at ${SHADOW_DISTANCE} m`)
-console.log(`  normal bias    ${SHADOW_TEXEL_METRES.toFixed(3)} m, which is one texel and not a tuned number`)
-console.log(`  shadows are whole above ${lowestSun.toFixed(1)} deg of sun elevation; below that the longest tip leaves the box`)
+console.log(`  normal bias    one texel of whatever the box currently is, not a tuned number`)
 console.log(
   `  the vehicle is ${(foot.radius * 2).toFixed(1)} m across, ${(( foot.radius * 2) / SHADOW_TEXEL_METRES).toFixed(0)} texels;` +
     ` a lattice tie under ${SHADOW_TEXEL_METRES.toFixed(2)} m does not resolve and its shadow is the tower's, not its own`,
 )
+
+/* ---------------------------------------------------------------- *
+ * 3b. The box breathes with the sun, and is slid onto the shadow
+ * ---------------------------------------------------------------- */
+
+/*
+ * The box is no longer a constant, so what has to be checked is no longer a
+ * number but a *law*: that at every elevation the box is big enough to hold the
+ * shadow and no bigger, and that sliding it onto the shadow is what buys the
+ * factor of two. Both are measured across all four pads rather than argued.
+ */
+console.log('\n=== the box against the sun, worst pad at each elevation ===')
+console.log('  sun deg   cast m   slid extent   slid texel   pad-centred would need   ratio')
+let worstHolds = 0
+const gains = []
+let finerThanFixed = true
+for (const deg of [60, 45, 30, 23.7, 15, 10.6, 7]) {
+  const rad = (deg * Math.PI) / 180
+  const sinEl = Math.sin(rad)
+  let row = null
+  for (const id of Object.keys(LAUNCH_SITES)) {
+    const { reach, top } = padEnvelope(id)
+    const cast = top / Math.tan(rad)
+    const extent = shadowExtentFor(reach, top, sinEl)
+    const offset = shadowOffsetFor(reach, extent)
+    /*
+     * The containment test, and the reason the offset is what it is: measured
+     * from the box's own centre, the far tip of the shadow sits at
+     * `cast - offset` and the near edge of the structures at `reach + offset`.
+     * Both have to be inside the half-extent, or something is clipped.
+     */
+    const tip = cast - offset
+    const back = reach + offset
+    const holds = Math.max(tip, back) - extent
+    if (row === null || holds > row.holds) row = { id, cast, extent, offset, holds, reach, top }
+  }
+  const padCentred = row.reach + row.cast
+  const gain = padCentred / row.extent
+  worstHolds = Math.max(worstHolds, row.holds)
+  gains.push(gain)
+  if (shadowTexel(row.extent) > SHADOW_TEXEL_METRES) finerThanFixed = false
+  console.log(
+    `  ${deg.toFixed(1).padStart(7)}${row.cast.toFixed(0).padStart(9)}${row.extent.toFixed(0).padStart(14)}` +
+      `${shadowTexel(row.extent).toFixed(3).padStart(13)}${padCentred.toFixed(0).padStart(25)}${gain.toFixed(2).padStart(8)}x`,
+  )
+}
+
+console.log('\n=== the elevation floor, per pad ===')
+let worstFloor = 0
+for (const id of Object.keys(LAUNCH_SITES)) {
+  const { reach, top } = padEnvelope(id)
+  const floor = (shadowFloorFor(reach, top) * 180) / Math.PI
+  worstFloor = Math.max(worstFloor, floor)
+  console.log(`  ${id.padEnd(12)}whole down to ${floor.toFixed(2).padStart(5)} deg`)
+}
+console.log(`  worst is ${worstFloor.toFixed(2)} deg, against ${lowestSun.toFixed(1)} deg when the box was fixed at the cap`)
+
+/* ---------------------------------------------------------------- *
+ * 3c. And the frame path that does it allocates nothing
+ * ---------------------------------------------------------------- */
+
+const control = await knownAllocation()
+const ksc = padEnvelope('ksc')
+const sines = new Float64Array(1024)
+for (let i = 0; i < 1024; i++) sines[i] = Math.sin(((5 + (i % 85)) * Math.PI) / 180)
+const cursor = new Int32Array(1)
+const sizing = await bytesPerCall(() => {
+  const e = shadowExtentFor(ksc.reach, ksc.top, sines[cursor[0]++ & 1023])
+  shadowOffsetFor(ksc.reach, e)
+  shadowTexel(e)
+})
+console.log(`\n=== allocation ===\n  the per-frame sizing: ${sampleText(sizing)}`)
+console.log(`  the bar for allocating nothing is ${SMALLEST_OBJECT / 2} B a call`)
 
 /* ---------------------------------------------------------------- *
  * 4. The switch happens where the ground does
@@ -197,6 +274,25 @@ const checks = [
    * printed above rather than asserted away.
    */
   ['a texel is small against the vehicle it is shadowing', SHADOW_TEXEL_METRES * 8 < foot.radius * 2],
+  /*
+   * The adaptive box. Containment first, because a box that resolves beautifully
+   * and clips the shadow is worse than the fixed one it replaced.
+   */
+  ['the box holds the whole shadow at every elevation above the floor', worstHolds <= 1e-9],
+  /*
+   * Not a flat "worth a factor of two", which was this gate's first draft and is
+   * false at a high sun: the saving is half the *shadow*, so it approaches 2x
+   * when the shadow dwarfs the structures and 1x when the Sun is overhead and
+   * there is barely a shadow to slide onto. What has to hold is that it grows as
+   * the Sun drops — that it pays most where the box is under most pressure.
+   */
+  ['sliding it onto the shadow pays more the lower the Sun gets', gains.every((g, i) => i === 0 || g > gains[i - 1])],
+  ['and approaches the full factor of two at the low end', gains[gains.length - 1] > 1.7],
+  ['and it is never coarser than the fixed box it replaced', finerThanFixed],
+  ['the floor drops below where the fixed box gave out', worstFloor < lowestSun],
+  ['and past the 10.6 degrees that was the old limit', worstFloor < 10.6],
+  seesAllocation('the allocation measurement can see an allocation', control),
+  allocatesNothing('sizing the box every frame allocates nothing', sizing, SMALLEST_OBJECT / 2),
   ['the beam is on at the pad and off above the ground that is drawn', onPad && justInside && !justOutside],
 ]
 let pass = true

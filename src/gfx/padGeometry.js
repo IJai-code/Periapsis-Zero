@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { exhaustOpening, padFor, vehicleFootprint } from './pads.js'
+import { stageLength } from './framing.js'
 
 /**
  * The launch complexes, as geometry. Pure three.js, no React: built here so
@@ -462,3 +463,39 @@ export function buildPad(siteId) {
   return { pad, meshes: out }
 }
 
+
+/**
+ * How far a site's pad reaches out, and how tall the tallest thing on it is.
+ *
+ * Both are what the shadow box has to be sized against, and both were being
+ * recomputed by walking every vertex of every merged mesh — fine in a gate that
+ * does it once, impossible in a frame callback. So it is done once per site and
+ * kept, and `GroundLight.jsx` and `verify-shadows` read the same answer rather
+ * than each deriving its own and drifting.
+ *
+ * `top` is the taller of the structures and the vehicle standing on the deck,
+ * because the longest shadow belongs to whichever that is — on three of the four
+ * pads it is the vehicle.
+ */
+const _envelopes = new Map()
+export function padEnvelope(siteId) {
+  const held = _envelopes.get(siteId)
+  if (held !== undefined) return held
+  const pad = padFor(siteId)
+  const { meshes } = buildPad(siteId)
+  let reach = 0
+  let high = 0
+  for (const m of meshes) {
+    const pos = m.geometry.getAttribute('position')
+    for (let i = 0; i < pos.count; i++) {
+      const r = Math.hypot(pos.getX(i), pos.getZ(i))
+      if (r > reach) reach = r
+      const y = pos.getY(i)
+      if (y > high) high = y
+    }
+  }
+  const deckTop = pad.deck + stageLength(0)
+  const envelope = { reach, top: high > deckTop ? high : deckTop }
+  _envelopes.set(siteId, envelope)
+  return envelope
+}

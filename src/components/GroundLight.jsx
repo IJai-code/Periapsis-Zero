@@ -13,7 +13,11 @@ import {
   illuminanceAt,
   onTheGround,
   padScenePoint,
+  shadowExtentFor,
+  shadowOffsetFor,
+  shadowTexel,
 } from '../gfx/sunlight.js'
+import { padEnvelope } from '../gfx/padGeometry.js'
 
 /**
  * The Sun as a parallel beam, near the ground, so the pad can cast a shadow.
@@ -35,20 +39,32 @@ import {
  *
  * **The shadow camera has to be sized.** Its default is an orthographic box
  * 10 units across. The vehicle alone is 110 m and its shadow at a low sun runs
- * further than that again, so the box is `SHADOW_EXTENT` — the radius Terrain
- * grades flat around the pad, which is the ground a shadow can land on.
+ * further than that again — so the box is sized every frame to the shadow that
+ * is actually being cast, and slid down the sun azimuth to sit on it rather than
+ * on the pad. `sunlight.js` carries why that is worth a factor of two and what
+ * it measures out at; the numbers are `verify-shadows`'.
  *
  * **The bias has to come from somewhere.** Shadow acne is the depth map's own
  * quantisation showing through, so the offset that hides it is the size of a
- * texel on the ground and not a number found by turning a knob:
- * `SHADOW_TEXEL_METRES`, which is 0.39 m here and is computed from the extent
- * and the map size rather than typed in beside them.
+ * texel on the ground and not a number found by turning a knob. Since the box
+ * now breathes, so does the texel, and so does the bias — a bias fixed at the
+ * cap's 0.586 m would be eight times too large at a high sun, which is how a
+ * shadow detaches from the thing casting it.
+ *
+ * None of this allocates. The four scratch vectors are made once, the pad's
+ * envelope is measured once per site, and the per-frame work is arithmetic and
+ * writes into objects that already exist.
  */
 export function GroundLight() {
   const light = useRef()
   const site = mission.site ?? activeSite()
   const target = useMemo(() => new THREE.Object3D(), [])
   const pad = useMemo(() => new THREE.Vector3(), [])
+  const up = useMemo(() => new THREE.Vector3(), [])
+  const azimuth = useMemo(() => new THREE.Vector3(), [])
+  const centre = useMemo(() => new THREE.Vector3(), [])
+  // Walking every vertex of a pad is a gate's job, not a frame's: once per site.
+  const envelope = useMemo(() => padEnvelope(site.id), [site.id])
 
   useFrame(({ camera }) => {
     const l = light.current
@@ -57,9 +73,37 @@ export function GroundLight() {
     l.visible = on
     if (!on) return
     padScenePoint(pad, site)
-    target.position.copy(pad)
-    l.position.copy(pad).addScaledVector(live.sunDir, SHADOW_DISTANCE)
+
+    // Local vertical at the pad, and the Sun's height above the horizon on it.
+    up.copy(pad).sub(live.pos.earth).normalize()
+    const sinElevation = live.sunDir.dot(up)
+
+    /*
+     * The shadow runs along the ground away from the Sun, so the box slides
+     * down the *horizontal* part of the sun direction, reversed. At a sun near
+     * the zenith that part goes to zero — and so does the offset, because the
+     * shadow it would be sliding onto has no length, so the degenerate
+     * normalize is multiplied by nothing.
+     */
+    const extent = shadowExtentFor(envelope.reach, envelope.top, sinElevation)
+    const offset = shadowOffsetFor(envelope.reach, extent)
+    azimuth.copy(live.sunDir).addScaledVector(up, -sinElevation).normalize()
+    centre.copy(pad).addScaledVector(azimuth, -offset)
+
+    target.position.copy(centre)
+    l.position.copy(centre).addScaledVector(live.sunDir, SHADOW_DISTANCE)
+
+    const shadow = l.shadow
+    const cam = shadow.camera
+    cam.left = -extent
+    cam.right = extent
+    cam.top = extent
+    cam.bottom = -extent
+    cam.updateProjectionMatrix()
+    shadow.normalBias = shadowTexel(extent)
+
     // The same falloff the point light it replaces would have delivered here.
+    // Unchanged, and deliberately so: the box moved, the light did not.
     l.intensity = illuminanceAt(pad.distanceTo(live.pos.sun))
   }, -2)
 
