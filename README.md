@@ -2996,6 +2996,63 @@ darker and none brighter, so nothing is leaking light. The pass costs 0.16 ms of
 CPU submission time for 98 casters; that is the draw-call cost and not a GPU
 measurement, since WebGL's `finish()` does not reliably block on the GPU.
 
+### The plume is a function of the air, not of the speed
+
+A nozzle has a fixed area ratio, so its exit pressure is fixed wherever the
+vehicle is; ambient pressure is not. Which of the two is larger is the whole of
+what a plume does between the pad and vacuum — **over-expanded** and ringing
+with shock diamonds, **matched** and clean, or **under-expanded** and opening
+through a Prandtl–Meyer fan.
+
+The state that looks right for this and is not is `live.dynamicPressure`. It is
+½ρv², and the pad clamp gives a vehicle on the pad exactly the local surface
+velocity, so it reads **zero at liftoff** — a plume driven by it would leave the
+pad fully expanded and narrow as the vehicle climbed. So ambient static pressure
+is derived instead, from the two models already present rather than a third
+table: `p = ρa²/γ` is the definition of the speed of sound in an ideal gas. It
+reads 101,325 Pa at sea level against the standard atmosphere's 101,325, and 26%
+low at 11 km — which is the density table's single 0–25 km scale height showing
+through, measured by the gate rather than left implied.
+
+Two published figures per stage then give everything else, with no fitted
+constants:
+
+| | ε | M<sub>exit</sub> | p<sub>exit</sub> | matched at |
+| --- | --- | --- | --- | --- |
+| F-1 (S-IC) | 16 | 3.60 | 47.4 kPa | 4.7 km |
+| J-2 (S-II, S-IVB) | 27.5 | 3.98 | 17.7 kPa | 10.7 km |
+| RS-25 (SLS core) | 69 | 4.62 | 21.6 kPa | 9.5 km |
+| RL10B-2 (ICPS) | 280 | 5.66 | 0.8 kPa | 32.5 km |
+
+Measured in pixels at Kennedy: 28,066 with diamonds at sea level, the diamonds
+gone by the F-1's matched altitude, opening through 10.5° at 10 km and 38° at
+30 km to a declared 60° cap in vacuum, where the footprint is largest at 37,706.
+
+### The entry sheath is the heating model, in colour
+
+The temptation is a threshold — glow above so many kilopascals and so many
+kilometres a second. The simulator already knows when a vehicle is heating, two
+ways that `verify:heating` checks against their own correlations, so a threshold
+would be a second and disagreeing answer to the same question.
+
+**When** it appears is the Draper point, 798 K, where hot matter begins to glow
+visibly and has since 1847. Through Stefan–Boltzmann that is 23.0 kW/m² of flux,
+and below it nothing is drawn.
+
+**What colour** it is comes from the same law: a shock layer radiating
+`live.radiativeFlux` has an effective temperature `T = (q/σ)^¼`, and that
+temperature has a colour by the same Planck-through-CIE integral the star
+catalogue uses. A 2,500 K shock layer and a 2,500 K star are the same colour,
+and one piece of code in this repository knows what that colour is. It is
+tabulated into a 256-step ramp at load, because ninety-five wavelengths of
+`exp` is the right way to answer the question once and the wrong way to answer
+it sixty times a second.
+
+Note what that temperature is *not*: a real shock layer runs ten thousand kelvin
+and is optically thin, so it radiates far less than a blackbody at its own
+temperature. The effective radiating temperature is the right quantity for "what
+colour is the glow" and the gas temperature is not.
+
 ### The blood-moon geometry
 
 `attachBloodMoon` in `src/gfx/shaders.js` builds the classical two-cone shadow

@@ -92,6 +92,17 @@ require.
 
 ### Changed
 
+- **The entry plasma sheath** (`src/gfx/plasma.js`, `src/components/Plasma.jsx`)
+  — keyed to `live.heatFlux` and `live.radiativeFlux`, the two the heating gate
+  already checks, rather than to a q/v threshold that would be a second answer
+  to the same question. Visible from the **Draper point**, 798 K, which is
+  23.0 kW/m² through Stefan–Boltzmann; coloured by the effective radiating
+  temperature through the same Planck-through-CIE integral the star catalogue
+  uses, tabulated into a 256-step ramp at load. Two lobes, a bow shock on the
+  windward face and a dimmer wake behind, both from `live.windDir` — which is
+  the relative wind the drag term is built on, so the glow is on the face the
+  air is actually hitting.
+
 - **The exhaust plume is drawn from the nozzle's gas dynamics**
   (`src/gfx/plumeShader.js`, `src/components/Plume.jsx`) — a unit tube deformed
   in the vertex shader to the straight-sided cone a Prandtl-Meyer expansion
@@ -224,6 +235,14 @@ require.
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-plasma`** — the Draper point and Stefan–Boltzmann round-trip, the
+  sheath colour against the star catalogue's own blackbody, and the sheath flown
+  down an entry corridor: dark at 120 km, lit through peak heating, monotone on
+  the way in. It caught two of its own author's mistakes — a saturation constant
+  quoted from a different vehicle's stagnation point, which kept the sheath under
+  a third of its opacity, and a darkness check placed at 100 km where a faint
+  glow is correct.
 
 - **`verify-plume`** — the derived ambient pressure against the standard
   atmosphere, Prandtl-Meyer and the isentropic relations against theory and
@@ -416,6 +435,13 @@ require.
   comparison. Measured on the plume before the chunks went in: **0 pixels with
   depth testing on, 25,928 with it off**. Disabling depth testing is the wrong
   repair; it draws the plume over the vehicle it comes out of.
+- **`plasmaState` boxes one double a call**: 13.5 bytes averaged over an entry
+  corridor, repeatable to the hundredth of a byte over four processes. Inlining
+  the helpers — the fix that took the plume from 33 bytes to 11.8 — moved
+  nothing, and replacing `Math.pow(x, 0.25)` with `Math.sqrt(Math.sqrt(x))`,
+  which is exactly equal and two machine instructions instead of a runtime call,
+  made it **worse at 45.4 bytes**. That is not variance; the measurement is
+  stable either way, so the file keeps the slower-looking call.
 - Eclipse shadow resolution, as documented in the README.
 
 ### Deployment
