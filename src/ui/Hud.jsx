@@ -14,6 +14,7 @@ import { CaptureStatus } from './CaptureStatus.jsx'
 import { BurnPanel } from './BurnPanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { FlightStrip } from './FlightStrip.jsx'
+import { Commentary } from './Commentary.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
 import { prediction } from '../sim/predict.js'
@@ -149,7 +150,7 @@ export function Hud() {
         makes the bottom furniture 97 px tall on a phone against 7rem of
         assumed clearance. Measured, the rail ran 17 px into it.
       */}
-      <div className="absolute top-4 left-4 flex max-h-[calc(100vh-9rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-7rem)]">
+      <div className="absolute top-4 left-4 flex max-h-[calc(100vh-9rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-8rem)]">
         <div className="pointer-events-auto">
           <div className="flex items-baseline gap-2">
             <div className="font-display text-xl leading-none font-light tracking-[0.3em] text-hud/90">
@@ -198,7 +199,7 @@ export function Hud() {
       </div>
 
       {open && !narrow && (
-        <div className="pointer-events-auto absolute top-4 right-4 max-h-[calc(100vh-7rem)] overflow-y-auto">
+        <div className="pointer-events-auto absolute top-4 right-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
           <div className="flex flex-col gap-3">{instruments}</div>
         </div>
       )}
@@ -228,11 +229,24 @@ export function Hud() {
       {/* Outside the panel toggle on purpose: it is the mode's own instructions,
           and a mode whose controls are only documented behind a hidden panel is
           a mode nobody finds. */}
+      {/* Outside the panel toggle on purpose: it is the mode's own instructions,
+          and a mode whose controls are only documented behind a hidden panel is
+          a mode nobody finds. */}
       <div className="absolute bottom-4 left-4">
         <FlyHud />
       </div>
 
+      {/*
+        Commentary above the controls, in the centre column rather than at the
+        bottom-left where it started. The left corner looked right and was not:
+        the control bar is centred on the viewport and 670 px wide at this size,
+        so a 480 px line beginning at the left margin ran straight underneath
+        it and lost its last two sentences. The centre column is the one place
+        at the foot of the screen wide enough for prose, and stacking the two
+        means neither can reach the other however either one grows.
+      */}
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+        <Commentary />
         <TimeControls />
         <button
           onClick={() => setUi((s) => ({ panelOpen: !s.panelOpen }))}
