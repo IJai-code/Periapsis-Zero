@@ -131,25 +131,34 @@ export function Landing({ ready, progress, label, onEnter }) {
         Lighter than it was across the left: with less to read there, the planet
         can be most of what you see.
       */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/88 via-black/48 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/92 via-black/52 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/70 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-obsidian/92 via-obsidian/55 to-transparent" />
+      {/*
+        The foot runs deeper and further up than it did. The column ends over
+        the daylit Pacific, and cream text on a sunlit cloud top is the one
+        place on this page where contrast can actually fail — so the scrim
+        covers the whole lower half rather than the lower third, and it fades
+        from obsidian rather than from pure black so it sits under warm imagery
+        without going grey.
+      */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-obsidian/96 via-obsidian/74 to-transparent" />
+      {/* The warm top-down vignette, over the title bar. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-warm/90 via-obsidian/55 to-transparent" />
 
       {/*
         The title bar. Two readouts, hairline-ruled, in the mono face — the
         register of a panel rather than of a nav. It is not a menu and does not
         pretend to be one: there is one place to go from here.
       */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-white/[0.07] px-7 py-4 sm:px-16 lg:px-24">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-hud/[0.12] px-7 py-4 sm:px-16 lg:px-24">
         <span
           style={step(shown, 0)}
-          className="font-mono text-[10px] tracking-[0.34em] text-hud/70 uppercase"
+          className="font-mono text-[10px] tracking-[0.34em] text-hud/75 uppercase"
         >
           Sol · Terra · Luna
         </span>
         <span
           style={step(shown, 0)}
-          className="hidden font-mono text-[10px] tracking-[0.2em] text-white/25 uppercase sm:block"
+          className="hidden font-mono text-[10px] tracking-[0.2em] text-hud/40 uppercase sm:block"
         >
           Epoch J2000.0 · 117,955 stars
         </span>
@@ -170,16 +179,24 @@ export function Landing({ ready, progress, label, onEnter }) {
       >
         <div className="relative flex min-h-full items-center px-7 pt-24 pb-24 sm:px-16 lg:px-24">
           <div className="w-full max-w-[36rem]">
+            {/*
+              Light, serif, and widely tracked — and *smaller* than it was,
+              which is the part that is counter-intuitive. Letterspacing at
+              0.15em adds about two ems across fourteen characters, so the old
+              4.8rem setting would have run 693 px into a 576 px column. An
+              editorial display line is not a big word; it is a quiet one with
+              air around every letter, and the air is what has to be paid for.
+            */}
             <h1
               style={step(shown, 1)}
-              className="font-display text-[2.6rem] leading-[0.96] font-semibold tracking-[0.03em] text-white sm:text-[4.2rem] sm:tracking-[0.04em] lg:text-[4.8rem]"
+              className="font-display text-[2rem] leading-[1.06] font-light tracking-[0.15em] text-[#f5efe6] sm:text-[3rem] lg:text-[3.4rem]"
             >
               Periapsis Zero
             </h1>
 
             <p
               style={step(shown, 2)}
-              className="mt-6 max-w-[30rem] text-[17px] leading-[1.62] font-light text-white/80"
+              className="mt-7 max-w-[30rem] text-[16.5px] leading-[1.75] font-light text-[#e8e0d5]/92"
             >
               Fly the missions that were actually flown — Apollo&nbsp;8 to the Moon and
               home, Artemis onto a halo orbit beyond it — through a solar system the
@@ -196,10 +213,18 @@ export function Landing({ ready, progress, label, onEnter }) {
                  * instrument's controls are rectilinear because a panel is
                  * machined, and that is the register this thing wants.
                  */
-                className={`relative w-full overflow-hidden px-9 py-4 font-display text-[13px] font-semibold tracking-[0.14em] uppercase transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-hud/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:w-auto ${
+                /*
+                 * A hairline rather than a slab. The old button was a solid
+                 * block of accent with the label knocked out of it, which is
+                 * the loudest thing a page can contain and made the accent
+                 * colour mean "button" instead of "this one". Now the border
+                 * carries it and the fill arrives on hover — the control is
+                 * quiet until you reach for it.
+                 */
+                className={`group relative w-full overflow-hidden border px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] uppercase transition-colors duration-300 outline-none focus-visible:ring-1 focus-visible:ring-ember/80 focus-visible:ring-offset-4 focus-visible:ring-offset-obsidian sm:w-auto ${
                   ready
-                    ? 'bg-hud text-black hover:bg-white'
-                    : 'cursor-progress border border-white/12 bg-transparent text-white/45'
+                    ? 'border-hud/45 text-[#f0e7da] hover:border-ember hover:bg-ember hover:text-obsidian'
+                    : 'cursor-progress border-white/10 bg-transparent text-white/40'
                 }`}
               >
                 {/* While the world is being built the button *is* the progress bar. */}
@@ -207,7 +232,7 @@ export function Landing({ ready, progress, label, onEnter }) {
                   <>
                     <span
                       aria-hidden
-                      className="absolute inset-y-0 left-0 bg-white/10 transition-[width] duration-500"
+                      className="absolute inset-y-0 left-0 bg-hud/12 transition-[width] duration-500"
                       style={{ width: `${pct}%` }}
                     />
                     {/* The sweep is already in the stylesheet, for exactly this. */}
@@ -223,7 +248,7 @@ export function Landing({ ready, progress, label, onEnter }) {
                 </span>
               </button>
               {!ready && label && (
-                <div className="mt-3 font-mono text-[10px] tracking-wider text-white/25 lowercase">
+                <div className="mt-3 font-mono text-[10px] tracking-wider text-hud/40 lowercase">
                   {label}
                 </div>
               )}
@@ -232,35 +257,47 @@ export function Landing({ ready, progress, label, onEnter }) {
             {/* The missions, on the door rather than behind it. Each is a link: the
                 vessel and the pad are fixed at load, so a mission is an address. */}
             <div style={step(shown, 4)} className="mt-11">
-              <div className="font-mono text-[10px] tracking-[0.26em] text-white/30 uppercase">
+              <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
                 Or start inside one
               </div>
-              <div className="mt-3 border-t border-white/10">
+              <div className="mt-3 border-t border-hud/12">
                 {PRESETS.map((p, i) => (
                   <a
                     key={p.id}
                     href={presetHref(p)}
-                    className="group relative flex items-baseline gap-5 border-b border-white/10 py-3.5 outline-none transition-colors duration-200 hover:bg-white/[0.045] focus-visible:bg-white/[0.06]"
+                    className="group relative flex items-baseline gap-5 border-b border-hud/12 py-4 outline-none transition-colors duration-500 hover:bg-hud/[0.04] focus-visible:bg-hud/[0.05]"
                   >
                     {/*
-                      A hairline that grows down the left on hover, instead of the
-                      whole row lifting. An index card in a drawer does not rise
-                      when you touch it; the one you are on is simply marked.
+                      A hairline that is always there and changes *colour* —
+                      champagne at rest, ember under the pointer — rather than
+                      one that grows, and nothing in the row moves or resizes.
+                      An index card in a drawer does not rise when you touch it;
+                      the one you are on is simply marked. Colour is also the
+                      one property here that cannot disturb layout however it is
+                      animated, which is the whole argument for using it.
                     */}
                     <span
                       aria-hidden
-                      className="absolute top-0 bottom-0 -left-4 w-px origin-top scale-y-0 bg-hud/60 transition-transform duration-300 group-hover:scale-y-100 group-focus-visible:scale-y-100 motion-reduce:transition-none"
+                      className="absolute top-0 bottom-0 -left-4 w-px bg-hud/20 transition-colors duration-500 group-hover:bg-ember group-focus-visible:bg-ember"
                     />
-                    <span className="font-mono text-[10px] text-hud/45 tabular-nums transition-colors duration-200 group-hover:text-hud/80">
+                    <span className="font-mono text-[10px] text-hud/40 transition-colors duration-500 group-hover:text-ember">
                       {String(i + 1).padStart(2, '0')}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[13.5px] font-medium text-white/90">{p.title}</span>
-                      <span className="mt-1 block text-[12px] leading-snug text-white/45">
+                      <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                        {p.title}
+                      </span>
+                      <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
                         {p.blurb}
                       </span>
                     </span>
-                    <span className="pr-1 text-hud/50 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none">
+                    {/*
+                      The arrow no longer slides. A 4 px translate on hover is
+                      the single most common motion on the web and it is the
+                      thing the brief asked to be rid of; it fades from dim to
+                      ember instead, which says the same thing without moving.
+                    */}
+                    <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">
                       →
                     </span>
                   </a>
@@ -272,13 +309,13 @@ export function Landing({ ready, progress, label, onEnter }) {
               Ruled, but not numbered — see CLAIMS above for why this is a
               definition list and not a row of cards.
             */}
-            <dl style={step(shown, 5)} className="mt-12 border-t border-white/10">
+            <dl style={step(shown, 5)} className="mt-12 border-t border-hud/12">
               {CLAIMS.map((c) => (
                 <div
                   key={c.k}
-                  className="border-b border-white/[0.07] py-4 sm:flex sm:items-baseline sm:gap-6"
+                  className="border-b border-hud/[0.09] py-4 sm:flex sm:items-baseline sm:gap-6"
                 >
-                  <dt className="font-display text-[11px] font-medium tracking-[0.1em] text-white/75 uppercase sm:w-[11.5rem] sm:shrink-0">
+                  <dt className="font-display text-[13px] font-normal tracking-[0.16em] text-hud/85 uppercase sm:w-[11.5rem] sm:shrink-0">
                     {c.k}
                   </dt>
                   {/*
@@ -295,7 +332,7 @@ export function Landing({ ready, progress, label, onEnter }) {
                     everywhere needs white/65, which is the term's own weight
                     and would flatten the list into one tone.
                   */}
-                  <dd className="mt-1.5 min-w-0 text-[11.5px] leading-relaxed text-white/50 sm:mt-0">
+                  <dd className="mt-1.5 min-w-0 text-[11.5px] leading-relaxed text-[#e8e0d5]/55 sm:mt-0">
                     {c.v}
                   </dd>
                 </div>
@@ -310,16 +347,16 @@ export function Landing({ ready, progress, label, onEnter }) {
               style={step(shown, 6)}
               className="mt-10 flex flex-wrap items-baseline gap-x-6 gap-y-2"
             >
-              <span className="text-[11.5px] text-white/45">
-                Built by <span className="font-medium text-white/75">Ishaan&nbsp;Jha</span>, a
+              <span className="text-[11.5px] text-[#e8e0d5]/55">
+                Built by <span className="font-medium text-[#f2ebe0]/85">Ishaan&nbsp;Jha</span>, a
                 high-school freshman.
               </span>
-              <span className="font-mono text-[10px] tracking-[0.16em] text-white/22 uppercase">
+              <span className="font-mono text-[10px] tracking-[0.16em] text-hud/35 uppercase">
                 Four pads · one integrator
               </span>
             </div>
 
-            <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-white/22">
+            <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-[#e8e0d5]/42">
               Everything behind this page is the simulation itself, already running.
             </p>
 
@@ -337,7 +374,7 @@ export function Landing({ ready, progress, label, onEnter }) {
             <button
               type="button"
               onClick={() => scrollBy(-1)}
-              className="mt-8 border border-white/12 px-4 py-2.5 font-mono text-[10px] tracking-[0.24em] text-white/45 uppercase outline-none focus-visible:border-hud/60 sm:hidden"
+              className="mt-8 border border-hud/20 px-4 py-2.5 font-mono text-[10px] tracking-[0.24em] text-hud/55 uppercase outline-none hover:border-ember hover:text-ember focus-visible:border-ember sm:hidden"
             >
               ↑ Back to top
             </button>
@@ -364,7 +401,7 @@ export function Landing({ ready, progress, label, onEnter }) {
         onClick={() => scrollBy(1)}
         aria-hidden={!more}
         tabIndex={more ? 0 : -1}
-        className={`absolute right-7 bottom-6 z-20 hidden border border-white/12 bg-black/40 px-4 py-2 font-mono text-[9px] tracking-[0.26em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none sm:right-16 sm:block lg:right-24 ${
+        className={`absolute right-7 bottom-6 z-20 hidden border border-hud/20 bg-obsidian/55 px-4 py-2 font-mono text-[9px] tracking-[0.26em] text-hud/55 uppercase backdrop-blur-[16px] transition-all duration-300 outline-none hover:border-ember hover:text-ember focus-visible:border-ember motion-reduce:transition-none sm:right-16 sm:block lg:right-24 ${
           more ? 'pointer-events-auto opacity-100' : 'pointer-events-none translate-y-2 opacity-0'
         }`}
       >
@@ -377,7 +414,7 @@ export function Landing({ ready, progress, label, onEnter }) {
         aria-label="Back to top"
         aria-hidden={!scrolled}
         tabIndex={scrolled ? 0 : -1}
-        className={`absolute top-20 right-7 z-20 hidden border border-white/12 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.24em] text-white/45 uppercase backdrop-blur-sm transition-all duration-300 outline-none hover:border-hud/40 hover:text-hud/80 focus-visible:border-hud/60 motion-reduce:transition-none sm:right-16 sm:block lg:right-24 ${
+        className={`absolute top-20 right-7 z-20 hidden border border-hud/20 bg-obsidian/55 px-3 py-2 font-mono text-[9px] tracking-[0.24em] text-hud/55 uppercase backdrop-blur-[16px] transition-all duration-300 outline-none hover:border-ember hover:text-ember focus-visible:border-ember motion-reduce:transition-none sm:right-16 sm:block lg:right-24 ${
           scrolled ? 'pointer-events-auto opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
         }`}
       >
