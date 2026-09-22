@@ -8,12 +8,14 @@ export function TimeControls() {
   const paused = useUi((s) => s.paused)
 
   return (
-    <div className="panel flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto rounded-sm px-3 py-2 sm:gap-3">
+    <div className="panel flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto px-3 py-2 sm:gap-3">
       <button
         onClick={() => setUi((s) => ({ paused: !s.paused }))}
         title="Pause / resume  (space)"
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-[2px] transition-colors ${
-          paused ? 'bg-amber-400/20 text-amber-300' : 'bg-hud/15 text-hud hover:bg-hud/25'
+        className={`grid h-9 w-9 shrink-0 place-items-center border transition-colors duration-300 outline-none focus-visible:border-ember sm:h-8 sm:w-8 ${
+          paused
+            ? 'border-ember bg-ember/18 text-ember'
+            : 'border-hud/22 text-hud/80 hover:border-ember hover:text-ember'
         }`}
       >
         {paused ? (
@@ -27,23 +29,23 @@ export function TimeControls() {
         )}
       </button>
 
-      <div className="h-7 w-px bg-white/10" />
+      <div className="h-7 w-px bg-hud/15" />
 
       {/* The ladder falls into two halves: rungs you watch an event at, and
           rungs you travel at. The rule marks where one becomes the other. */}
       <div className="flex items-center gap-0.5">
         {WARP_LEVELS.map((level, i) => (
           <Fragment key={level.id}>
-            {level.id === 'm1' && <div className="mx-1 h-5 w-px shrink-0 bg-white/10" />}
+            {level.id === 'm1' && <div className="mx-1 h-5 w-px shrink-0 bg-hud/15" />}
           <button
             onClick={() => setUi({ warp: i })}
             title={level.label}
-            className={`h-8 min-w-8 shrink-0 rounded-[2px] px-1.5 text-[10px] tabular-nums transition-colors ${
+            className={`h-9 min-w-9 shrink-0 border px-1.5 text-[10px] tabular-nums transition-colors duration-300 outline-none focus-visible:border-ember sm:h-8 sm:min-w-8 ${
               i === warp
-                ? 'bg-hud/20 text-hud'
+                ? 'border-ember bg-ember/18 text-ember'
                 : i < warp
-                  ? 'text-hud-dim/70 hover:bg-white/5'
-                  : 'text-white/25 hover:bg-white/5 hover:text-white/60'
+                  ? 'border-transparent text-hud/55 hover:border-ember/50 hover:text-ember'
+                  : 'border-transparent text-[#e8e0d5]/25 hover:border-ember/50 hover:text-ember'
             }`}
           >
             {level.short}
@@ -52,11 +54,11 @@ export function TimeControls() {
         ))}
       </div>
 
-      <div className="hidden h-7 w-px bg-white/10 lg:block" />
+      <div className="hidden h-7 w-px bg-hud/15 lg:block" />
 
       <div className="hidden w-28 shrink-0 px-1 lg:block">
         <div className="rule text-[8px]">Time warp</div>
-        <div className="text-[11px] leading-tight text-white/80">
+        <div className="text-[11px] leading-tight text-[#efe7db]/80">
           {paused ? 'held' : WARP_LEVELS[warp].label}
         </div>
       </div>
@@ -67,7 +69,7 @@ export function TimeControls() {
           resetMission()
         }}
         title="Return to epoch J2000.0"
-        className="h-8 shrink-0 rounded-[2px] px-2.5 text-[10px] tracking-wider text-white/40 uppercase transition-colors hover:bg-white/5 hover:text-white/80"
+        className="h-9 shrink-0 border border-transparent px-2.5 text-[10px] tracking-wider text-hud/45 uppercase transition-colors duration-300 outline-none hover:border-ember/50 hover:text-ember focus-visible:border-ember sm:h-8"
       >
         Reset
       </button>

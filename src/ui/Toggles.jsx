@@ -44,7 +44,7 @@ export function Toggles() {
               key={o.key}
               onClick={() => setUi({ [o.key]: !on })}
               aria-pressed={on}
-              className="flex w-full items-center gap-2.5 rounded-[2px] px-1 py-1 text-left transition-colors hover:bg-white/5"
+              className="flex min-h-9 w-full items-center gap-2.5 px-1 py-2 text-left outline-none transition-colors duration-300 hover:bg-hud/[0.06] focus-visible:bg-hud/[0.08] lg:min-h-0 lg:py-1"
             >
               <Switch on={on} />
               <span className={`text-[11px] ${on ? 'text-white/85' : 'text-white/35'}`}>
