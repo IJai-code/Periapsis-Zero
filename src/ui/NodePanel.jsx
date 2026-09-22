@@ -186,9 +186,10 @@ export function NodePanel() {
       {pending.length === 0 ? (
         <div className="space-y-1.5 text-[10px] leading-relaxed text-white/35">
           <p>
-            Click the <span className="text-hud/70">cyan</span> trajectory to plan a burn there.
-            Once one exists, click the <span className="text-amber-200/70">amber</span> path to
-            plan the next on the orbit it leaves.
+            Click the <span className="text-[#dfe3e6]/80">silver</span> trajectory to plan a
+            burn there. Once one exists, click the{' '}
+            <span className="text-ember/90">ember</span> path to plan the next on the orbit it
+            leaves.
           </p>
           <p>
             Pull a handle to add delta-v. <kbd className="text-white/55">Shift</kbd> for fine,{' '}

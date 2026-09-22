@@ -183,8 +183,8 @@ export function NodeEditor({ line, planLine, host }) {
       ball,
       handleMats: HANDLES.map((h) => mat(h.color, baseOpacity(h.sign))),
       centreMat: mat('#ffffff', 0.9),
-      markerMat: mat('#ffb35c', 0.75),
-      ghostMat: mat('#7df9ff', 0.8),
+      markerMat: mat('#e8823c', 0.75),
+      ghostMat: mat('#dfe3e6', 0.8),
     }
   }, [])
 

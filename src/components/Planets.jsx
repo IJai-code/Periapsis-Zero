@@ -96,7 +96,7 @@ export function Planets() {
         <Html center zIndexRange={[19, 9]} style={{ pointerEvents: 'none', transform: 'translateY(-34px)' }}>
           <div
             className={`whitespace-nowrap font-mono text-[9px] tracking-[0.22em] uppercase transition-colors ${
-              focus === p.id ? 'text-cyan-300' : 'text-white/35'
+              focus === p.id ? 'text-ember' : 'text-white/35'
             }`}
           >
             <span className="mr-1.5 opacity-50">+</span>

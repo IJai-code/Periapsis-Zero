@@ -72,7 +72,7 @@ export function Markers() {
         >
           <div
             className={`whitespace-nowrap font-mono text-[10px] tracking-[0.22em] uppercase transition-colors ${
-              focus === id ? 'text-cyan-300' : 'text-white/45'
+              focus === id ? 'text-ember' : 'text-white/45'
             }`}
           >
             <span className="mr-1.5 opacity-60">+</span>

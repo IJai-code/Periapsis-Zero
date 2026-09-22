@@ -37,13 +37,29 @@ import { useUi } from '../sim/store.js'
 const REFRESH = 0.2
 
 /**
- * Two paths, two colours, and the distinction is the point: cyan is where the
- * craft goes if nothing is commanded, amber is where the planned burns would
- * take it. Both fade along their length so direction of travel reads without
- * an arrowhead.
+ * Two paths, two colours, and the distinction is the point: one is where the
+ * craft goes if nothing is commanded, the other is where the planned burns
+ * would take it. Both fade along their length so direction of travel reads
+ * without an arrowhead.
+ *
+ * They used to be cyan and amber. Cyan was the strongest available contrast
+ * against amber and it was also the loudest thing in the frame, and once the
+ * interface around it went warm it was the only cold object left in the
+ * picture. Swapping it for a *warm* colour would have been the obvious move and
+ * the wrong one: champagne against ember is two neighbours on the same wheel,
+ * and the whole job of these two is to be told apart at a glance on a dark
+ * background.
+ *
+ * So the distinction is kept by dropping chroma instead of shifting hue. The
+ * uncommanded path is near-neutral silver — the colour of a thing that is
+ * merely true, with nothing intended about it — and the planned path is ember,
+ * the same accent the interface uses everywhere else for "this one, on
+ * purpose". Neutral against saturated separates as cleanly as cyan against
+ * amber did, and it survives being seen by someone who cannot distinguish the
+ * hues at all, which cyan against amber did not.
  */
-const BALLISTIC = { head: '#7df9ff', tail: '#1d4a7a' }
-const PLANNED = { head: '#ffb35c', tail: '#6b3d0f' }
+const BALLISTIC = { head: '#dfe3e6', tail: '#3b4247' }
+const PLANNED = { head: '#e8823c', tail: '#5a2a0c' }
 
 /** Build a fading polyline. Colours are fixed, so they are written once. */
 function makeLine({ head, tail }) {
