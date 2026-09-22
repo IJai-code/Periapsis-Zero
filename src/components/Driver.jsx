@@ -76,7 +76,23 @@ export function Driver() {
   const focus = useUi((s) => s.focus)
   const three = useThree()
   const warpBeforeBurn = useRef(null)
-  const lastWarpRequest = useRef(null)
+  /**
+   * Seeded with whatever the sequencer is already asking for, not with null.
+   *
+   * The rule below is "apply the sequencer's warp only when it *changes*, so
+   * the pilot keeps the dial the rest of the time" — and a preset handing over
+   * is the pilot setting the dial. Starting this at null broke that on the
+   * first frame of every preset: null differs from any request, so the
+   * sequencer's standing warp was applied once, immediately, over the top of
+   * the one the preset had just chosen.
+   *
+   * It was not cosmetic. The polar-loiter preset stops ten minutes short of its
+   * raise burn and asks for a minute a second so there is something to watch;
+   * the sequencer's standing request there is an hour a second, which covers
+   * those ten minutes in 0.17 s. The burn was over before the frame the player
+   * arrived on had finished.
+   */
+  const lastWarpRequest = useRef(mission.warpRequest)
   /** Which body the origin was pinned to last frame, for the rebase test below. */
   const lastOrigin = useRef(null)
   const lastShotRequest = useRef(null)
