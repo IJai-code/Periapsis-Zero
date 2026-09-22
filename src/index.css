@@ -1,8 +1,37 @@
 @import 'tailwindcss';
 
+/**
+ * The palette, and why it is warm.
+ *
+ * This was a cyan instrument panel — 0.86 lightness, 0.13 chroma, hue 200 — and
+ * cyan-on-black is the house style of every spacecraft UI ever put in a film.
+ * It reads as a prop. What is underneath it is a solar system at true scale
+ * whose only real light is a G2 star, and sunlight is warm; a cold interface
+ * over warm imagery fights the picture it is drawn on.
+ *
+ * So the accents are warm and there are two of them, doing different jobs:
+ *
+ *   `ember`      burnt ochre. The *interactive* colour. Hover, the active item,
+ *                the thing you are pointing at. Used sparingly enough that it
+ *                always means "this one".
+ *   `hud`        muted champagne. The *structural* colour. Hairlines, rules,
+ *                dividers, the small tracked labels over telemetry. It is
+ *                deliberately low-chroma: a label that competes with a figure
+ *                is a label in the wrong place.
+ *
+ * `hud` keeps its name rather than being renamed to `gold`, because sixty-three
+ * call sites across the interface already ask for it by that name and what it
+ * *means* — the structural accent — has not changed. Only its hue has.
+ */
 @theme {
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --font-display: 'Chakra Petch', system-ui, sans-serif;
+  /*
+   * A light old-style serif for display. Chakra Petch was a squared techno face
+   * and it put the whole page in the same register as a game menu; a Garamond at
+   * 300 with wide tracking is the register of a plate caption, which is what the
+   * headings here actually are.
+   */
+  --font-display: 'Cormorant Garamond', 'Didot', Georgia, serif;
   /*
    * Prose. The body is monospace because the whole instrument panel is, and an
    * instrument should be: figures have to sit in the same column as they change.
@@ -10,8 +39,17 @@
    * description — takes this instead.
    */
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --color-hud: oklch(0.86 0.13 200);
-  --color-hud-dim: oklch(0.62 0.07 220);
+
+  /* Structural: hairlines, rules, small tracked labels. */
+  --color-hud: oklch(0.83 0.052 88);
+  --color-hud-dim: oklch(0.62 0.036 86);
+  /* Interactive: hover, the active item, the marker you are meant to find. */
+  --color-ember: oklch(0.66 0.142 47);
+  --color-ember-dim: oklch(0.52 0.106 45);
+
+  /* Surfaces. Obsidian is the floor; warm is what the vignette fades from. */
+  --color-obsidian: #0a0b0d;
+  --color-warm: #1c1815;
 }
 
 html,
@@ -19,32 +57,65 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: #000;
+  background: var(--color-obsidian);
   overscroll-behavior: none;
 }
 
 body {
   font-family: var(--font-mono);
-  color: #e7f6ff;
+  color: #efe9e1;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Mission-control chrome: thin cyan rules over smoked glass. */
-@utility panel {
-  background: color-mix(in oklab, #04080f 78%, transparent);
-  backdrop-filter: blur(14px) saturate(1.3);
-  border: 1px solid color-mix(in oklab, var(--color-hud) 22%, transparent);
-  box-shadow:
-    0 0 0 1px rgb(0 0 0 / 0.5),
-    0 18px 44px -20px rgb(0 0 0 / 0.9),
-    inset 0 1px 0 color-mix(in oklab, var(--color-hud) 10%, transparent);
+/**
+ * Figures do not change width when they change value.
+ *
+ * Every number in this interface streams — altitude, velocity, dynamic
+ * pressure, mission time — and proportional digits make a readout twitch
+ * sideways on every frame as a 1 replaces a 0. That is most of what reads as
+ * "jitter" in a live panel, and it is a font feature rather than a layout
+ * problem. Applied to the mono face at the root so no readout can forget it.
+ */
+.font-mono,
+[class*='font-mono'] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
+/**
+ * Smoked glass, not a lightbox.
+ *
+ * This used to be a cyan-edged panel with a 44 px drop shadow and an inset
+ * highlight — three separate glows describing one rectangle. A panel in front of
+ * a photograph should be a piece of glass laid on it: a warm charcoal tint, a
+ * real blur so what is behind stays present as tone, and a single hairline to
+ * say where the edge is. The shadow that remains is a contact shadow, close and
+ * soft, which is what a sheet of glass actually casts.
+ */
+@utility panel {
+  background: color-mix(in oklab, #14120f 82%, transparent);
+  backdrop-filter: blur(16px) saturate(1.05);
+  border: 1px solid color-mix(in oklab, var(--color-hud) 16%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in oklab, var(--color-hud) 6%, transparent) inset,
+    0 10px 30px -18px rgb(0 0 0 / 0.85);
+}
+
+/** A tracked label over a figure. Champagne, never ember: labels do not shout. */
 @utility rule {
   letter-spacing: 0.26em;
   text-transform: uppercase;
   font-size: 9px;
-  color: color-mix(in oklab, var(--color-hud) 60%, transparent);
+  color: color-mix(in oklab, var(--color-hud) 58%, transparent);
+}
+
+/** The warm top-down vignette, as a surface anything can wear. */
+@utility warm-vignette {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-warm) 85%, transparent),
+    color-mix(in oklab, var(--color-obsidian) 0%, transparent) 60%
+  );
 }
 
 canvas {
@@ -57,8 +128,11 @@ canvas {
   height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-hud) 30%, transparent);
-  border-radius: 3px;
+  background: color-mix(in oklab, var(--color-hud) 26%, transparent);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-ember) 42%, transparent);
 }
 
 @keyframes sweep {
@@ -67,5 +141,19 @@ canvas {
   }
   to {
     transform: translateX(300%);
+  }
+}
+
+/**
+ * Nothing moves for anyone who has asked for less motion. Set here rather than
+ * per-component so a new component cannot forget it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

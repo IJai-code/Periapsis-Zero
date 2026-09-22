@@ -7,7 +7,11 @@
     <meta name="description" content="Real-time N-body solar system simulation driven by an RK4 integrator." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Chakra+Petch:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!-- Cormorant Garamond replaces Chakra Petch: a light old-style serif for
+         display, at 300 and 400 only, because the point of it is the weight.
+         Chakra Petch is dropped rather than kept beside it — an unused family
+         is a render-blocking request for nothing. -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
