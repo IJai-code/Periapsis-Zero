@@ -25,8 +25,22 @@ export function Trail({
   period, // seconds — sets how much history the trail holds
   span = 0.95, // fraction of one orbit
   points = 420,
-  head = '#7df9ff',
-  tail = '#0b3f9e',
+  /*
+   * Steel, not cyan.
+   *
+   * These were a neon set — cyan for Earth, cyan for the Moon, green for the
+   * ship, orange for the ISS, purple for Hubble — chosen when the interface
+   * around them was itself neon. Five saturated hues drawn as long curves
+   * across a dark frame is most of what made the scene read as a light show,
+   * and the trails are the largest thing in it by area.
+   *
+   * They still have to be told apart, so the hues stay and the chroma goes:
+   * each body keeps a direction on the wheel and loses the shout. This default
+   * is Earth's, a cool steel that says "the planet you came from" without
+   * competing with the planet itself.
+   */
+  head = '#9fb3c0',
+  tail = '#26333c',
   width = 1.7,
   visible = true,
 }) {

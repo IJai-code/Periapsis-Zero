@@ -27,7 +27,8 @@ import { useUi } from '../sim/store.js'
 
 /** Seconds between redraws, the trajectory's own cadence. */
 const REFRESH = 0.2
-const COLOUR = { sun: '#ffc46b', earth: '#6fb7ff', moon: '#c9b8ff' }
+/* Muted to match the trails: the same bodies, the same hues, no chroma. */
+const COLOUR = { sun: '#d9b177', earth: '#9fb3c0', moon: '#b9a3c4' }
 const NAME = { sun: 'Sol', earth: 'Terra', moon: 'Luna' }
 /**
  * How far an open conic is drawn: to the edge of the sphere of influence it is a

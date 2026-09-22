@@ -30,9 +30,9 @@ const LUNAR_MONTH = 27.321661 * DAY
  * rather than read live, so a burn does not re-seed the trail mid-flight.
  */
 const FLEET_TRAILS = [
-  { body: 'ship', period: 5545, head: '#b8ff9a', tail: '#0d5c2a' },
-  { body: 'iss', period: 5545, head: '#ffd08a', tail: '#5c3a0d' },
-  { body: 'hubble', period: 5716, head: '#d6a8ff', tail: '#3d1a5c' },
+  { body: 'ship', period: 5545, head: '#e8823c', tail: '#4a2410' },
+  { body: 'iss', period: 5545, head: '#c9b48a', tail: '#3a3223' },
+  { body: 'hubble', period: 5716, head: '#b9a3c4', tail: '#332b3a' },
 ]
 
 export function Scene({ textures }) {
@@ -95,8 +95,8 @@ export function Scene({ textures }) {
         period={LUNAR_MONTH}
         span={0.95}
         points={360}
-        head="#8ef0ff"
-        tail="#0a3573"
+        head="#cfc8bd"
+        tail="#33302b"
         width={1.4}
         visible={trails}
       />
