@@ -58,9 +58,14 @@ function raiseLine() {
 }
 
 export const COMMENTARY = {
-  PRE_LAUNCH: () =>
-    'On the pad, clamped, with the world turning underneath. The launch window is set by where ' +
-    'the Moon will be when the vehicle gets there, not by where it is now.',
+  PRE_LAUNCH: () => {
+    const t = mission.countdown
+    const clock = t > 0 ? `T−${t.toFixed(1)} s. ` : 'Clamps released. '
+    return (
+      `${clock}On the pad, held down, with the world turning underneath. The launch window is ` +
+      `set by where the Moon will be when the vehicle arrives, not by where it is now.`
+    )
+  },
 
   LIFTOFF: () =>
     'Full thrust against a vehicle that is mostly propellant. It climbs slowly at first because ' +
@@ -198,7 +203,9 @@ export const COMMENTARY = {
     'Mains. From here it is an ordinary fall at an ordinary speed, which after the last four ' +
     'minutes is the whole point.',
 
-  SPLASHDOWN: () => 'Down. The mission is over and the simulation keeps running.',
+  SPLASHDOWN: () =>
+    'Down. The mission is over; the simulation keeps integrating, because that is what it does ' +
+    'whether or not anyone is flying.',
 
   NODE_ALIGN: () => {
     const n = nodes.find((x) => !x.executed)
@@ -230,6 +237,16 @@ export const COMMENTARY = {
     'The vehicle is on a trajectory the mission cannot recover. The simulation keeps integrating ' +
     'it, because that is what the physics does.',
 }
+
+/**
+ * Phases that end something rather than lead to the next thing.
+ *
+ * Their commentary is worth reading once and then not forever: a line that sits
+ * on screen for the rest of the session saying the mission is over is the
+ * interface failing to notice that it is. `Commentary` retires these after a
+ * while; everything else stays because something is still happening.
+ */
+export const TERMINAL = new Set(['SPLASHDOWN', 'LOST'])
 
 /**
  * The line for the phase the vehicle is in, or null if that phase has none.
