@@ -168,10 +168,37 @@ export function logPhase(id, from) {
   )
 }
 
+/**
+ * Hold on the pad until a given hour of the epoch, then let go.
+ *
+ * Which hour a mission launches at is not cosmetic: it sets where the Moon is
+ * when the window opens, and therefore how long the vehicle waits in its
+ * parking orbit — which is what decides whether that orbit outlives the wait.
+ * Launching Vandenberg at hour 0 gives an orbit with 204.8 h of life and a
+ * 104.4 h wait, so nothing interesting happens; the *same* pad at the right
+ * hour has to raise itself to survive. One number selects between them.
+ *
+ * Coarse until it is close, then fine, and that matters. At a day a second the
+ * hold overshoots by up to a frame's worth of a day, so every launch hour
+ * inside the same day collapses onto one commitment and the hour asked for is
+ * not the hour flown. `verify-loiter` found this and holds the same way; the
+ * two are the same two-stage hold for the same reason.
+ */
+function holdUntilEpoch(hour) {
+  if (!(hour > 0)) return
+  const target = hour * 3600
+  flight.pilotWarp = WARP.d1
+  for (let i = 0; live.sim.t < target - 3600 && i < 1_000_000; i++) frame()
+  flight.pilotWarp = WARP.m1
+  for (let i = 0; live.sim.t < target && i < 1_000_000; i++) frame()
+  flight.pilotWarp = null
+}
+
 /** Fly the mission from the pad, committing TLI as soon as the orbit is stable, until `until`. */
 export function flyMission(until = 'LUNAR_APPROACH', opts = {}) {
   resetMission()
   refreshDerived()
+  holdUntilEpoch(opts.launchHour ?? 0)
   beginCountdown()
 
   let committed = false

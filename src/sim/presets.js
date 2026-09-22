@@ -41,6 +41,23 @@ export const PRESETS = [
     site: 'vandenberg',
     title: 'Vandenberg · polar loiter',
     blurb: 'An orbit that would decay before its window, raised in time.',
+    /*
+     * The hour is the whole scenario, and without it this preset was a lie.
+     *
+     * Launched at the epoch itself, Vandenberg's parking orbit waits 104.4 h
+     * for its window and has 204.8 h of life: it outlives the wait with a
+     * hundred hours to spare, so no raise is ever planned. The predicate below
+     * then found no node, fell through to its TLI fallback, and dropped the
+     * player into the middle of the trans-lunar injection burn — a vehicle
+     * already lighting its third stage, which is not what "a polar loiter"
+     * promises and is exactly what it looked like.
+     *
+     * At +144 h the same pad waits 282.3 h for a window its orbit cannot reach,
+     * so the flight computer raises it: two nodes, 10.52 m/s, and the thing the
+     * blurb describes actually happens. This is the hour `verify-loiter` flies
+     * its own shortfall scenario at, for the same reason.
+     */
+    launchHour: 144,
     until: loiterRaiseAhead,
     // The raise is minutes away; at the loiter's own 6 h/s it would arrive in the
     // first second, before anyone has found the vehicle on screen.
@@ -49,11 +66,23 @@ export const PRESETS = [
 ]
 
 /**
- * Up to ten minutes before the first loiter raise — or at injection, if the
- * orbit turned out not to need one, so the fast-forward cannot run on forever.
+ * Up to ten minutes before the first loiter raise.
+ *
+ * The TLI fallback stays, because a fast-forward with no stopping condition
+ * would run to `maxFrames` and hand back a vehicle wherever that landed. But it
+ * is a *guard* and not an outcome: if this preset ever reaches it, the orbit
+ * did not need raising and the mission it advertises did not happen. It fires
+ * a warning now rather than silently delivering a different flight, which is
+ * what it did for as long as the preset launched at the wrong hour.
  */
 function loiterRaiseAhead() {
-  if (currentPhase().id === 'TLI_BURN') return true
+  if (currentPhase().id === 'TLI_BURN') {
+    console.warn(
+      '[periapsis] the polar-loiter preset reached TLI without a raise being planned — ' +
+        'the parking orbit outlived its window, so there was nothing to watch',
+    )
+    return true
+  }
   const first = mission.tli.loiter.node1
   if (!(first > 0)) return false
   for (const n of nodes) if (n.id === first) return !n.executed && live.sim.t >= n.t - 600
@@ -99,7 +128,7 @@ let started = null
 export function startPreset(preset) {
   if (started) return started
   const begun = performance.now()
-  const arrived = flyMission(preset.until, { onPhase: () => {} })
+  const arrived = flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
   started = {
     preset,
     arrived,
