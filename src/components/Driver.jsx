@@ -95,7 +95,22 @@ export function Driver() {
   const lastWarpRequest = useRef(mission.warpRequest)
   /** Which body the origin was pinned to last frame, for the rebase test below. */
   const lastOrigin = useRef(null)
-  const lastShotRequest = useRef(null)
+  /**
+   * `undefined` means "not seeded yet", and that distinction is load-bearing.
+   *
+   * The director applies its shot "on change" so a pilot who picks another view
+   * keeps it, and starting this at *null* made the first comparison always
+   * differ — so the standing shot was applied once, immediately, over whatever
+   * a preset had chosen. A preset that opens on the pad was cut back to the
+   * wide planet shot before its first frame was drawn.
+   *
+   * Seeding it at construction does not work either: `director.request` is null
+   * until `updateDirector()` has run, and that first runs inside the frame loop,
+   * after this ref exists. So the seed happens on the first frame instead,
+   * *after* the director has computed and *before* the comparison — which is
+   * the only moment both values are real.
+   */
+  const lastShotRequest = useRef(undefined)
   const lastShotWarp = useRef(null)
 
   // Arm the sequencer once. Without this the opening phase's enter() never
@@ -307,7 +322,11 @@ export function Driver() {
      * already strikes over time warp.
      */
     updateDirector()
-    if (director.request !== null && director.request !== lastShotRequest.current) {
+    if (lastShotRequest.current === undefined) {
+      // First frame: adopt what the director wants without applying it, so a
+      // camera chosen before the loop started survives into it.
+      lastShotRequest.current = director.request
+    } else if (director.request !== null && director.request !== lastShotRequest.current) {
       lastShotRequest.current = director.request
       if (uiStore.get().focus !== director.request) setUi({ focus: director.request })
     } else if (director.request === null) {

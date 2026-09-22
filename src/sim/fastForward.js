@@ -194,6 +194,23 @@ function holdUntilEpoch(hour) {
   flight.pilotWarp = null
 }
 
+/**
+ * Stand on the pad at a given hour with the count running, and fly nothing.
+ *
+ * A preset that begins on the ground has nothing to fast-forward *to*: the
+ * vehicle is already where it should be and the only thing that has to happen
+ * is the clock. Routing that through `flyMission` with a `PRE_LAUNCH` predicate
+ * would still run a frame at the harness's own minute-a-second, which spends a
+ * tenth of the count before the player sees it.
+ */
+export function standOnPad(hour = 0) {
+  resetMission()
+  refreshDerived()
+  holdUntilEpoch(hour)
+  beginCountdown()
+  return true
+}
+
 /** Fly the mission from the pad, committing TLI as soon as the orbit is stable, until `until`. */
 export function flyMission(until = 'LUNAR_APPROACH', opts = {}) {
   resetMission()

@@ -57,7 +57,9 @@ export default function App() {
     const preset = requestedPreset()
     if (!preset) return
     const run = startPreset(preset)
-    setUi({ warp: run.warp, paused: false })
+    // `focus` only when the preset names one, so the director keeps the shot
+    // everywhere else — see the seeded ref in Driver.jsx for why it survives.
+    setUi(preset.focus ? { warp: run.warp, paused: false, focus: preset.focus } : { warp: run.warp, paused: false })
   }, [])
 
   const enter = useCallback(() => {

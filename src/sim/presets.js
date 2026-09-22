@@ -1,4 +1,4 @@
-import { flight, flyMission } from './fastForward.js'
+import { flight, flyMission, standOnPad } from './fastForward.js'
 import { armHaloCaptureInBackground, currentPhase, mission } from './mission.js'
 import { ACTIVE_VESSEL } from './vessels.js'
 import { activeSite } from './launchsite.js'
@@ -16,6 +16,36 @@ import { WARP } from './warp.js'
  * here goes stale the next time the physics moves.
  */
 export const PRESETS = [
+  {
+    /*
+     * The one that starts where a launch starts.
+     *
+     * Every other preset hands over somewhere in flight, which is the point of
+     * them — but it meant nothing here ever showed the thing a visitor comes to
+     * see: a vehicle on a pad, beside its tower, with a clock running. This one
+     * flies nothing. It stands on Kennedy LC-39B with the count at ten and lets
+     * it run.
+     *
+     * The hour is not arbitrary and neither was the wide shot it replaces.
+     * `director.js` opens PRE_LAUNCH on the planet rather than the pad, and
+     * gives its reason: at the J2000 epoch the site is in darkness, so a ground
+     * camera's first frame is "a grey cone in the dark with nothing to say
+     * where it is". Measured at Kennedy, the Sun sits 4.8 degrees *below* the
+     * horizon at the epoch. At +5 h it is 38.0 degrees above it — mid-morning,
+     * the tower lit from the side, and the shadow box resolving about 0.15 m a
+     * texel at that elevation. The objection was to the lighting, so the fix is
+     * the hour rather than the shot.
+     */
+    id: 'apollo8-launch',
+    vessel: 'apollo8',
+    site: 'ksc',
+    title: 'Apollo 8 · from the pad',
+    blurb: 'Kennedy LC-39B in the morning, tower and all, from T-10.',
+    fromPad: true,
+    launchHour: 5,
+    focus: 'pad',
+    warp: WARP.x1,
+  },
   {
     id: 'apollo8-lunar-orbit',
     vessel: 'apollo8',
@@ -128,7 +158,9 @@ let started = null
 export function startPreset(preset) {
   if (started) return started
   const begun = performance.now()
-  const arrived = flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
+  const arrived = preset.fromPad
+    ? standOnPad(preset.launchHour ?? 0)
+    : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
   started = {
     preset,
     arrived,
