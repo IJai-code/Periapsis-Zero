@@ -1595,9 +1595,21 @@ wrote zero, so MET read T−60 for the whole minute and then jumped. It runs now
 through zero without a step.
 
 **The arms** are built in their own hinge frames rather than merged into the
-tower's steel, because they move. `verify-pad-geometry` sweeps every vertex of
-every arm through the whole swing: nothing comes within 5.06 m of the vehicle's
-axis at any angle, and swung back each is at least 16 m clear.
+tower's steel, because they move, and each reaches the vehicle at its own
+height: its carrier stops 0.25 m short of the hull as drawn across the carrier's
+height (`hullRadiusBetween`). As drawn means the Saturn V model when the stack is
+one, so the model is measured — `npm run hulls:measure` clips every triangle of
+the file to a hundred bands along its length and records how far out each
+reaches, because a low-poly cylinder has vertices only at its ends — and the
+record is committed, since the model catalogue is not. It runs 5 to 10% wider
+than the published diameters on the lower stages. The first arms all ended at
+the vehicle's widest point, 5.15 m from the axis: 0.46 m *inside* the drawn model
+at the S-IC's fairings and 2.52 m short of the command module. `verify-pad-geometry`
+sweeps every triangle of every arm through the swing a degree at a time, exact
+in plan against the hull at that triangle's heights: mated, every arm is 0.250 m
+from it; mid-swing the carrier's 3.2 m face brings its edge in to 0.139 m before
+the arm draws away; swung back, every arm is at least 16 m from the axis. The
+record is re-measured against the file wherever the file is present.
 
 **Vapour, spray and steam** are GPU particles — 540, 500 and 2,200 camera-facing
 quads — whose whole life is a closed form in the vertex shader: damped launch

@@ -122,6 +122,16 @@ Way; 6.5 at night; the whole catalogue from orbit.
 
 ### Changed
 
+- **The swing arms reach the vehicle** (`src/gfx/pads.js`, `src/gfx/padGeometry.js`,
+  `scripts/measure-hulls.mjs`, `src/gfx/hullProfiles.js`) — every arm ended at
+  the vehicle's widest point, 5.15 m from the axis on a Saturn V: 2.5 m short of
+  the command module, and 0.46 m inside the model actually drawn at the S-IC,
+  which runs 5 to 10% wider than the published diameters. Each carrier stops
+  0.25 m short of the hull as drawn at its own height now — the sections, and the
+  model where the stack is one, measured from the file by clipping every
+  triangle to a hundred bands along its length and committed as data, because
+  the model catalogue is not.
+
 - **The Saturn V stands up** (`src/gfx/models.js`, `src/components/Craft.jsx`) —
   glTF is +Y up and the ship's nose is +Z, and nothing turned one onto the other,
   so the full stack stood on its pad lying on its side from the day the model was
@@ -324,9 +334,14 @@ Way; 6.5 at night; the whole catalogue from orbit.
   put north and south of each pad in its own frame. Its first draft compared the
   hold against one frame of free flight and got it wrong twice.
 
-- **`verify-pad-geometry`** gains the swing arms: every vertex swept through the
-  swing at eleven angles, never within 5.06 m of the vehicle's axis, and at least
-  16 m clear swung back.
+- **`verify-pad-geometry`** gains the swing arms: every triangle of every arm
+  swept through the swing a degree at a time, measured exactly in plan against
+  the hull as drawn at that triangle's own heights — never inside it, 0.250 m
+  from it mated, at least 16 m from the axis swung back — and the recorded
+  model profile re-measured against the file wherever the file is present. Its
+  first form tested vertices, which overstate the gap to a box whose nearest
+  point is mid-face, and eleven angles nine degrees apart, which stepped over
+  the closest approach.
 
 - **`verify-plasma`** — the Draper point and Stefan–Boltzmann round-trip, the
   sheath colour against the star catalogue's own blackbody, and the sheath flown
@@ -511,11 +526,6 @@ Way; 6.5 at night; the whole catalogue from orbit.
 
 ### Known limitations
 
-- **The swing arms stop short of the upper stages.** Each ends at the vehicle's
-  widest radius, 5.05 m, so the arms at the S-IVB and above end 2 to 3 m from the
-  skin. Reaching each stage at its own radius needs the radius of the hull
-  actually drawn, and Apollo 8's is the Saturn V model, measured about 6% fatter
-  than the section table — arms cut to the table would enter the model.
 - **A single frame of about 900 ms was seen twice in four traced counts** — once
   between T−4.5 and T+0.5, once at T−7.35 — neither a shader compile (a forced
   fresh compile of the plume's program measured 15.7 ms) and not reproduced in a

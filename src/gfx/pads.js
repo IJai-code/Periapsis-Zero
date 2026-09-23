@@ -1,6 +1,7 @@
-import { SECTIONS } from './hulls.js'
+import { SECTIONS, vehicleScale } from './hulls.js'
 import { stageLength } from './framing.js'
-import { ACTIVE_VESSEL } from '../sim/vessels.js'
+import { HULL_BINS, HULL_PROFILES } from './hullProfiles.js'
+import { ACTIVE_VESSEL, VESSELS } from '../sim/vessels.js'
 import { ship } from '../sim/ship.js'
 import { live } from '../sim/live.js'
 
@@ -148,6 +149,58 @@ export function vehicleFootprint(vessel = ACTIVE_VESSEL) {
     else reach = Math.max(reach, s.diameter / 2)
   }
   return { radius: core, reach, length: stageLength(0) }
+}
+
+/**
+ * How far out the vehicle on the pad is drawn anywhere between two heights
+ * above its base, m.
+ *
+ * `reach` answers this for the whole vehicle at once — the widest thing on it,
+ * anywhere — which is what a tower standing beside the stack has to clear. A
+ * swing arm needs the answer at its own height: sized to `reach`, every arm on
+ * a Saturn V stopped 5.15 m from the axis, which is 2 to 3 m short of an S-IVB,
+ * an adapter and a command module a third of the S-IC's width.
+ *
+ * Both hulls the vehicle may be drawn as are counted, and the larger taken: the
+ * sections, which `Hull.jsx` draws while a model is loading or when there is
+ * none, stacked and scaled as it stacks them, tapering where a section names a
+ * `to`; and the model, where the stack is one, as `scripts/measure-hulls.mjs`
+ * measured the file. The model runs 5 to 10% wider than the published diameters
+ * on the lower stages, so on a Saturn V it is the figure that governs. Strap-on
+ * boosters stand at a roll the pad does not know, so anywhere beside them the
+ * answer is `reach`, all the way round.
+ */
+export function hullRadiusBetween(h0, h1, vessel = ACTIVE_VESSEL) {
+  const foot = vehicleFootprint(vessel)
+  const L = foot.length
+  const sections = SECTIONS[vessel] ?? []
+  const scale = vehicleScale(vessel, L)
+  let r = 0
+  for (const s of sections) {
+    // From the base to the tip of the nose cone Hull.jsx gives each booster.
+    if (s.kind === 'boosters' && h0 < s.length * scale + 1.6 * s.diameter) r = Math.max(r, foot.reach)
+  }
+  let z = 0
+  for (const s of sections) {
+    if (s.kind === 'boosters') continue
+    const len = s.length * scale
+    const a = Math.max(h0, z)
+    const b = Math.min(h1, z + len)
+    if (a <= b) {
+      const r0 = s.diameter / 2
+      const r1 = (s.to ?? s.diameter) / 2
+      r = Math.max(r, r0 + ((r1 - r0) * (a - z)) / len, r0 + ((r1 - r0) * (b - z)) / len)
+    }
+    z += len
+  }
+  const model = VESSELS[vessel]?.stages?.[0]?.model
+  const profile = model ? HULL_PROFILES[model] : null
+  if (profile) {
+    const first = Math.max(0, Math.floor((h0 / L) * HULL_BINS))
+    const last = Math.min(HULL_BINS - 1, Math.floor((h1 / L) * HULL_BINS))
+    for (let i = first; i <= last; i++) r = Math.max(r, profile[i] * L)
+  }
+  return r
 }
 
 /**

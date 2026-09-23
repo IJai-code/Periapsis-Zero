@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { exhaustOpening, padFor, vehicleFootprint } from './pads.js'
+import { exhaustOpening, hullRadiusBetween, padFor, vehicleFootprint } from './pads.js'
 import { stageLength } from './framing.js'
 
 /**
@@ -178,8 +178,32 @@ function arm(list, { axis, from, to, y, width = 2.2 }) {
   const dims = axis === 'z' ? [width, 1.6, len] : [len, 1.6, width]
   box(parts, ...dims, ...along(len / 2))
   // The umbilical carrier at the vehicle end.
-  box(parts, 3.2, 2.6, 3.2, ...along(len - 1.6))
+  box(parts, CARRIER, CARRIER_HEIGHT, CARRIER, ...along(len - CARRIER / 2))
   list.push({ parts, axis, hinge: axis === 'z' ? [0, y, from] : [from, y, 0] })
+}
+
+/** The umbilical carrier at an arm's tip: its width and depth, and its height — the arm's tallest part. */
+const CARRIER = 3.2
+const CARRIER_HEIGHT = 2.6
+
+/**
+ * How far short of the vehicle's skin an arm's carrier stops, m. A drawing
+ * decision: close enough to read as mated, far enough not to fight the skin for
+ * the same pixels. The real carriers plugged in.
+ */
+export const ARM_GAP = 0.25
+
+/**
+ * How far from the vehicle's axis an arm at height `y` on a pad whose deck is
+ * at `deck` ends: the vehicle as
+ * drawn anywhere across the carrier's own height, and the gap. The first
+ * version ended every arm at the vehicle's *reach* — its widest point anywhere
+ * — which on a Saturn V is the S-IC, so the arms at the S-IVB, the adapter and
+ * the command module stopped 2 to 3 m short of anything.
+ */
+export function armReach(deck, y) {
+  const h = y - deck
+  return hullRadiusBetween(h - CARRIER_HEIGHT / 2, h + CARRIER_HEIGHT / 2) + ARM_GAP
 }
 
 /** A propellant storage sphere on its stub, the one thing every pad has. */
@@ -264,13 +288,12 @@ function umbilical(K, pad, foot, g) {
   post(K.white, 1.0, T * 0.22, 1.0, tx, pad.deck + T + 6, tz)
 
   // Swing arms, from the tower face to the hull.
-  // Arms stop at the vehicle's *reach*, not its core: on SLS the boosters
-  // stand a full booster diameter out from the skin, at whatever roll the
-  // body frame happens to hold on the pad.
+  // Arms stop at the vehicle as it is drawn at their own height — see
+  // armReach, and why beside SLS's boosters that is still their reach.
   const face = towerAlong - tw / 2
   for (let i = 0; i < pad.arms; i++) {
     const y = pad.deck + L * (0.1 + (0.8 * i) / Math.max(1, pad.arms - 1))
-    arm(K.arms, { axis, from: face, to: foot.reach * 1.02, y })
+    arm(K.arms, { axis, from: face, to: armReach(pad.deck, y), y })
   }
 
   // Propellant farm and support buildings out on the apron.
@@ -331,7 +354,7 @@ function tulip(K, pad, foot, g) {
     lattice(K.steel, { x, z: 0, w: 6.5, d: 6.5, y0: pad.deck, h: T, bay: 7 })
     for (let i = 0; i < 4; i++) {
       const y = pad.deck + L * (0.18 + 0.12 * i)
-      arm(K.arms, { axis: 'x', from: x - side * 3.25, to: side * reach * 1.02, y })
+      arm(K.arms, { axis: 'x', from: x - side * 3.25, to: side * armReach(pad.deck, y), y })
     }
   }
 
@@ -360,7 +383,7 @@ function gantry(K, pad, foot, g) {
   lattice(K.steel, { x: mx, z: mz, w: mw, d: mw, y0: pad.deck, h: L * 0.72, bay: 7 })
   for (let i = 0; i < 3; i++) {
     const y = pad.deck + L * (0.2 + 0.22 * i)
-    arm(K.arms, { axis, from: mastAlong - mw / 2, to: reach * 1.02, y })
+    arm(K.arms, { axis, from: mastAlong - mw / 2, to: armReach(pad.deck, y), y })
   }
 
   // The gantry, on the far side of the trench from the mast, rolled back.
@@ -419,7 +442,7 @@ function service(K, pad, foot, g) {
   post(K.white, 0.9, T * 0.2, 0.9, tx, pad.deck + T, tz)
   for (let i = 0; i < pad.arms; i++) {
     const y = pad.deck + L * (0.12 + (0.72 * i) / Math.max(1, pad.arms - 1))
-    arm(K.arms, { axis, from: towerAlong - tw / 2, to: reach * 1.02, y })
+    arm(K.arms, { axis, from: towerAlong - tw / 2, to: armReach(pad.deck, y), y })
   }
 
   // The service tower, enclosed, on the other side.
