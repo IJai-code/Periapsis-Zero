@@ -23,12 +23,14 @@ import { prediction } from '../sim/predict.js'
  * Camera modes the map cannot use.
  *
  * The map is a view of an orbit, and an orbit has to be seen from outside it.
- * These four put the camera on or inside the vehicle, so entering the map from
- * one of them moves to the body the path is drawn around.
+ * These put the camera on the vehicle, inside it, or on the ground beside it,
+ * so entering the map from one of them moves to the body the path is drawn
+ * around.
  */
-const FROM_THE_VEHICLE = new Set(['chase', 'pad', 'fly', 'cinematic'])
+const FROM_THE_VEHICLE = new Set(['chase', 'pad', 'ground', 'fly', 'cinematic'])
 
 const FOCUS_KEYS = {
+  0: 'ground',
   1: 'free',
   2: 'sun',
   3: 'earth',

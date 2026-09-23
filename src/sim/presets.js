@@ -23,8 +23,9 @@ export const PRESETS = [
      * Every other preset hands over somewhere in flight, which is the point of
      * them — but it meant nothing here ever showed the thing a visitor comes to
      * see: a vehicle on a pad, beside its tower, with a clock running. This one
-     * flies nothing. It stands on Kennedy LC-39B with the count at ten and lets
-     * it run.
+     * flies nothing. It stands on Kennedy LC-39B with the count at sixty, puts
+     * the camera on the ground at eye height, and lets the last minute run —
+     * see `countdown.js` and `gfx/groundView.js`.
      *
      * The hour is not arbitrary and neither was the wide shot it replaces.
      * `director.js` opens PRE_LAUNCH on the planet rather than the pad, and
@@ -40,10 +41,10 @@ export const PRESETS = [
     vessel: 'apollo8',
     site: 'ksc',
     title: 'Apollo 8 · from the pad',
-    blurb: 'Kennedy LC-39B in the morning, tower and all, from T-10.',
+    blurb: 'Kennedy LC-39B in the morning, from T-60, standing on the ground.',
     fromPad: true,
     launchHour: 5,
-    focus: 'pad',
+    focus: 'ground',
     warp: WARP.x1,
   },
   {

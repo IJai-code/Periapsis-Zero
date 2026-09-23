@@ -92,7 +92,7 @@ export function Planets() {
         <meshBasicMaterial visible={false} />
       </mesh>
 
-      {labels && (
+      {labels && focus !== 'ground' && (
         <Html center zIndexRange={[19, 9]} style={{ pointerEvents: 'none', transform: 'translateY(-34px)' }}>
           <div
             className={`whitespace-nowrap font-mono text-[9px] tracking-[0.22em] uppercase transition-colors ${

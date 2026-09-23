@@ -56,6 +56,7 @@ const ORIGIN_BODY = {
   // Ground camera: the origin belongs on the planet it is standing on, not on
   // the vehicle it is watching leave.
   pad: 'earth',
+  ground: 'earth',
   iss: 'iss',
   hubble: 'hubble',
   /** The opening shot circles Earth, so the origin sits on it. */

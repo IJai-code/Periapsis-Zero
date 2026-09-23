@@ -6,6 +6,7 @@ import { RAIL_BY_ID } from '../sim/rails.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { currentHullLift } from '../gfx/pads.js'
+import { EYE_FOV, groundViewpoint } from '../gfx/groundView.js'
 import { BODIES, SHIP } from '../sim/constants.js'
 import {
   CHASE_MULTIPLE,
@@ -64,6 +65,9 @@ const PAD_FOV = { min: 2.5, max: 42, fill: 0.22 }
  * matters.
  */
 const PAD_AIM_SETTLE = 0.45
+
+/** The eye-level view's settle, s: a head turning, a little softer than a mount. */
+const GROUND_AIM_SETTLE = 0.7
 
 /** How long the cut out of the pad shot takes to blend into the chase. */
 const CHASE_BLEND = 1.5
@@ -188,11 +192,24 @@ export function CameraRig() {
       aimVel: new THREE.Vector3(),
       padAim: new THREE.Vector3(),
       nodeAim: new THREE.Vector3(),
+      eye: new THREE.Vector3(),
+      eyeUp: new THREE.Vector3(),
       anchor: new THREE.Vector3(),
     }),
     [],
   )
   const baseFov = useRef(null)
+  /**
+   * Set on entering the pad or ground shot, and cleared by the first frame of
+   * it, which puts the aim straight onto its target. Seeding it in the effect
+   * that sees the focus change was the first version, and the effect runs
+   * before the frame loop has placed anything: on a preset that has just held
+   * five hours on the pad, `live.pos.ship` was still where the site had been
+   * five hours of rotation earlier — seventy-odd degrees round the planet — so
+   * the first second of the ground view looked down at the dirt while the
+   * spring swung up to a vehicle it should have started on.
+   */
+  const seedAim = useRef(false)
   const zoomBase = useRef(1)
   const focusRef = useRef(focus)
   focusRef.current = focus
@@ -366,25 +383,32 @@ export function CameraRig() {
     // Chase drives the camera outright, so orbit input is handed back only when
     // leaving the mode.
     controls.enabled =
-      focus !== 'chase' && focus !== 'pad' && focus !== 'fly' && focus !== 'cinematic'
+      focus !== 'chase' &&
+      focus !== 'pad' &&
+      focus !== 'ground' &&
+      focus !== 'fly' &&
+      focus !== 'cinematic'
     // Panning moves the orbit target, which is meaningful only when the camera
     // is not already pinned to a body.
     controls.enablePan = focus === 'free'
 
-    // Leaving the pad shot: give the lens back before anything else uses it.
-    if (focus !== 'pad' && baseFov.current !== null) {
+    // Leaving the pad or ground shot: give the lens back before anything else uses it.
+    if (focus !== 'pad' && focus !== 'ground' && baseFov.current !== null) {
       camera.fov = baseFov.current
       camera.updateProjectionMatrix()
       baseFov.current = null
     }
 
-    if (focus === 'pad') {
+    if (focus === 'pad' || focus === 'ground') {
       if (baseFov.current === null) baseFov.current = camera.fov
       opening.current = false
       flight.current = null
-      // Seed the aim filter at the craft so the first frame is not a swing.
-      scratch.aim.copy(live.pos.ship)
-      scratch.aimVel.set(0, 0, 0)
+      // The aim is seeded on the first frame, from that frame's positions.
+      seedAim.current = true
+      if (focus === 'ground') {
+        camera.fov = EYE_FOV
+        camera.updateProjectionMatrix()
+      }
       return
     }
 
@@ -609,6 +633,53 @@ export function CameraRig() {
      * surface speed, visibly. It is the same direction the pad clamp and the
      * drag model use, so the camera and the vehicle standing on it agree.
      */
+    /*
+     * The person on the ground. See gfx/groundView.js for where they stand and
+     * why; what is here is only how they look.
+     *
+     * At the vehicle's *base*, as drawn, which is where a person watching a
+     * launch actually looks — the engines, the hold-downs, the steam. The rest
+     * of the stack rises into the upper half of a 65-degree frame, and the
+     * lower half is ground and weather. After release the aim point climbs with
+     * the base on the same critically damped spring the pad camera uses, so the
+     * head tilts up with the vehicle rather than snapping to it: a first-order
+     * lag cannot keep up with a vehicle accelerating off a pad, a spring can.
+     * The settle is a little softer than the pad camera's, because a head is.
+     *
+     * The up vector is the observer's own vertical, so the horizon is level.
+     */
+    if (focus === 'ground') {
+      const site = mission.site ?? activeSite()
+      groundViewpoint(scratch.eye, scratch.eyeUp, site, live.sunDir, live.pos.earth)
+      camera.position.copy(scratch.eye)
+
+      siteDirection(scratch.siteDir, site, live.sim.t)
+      scratch.padAim
+        .copy(live.pos.ship)
+        .addScaledVector(scratch.siteDir, currentHullLift(site.id) - hull * 0.5)
+      if (seedAim.current) {
+        scratch.aim.copy(scratch.padAim)
+        scratch.aimVel.set(0, 0, 0)
+        seedAim.current = false
+      }
+      springFollow(
+        scratch.aim,
+        scratch.aim,
+        scratch.padAim,
+        scratch.aimVel,
+        omegaForSettling(GROUND_AIM_SETTLE),
+        Math.min(delta, 1 / 20),
+      )
+      if (Math.abs(camera.fov - EYE_FOV) > 1e-3) {
+        camera.fov = EYE_FOV
+        camera.updateProjectionMatrix()
+      }
+      camera.up.copy(scratch.eyeUp)
+      camera.lookAt(scratch.aim)
+      controls.target.copy(scratch.aim)
+      return
+    }
+
     if (focus === 'pad') {
       const site = mission.site ?? activeSite()
       siteDirection(scratch.siteDir, site, live.sim.t)
@@ -634,6 +705,11 @@ export function CameraRig() {
       scratch.padAim
         .copy(live.pos.ship)
         .addScaledVector(scratch.siteDir, currentHullLift(site.id))
+      if (seedAim.current) {
+        scratch.aim.copy(scratch.padAim)
+        scratch.aimVel.set(0, 0, 0)
+        seedAim.current = false
+      }
       springFollow(
         scratch.aim,
         scratch.aim,

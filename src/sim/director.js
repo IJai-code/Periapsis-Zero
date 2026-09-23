@@ -1,4 +1,4 @@
-import { PHASE_IDS, currentPhase } from './mission.js'
+import { PHASE_IDS, currentPhase, mission } from './mission.js'
 import { WARP } from './warp.js'
 
 /**
@@ -180,7 +180,15 @@ export function updateDirector() {
   if (!shot) return director
 
   director.forPhase = id
-  director.request = shot[0]
+  /*
+   * On a watched launch the ground shots are the person's, not the long lens.
+   * A launch started from the pad for someone to see opens on the eye-level
+   * camera, and cutting to the pad camera at liftoff would take them out of it
+   * at the one moment the whole minute was building to. So where the table asks
+   * for `pad`, the ground sequence gets `ground`; everywhere else the table
+   * stands, and the gravity turn still cuts to the chase as it always has.
+   */
+  director.request = mission.groundSequence && shot[0] === 'pad' ? 'ground' : shot[0]
   director.shot = shot[1]
   director.warp = shot[2] ?? null
   director.cuts += 1

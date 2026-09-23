@@ -48,6 +48,15 @@ export function Scene({ textures }) {
    * shown and not a preference to be restored later.
    */
   const cinematic = useUi((s) => s.focus === 'cinematic')
+  /**
+   * Nor does a person standing on the ground. The eye-level view is the one
+   * shot in the simulator that is meant to look like being there, and a
+   * predicted orbit drawn up out of the pad, a trail, a floating name tag are
+   * all the HUD reaching into it. Unlike the opening shot it keeps the terrain
+   * and the planets: it is standing on the one and may see the others.
+   */
+  const ground = useUi((s) => s.focus === 'ground')
+  const bare = cinematic || ground
   const active = useActiveTextures(textures)
 
   return (
@@ -74,7 +83,7 @@ export function Scene({ textures }) {
       <Craft id="hubble" />
       <ShipControls />
 
-      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails} />
+      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground} />
       {FLEET_TRAILS.map((t) => (
         <Trail
           key={t.body}
@@ -86,7 +95,7 @@ export function Scene({ textures }) {
           head={t.head}
           tail={t.tail}
           width={1.1}
-          visible={trails}
+          visible={trails && !ground}
         />
       ))}
       <Trail
@@ -98,13 +107,13 @@ export function Scene({ textures }) {
         head="#cfc8bd"
         tail="#33302b"
         width={1.4}
-        visible={trails}
+        visible={trails && !ground}
       />
 
-      {!cinematic && <Trajectory />}
-      {!cinematic && <Osculating />}
+      {!bare && <Trajectory />}
+      {!bare && <Osculating />}
       {!cinematic && <MapOverlay />}
-      {!cinematic && <Markers />}
+      {!bare && <Markers />}
       {!cinematic && <Planets />}
       {!cinematic && <Terrain />}
 
@@ -122,7 +131,7 @@ export function Scene({ textures }) {
         panSpeed={0.45}
       />
       <CameraRig />
-      {!cinematic && <LagrangeProjector />}
+      {!bare && <LagrangeProjector />}
       <Effects enabled={bloom} />
     </>
   )

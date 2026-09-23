@@ -9,6 +9,7 @@ const TARGETS = [
   { id: 'moon', name: BODIES.moon.name, hint: 'Tidally locked', key: '4' },
   { id: 'ship', name: SHIP.name, hint: 'Orbit lock', key: '5' },
   { id: 'chase', name: 'Chase', hint: 'Rides the hull', key: '6' },
+  { id: 'ground', name: 'Ground', hint: 'Eye height · 380 m', key: '0' },
   { id: 'iss', name: 'ISS', hint: '400 km · 51.6°', key: '7' },
   { id: 'hubble', name: 'Hubble', hint: '540 km · 28.5°', key: '8' },
 ]
