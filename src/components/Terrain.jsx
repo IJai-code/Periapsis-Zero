@@ -266,6 +266,33 @@ export function Terrain() {
     east.crossVectors(axis, up).normalize()
     north.crossVectors(up, east).normalize()
     g.position.copy(live.pos.earth).addScaledVector(up, R)
+    /*
+     * South, not north — and the group is mirrored in z (see its `scale`) — and
+     * this pair of lines is the whole of a bug that tilted the ground under
+     * every launch this simulator has drawn.
+     *
+     * The pad frame is "x east, y up, z north", and that frame is LEFT-handed:
+     * east × up is *south*. So `makeBasis(east, up, north)` built a matrix with
+     * determinant −1 — a reflection — and `setFromRotationMatrix` assumes a
+     * pure rotation and has no way to say otherwise. It returned a quaternion
+     * whose "up" was wrong by an amount that moved with the planet: measured,
+     * 56° at the J2000 epoch, 45° at two hours, 42° at six and a half, 71° at
+     * twelve. Terrain, tower, trench and apron were all drawn leaning by that
+     * much, while the vehicle — oriented separately, and correctly — stood
+     * true-vertical beside them. The position was always exact; only the
+     * orientation was wrong, which is why nothing that measured positions
+     * caught it and a camera at eye height, which needs the ground to be
+     * where the ground is, did.
+     *
+     * A quaternion cannot hold a reflection, so the reflection moves to where
+     * one can live: the rotation is built from the right-handed basis
+     * (east, up, south), and `scale.z = −1` turns the geometry's stored north
+     * into that south. The composition maps local (x, y, z) to
+     * x·east + y·up + z·north exactly, which is what the vertices were built
+     * in. three flips face winding for a negative-determinant world matrix, so
+     * the terrain's front faces still face up.
+     */
+    north.negate()
     basis.makeBasis(east, up, north)
     g.quaternion.setFromRotationMatrix(basis)
     // 70 km of ground is worth drawing only from close to it.
@@ -276,7 +303,7 @@ export function Terrain() {
 
   if (!mesh) return null
   return (
-    <group ref={group} visible={false}>
+    <group ref={group} visible={false} scale={[1, 1, -1]}>
       <mesh geometry={mesh} receiveShadow>
         <meshStandardMaterial vertexColors roughness={0.95} metalness={0.0} />
       </mesh>
