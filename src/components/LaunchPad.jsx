@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { ARM_SWING, buildPad } from '../gfx/padGeometry.js'
 import { armRetraction } from '../sim/countdown.js'
 import { mission } from '../sim/mission.js'
+import { PadEffects } from './PadEffects.jsx'
 
 /**
  * The ground structures at a launch site, built rather than loaded.
@@ -85,6 +86,7 @@ export function LaunchPad({ site }) {
           <mesh geometry={a.geometry} material={armSteel} castShadow receiveShadow />
         </group>
       ))}
+      <PadEffects built={built} />
     </group>
   )
 }
