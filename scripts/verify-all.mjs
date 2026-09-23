@@ -64,6 +64,7 @@ const GATES = [
   ['verify-pads', true],
   ['verify-pad-geometry', false],
   ['verify-shadows', true],
+  ['verify-countdown', true],
   ['verify-csm', false],
   ['verify-plume', true],
   ['verify-heating', false],

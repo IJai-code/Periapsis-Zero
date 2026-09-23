@@ -54,7 +54,8 @@
     "verify:audio": "node --expose-gc scripts/verify-audio.mjs",
     "fixture:lunar": "node scripts/flight.mjs --until LUNAR_ORBIT --save scripts/fixtures/lunar-orbit.json",
     "verify:csm": "node scripts/verify-csm.mjs",
-    "verify:j3": "node scripts/verify-j3.mjs"
+    "verify:j3": "node scripts/verify-j3.mjs",
+    "verify:countdown": "node --expose-gc scripts/verify-countdown.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",
