@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { scalarUniform } from '../gfx/scalarUniform.js'
 import { live } from '../sim/live.js'
 import { plasmaState } from '../gfx/plasma.js'
 
@@ -92,7 +93,8 @@ export function Plasma({ size = 4 }) {
         uniforms: {
           uColour: { value: new THREE.Color(1, 0.3, 0.1) },
           uWind: { value: new THREE.Vector3(0, 0, 1) },
-          uOpacity: { value: 0 },
+          // Rewritten every frame of an entry: see gfx/scalarUniform.js.
+          uOpacity: scalarUniform(0),
         },
         transparent: true,
         blending: THREE.AdditiveBlending,

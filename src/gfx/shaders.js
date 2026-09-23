@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { scalarUniform } from './scalarUniform.js'
 
 /** Compact 3D value noise + fBm, shared by the sun's photosphere and corona. */
 const GLSL_NOISE = /* glsl */ `
@@ -86,7 +87,8 @@ export function makeSunMaterial() {
     vertexShader: SUN_VERT,
     fragmentShader: SUN_FRAG,
     uniforms: {
-      uTime: { value: 0 },
+      // Rewritten every frame: see gfx/scalarUniform.js.
+      uTime: scalarUniform(0),
       uDeep: { value: new THREE.Color('#c2410c') },
       uMid: { value: new THREE.Color('#fb923c') },
       uHot: { value: new THREE.Color('#fff9e8') },
@@ -132,7 +134,7 @@ export function makeCoronaMaterial() {
     vertexShader: SUN_VERT,
     fragmentShader: CORONA_FRAG,
     uniforms: {
-      uTime: { value: 0 },
+      uTime: scalarUniform(0),
       uColor: { value: new THREE.Color('#ffb054') },
       uIntensity: { value: 1.5 },
       uShell: { value: CORONA_SHELL },

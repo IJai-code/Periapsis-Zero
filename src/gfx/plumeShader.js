@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { scalarUniform } from './scalarUniform.js'
 import { DRAWN_HALF_ANGLE_CAP, plumeAt } from './plume.js'
 
 /**
@@ -142,11 +143,12 @@ export function makePlumeMaterial() {
     vertexShader: VERT,
     fragmentShader: FRAG,
     uniforms: {
-      uLength: { value: 1 },
-      uExitRadius: { value: 1 },
-      uTanAngle: { value: 0 },
-      uDiamonds: { value: 0 },
-      uThrottle: { value: 0 },
+      // The five aimPlume rewrites every frame of a burn: see gfx/scalarUniform.js.
+      uLength: scalarUniform(1),
+      uExitRadius: scalarUniform(1),
+      uTanAngle: scalarUniform(0),
+      uDiamonds: scalarUniform(0),
+      uThrottle: scalarUniform(0),
       uCore: { value: new THREE.Color('#bfe4ff') },
       uTip: { value: new THREE.Color('#ff7a3c') },
     },
