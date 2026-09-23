@@ -11,6 +11,7 @@
     "textures:preview": "node scripts/preview-textures.mjs",
     "textures:fetch": "node scripts/fetch-hd-textures.js",
     "models:scan": "node scripts/scan-models.mjs",
+    "hulls:measure": "node scripts/measure-hulls.mjs",
     "models:extract": "node scripts/extract-archives.mjs",
     "fly": "node scripts/flight.mjs",
     "verify:anomalies": "node scripts/verify-anomalies.mjs",

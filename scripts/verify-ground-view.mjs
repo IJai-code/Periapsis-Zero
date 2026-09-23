@@ -37,9 +37,10 @@
 process.env.PERIAPSIS_VESSEL ??= 'apollo8'
 process.env.PERIAPSIS_SITE ??= 'ksc'
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
+import { glbTriangles, radiusProfile } from './glb.mjs'
 
-const { DoubleSide, Matrix4, Object3D, Quaternion, Vector3 } = await import('three')
+const { DoubleSide, Matrix4, Object3D, Vector3 } = await import('three')
 const A = await import('../src/gfx/atmosphereShader.js')
 const { daySky, measureSky, skyRadiance } = await import('../src/gfx/skyGlow.js')
 const { MAGNITUDE_LIMIT } = await import('../src/gfx/stars.js')
@@ -230,57 +231,13 @@ const SATURN = 'public/models/Saturn V/Saturn V.glb'
 let saturn = null
 if (existsSync(SATURN)) saturn = profileGlb(SATURN)
 
+/** The Saturn V file turned as the craft turns it, profiled in tenths: how wide at the nose and at the tail. */
 function profileGlb(file) {
-  const buf = readFileSync(file)
-  const jsonLen = buf.readUInt32LE(12)
-  const gltf = JSON.parse(buf.subarray(20, 20 + jsonLen).toString())
-  const bin = buf.subarray(20 + jsonLen + 8)
-  const pts = []
-  const nodeMatrix = (n) =>
-    n.matrix
-      ? new Matrix4().fromArray(n.matrix)
-      : new Matrix4().compose(
-          new Vector3(...(n.translation ?? [0, 0, 0])),
-          new Quaternion(...(n.rotation ?? [0, 0, 0, 1])),
-          new Vector3(...(n.scale ?? [1, 1, 1])),
-        )
-  const visit = (i, parent) => {
-    const n = gltf.nodes[i]
-    const m = parent.clone().multiply(nodeMatrix(n))
-    for (const prim of n.mesh !== undefined ? gltf.meshes[n.mesh].primitives : []) {
-      const acc = gltf.accessors[prim.attributes.POSITION]
-      const view = gltf.bufferViews[acc.bufferView]
-      const stride = view.byteStride ?? 12
-      const off = (view.byteOffset ?? 0) + (acc.byteOffset ?? 0)
-      for (let k = 0; k < acc.count; k++) {
-        const b = off + k * stride
-        pts.push(new Vector3(bin.readFloatLE(b), bin.readFloatLE(b + 4), bin.readFloatLE(b + 8)).applyMatrix4(m))
-      }
-    }
-    for (const c of n.children ?? []) visit(c, m)
-  }
-  for (const r of gltf.scenes[gltf.scene ?? 0].nodes) visit(r, new Matrix4())
-  // Turned as the craft turns it, then profiled along +Z: how wide is it near each end?
+  const { triangles } = glbTriangles(file)
   const turn = new Matrix4().makeRotationFromEuler(turnNose(new Object3D(), noseOf('saturn_v')).rotation)
-  const q = pts.map((p) => p.clone().applyMatrix4(turn))
-  const lo = new Vector3(Infinity, Infinity, Infinity)
-  const hi = new Vector3(-Infinity, -Infinity, -Infinity)
-  for (const p of q) {
-    lo.min(p)
-    hi.max(p)
-  }
-  const size = new Vector3().subVectors(hi, lo)
-  const cx = (lo.x + hi.x) / 2
-  const cy = (lo.y + hi.y) / 2
-  const width = (from, to) => {
-    let w = 0
-    for (const p of q) {
-      const f = (p.z - lo.z) / size.z
-      if (f >= from && f <= to) w = Math.max(w, Math.hypot(p.x - cx, p.y - cy))
-    }
-    return w
-  }
-  return { size: size.toArray(), nose: width(0.9, 1), tail: width(0, 0.1) }
+  const { radius, longest, length } = radiusProfile(triangles, turn, 10)
+  // Long along +Z once turned: its length is its longest dimension.
+  return { alongZ: length === longest, nose: radius[9] * longest, tail: radius[0] * longest }
 }
 
 const csm = VESSELS.apollo8.stages.find((s) => s.name === 'Service Module')
@@ -386,7 +343,7 @@ console.log('\n=== the vehicle ===')
 console.log(`  every nose axis onto +Z to ${worstNose.toExponential(1)}; saturn_v ${noseOf('saturn_v')}, apollo_csm ${noseOf('apollo_csm')}`)
 console.log(
   saturn
-    ? `  Saturn V file, turned: ${saturn.size.map((x) => x.toFixed(2)).join(' x ')}, ${saturn.nose.toFixed(2)} from the axis in the nose tenth and ${saturn.tail.toFixed(2)} in the tail`
+    ? `  Saturn V file, turned: long along +Z ${saturn.alongZ}, ${saturn.nose.toFixed(2)} from the axis in the nose tenth and ${saturn.tail.toFixed(2)} in the tail`
     : '  Saturn V file not present — the catalogue is fetched after the gates in CI — so it was not re-measured',
 )
 console.log(`  Apollo 8's CSM stage is drawn from ${csm?.model === null ? 'its own sections' : `the model "${csm?.model}"`}`)
@@ -422,7 +379,7 @@ const checks = [
   ['and passing the real top shows nothing appearing all at once', Math.abs(below - above) < 0.1],
   // The vehicle.
   ['every model axis the craft may name is turned onto the nose', worstNose < 1e-12],
-  ['the Saturn V file stands with its escape tower up', saturn === null || (saturn.size[2] > saturn.size[0] * 4 && saturn.nose < saturn.tail / 4)],
+  ['the Saturn V file stands with its escape tower up', saturn === null || (saturn.alongZ && saturn.nose < saturn.tail / 4)],
   ["and Apollo 8 does not fly a Soyuz on its nose", csm?.model === null],
   // The pad.
   ['the pad is carried into the scene by a mirror', mirrored],
