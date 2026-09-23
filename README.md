@@ -198,6 +198,18 @@ of them. Small arithmetic helpers that *are* hot enough to inline —
 check, not a ban on factoring: measure with `bytesPerCall`, and reach for a slot
 or for inlining only once the measurement says to.
 
+**Neither can a uniform, if it was built as a literal.** three takes a uniform as
+any object with a `value`, and every `{ value }` literal in the program shares
+one hidden class, which three's own uniform library fills with vectors, colours
+and textures — so V8 keeps the field as a tagged pointer, and every fraction
+written into it needs a new heap number: 16.81 bytes a write, measured with three
+loaded. That was every animated uniform in the app, every frame, and no gate saw
+it, because the gates measured the functions that work out a value and not the
+line that hands it to the GPU. A uniform written per frame is built with
+`scalarUniform` (`src/gfx/scalarUniform.js`), whose class only ever holds numbers:
+0.06 bytes. `verify-ground-view` measures the atmosphere's, the pad particles',
+the plume's and the Sun's, beside a literal that has to be seen allocating.
+
 **No `useFrame` subscriber may take a positive priority.** In R3F, any priority
 above zero hands the render loop to that subscriber and `gl.render` is never
 called again — the scene simply stops updating while every callback keeps
@@ -349,6 +361,7 @@ actually landed.
 | --------------- | --------------------------------------------------- |
 | drag / scroll   | orbit and zoom (damped)                              |
 | `1` `2` `3` `4` | camera lock: free · Sol · Terra · Luna               |
+| `0`             | stand on the ground by the pad, at eye height         |
 | click a body    | lock onto it                                         |
 | `space`         | pause                                                |
 | `[` `]`         | time warp down / up                                  |
@@ -369,7 +382,7 @@ angle survive the body moving underneath you.
 
 ## Missions
 
-The HUD's Missions panel jumps into three flights, and none of them is a saved
+The HUD's Missions panel jumps into four flights, and none of them is a saved
 state. Each is a link — `?preset=…&vessel=…&site=…#flight` — because the vessel
 and the pad are fixed when the page loads. On load, before the frame loop mounts,
 the flight computer flies the real mission from the pad to the preset's starting
@@ -377,9 +390,16 @@ point, then hands the dial back and plays:
 
 | preset | starts in | flown headlessly in |
 | --- | --- | --- |
-| Apollo 8 · lunar orbit | `LOI_ALIGN` at MET 348.7 h, turning for the capture burn, periselene 2.6 min out | 287 ms |
-| Artemis · halo capture | `LUNAR_APPROACH` at MET 243.0 h, then solves the four-burn capture in the worker | 202 ms |
-| Vandenberg · polar loiter | `TLI_ALIGN` at MET 0.9 h, the 2.63 and 6.51 m/s raise burns 7 and 51 min out | 82 ms |
+| Apollo 8 · from the pad | `PRE_LAUNCH` at T-60 on LC-39B, five hours after the epoch, standing on the ground | 174 ms |
+| Apollo 8 · lunar orbit | `LOI_ALIGN` at MET 184.7 h, turning for the capture burn, periselene 2.8 min out | 286 ms |
+| Artemis · halo capture | `LUNAR_APPROACH` at MET 70.8 h, then solves the four-burn capture in the worker | 178 ms |
+| Vandenberg · polar loiter | `TLI_ALIGN` at MET 0.8 h, 144 h after the epoch, the 2.51 and 8.01 m/s raise burns 9 and 53 min out | 743 ms |
+
+The pad preset flies nothing: it holds the vehicle on the pad through five
+hours of the planet turning, so the count starts in mid-morning light rather
+than in the dark the epoch puts Kennedy in, and hands over at T-60 — see
+*The last minute, from the ground*. Timings are the fast-forward on the
+development machine, two runs each within 3 ms.
 
 The frame loop lives in `sim/fastForward.js` for this, and `scripts/flight.mjs`
 re-exports it, so a preset flies exactly the code every figure in this document
@@ -1534,6 +1554,89 @@ metres of climb — a visual correction only; the physics, the cameras' targets
 and every gate read the state they always did. `verify:pads` holds the contract
 and builds all four pads under Node to measure them.
 
+### The last minute, from the ground
+
+The pad preset stands the vehicle on LC-39B with the count at sixty and the
+camera on the ground beside it (`0`). The minute is a table of pure functions of
+T, time to release, in `src/sim/countdown.js`:
+
+| T | event | what it drives |
+| --- | --- | --- |
+| −60 | hold: liquid-oxygen boil-off vents | vapour pouring down the hull |
+| −10 | swing arms retract, five seconds through 90° | each arm turned about its own hinge |
+| −8 | vents close, tanks pressurised for flight | vapour stops |
+| −6 | sound-suppression deluge | spray at the hole |
+| −3 | ignition, throttle eased up over 2.4 s | thrust, the plume, steam where there is water |
+| 0 | release | the clamp lets go |
+
+The times are a presentation of the sequence, not Apollo's own: a Saturn V's
+ignition sequence started at about T−8.9 s, the F-1s in pairs, so as to be at
+full thrust when the hold-downs released. Here ignition is at T−3 with a 2.4 s
+ramp. Only this preset counts from sixty: `mission.groundSequence` is set by
+`standOnPad` alone, and every flight any gate flies keeps the ten-second count
+it was measured with.
+
+**The clamp holds under thrust and the engines really burn.** The hold is a
+constraint, so an engine lit on the pad is absorbed exactly — `verify-countdown`
+measures 1.21e-5 m of drift in radius through the three clamped seconds, below
+the 3.27e-5 m a heliocentric coordinate resolves — while the propellant goes:
+21.6 t measured against 21.3 t from F/(Isp g₀) over the ramp and the 0.6 s at
+full thrust. The check that pairs with the first is that it means something: a
+vehicle not held, flown alongside on the same thrust history, rests on the pad
+until thrust passes its weight and has risen 0.85 m by release (33.40 MN on
+2,899 t, thrust-to-weight 1.176 against 9.794 m/s² at the pad). An earlier draft
+compared against "one frame of free flight" instead and got it wrong twice —
+reading the vehicle's mass after it had flown on to orbit, 4 cm a frame, and a
+comment's 1.6 mm that had left gravity out; it is 0.24 mm.
+
+It found one real bug on the way: **mission time was frozen through the hold.**
+`resetMission` set it to minus the count and nothing advanced it until liftoff
+wrote zero, so MET read T−60 for the whole minute and then jumped. It runs now,
+through zero without a step.
+
+**The arms** are built in their own hinge frames rather than merged into the
+tower's steel, because they move. `verify-pad-geometry` sweeps every vertex of
+every arm through the whole swing: nothing comes within 5.06 m of the vehicle's
+axis at any angle, and swung back each is at least 16 m clear.
+
+**Vapour, spray and steam** are GPU particles — 540, 500 and 2,200 camera-facing
+quads — whose whole life is a closed form in the vertex shader: damped launch
+plus a constant drift, `x(t) = x₀ + d (v₀/k)(1 − e^{−kt}) + rise t`. The frame
+path is four uniform writes an effect, and an effect at level zero is not drawn
+at all. One thing in their numbers is physics: the sign of `rise`. Liquid-oxygen
+boil-off is colder and denser than the air and falls, which is why real vents
+pour down the vehicle rather than puffing off it; steam is hot and rises. They
+are lit by the Sun's illuminance at the pad over π — what a white surface facing
+the Sun returns — so a puff is as bright as the hull beside it by construction.
+The first version multiplied its colour by a gain chosen in a standalone render
+and drew every vent as a glowing lamp.
+
+**The observer** (`src/gfx/groundView.js`) stands 1.75 m above the graded ground,
+380 m out, behind a 65° lens, with its head level with its own horizon. Where is
+derived, and ranked: across the flame trench, so the two steam jets billow left
+and right with the vehicle clear between them; then on the side the vehicle flies
+away from, so it climbs and recedes rather than passing overhead; then, where
+those leave it open, on the Sun's side, so the face turned to the viewer is lit.
+At Kennedy that is due west. The first version stood across the flight path
+instead — due south at Kennedy, looking straight down the trench, where both jets
+came along the line of sight and stacked into one grey egg over the vehicle.
+Nothing numeric flagged it; it was unmistakable rendered. The aim follows the
+vehicle's base on a critically damped spring, so at release the head tilts up
+with the climb rather than snapping to it, and it is seeded from the first
+frame's own positions — seeded when the focus changed, it pointed at where the
+site had been five hours of rotation earlier, and the first second of the view
+looked at the dirt. The director keeps this view through liftoff on a watched
+launch, and the eye-level view carries no instrumentation: no predicted orbit,
+no trails, no name tags.
+
+**Measured cost**, on the development machine at 2048 × 1536 with the GPU made to
+finish every frame: 9.6 ms median with the vents running, 10.3–10.4 ms through
+deluge, ignition and release, and — the particles hidden and shown alternately
+in the same frames with the steam cloud at its largest — no difference outside
+the run-to-run spread (16.6 against 16.8, 12.2 against 12.9, 12.1 against 12.2
+ms). The largest single cost in this view is the sky: 7 to 8 ms of the frame when
+it fills the screen from the ground.
+
 ### Sound
 
 The engine is synthesised, not sampled (`src/sfx/engine.js`): brown noise
@@ -2687,6 +2790,18 @@ It is built on the sphere rather than on a plane, because at 70 km the curvature
 is not a detail: the far edge of the patch drops 96 m below the pad's tangent
 plane, which is more than most of the relief being drawn.
 
+**It was drawn tilted, and so was every pad on it.** The patch and the pad were
+turned into place by a basis of east, up and north — which, as x, y and z, is a
+left-handed frame, a reflection, and `setFromRotationMatrix` cannot represent a
+reflection. It returned a rotation wrong by 56° at the epoch and up to 84° over a
+day, and the vehicle, oriented separately, stood true-vertical beside a tower
+leaning at that angle. The fix is a right-handed rotation (east, up, south) and a
+mirror in z; `verify-countdown` composes it the way three does at six hours of
+the day and reads the axes back at 0°. The mirror has one consequence worth
+knowing: three flips which winding counts as the front of a mirrored object, so
+anything under the pad built in view space — the pad particles' billboards — has
+to be double-sided, or it is culled.
+
 **How you tell whether a heightfield is over the right place.** Not by looking at
 it — a mis-indexed grid is a perfectly plausible landscape belonging to
 somewhere else, and Web Mercator is not linear in latitude, so it is easy to
@@ -2945,6 +3060,43 @@ exactly what a point at infinity projects to and needs no per-frame update at al
 `Skybox.jsx` has no shader of its own, so it moves in `onBeforeRender`, which three
 calls with the camera that is about to render and *before* it composes
 `modelViewMatrix`. Measured after: 0.00 units, every frame.
+
+### The sky from the ground
+
+Standing on the pad, the sky rendered as dusk at mid-morning — pale green
+overhead, orange along the horizon, stars all over it. Two causes, both measured.
+
+**The atmosphere was drawn 3.5 times too thick to stand in.** The shell is
+exaggerated so its limb shows from space, with the scale heights stretched and
+the scattering coefficients left alone — which multiplies every vertical optical
+depth by 3.5: blue at the zenith goes from 0.27 to 0.93. That turned a Sun 38°
+up into the colour of one 10° up, sunlight at the ground 1 : 0.71 : 0.29 against
+a true 1 : 0.90 : 0.70. The stretch now eases from 1 on the ground to 3.5 at the
+real top, 100 km, on a smoothstep (`stretchAtmosphere`); from 100 km out every
+uniform is bit-for-bit what it was, so nothing seen from orbit or from the Moon
+moves. And fourteen evenly spaced samples cannot resolve an 8 km scale height
+along a 100 km march — the first sits 3.6 km up, past most of what scatters — so
+from inside the air they bunch toward the eye as u³: the first is 18 m up. Against
+a 3000 × 600 march, the sky above 15° is within 6.6% (evenly spaced, 61%), and
+within 23% at half a degree, where a ray grazes a thousand kilometres of the
+densest air there is. The positions are the same for every pixel, so they are
+worked out once a frame and handed over as four short arrays; computed per
+sample they measured 15% of the frame.
+
+**The stars were out.** The starfield and the Milky Way are drawn for space, and
+the shell adds its light over them; it cannot take theirs away. What hides stars
+in daylight is the air lit up around them, so `src/gfx/skyGlow.js` works out the
+luminance of the zenith sky over the camera from the same integral — the same
+code, marching the same sample positions — and turns it into the faintest
+magnitude an eye adapted to it can find, `NELM = 7.93 − 5 log₁₀(10^(4.316 − B/5) + 1)`
+with B in mag/arcsec², the relation sky-quality meters are read with. At eye
+height with the Sun 38° up the zenith is 1,090 cd/m² and the limit −8.7, fainter
+than nothing in the catalogue; at the end of civil twilight, −1.3, and Sirius
+appears; at night, with the natural sky's own 21.7 mag/arcsec² added, 6.5 — the
+naked-eye sky — and the Milky Way comes back across the Bortle scale's 19.5 to
+21.5. The planet beacons obey it at Venus's −4.9. From orbit there is no air over
+the camera and the whole catalogue is drawn as it always was. `verify-ground-view`
+holds all of it.
 
 ### A shadow on the pad
 

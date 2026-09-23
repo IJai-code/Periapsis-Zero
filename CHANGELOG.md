@@ -90,7 +90,74 @@ objects — and `verify:audio` measures both the mix and the parameter writes at
 zero bytes a call. The context is created on the first click, as browsers
 require.
 
+**The last minute, from the ground** (`src/sim/countdown.js`,
+`src/gfx/groundView.js`, `src/gfx/padParticles.js`, `src/components/PadEffects.jsx`)
+— the *Apollo 8 · from the pad* preset now counts from T−60 on LC-39B with the
+camera standing on the ground. Liquid-oxygen vapour pours down the hull through
+the hold and stops at T−8, the swing arms retract through 90° from T−10, the
+deluge opens at T−6, the engines light at T−3 and come up to thrust over 2.4 s
+against the clamp, and release is at zero. The clamp holds under thrust to
+1.21e-5 m, below what a heliocentric coordinate resolves, while the burn costs
+21.6 t against 21.3 t predicted; the vehicle leaves at full throttle and still
+parks in a 171.8 × 184.9 km orbit. Only this preset counts from sixty; every
+flight a gate flies keeps its ten-second count. The eye-level camera (`0`) stands
+1.75 m up, 380 m out, behind a 65° lens with its head level — across the flame
+trench, on the side the vehicle flies away from, on the Sun's side where that is
+still open, which at Kennedy is due west — and tilts up after the vehicle on a
+critically damped spring at release. Vapour, spray and steam are 3,240 GPU
+particles moved by a closed form in the vertex shader, four uniform writes an
+effect a frame and no draw call when idle, lit by the Sun's illuminance at the
+pad so a puff is as bright as the hull beside it.
+
+**The sky from the ground** (`src/gfx/atmosphereShader.js`, `src/gfx/skyGlow.js`)
+— blue at mid-morning, where it was dusk. The atmosphere's 3.5× thickness
+exaggeration eases to the true profile below 100 km, and the samples bunch toward
+the eye so fourteen of them resolve an 8 km scale height: within 6.6% of a
+3000 × 600 march above 15° of elevation, against 61% evenly spaced. From 100 km
+out every uniform is bit-for-bit what it was. And the sky now hides what an eye
+adapted to it could not find: the zenith's luminance, from the same integral and
+the same sample positions, through the sky-quality relation to a naked-eye
+limiting magnitude — −8.7 under a 38° Sun, so no star, planet beacon or Milky
+Way; 6.5 at night; the whole catalogue from orbit.
+
 ### Changed
+
+- **The Saturn V stands up** (`src/gfx/models.js`, `src/components/Craft.jsx`) —
+  glTF is +Y up and the ship's nose is +Z, and nothing turned one onto the other,
+  so the full stack stood on its pad lying on its side from the day the model was
+  bound. Hull models are turned onto the nose axis now, from a table of the files
+  that break the convention, measured by profiling each along its longest axis.
+
+- **Apollo 8's CSM is drawn from its sections** (`src/sim/vessels.js`) — the
+  catalogue's "Apollo CSM" is the 1975 Apollo–Soyuz stack, Soyuz, arrays and all,
+  and it flew Apollo 8 to the Moon squeezed from 21.65 m into 11. The model stays
+  in the catalogue, relabelled *Apollo–Soyuz*.
+
+- **The ground and every pad on it were tilted** (`src/components/Terrain.jsx`) —
+  oriented by a left-handed basis, which `setFromRotationMatrix` cannot
+  represent, so the terrain and the complex stood 40 to 84 degrees off the local
+  vertical depending on the hour, with the vehicle true-vertical beside them. A
+  right-handed rotation and a mirror in z; 0° as rendered.
+
+- **Mission time runs through the hold** (`src/sim/mission.js`) — it sat at minus
+  the count until liftoff wrote zero, then jumped.
+
+- **Per-frame uniforms no longer allocate** (`src/gfx/scalarUniform.js`) — every
+  `{ value }` literal shares one hidden class that three's uniform library fills
+  with objects, so each fraction written into one boxed a heap number: 16.81 B a
+  write, every frame, in the Sun's two shaders, the plume's five uniforms while an
+  engine burns, the entry sheath and every new uniform in this release. Built
+  with `scalarUniform`, 0.06 B.
+
+- **The eye-level view carries no instrumentation** — no predicted orbit, trails,
+  osculating ellipse, markers or planet labels, as the opening shot carries none.
+  The director keeps it through liftoff when a launch is being watched from the
+  ground.
+
+- **The pad and ground cameras aim from the first frame** — seeded when the focus
+  changed, before a preset's five-hour hold had been rendered, the ground view
+  spent its first second looking at the dirt while the aim swung up.
+
 
 - **The entry plasma sheath** (`src/gfx/plasma.js`, `src/components/Plasma.jsx`)
   — keyed to `live.heatFlux` and `live.radiativeFlux`, the two the heating gate
@@ -235,6 +302,31 @@ require.
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-ground-view`** — what a person by the pad sees. The atmosphere true
+  on the ground, eased without a step to the exaggeration at 100 km, and
+  bit-for-bit unchanged from there out; the zenith blue and the low sky blue-white
+  where the old construction drew it orange; the eye-bunched samples beating even
+  spacing in every direction; no star, planet or Milky Way in daylight, the
+  naked-eye sky at night, every star from orbit; every model nose axis onto +Z
+  and the Saturn V file's escape tower up, where the file is present (CI fetches
+  the catalogue after the gates, and the gate says so); the pad particles
+  double-sided inside the terrain's mirror. And allocation: the sky, the pad
+  particles, the plume and the Sun's clock at 0.06 B beside a literal uniform
+  that has to be seen at 16 — which is how its first run found the uniforms.
+
+- **`verify-countdown`** — the minute as functions and as flown at real time:
+  events in order, the clamp holding under thrust to the coordinates'
+  resolution against a free vehicle that would have risen 0.85 m by release, the
+  pad burn's propellant, mission time monotone through zero, a parking orbit
+  afterwards; the ground drawn in the true local frame at every hour; the
+  observer's height, stand-off and ranked placement at every pad, with the Sun
+  put north and south of each pad in its own frame. Its first draft compared the
+  hold against one frame of free flight and got it wrong twice.
+
+- **`verify-pad-geometry`** gains the swing arms: every vertex swept through the
+  swing at eleven angles, never within 5.06 m of the vehicle's axis, and at least
+  16 m clear swung back.
 
 - **`verify-plasma`** — the Draper point and Stefan–Boltzmann round-trip, the
   sheath colour against the star catalogue's own blackbody, and the sheath flown
@@ -418,6 +510,31 @@ require.
   the build but cannot hide the eighteen behind it.
 
 ### Known limitations
+
+- **The swing arms stop short of the upper stages.** Each ends at the vehicle's
+  widest radius, 5.05 m, so the arms at the S-IVB and above end 2 to 3 m from the
+  skin. Reaching each stage at its own radius needs the radius of the hull
+  actually drawn, and Apollo 8's is the Saturn V model, measured about 6% fatter
+  than the section table — arms cut to the table would enter the model.
+- **A single frame of about 900 ms was seen twice in four traced counts** — once
+  between T−4.5 and T+0.5, once at T−7.35 — neither a shader compile (a forced
+  fresh compile of the plume's program measured 15.7 ms) and not reproduced in a
+  clean 1,400-frame trace. Its cause is not found.
+- **The daylight sky is single scattering**, so it is darker than a real one:
+  1,090 cd/m² at the zenith under a 38° Sun, where a clear sky is roughly three
+  times that. It reads a deeper blue than a photograph exposed for the ground.
+- **The count is a presentation.** Ignition at T−3 with a 2.4 s ramp; a Saturn V's
+  ignition sequence began near T−8.9 s.
+- **The frame rate was measured on one machine.** At 2048 × 1536 with the GPU made
+  to finish each frame: 9.6 to 17 ms through the count and liftoff, the
+  particles within the run-to-run spread of free, the sky 7 to 8 ms of it.
+- **From the surface-engine brief, not built:** a lunar surface and lunar ascent
+  (there is no lunar module vehicle, landing or lunar launch site — the model
+  catalogue does hold an Apollo LM), Mars surface views (Mars is an ephemeris body
+  on rails), Starbase (no pad), SRTM beyond the existing tiles and normal-mapped
+  structures. A 500 km far plane was not adopted: it would clip the Sun, the Moon
+  and every star from the ground, and the logarithmic depth buffer already covers
+  0.1 m to 10¹³ m.
 
 - **The decay theory cannot carry J₃, and that is what now limits it.** The odd
   zonal forces an eccentricity that turns with perigee, `e_J3 = J₃ R sin i /
