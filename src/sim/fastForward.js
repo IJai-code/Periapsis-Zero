@@ -207,7 +207,8 @@ export function standOnPad(hour = 0) {
   resetMission()
   refreshDerived()
   holdUntilEpoch(hour)
-  beginCountdown()
+  // The presented minute — vents, arms, deluge, ignition held down. See countdown.js.
+  beginCountdown({ groundSequence: true })
   return true
 }
 

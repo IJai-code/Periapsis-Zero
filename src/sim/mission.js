@@ -1,4 +1,5 @@
 import { Matrix4, Quaternion, Vector3 } from 'three'
+import { COUNT_LENGTH, ignitionThrottle } from './countdown.js'
 import { live } from './live.js'
 import { activeStage, separate, ship, totalMass } from './ship.js'
 import { INDEX } from './system.js'
@@ -341,6 +342,18 @@ export const mission = {
   t: 0, // mission elapsed time, s (negative before release)
   phaseT: 0,
   countdown: PROFILE.countdown,
+  /**
+   * How long this count is, s, and whether it runs the ground sequence.
+   *
+   * Two counts share one phase. The harness and every verified flight use
+   * `PROFILE.countdown`, ten seconds of held vehicle and nothing else. A mission
+   * started from the pad for someone to watch uses `countdown.js`'s minute,
+   * with the vents, the arms, the deluge and a real ignition while held down —
+   * which burns propellant, so it is kept out of the flights the suite pins.
+   * See that file for why the split is where it is.
+   */
+  countLength: PROFILE.countdown,
+  groundSequence: false,
   lastSeparations: 0,
   running: false,
   /** True once the target orbital plane is fixed, at liftoff. */
@@ -2209,7 +2222,7 @@ const PHASES = [
     enter() {
       ship.throttle = 0
       ship.autopilot = true
-      mission.countdown = PROFILE.countdown
+      mission.countdown = mission.countLength
     },
     control(dt) {
       aimThrust(_up)
@@ -2217,6 +2230,26 @@ const PHASES = [
       // rocket does not spend its countdown rotating to vertical.
       ship.quaternion.copy(ship.targetQuaternion)
       mission.countdown -= dt
+      /*
+       * Mission time runs through the hold, and it did not. `resetMission` set
+       * it to minus the count and nothing advanced it until LIFTOFF wrote zero,
+       * so every readout of MET sat frozen at T-60 for the whole minute and
+       * then jumped. The count *is* the clock before release; this keeps the
+       * two the same number, which is also what lets `countdown.js` read one.
+       */
+      mission.t = -mission.countdown
+      /*
+       * Ignition while held, on the ground sequence only. The clamp pins the
+       * vehicle's position *and* velocity to the turning pad every step, so the
+       * thrust is fully absorbed and nothing accumulates — but the engines are
+       * genuinely running, so `applyThrust` genuinely burns propellant. Measured
+       * at release: 21.6 t of the S-IC's 2,149.5, or 1.0% — against 21.3 t
+       * predicted from 11,826 kg/s over 1.8 s of equivalent full thrust (the
+       * 2.4 s spin-up averages half-throttle). An earlier note here said 35.5 t,
+       * having forgotten the spin-up. It is the real cost of lighting up before
+       * letting go, and why this is kept out of the flights the suite has pinned.
+       */
+      if (mission.groundSequence) ship.throttle = ignitionThrottle(-mission.countdown)
     },
     done: () => mission.countdown <= 0,
     next: () => INDEX_OF.LIFTOFF,
@@ -3673,7 +3706,22 @@ export function enterNrhoCycle(reference = null) {
   return true
 }
 
-export function beginCountdown() {
+export function beginCountdown({ groundSequence = false } = {}) {
+  /*
+   * The ground sequence is a minute and is watched, so it asks for real time
+   * rather than the sixty-times the harness count asks for — at 1 min/s the
+   * whole minute would pass in one wall-clock second and every event in it
+   * would happen in the same frame.
+   */
+  if (groundSequence) {
+    mission.groundSequence = true
+    mission.countLength = COUNT_LENGTH
+    mission.countdown = COUNT_LENGTH
+    mission.t = -COUNT_LENGTH
+    mission.running = true
+    mission.warpRequest = WARP.x1
+    return
+  }
   mission.running = true
   mission.warpRequest = WARP.m1
 }
@@ -3684,6 +3732,8 @@ export function resetMission() {
   mission.site = activeSite()
   mission.index = 0
   mission.resumeIndex = 0
+  mission.countLength = PROFILE.countdown
+  mission.groundSequence = false
   mission.t = -PROFILE.countdown
   mission.phaseT = 0
   mission.countdown = PROFILE.countdown

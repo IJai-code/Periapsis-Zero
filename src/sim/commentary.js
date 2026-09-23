@@ -2,6 +2,7 @@ import { live } from './live.js'
 import { currentPhase, mission } from './mission.js'
 import { nodes } from './nodes.js'
 import { ship } from './ship.js'
+import { stageOfCount } from './countdown.js'
 
 /**
  * What is happening, and why.
@@ -58,13 +59,46 @@ function raiseLine() {
 }
 
 export const COMMENTARY = {
+  /*
+   * On a watched launch the minute is a sequence, so the line follows it: each
+   * event gets its own sentence, said when it happens and replaced when the next
+   * one does. The harness's ten-second count has none of those events and keeps
+   * the single line it always had.
+   */
   PRE_LAUNCH: () => {
     const t = mission.countdown
     const clock = t > 0 ? `T−${t.toFixed(1)} s. ` : 'Clamps released. '
-    return (
-      `${clock}On the pad, held down, with the world turning underneath. The launch window is ` +
-      `set by where the Moon will be when the vehicle arrives, not by where it is now.`
-    )
+    if (!mission.groundSequence) {
+      return (
+        `${clock}On the pad, held down, with the world turning underneath. The launch window is ` +
+        `set by where the Moon will be when the vehicle arrives, not by where it is now.`
+      )
+    }
+    switch (stageOfCount(mission.t)) {
+      case 'ignition':
+        return (
+          `${clock}Ignition — with the vehicle still held down. The engines come up to thrust ` +
+          `over a couple of seconds, and the hold-downs keep it on the pad until all of them ` +
+          `have: if one does not, it can still be shut down here, and nowhere after.`
+        )
+      case 'deluge':
+        return (
+          `${clock}Sound suppression. Water floods the pad and the flame trench, because the ` +
+          `noise of the engines reflecting off concrete is loud enough to damage the vehicle ` +
+          `it is launching. The water absorbs it; what comes off the trench next is steam.`
+        )
+      case 'arms':
+        return (
+          `${clock}The swing arms are pulling back. They carried propellant, power and air to ` +
+          `the vehicle until a moment ago, and they have to be clear of it before it moves.`
+        )
+      default:
+        return (
+          `${clock}Fuelled and holding. The white plumes off the side are liquid oxygen boiling ` +
+          `away at −183 °C and being vented — cold enough that the vapour is heavier than air ` +
+          `and falls down the vehicle rather than rising off it.`
+        )
+    }
   },
 
   LIFTOFF: () =>
