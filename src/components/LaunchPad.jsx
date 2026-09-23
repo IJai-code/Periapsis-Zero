@@ -1,6 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { buildPad } from '../gfx/padGeometry.js'
+import { ARM_SWING, buildPad } from '../gfx/padGeometry.js'
+import { armRetraction } from '../sim/countdown.js'
+import { mission } from '../sim/mission.js'
 
 /**
  * The ground structures at a launch site, built rather than loaded.
@@ -38,7 +41,37 @@ const MATERIALS = {
 
 export function LaunchPad({ site }) {
   const built = useMemo(() => buildPad(site.id), [site.id])
-  useEffect(() => () => built.meshes.forEach((m) => m.geometry.dispose()), [built])
+  useEffect(
+    () => () => {
+      built.meshes.forEach((m) => m.geometry.dispose())
+      built.arms.forEach((a) => a.geometry.dispose())
+    },
+    [built],
+  )
+
+  /*
+   * The swing arms: one group per arm, standing at its hinge, turned about the
+   * vertical by how far the count has retracted it. One steel material shared
+   * by all of them — they are the same steel as the tower, and a material per
+   * arm would be nine programs for one surface.
+   *
+   * The per-frame work is a read of the mission clock and a write of one angle
+   * into each group that already exists. The clock is `mission.t`, which runs
+   * through the hold now rather than sitting at the start of the count; see
+   * PRE_LAUNCH in mission.js. On the landing page and in any flight that never
+   * counted, it sits before `armsAway` and the arms stay mated.
+   */
+  const armSteel = useMemo(() => new THREE.MeshStandardMaterial(MATERIALS.steel(built.pad)), [built])
+  useEffect(() => () => armSteel.dispose(), [armSteel])
+  const arms = useRef([])
+  useFrame(() => {
+    const angle = armRetraction(mission.t) * ARM_SWING
+    const list = arms.current
+    for (let i = 0; i < list.length; i++) {
+      const g = list[i]
+      if (g !== null && g !== undefined) g.rotation.y = angle
+    }
+  })
 
   return (
     <group>
@@ -46,6 +79,11 @@ export function LaunchPad({ site }) {
         <mesh key={m.key} geometry={m.geometry} castShadow receiveShadow>
           <meshStandardMaterial {...MATERIALS[m.key](built.pad)} />
         </mesh>
+      ))}
+      {built.arms.map((a, i) => (
+        <group key={i} ref={(el) => (arms.current[i] = el)} position={a.hinge}>
+          <mesh geometry={a.geometry} material={armSteel} castShadow receiveShadow />
+        </group>
       ))}
     </group>
   )

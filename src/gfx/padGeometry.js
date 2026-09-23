@@ -160,16 +160,26 @@ function holdDowns(list, { hole, radius, deck }) {
 /**
  * A swing arm from a tower face to the vehicle at height `y`, running along
  * `axis` ('x' or 'z') from `from` (the tower face) to `to` (the hull).
+ *
+ * Built in its own hinge frame and kept out of the merged steel, because it
+ * moves. An arm is a beam on a vertical hinge at the tower: during the count it
+ * swings back through a right angle to lie along the tower face, clear of the
+ * vehicle, and a beam welded into one mesh with the tower cannot do that. So
+ * the geometry is laid out with the hinge at the origin and the arm reaching
+ * along the axis toward the hull, and the hinge's own position is returned
+ * beside it for the renderer to stand it at and turn it about.
  */
 function arm(list, { axis, from, to, y, width = 2.2 }) {
+  const parts = []
   const len = Math.abs(from - to)
-  const mid = (from + to) / 2
+  // Toward the vehicle, in the arm's own axis.
+  const dir = Math.sign(to - from)
+  const along = (d) => (axis === 'z' ? [0, 0, dir * d] : [dir * d, 0, 0])
   const dims = axis === 'z' ? [width, 1.6, len] : [len, 1.6, width]
-  const pos = axis === 'z' ? [0, y, mid] : [mid, y, 0]
-  box(list, ...dims, ...pos)
+  box(parts, ...dims, ...along(len / 2))
   // The umbilical carrier at the vehicle end.
-  const end = axis === 'z' ? [0, y, to + Math.sign(from - to) * 1.6] : [to + Math.sign(from - to) * 1.6, y, 0]
-  box(list, 3.2, 2.6, 3.2, ...end)
+  box(parts, 3.2, 2.6, 3.2, ...along(len - 1.6))
+  list.push({ parts, axis, hinge: axis === 'z' ? [0, y, from] : [from, y, 0] })
 }
 
 /** A propellant storage sphere on its stub, the one thing every pad has. */
@@ -260,7 +270,7 @@ function umbilical(K, pad, foot, g) {
   const face = towerAlong - tw / 2
   for (let i = 0; i < pad.arms; i++) {
     const y = pad.deck + L * (0.1 + (0.8 * i) / Math.max(1, pad.arms - 1))
-    arm(K.steel, { axis, from: face, to: foot.reach * 1.02, y })
+    arm(K.arms, { axis, from: face, to: foot.reach * 1.02, y })
   }
 
   // Propellant farm and support buildings out on the apron.
@@ -321,7 +331,7 @@ function tulip(K, pad, foot, g) {
     lattice(K.steel, { x, z: 0, w: 6.5, d: 6.5, y0: pad.deck, h: T, bay: 7 })
     for (let i = 0; i < 4; i++) {
       const y = pad.deck + L * (0.18 + 0.12 * i)
-      arm(K.steel, { axis: 'x', from: x - side * 3.25, to: side * reach * 1.02, y })
+      arm(K.arms, { axis: 'x', from: x - side * 3.25, to: side * reach * 1.02, y })
     }
   }
 
@@ -350,7 +360,7 @@ function gantry(K, pad, foot, g) {
   lattice(K.steel, { x: mx, z: mz, w: mw, d: mw, y0: pad.deck, h: L * 0.72, bay: 7 })
   for (let i = 0; i < 3; i++) {
     const y = pad.deck + L * (0.2 + 0.22 * i)
-    arm(K.steel, { axis, from: mastAlong - mw / 2, to: reach * 1.02, y })
+    arm(K.arms, { axis, from: mastAlong - mw / 2, to: reach * 1.02, y })
   }
 
   // The gantry, on the far side of the trench from the mast, rolled back.
@@ -409,7 +419,7 @@ function service(K, pad, foot, g) {
   post(K.white, 0.9, T * 0.2, 0.9, tx, pad.deck + T, tz)
   for (let i = 0; i < pad.arms; i++) {
     const y = pad.deck + L * (0.12 + (0.72 * i) / Math.max(1, pad.arms - 1))
-    arm(K.steel, { axis, from: towerAlong - tw / 2, to: reach * 1.02, y })
+    arm(K.arms, { axis, from: towerAlong - tw / 2, to: reach * 1.02, y })
   }
 
   // The service tower, enclosed, on the other side.
@@ -439,12 +449,28 @@ const STYLES = { umbilical, tulip, gantry, service }
 export function buildPad(siteId) {
   const pad = padFor(siteId)
   const foot = vehicleFootprint()
-  const K = { steel: [], concrete: [], dark: [], white: [] }
+  const K = { steel: [], concrete: [], dark: [], white: [], arms: [] }
   const g = commonWorks(K, pad, foot)
   ;(STYLES[pad.style] ?? umbilical)(K, pad, foot, g)
 
+  /*
+   * The arms, one geometry each in its hinge frame. Merged per arm rather than
+   * all together, because each turns about its own hinge — and kept apart from
+   * the four material meshes below so that set stays exactly what it was.
+   */
+  const arms = []
+  for (const a of K.arms) {
+    const flat = a.parts.map((p) => (p.index ? p.toNonIndexed() : p))
+    const merged = mergeGeometries(flat, false)
+    for (const p of a.parts) p.dispose()
+    for (const p of flat) if (!a.parts.includes(p)) p.dispose()
+    if (!merged) continue
+    merged.computeBoundingSphere()
+    arms.push({ geometry: merged, hinge: a.hinge, axis: a.axis })
+  }
+
   const out = []
-  for (const key of Object.keys(K)) {
+  for (const key of ['steel', 'concrete', 'dark', 'white']) {
     if (K[key].length === 0) continue
     /*
      * Extrusions are non-indexed and everything else is indexed, and
@@ -460,8 +486,38 @@ export function buildPad(siteId) {
     merged.computeBoundingSphere()
     out.push({ key, geometry: merged })
   }
-  return { pad, meshes: out }
+  /*
+   * Where the exhaust leaves the pad, for the steam. A trench runs the length
+   * of the mound and opens at both ends, so on a trenched pad the steam comes
+   * out of those two mouths; a pad built over a pit (Baikonur) has no mouth and
+   * the steam rises out of the opening under the vehicle instead.
+   */
+  const exhaust =
+    pad.trench > 0
+      ? { axis: pad.trenchAxis === 'ew' ? 'x' : 'z', half: g.along + 10, width: pad.trench, floor: 0.4 }
+      : { axis: null, half: g.hole, width: g.hole * 2, floor: Math.max(0.4, pad.deck - 4) }
+  return { pad, meshes: out, arms, exhaust, hole: g.hole }
 }
+
+/**
+ * Where a point on an arm is when the arm has swung through `angle` radians.
+ *
+ * About the vertical through its hinge — the rotation the renderer applies with
+ * `rotation.y`, written out so a gate can check the swept arm against the
+ * vehicle without a scene graph. Positive angles turn the same way three's
+ * right-handed y rotation does.
+ */
+export function swingPoint(out, hinge, x, y, z, angle) {
+  const c = Math.cos(angle)
+  const s = Math.sin(angle)
+  out[0] = hinge[0] + x * c + z * s
+  out[1] = hinge[1] + y
+  out[2] = hinge[2] - x * s + z * c
+  return out
+}
+
+/** How far an arm swings to clear the vehicle: a right angle, back along the tower face. */
+export const ARM_SWING = Math.PI / 2
 
 
 /**

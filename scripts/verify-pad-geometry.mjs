@@ -12,7 +12,7 @@
  *   node scripts/verify-pad-geometry.mjs
  *   PERIAPSIS_VESSEL=artemis node scripts/verify-pad-geometry.mjs
  */
-import { buildPad } from '../src/gfx/padGeometry.js'
+import { ARM_SWING, buildPad, swingPoint } from '../src/gfx/padGeometry.js'
 import { padFor, vehicleFootprint } from '../src/gfx/pads.js'
 import { LAUNCH_SITES } from '../src/sim/launchsite.js'
 import { ACTIVE_VESSEL } from '../src/sim/vessels.js'
@@ -29,7 +29,32 @@ console.log('  site         meshes  triangles   lowest    highest   nearest to a
 const rows = []
 for (const id of Object.keys(LAUNCH_SITES)) {
   const pad = padFor(id)
-  const { meshes } = buildPad(id)
+  const { meshes, arms } = buildPad(id)
+  /*
+   * The arms, swept. They left the merged steel so they could move, which also
+   * took them out of the "nothing inside the vehicle" check below — and they
+   * were the structure closest to the vehicle, so that was the check that
+   * mattered for them. Put back, and made stronger: every vertex of every arm is
+   * tested at eleven points through its swing, not only where it rests, because
+   * an arm that starts clear and ends clear can still pass through the hull in
+   * between.
+   */
+  let armNearest = Infinity
+  let armClearAtEnd = Infinity
+  const v = [0, 0, 0]
+  for (const a of arms) {
+    const pos = a.geometry.getAttribute('position')
+    for (let k = 0; k <= 10; k++) {
+      const angle = (ARM_SWING * k) / 10
+      for (let i = 0; i < pos.count; i++) {
+        swingPoint(v, a.hinge, pos.getX(i), pos.getY(i), pos.getZ(i), angle)
+        if (v[1] <= pad.deck + 0.05 || v[1] >= pad.deck + L) continue
+        const r = Math.hypot(v[0], v[2])
+        if (r < armNearest) armNearest = r
+        if (k === 10 && r < armClearAtEnd) armClearAtEnd = r
+      }
+    }
+  }
   let triangles = 0
   let nearest = Infinity
   let deckVertices = 0
@@ -63,12 +88,20 @@ for (const id of Object.keys(LAUNCH_SITES)) {
     merged: meshes.every((m) => m.geometry && m.geometry.getAttribute('position').count > 0),
     tower: pad.towerScale * L,
     deck: pad.deck,
+    arms: arms.length,
+    armNearest,
+    armClearAtEnd,
   }
   rows.push(row)
   console.log(
     `  ${id.padEnd(12)} ${String(row.meshes).padStart(5)}  ${String(Math.round(triangles)).padStart(9)}  ${lowest.toFixed(2).padStart(7)} m  ${highest.toFixed(1).padStart(7)} m  ${nearest.toFixed(2).padStart(6)} m`,
   )
+  console.log(
+    `  ${''.padEnd(12)} ${String(row.arms).padStart(5)} arms, nearest the hull ${armNearest.toFixed(2)} m through the swing,` +
+      ` ${armClearAtEnd.toFixed(1)} m once swung back`,
+  )
   for (const m of meshes) m.geometry.dispose()
+  for (const a of arms) a.geometry.dispose()
 }
 
 console.log('\n=== what this establishes ===')
@@ -80,6 +113,10 @@ const checks = [
   ['there is a pedestal under the vehicle at exactly the deck height', rows.every((r) => r.deckVertices >= 4)],
   ['the tallest structure is the tower, and it clears the stack', rows.every((r) => r.highest > r.deck + L * 0.6 && r.highest > r.tower)],
   ['each pad is a few thousand triangles, not a model', rows.every((r) => r.triangles > 500 && r.triangles < 60000)],
+  // The arms, now that they move.
+  ['every pad has swing arms, and they are built apart so they can swing', rows.every((r) => r.arms > 0)],
+  ['no arm enters the vehicle at any point in its swing, mated or not', rows.every((r) => r.armNearest > foot.reach)],
+  ['and swung back, every arm stands well clear of the hull', rows.every((r) => r.armClearAtEnd > foot.reach * 2)],
 ]
 let pass = true
 for (const [label, ok] of checks) {
