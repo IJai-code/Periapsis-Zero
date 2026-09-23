@@ -5,7 +5,7 @@ import { live } from '../sim/live.js'
 import { ship } from '../sim/ship.js'
 import { INDEX } from '../sim/system.js'
 import { CRAFT } from '../sim/constants.js'
-import { getModel, loadModel, useModel } from '../gfx/models.js'
+import { alignNose, getModel, loadModel, useModel } from '../gfx/models.js'
 import { useUi } from '../sim/store.js'
 import { Placeholder } from './Placeholders.jsx'
 import { Hull } from './Hull.jsx'
@@ -99,8 +99,12 @@ export function Craft({ id }) {
     if (!source) return null
     const instance = source.clone(true)
     instance.scale.setScalar(visual / source.userData.longest)
+    // The ship flies nose along +Z; a model file stands along +Y. The other
+    // craft are posed by the orbit basis below, whose +Y is radial up — which
+    // is already glTF's up, so they are left as the file has them.
+    if (id === 'ship') alignNose(instance, modelId)
     return instance
-  }, [source, visual])
+  }, [source, visual, id, modelId])
 
   // Direction only, so the raw SI difference is fine: every display transform
   // here is a uniform scale, which leaves directions untouched.

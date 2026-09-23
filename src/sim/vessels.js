@@ -114,7 +114,14 @@ const APOLLO8 = {
       nozzle: { areaRatio: 62.5, chamberPressure: 700000 },
       drag: { cd: 2.2, area: 12 },
       visual: 11.0, // CSM, docking probe to engine bell
-      model: 'apollo_csm',
+      /*
+       * Drawn from its sections, as the S-II and S-IVB are. The catalogue's
+       * "Apollo CSM" is the 1975 Apollo–Soyuz stack — its preview shows the
+       * Soyuz, arrays and all, docked to the CSM's nose — and bound here it
+       * flew Apollo 8 to the Moon with a Soviet spacecraft on the front,
+       * squeezed from 21.65 m into 11. See NOSE in gfx/models.js.
+       */
+      model: null,
     },
     {
       /**

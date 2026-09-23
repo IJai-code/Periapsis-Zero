@@ -52,6 +52,49 @@ function getLoader() {
   return loader
 }
 
+/**
+ * Which way a model's nose points in its own file, where it breaks glTF's
+ * convention.
+ *
+ * glTF is +Y up, so a vehicle modelled standing upright has its nose at +Y and
+ * needs no entry. The ship's body frame puts the nose — the thrust axis — at
+ * +Z, so a hull drawn for the ship is turned from the one onto the other;
+ * nothing did that, and the Saturn V stood on its pad lying on its side from
+ * the day the model was bound. Measured from the files by profiling each along
+ * its longest axis:
+ *
+ *   saturn_v    2.01 x 12.99 x 2.01, long in y; 0.06 from the axis in the +y
+ *               tenth, which is the escape tower, and 1.23 in the -y, the fins
+ *   apollo_csm  21.65 x 9.63 x 5.12, long in x
+ *
+ * The second is modelled lying down, so it is listed — and it is not a CSM.
+ * Its own preview in public/models is the Apollo–Soyuz Test Project stack:
+ * 21.65 m is the CSM's 11.0, the docking module's 3.2 and the Soyuz's 7.5, and
+ * the 4.82 m members at +x are the Soyuz's solar arrays. The CSM docked apex
+ * first, so its nose is +x.
+ */
+const NOSE = {
+  apollo_csm: '+x',
+}
+
+/** Which way a model's nose points in its file: '+y' unless listed above. */
+export const noseOf = (id) => NOSE[id] ?? '+y'
+
+/** Turn an object so the file axis `nose` ('+x', '-y', …) lies along +Z. */
+export function turnNose(object, nose) {
+  const r = object.rotation
+  if (nose === '+y') r.set(Math.PI / 2, 0, 0)
+  else if (nose === '-y') r.set(-Math.PI / 2, 0, 0)
+  else if (nose === '+x') r.set(0, -Math.PI / 2, 0)
+  else if (nose === '-x') r.set(0, Math.PI / 2, 0)
+  else if (nose === '-z') r.set(0, Math.PI, 0)
+  else r.set(0, 0, 0)
+  return object
+}
+
+/** Turn a hull instance so its nose lies along +Z, the ship's thrust axis. */
+export const alignNose = (object, id) => turnNose(object, noseOf(id))
+
 const cache = new Map() // id -> normalised Object3D
 const pending = new Map() // id -> Promise
 const failed = new Map() // id -> reason

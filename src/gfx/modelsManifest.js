@@ -45,18 +45,18 @@ export const MODEL_CATALOG = [
     "bytes": 2672000
   },
   {
-    "id": "apollo_csm",
-    "label": "Apollo CSM",
-    "group": "Crewed",
-    "file": "Apollo%20Soyuz/apollo_csm.glb",
-    "bytes": 952608
-  },
-  {
     "id": "apollo_lm",
     "label": "Apollo Lunar Module",
     "group": "Crewed",
     "file": "Apollo%20Lunar%20Module.glb",
     "bytes": 716840
+  },
+  {
+    "id": "apollo_csm",
+    "label": "Apollo–Soyuz",
+    "group": "Crewed",
+    "file": "Apollo%20Soyuz/apollo_csm.glb",
+    "bytes": 952608
   },
   {
     "id": "gateway",

@@ -25,7 +25,8 @@ const CURATED = {
   'Kepler (A)/Kepler (A).glb': { id: 'kepler', label: 'Kepler', group: 'Observatories' },
   'Fermi Gamma-ray Large Area Space Telescope/Fermi Gamma-ray Large Area Space Telescope.glb': { id: 'fermi', label: 'Fermi Gamma-ray Telescope', group: 'Observatories' },
 
-  'Apollo Soyuz/apollo_csm.glb': { id: 'apollo_csm', label: 'Apollo CSM', group: 'Crewed' },
+  // The file is named for its CSM but models the whole 1975 docked stack, Soyuz included.
+  'Apollo Soyuz/apollo_csm.glb': { id: 'apollo_csm', label: 'Apollo–Soyuz', group: 'Crewed' },
   'Apollo Lunar Module.glb': { id: 'apollo_lm', label: 'Apollo Lunar Module', group: 'Crewed' },
   'Space Shuttle (A)/Space Shuttle (A).glb': { id: 'shuttle', label: 'Space Shuttle', group: 'Crewed' },
   'Gemini/Gemini.glb': { id: 'gemini', label: 'Gemini', group: 'Crewed' },
