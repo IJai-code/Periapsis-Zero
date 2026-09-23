@@ -55,7 +55,8 @@
     "fixture:lunar": "node scripts/flight.mjs --until LUNAR_ORBIT --save scripts/fixtures/lunar-orbit.json",
     "verify:csm": "node scripts/verify-csm.mjs",
     "verify:j3": "node scripts/verify-j3.mjs",
-    "verify:countdown": "node --expose-gc scripts/verify-countdown.mjs"
+    "verify:countdown": "node --expose-gc scripts/verify-countdown.mjs",
+    "verify:ground": "node --expose-gc scripts/verify-ground-view.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",

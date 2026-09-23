@@ -4,7 +4,8 @@ import * as THREE from 'three'
 import { live } from '../sim/live.js'
 import { BODIES } from '../sim/constants.js'
 import { attachNightLights } from '../gfx/shaders.js'
-import { ATMOSPHERE_RADIUS, makeVolumetricAtmosphere } from '../gfx/atmosphereShader.js'
+import { ATMOSPHERE_RADIUS, makeVolumetricAtmosphere, stretchAtmosphere } from '../gfx/atmosphereShader.js'
+import { measureSky } from '../gfx/skyGlow.js'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
 
@@ -112,6 +113,11 @@ export function Earth({ textures }) {
     // large-ish quantity the scattering march would otherwise have to handle,
     // and it arrives already small.
     u.uCamToPlanet.value.copy(state.camera.position).sub(group.current.position).divideScalar(R)
+    // Exaggerated from space, true from the ground — see the function. Then
+    // how bright that makes the sky over the camera, which the starfield and
+    // the Milky Way read to know what it hides.
+    stretchAtmosphere(atmosphere)
+    measureSky(atmosphere)
 
     const rotations = live.sim.t / BODIES.earth.spin
     spin.current.rotation.y = rotations * Math.PI * 2

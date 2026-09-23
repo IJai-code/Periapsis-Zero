@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { BackSide } from 'three'
+import { daySky } from '../gfx/skyGlow.js'
 
 /**
  * The Milky Way, on a sphere pinned to the camera.
@@ -20,11 +21,22 @@ import { BackSide } from 'three'
  * set here is the one the draw uses, by construction rather than by timing.
  * `Starfield.jsx` solves the same problem the other way, in its own shader,
  * because it has one.
+ *
+ * The same hook dims it by the sky over the camera, for the reason
+ * `gfx/skyGlow.js` gives: from the ground in daylight the band is not there,
+ * and drawn anyway it put a night sky behind a blue one. Three components
+ * written directly rather than `setScalar`, which would hand a double to a
+ * call.
  */
 export function Skybox({ map }) {
   const follow = useCallback(function (renderer, scene, camera) {
     this.position.copy(camera.position)
     this.updateMatrixWorld()
+    const c = this.material.color
+    const k = daySky.milkyWay
+    c.r = k
+    c.g = k
+    c.b = k
   }, [])
 
   return (

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { MAGNITUDE_LIMIT, decodeStars } from '../gfx/stars.js'
+import { daySky } from '../gfx/skyGlow.js'
+import { scalarUniform } from '../gfx/scalarUniform.js'
 
 /**
  * The real sky: 115,000 Hipparcos stars, where they are and what colour they are.
@@ -92,9 +94,14 @@ const VERT = /* glsl */ `
   uniform float uPointScale;
   uniform float uRadius;
   uniform float uStevens;
+  uniform float uLimitFlux;
 
   void main() {
-    vColour = color * pow(flux, uStevens);
+    // Gone below the faintest magnitude the sky over the camera lets through,
+    // and brought in over the magnitude above it — see gfx/skyGlow.js. From
+    // space the limit is past the catalogue's end and this is 1 for every star.
+    float seen = smoothstep(uLimitFlux, uLimitFlux * 2.512, flux);
+    vColour = color * pow(flux, uStevens) * seen;
     /*
      * Rotation only: no model matrix, no view translation. The attribute is the
      * catalogue's unit direction and stays that way — scaling it into place on
@@ -104,7 +111,8 @@ const VERT = /* glsl */ `
      */
     vec4 mv = vec4(mat3(viewMatrix) * position * uRadius, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = uPointScale;
+    // A star the sky has hidden is not rasterised at all.
+    gl_PointSize = seen > 0.0 ? uPointScale : 0.0;
   }
 `
 
@@ -158,9 +166,11 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
         vertexShader: VERT,
         fragmentShader: FRAG,
         uniforms: {
-          uPointScale: { value: PSF_PIXELS },
+          // Both rewritten every frame: see gfx/scalarUniform.js.
+          uPointScale: scalarUniform(PSF_PIXELS),
           uRadius: { value: RADIUS },
           uStevens: { value: STEVENS },
+          uLimitFlux: scalarUniform(daySky.limitFlux),
         },
         vertexColors: true,
         /*
@@ -199,12 +209,14 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
   )
 
   /*
-   * The only per-frame work is the point size, which follows the device pixel
-   * ratio so a star is the same angular size on a retina display as on a cheap
-   * one. Nothing is allocated and nothing is positioned.
+   * The per-frame work is the point size, which follows the device pixel ratio
+   * so a star is the same angular size on a retina display as on a cheap one,
+   * and the faintest star the sky over the camera lets through. Nothing is
+   * allocated and nothing is positioned.
    */
   useFrame(({ gl }) => {
     material.uniforms.uPointScale.value = PSF_PIXELS * gl.getPixelRatio()
+    material.uniforms.uLimitFlux.value = daySky.limitFlux
   }, -2)
 
   useEffect(() => () => geometry?.dispose(), [geometry])

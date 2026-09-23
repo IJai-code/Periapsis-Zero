@@ -5,6 +5,7 @@ import { AdditiveBlending, DoubleSide } from 'three'
 import { live } from '../sim/live.js'
 import { RAILS } from '../sim/rails.js'
 import { setUi, useUi } from '../sim/store.js'
+import { daySky } from '../gfx/skyGlow.js'
 
 /**
  * The seven planets the integrator does not carry.
@@ -24,6 +25,20 @@ import { setUi, useUi } from '../sim/store.js'
 
 /** Angular radius the beacon holds, radians. About five arcminutes. */
 const BEACON_ANGLE = 0.0015
+
+/** The beacon's own opacity, before any sky has had its say. */
+const BEACON_OPACITY = 0.8
+
+/**
+ * The brightest any planet gets from Earth: Venus near greatest brilliancy, a
+ * little under magnitude −4.9. A beacon is a statement about brightness, so it
+ * obeys the sky the stars do (`gfx/skyGlow.js`) — and with no photometry per
+ * planet here, it obeys it conservatively: a sky that hides −4.9 hides all
+ * seven, and the beacons come in across the magnitude below that as the sky
+ * darkens. In twilight that can show a fainter planet a little early; in
+ * daylight, which is what it is for, it is exact.
+ */
+const BRIGHTEST_PLANET = -4.9
 /** And the click target, which has to be comfortable rather than truthful. */
 const PICK_ANGLE = 0.02
 
@@ -33,6 +48,8 @@ export function Planets() {
   const groups = useRef({})
 
   useFrame(({ camera }) => {
+    let seen = daySky.limitMagnitude - BRIGHTEST_PLANET
+    seen = seen > 0 ? (seen < 1 ? seen : 1) : 0
     for (let k = 0; k < RAILS.length; k++) {
       const p = RAILS[k]
       const g = groups.current[p.id]
@@ -43,7 +60,11 @@ export function Planets() {
       // is a child with its own scale so the two do not fight.
       const beacon = g.children[1]
       const pick = g.children[2]
-      if (beacon) beacon.scale.setScalar(Math.max(1, (d * BEACON_ANGLE) / p.radius))
+      if (beacon) {
+        beacon.scale.setScalar(Math.max(1, (d * BEACON_ANGLE) / p.radius))
+        beacon.material.opacity = BEACON_OPACITY * seen
+        beacon.visible = seen > 0
+      }
       if (pick) pick.scale.setScalar(Math.max(1, (d * PICK_ANGLE) / p.radius))
     }
   }, -2)
@@ -73,7 +94,7 @@ export function Planets() {
         <meshBasicMaterial
           color={p.colour}
           transparent
-          opacity={0.8}
+          opacity={BEACON_OPACITY}
           blending={AdditiveBlending}
           depthWrite={false}
           toneMapped={false}
