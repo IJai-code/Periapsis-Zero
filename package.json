@@ -12,6 +12,7 @@
     "textures:fetch": "node scripts/fetch-hd-textures.js",
     "models:scan": "node scripts/scan-models.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
+    "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",
     "fly": "node scripts/flight.mjs",
     "verify:anomalies": "node scripts/verify-anomalies.mjs",
@@ -57,7 +58,8 @@
     "verify:csm": "node scripts/verify-csm.mjs",
     "verify:j3": "node scripts/verify-j3.mjs",
     "verify:countdown": "node --expose-gc scripts/verify-countdown.mjs",
-    "verify:ground": "node --expose-gc scripts/verify-ground-view.mjs"
+    "verify:ground": "node --expose-gc scripts/verify-ground-view.mjs",
+    "verify:moon": "node --expose-gc scripts/verify-moon-frame.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",

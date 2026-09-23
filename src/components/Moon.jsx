@@ -5,6 +5,10 @@ import { live } from '../sim/live.js'
 import { BODIES } from '../sim/constants.js'
 import { attachBloodMoon } from '../gfx/shaders.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
+import { moonClock, moonTurn } from '../sim/moonFrame.js'
+
+/** The rotation the group is turned by, written in place every frame. */
+const _turn = new THREE.Matrix4()
 
 const R = BODIES.moon.radius
 
@@ -59,9 +63,16 @@ export function Moon({ textures }) {
 
   useFrame(() => {
     group.current.position.copy(live.pos.moon)
-    // Tidal lock, stated directly: the same hemisphere always faces Earth. That
-    // is also a real rotation — once per orbit relative to the stars.
-    group.current.lookAt(live.pos.earth)
+    /*
+     * Turned by the Moon's own frame (sim/moonFrame.js): uniform rotation, once
+     * per sidereal month, facing the *mean* Earth. It used to be pointed at
+     * Earth every frame, which is not a rotation at all — nothing on the surface
+     * had coordinates and the Earth never moved in the lunar sky — and it
+     * pointed the wrong hemisphere: Earth saw longitude 90°E.
+     */
+    moonClock[0] = live.sim.t
+    moonTurn(_turn.elements)
+    group.current.quaternion.setFromRotationMatrix(_turn)
 
     eclipse.sunPosition.value.copy(live.pos.sun)
     eclipse.earthPosition.value.copy(live.pos.earth)
@@ -69,9 +80,11 @@ export function Moon({ textures }) {
 
   return (
     <group ref={group}>
-      {/* lookAt aims +Z at Earth; the generated maria sit on the mesh's -Z
-          hemisphere, so the mesh is turned to present that face. */}
-      <mesh material={material} rotation={[0, Math.PI, 0]}>
+      {/* three's sphere puts a map's centre column — 0° longitude, in both the
+          NASA imagery and the generated maps — on its +x, and 90°E on its -z.
+          A quarter-turn about the pole carries those onto the group's +z and
+          +x, which are the prime meridian and 90°E. */}
+      <mesh material={material} rotation={[0, -Math.PI / 2, 0]}>
         <sphereGeometry args={[R, 128, 80]} />
       </mesh>
     </group>

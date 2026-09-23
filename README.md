@@ -2894,6 +2894,41 @@ They render as DOM waypoints in the HUD, not geometry. The projector recomputes
 the camera's inverse itself rather than reading `matrixWorldInverse`, which R3F
 refreshes just before draw and is a frame stale at `useFrame` time.
 
+## The Moon's frame
+
+Until now the Moon was drawn by pointing it at Earth every frame. That is a
+statement about one hemisphere, not a rotation: nothing on the surface had
+coordinates, which a site on the Moon needs before anything can stand there, and
+the Earth never moved in the lunar sky. It was also the wrong hemisphere — the
+NASA imagery puts 0° longitude in the middle of the map, three's sphere puts the
+middle of a map on its +x, and the mesh was turned half a turn, so Earth saw
+longitude 90°E, the limb.
+
+`src/sim/moonFrame.js` turns it by Cassini's three laws: uniform rotation once
+per sidereal month; the equator tilted a fixed 1.535° to the ecliptic (the
+declared 6.68° to the orbit, less the orbit's 5.145°; 1.5424° published); and the
+poles of the equator, the ecliptic and the orbit in one plane, the ecliptic's
+between, so the equator's node is the orbit's descending node and regresses with
+it. Phased so the prime meridian faces the *mean* Earth. Libration is not written
+in anywhere — the rotation is uniform and the orbit is eccentric and inclined, so
+Earth wanders in the lunar sky, and flown against a year of the integrated orbit
+it wanders by the real Moon's amounts: up to 7.09° east and west, 6.74° north and
+south against the 6.61° the tilt between equator and orbit predicts, each
+month's mean within 0.33° of the centre. The drawn Moon is turned by the same
+frame; the map longitude facing Earth equals the frame's to 6.5e-14°.
+
+**The simulated Moon is not quite the real one, and the frame follows the
+simulated one.** Locking is to the orbit the body is actually on. The Moon's
+J2000 elements are mean values, used as the osculating state — and the Sun's
+tide moves the osculating semi-major axis by about a per cent either side of the
+mean — so the integrated orbit runs a sidereal month of 27.614 d against the
+real 27.322, with its mean longitude at J2000 216.83° against 218.32°. A frame
+paced by the real Moon drifted 3.8° a month off the Moon it was turning with. So
+the mean orbit is measured — `npm run moon:measure` fits a year of the integrated
+system and commits the result — and `verify-moon-frame` re-measures it. Starting
+the Moon from a real J2000 state vector would correct the orbit itself, and would
+move every mission figure in this document; it is a separate change.
+
 ## The rest of the solar system
 
 Sol, Terra and Luna are integrated. The other seven planets are not, and that is

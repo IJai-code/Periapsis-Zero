@@ -57,6 +57,7 @@ const GATES = [
   ['verify-prem', true],
   ['verify-terrain', false],
   ['verify-solar', false],
+  ['verify-moon-frame', true],
   ['verify-stars', false],
   ['verify-loiter', false],
   ['verify-radial', false],

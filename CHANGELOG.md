@@ -90,6 +90,15 @@ objects — and `verify:audio` measures both the mix and the parameter writes at
 zero bytes a call. The context is created on the first click, as browsers
 require.
 
+**The Moon turns** (`src/sim/moonFrame.js`, `scripts/measure-moon.mjs`,
+`src/sim/moonMean.js`) — a body-fixed frame, by Cassini's three laws: uniform
+rotation locked to the orbit, the equator tilted 1.535° to the ecliptic, and its
+pole leaning away from the orbit's across the ecliptic's. Libration comes out of
+it: flown against a year of the integrated orbit, Earth wanders up to 7.09° east
+and west in the lunar sky and 6.74° north and south, centred to within 0.33° each
+month. It is what a site on the lunar surface will stand in, and the drawn Moon
+is turned by it.
+
 **The last minute, from the ground** (`src/sim/countdown.js`,
 `src/gfx/groundView.js`, `src/gfx/padParticles.js`, `src/components/PadEffects.jsx`)
 — the *Apollo 8 · from the pad* preset now counts from T−60 on LC-39B with the
@@ -121,6 +130,12 @@ limiting magnitude — −8.7 under a 38° Sun, so no star, planet beacon or Mil
 Way; 6.5 at night; the whole catalogue from orbit.
 
 ### Changed
+
+- **The Moon shows Earth its near side** (`src/components/Moon.jsx`,
+  `src/gfx/moon.js`) — it showed longitude 90°E, the limb: pointed at Earth, with
+  the imagery's 0° on three's +x and the mesh turned half a turn. The generated
+  maps put their maria on the same wrong face. Both are turned by the Moon's frame
+  now, with 0° longitude on its prime meridian.
 
 - **The swing arms reach the vehicle** (`src/gfx/pads.js`, `src/gfx/padGeometry.js`,
   `scripts/measure-hulls.mjs`, `src/gfx/hullProfiles.js`) — every arm ended at
@@ -312,6 +327,14 @@ Way; 6.5 at night; the whole catalogue from orbit.
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-moon-frame`** — the frame is a rotation and obeys the three laws; the
+  recorded mean orbit is a fresh measurement of the simulated one; flown against
+  a year of the integrated orbit, Earth stays centred in the lunar sky and
+  wanders by the real Moon's libration; and the drawn Moon shows Earth the
+  longitude the frame says it does, where the old construction showed 90°E. Its
+  first draft measured the spin as the prime meridian's ecliptic longitude and
+  saw a 3.6e-4 wobble that is only a tilted circle's projection.
 
 - **`verify-ground-view`** — what a person by the pad sees. The atmosphere true
   on the ground, eased without a step to the exaggeration at 100 km, and
@@ -525,6 +548,15 @@ Way; 6.5 at night; the whole catalogue from orbit.
   the build but cannot hide the eighteen behind it.
 
 ### Known limitations
+
+- **The simulated Moon runs 1% slow.** Its J2000 elements are mean values used as
+  the osculating state, and the Sun's tide moves the osculating semi-major axis
+  by about a per cent either side of the mean, so the integrated orbit's sidereal
+  month is 27.614 d against the real 27.322, and its mean longitude at J2000 is
+  216.83° against 218.32°. Missions are flown against the simulated Moon, so they
+  are consistent with it; against a real ephemeris it falls 0.14° a day behind.
+  Starting it from a real J2000 state vector would fix the orbit and move every
+  mission figure the gates hold.
 
 - **A single frame of about 900 ms was seen twice in four traced counts** — once
   between T−4.5 and T+0.5, once at T−7.35 — neither a shader compile (a forced

@@ -131,8 +131,10 @@ export function generateMoon(report = () => {}) {
       d[2] = dirs[i * 3 + 2]
       height[i] = terrain.fbm(d[0] * 2.4, d[1] * 2.4, d[2] * 2.4, 6) * 0.55
 
-      // Maria are biased to one hemisphere, the way the real near/far side split is.
-      const facing = smoothstep(-0.35, 0.75, d[2])
+      // Maria are biased to one hemisphere, the way the real near/far side split
+      // is — centred on 0° longitude, the middle of the map, as the NASA imagery
+      // has it, so the generated Moon and the real one face Earth the same way.
+      const facing = smoothstep(-0.35, 0.75, d[0])
       const basin = mariaN.fbm(d[0] * 1.35, d[1] * 1.35, d[2] * 1.35, 4) * 0.5 + 0.5
       maria[i] = clamp01(smoothstep(0.50, 0.68, basin) * facing)
     }
