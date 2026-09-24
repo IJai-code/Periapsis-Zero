@@ -48,6 +48,46 @@ export const PRESETS = [
     warp: WARP.x1,
   },
   {
+    /*
+     * Eagle on Tranquility Base, a minute before liftoff, and everything after:
+     * the ascent, the coelliptic rendezvous and the docking with Columbia,
+     * flown to Apollo 11's own timeline — see sim/lunarMission.js.
+     *
+     * The hour is the Sun's. Eagle landed at a sun 10.8° up and lifted off 21.6
+     * hours later, with the Sun half a degree an hour higher: 21.8°, low in the
+     * east, every rock throwing a shadow three times its height. The simulated
+     * Moon first puts that sun over the site 305.29 h after the epoch, measured
+     * by stepping the integrated system an hour at a time — so the count starts
+     * a minute before.
+     */
+    id: 'apollo11-liftoff',
+    vessel: 'apollo11',
+    site: 'tranquility',
+    title: 'Apollo 11 · lunar liftoff',
+    blurb: 'Eagle leaves Tranquility Base to meet Columbia, as flown in July 1969.',
+    fromPad: true,
+    launchHour: 305.29 - 60 / 3600,
+    focus: 'ground',
+    warp: WARP.x1,
+  },
+  {
+    /*
+     * The same flight, joined three hours and a quarter in: the ascent, CSI, CDH
+     * and TPI flown by the sequencer in the fast-forward, and the page handed
+     * over as braking begins, a mile and a bit out from Columbia — the part the
+     * crew flew by hand, the last half hour to the docking.
+     */
+    id: 'apollo11-docking',
+    vessel: 'apollo11',
+    site: 'tranquility',
+    title: 'Apollo 11 · docking',
+    blurb: 'Three and a quarter hours on: Eagle brakes onto Columbia above the Moon.',
+    launchHour: 305.29 - 60 / 3600,
+    until: 'LM_BRAKING',
+    focus: 'chase',
+    warp: WARP.x10,
+  },
+  {
     id: 'apollo8-lunar-orbit',
     vessel: 'apollo8',
     site: 'ksc',

@@ -16,12 +16,13 @@ import { MapOverlay } from './MapOverlay.jsx'
 import { Markers } from './Markers.jsx'
 import { Planets } from './Planets.jsx'
 import { Terrain } from './Terrain.jsx'
+import { LunarSurface } from './LunarSurface.jsx'
 import { CameraRig } from './CameraRig.jsx'
 import { Effects } from './Effects.jsx'
 import { Audio } from './Audio.jsx'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
-import { DAY, YEAR } from '../sim/constants.js'
+import { CRAFT, DAY, SHIP, YEAR } from '../sim/constants.js'
 
 const LUNAR_MONTH = 27.321661 * DAY
 
@@ -56,7 +57,14 @@ export function Scene({ textures }) {
    * and the planets: it is standing on the one and may see the others.
    */
   const ground = useUi((s) => s.focus === 'ground')
-  const bare = cinematic || ground
+  /**
+   * Nor does the camera riding with the LM. Its predicted path starts inside
+   * the ship and, climbing off the Moon, runs down through the ground ahead:
+   * a line through the middle of a shot whose subject is a few metres wide.
+   * The map and the Moon views still carry it.
+   */
+  const lunarChase = useUi((s) => s.focus === 'chase') && Boolean(SHIP.lunar)
+  const bare = cinematic || ground || lunarChase
   const active = useActiveTextures(textures)
 
   return (
@@ -81,9 +89,11 @@ export function Scene({ textures }) {
       <Craft id="ship" />
       <Craft id="iss" />
       <Craft id="hubble" />
+      {/* The craft a lunar vessel flies to meet — Columbia, for Eagle. */}
+      {CRAFT.target && <Craft id="target" />}
       <ShipControls />
 
-      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground} />
+      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase} />
       {FLEET_TRAILS.map((t) => (
         <Trail
           key={t.body}
@@ -95,7 +105,7 @@ export function Scene({ textures }) {
           head={t.head}
           tail={t.tail}
           width={1.1}
-          visible={trails && !ground}
+          visible={trails && !ground && !lunarChase}
         />
       ))}
       <Trail
@@ -107,7 +117,7 @@ export function Scene({ textures }) {
         head="#cfc8bd"
         tail="#33302b"
         width={1.4}
-        visible={trails && !ground}
+        visible={trails && !ground && !lunarChase}
       />
 
       {!bare && <Trajectory />}
@@ -116,6 +126,7 @@ export function Scene({ textures }) {
       {!bare && <Markers />}
       {!cinematic && <Planets />}
       {!cinematic && <Terrain />}
+      {!cinematic && <LunarSurface textures={textures} />}
 
       {/* Tuned for weight rather than responsiveness: a slower rotate against
           0.05 damping makes the camera feel like it carries momentum, which is

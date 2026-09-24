@@ -98,6 +98,21 @@ daySky.limitMagnitude = NO_LIMIT
 daySky.limitFlux = Math.pow(10, -0.4 * NO_LIMIT)
 daySky.milkyWay = 1
 
+/**
+ * Luminance of sunlit ground the eye is adapted to where there is no air to
+ * brighten the sky, cd/m² — the lunar surface, written by LunarSurface.jsx.
+ *
+ * The Moon's sky is black at noon, and still nobody on its sunlit surface saw
+ * stars: every Apollo crew said so, and every surface photograph agrees. What
+ * hides them is not the sky but the ground, 1,600 cd/m² of it at Tranquility's
+ * liftoff sun, filling half the view — the eye, or a camera exposed for the
+ * scene, is adapted to that. So where the air is gone, this stands in for the
+ * sky's luminance in the same visibility law, and a black sky over lit
+ * regolith hides the catalogue — the Milky Way with it — for the same reason a
+ * blue one does. A slot, not an argument, for the boxing reason above.
+ */
+export const groundGlare = new Float64Array(1)
+
 /*
  * The march's inputs and outputs, in one preallocated array rather than as
  * arguments: a double handed to a function V8 does not inline is boxed at the
@@ -266,9 +281,22 @@ export function measureSky(material) {
   const u = material.uniforms
   const near = u.uNear.value
   if (!(near > 0)) {
-    // No air over the camera: a black sky and the whole catalogue.
+    // No air over the camera: a black sky, and the whole catalogue unless the
+    // eye is adapted to lit ground — see groundGlare.
     daySky.zenith = 0
     daySky.brightness = 99
+    const glare = groundGlare[0]
+    if (glare > NIGHT_NITS) {
+      const B = -2.5 * Math.log10(glare / ZERO_MAG_NITS)
+      const nelm = 7.93 - 5 * Math.log10(Math.pow(10, 4.316 - B / 5) + 1)
+      const limit = nelm < NO_LIMIT ? nelm : NO_LIMIT
+      let w = (B - MILKY_WAY_GONE) / (MILKY_WAY_FULL - MILKY_WAY_GONE)
+      w = w > 0 ? (w < 1 ? w : 1) : 0
+      daySky.limitMagnitude = limit
+      daySky.limitFlux = Math.pow(10, -0.4 * limit)
+      daySky.milkyWay = w * w * (3 - 2 * w)
+      return
+    }
     daySky.limitMagnitude = NO_LIMIT
     daySky.limitFlux = Math.pow(10, -0.4 * NO_LIMIT)
     daySky.milkyWay = 1

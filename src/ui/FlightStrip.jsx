@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { live } from '../sim/live.js'
+import { G0, SHIP } from '../sim/constants.js'
+import { ship } from '../sim/ship.js'
+import { INDEX } from '../sim/system.js'
 
 /**
  * The four figures you actually fly on, in one strip under the wordmark.
@@ -72,12 +75,73 @@ const FIELDS = [
   },
 ]
 
+/*
+ * On the Moon the four figures are different ones. There is no air, so no
+ * dynamic pressure; the altitude and speed that matter are the Moon's, not
+ * Earth's 380,000 km; and from the moment Eagle lifts off the thing it is
+ * flying toward is Columbia, so the range to it and the rate it is closing
+ * take the strip's middle. Range and rate are read straight off the state, on
+ * this timer, not from the sequencer's copy — which only refreshes in the
+ * phases that steer by them.
+ */
+const rel = new Float64Array(2)
+function relative() {
+  const s = live.sim.state
+  const o = INDEX.ship * 6
+  const t = INDEX.target * 6
+  const dx = s[t] - s[o]
+  const dy = s[t + 1] - s[o + 1]
+  const dz = s[t + 2] - s[o + 2]
+  const r = Math.sqrt(dx * dx + dy * dy + dz * dz)
+  rel[0] = r
+  rel[1] = r > 0 ? -((s[t + 3] - s[o + 3]) * dx + (s[t + 4] - s[o + 4]) * dy + (s[t + 5] - s[o + 5]) * dz) / r : 0
+}
+
+const LUNAR_FIELDS = [
+  {
+    key: 'alt',
+    label: 'Altitude',
+    width: '7.5ch',
+    get: () => {
+      const a = live.lunar.altitude
+      return a < 1000 ? `${a.toFixed(0)} m` : `${(a / 1000).toFixed(1)} km`
+    },
+  },
+  { key: 'vel', label: 'Velocity', width: '8ch', get: () => `${(live.lunar.speed / 1000).toFixed(3)} km/s` },
+  {
+    key: 'range',
+    label: 'Range · Columbia',
+    width: '8ch',
+    get: () => {
+      if (INDEX.target === undefined) return '—'
+      relative()
+      return rel[0] < 10e3 ? `${rel[0].toFixed(0)} m` : `${(rel[0] / 1000).toFixed(1)} km`
+    },
+  },
+  {
+    key: 'rate',
+    label: 'Closing',
+    width: '8ch',
+    get: () => {
+      if (INDEX.target === undefined) return '—'
+      relative()
+      return `${rel[1] >= 0 ? '' : '−'}${Math.abs(rel[1]).toFixed(Math.abs(rel[1]) < 10 ? 2 : 1)} m/s`
+    },
+  },
+  {
+    key: 'g',
+    label: 'Load',
+    width: '5.5ch',
+    get: () => `${((ship.thrust / ship.mass + ship.rcs.length()) / G0).toFixed(2)} g`,
+  },
+]
+
 export function FlightStrip() {
   const root = useRef(null)
 
   useEffect(() => {
     const nodes = []
-    for (const f of FIELDS) {
+    for (const f of SHIP.lunar ? LUNAR_FIELDS : FIELDS) {
       const el = root.current?.querySelector(`[data-strip="${f.key}"]`)
       if (el) nodes.push([f, el])
     }
@@ -94,7 +158,7 @@ export function FlightStrip() {
       ref={root}
       className="panel pointer-events-none flex w-fit max-w-[calc(100vw-2rem)] items-stretch overflow-x-auto"
     >
-      {FIELDS.map((f, i) => (
+      {(SHIP.lunar ? LUNAR_FIELDS : FIELDS).map((f, i) => (
         <div
           key={f.key}
           /*

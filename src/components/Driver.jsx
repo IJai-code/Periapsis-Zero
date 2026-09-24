@@ -382,7 +382,16 @@ export function Driver() {
           // body — not on the node, which would make the rest of the scene
           // shift under a point the pilot is trying to read.
           (predictApi.plan.reference ?? 'earth')
-        : (ORIGIN_BODY[focus] ?? null)
+        : (focus === 'ground' || focus === 'pad') && mission.site?.body === 'moon'
+          ? /*
+             * On the Moon the ground camera keeps the origin on the vehicle.
+             * The Moon's centre is 1,737 km under the observer, where a
+             * float32 is good to 12 cm — too coarse for 8 cm shadow texels —
+             * and the LM is metres away until the director has cut to the
+             * chase; even 250 km out a float32 still holds 2 cm.
+             */
+            'ship'
+          : (ORIGIN_BODY[focus] ?? null)
     refreshDerived(originBody, originBody ? null : (controls?.target ?? null))
 
     /**

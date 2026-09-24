@@ -3,6 +3,8 @@ import { currentPhase, mission } from './mission.js'
 import { nodes } from './nodes.js'
 import { ship } from './ship.js'
 import { stageOfCount } from './countdown.js'
+import { APOLLO11, DOCKING_REACH, lunar } from './lunarMission.js'
+import { INDEX } from './system.js'
 
 /**
  * What is happening, and why.
@@ -267,9 +269,116 @@ export const COMMENTARY = {
     'Station-keeping. A halo orbit is unstable — errors grow rather than average out — so it has ' +
     'to be nudged back roughly once a revolution, for a handful of metres a second.',
 
+  /* --- Eagle, from Tranquility Base to Columbia --- */
+
+  LUNAR_PRE_LAUNCH: () => {
+    const clock = mission.running ? `T−${Math.max(0, mission.countdown).toFixed(0)} s. ` : ''
+    return (
+      `${clock}Eagle's ascent stage, on the descent stage it landed on, which stays behind as its ` +
+      `launch pad. Columbia is ${distance(range())} away in its 60-mile orbit. Liftoff is timed by ` +
+      `where Columbia is, not by the clock: the ascent has to end a set distance behind and below it.`
+    )
+  },
+
+  LUNAR_LIFTOFF: () =>
+    'Liftoff is ignition: the bolts joining the two stages fire as the ascent engine lights, into ' +
+    "the top of the descent stage — 'fire in the hole' — stripping its insulation. Ten seconds " +
+    'straight up to clear it and the ground.',
+
+  LUNAR_ASCENT: () =>
+    `Pitched over toward the west, the plane of Columbia's orbit. The ascent engine has one setting — ` +
+    `3,500 lbf, no throttle — so the guidance steers the thrust instead, to arrive at 60,000 ft ` +
+    `climbing at 32 ft/s and moving at 5,535. Now ${distance(live.lunar.altitude)} up at ` +
+    `${(live.lunar.speed / 1000).toFixed(2)} km/s. (The law is explicit guidance of the family ` +
+    `Apollo's P12 belongs to, not its code.)`,
+
+  LUNAR_INSERTION: () =>
+    `Engine off: in orbit, ${km(live.lunar.perigee)} by ${km(live.lunar.apogee)}.`,
+
+  LM_COAST_CSI: () =>
+    `In orbit, ${km(live.lunar.perigee)} by ${km(live.lunar.apogee)}, below and behind Columbia — ` +
+    `and catching it, because a lower orbit is a faster one. At apolune, in ${hours(lunar.csiTime - live.sim.t)}, ` +
+    `CSI adds ${ftps(lunar.csi?.dv ?? 0)} forward: the one burn that sets how fast Eagle gains from ` +
+    'then on, and so when the terminal phase can begin. Its size was solved for Apollo 11’s TPI time.',
+
+  LM_CSI: () =>
+    `Coelliptic sequence initiation: ${ftps(lunar.csi?.dv ?? 0)} forward on the reaction control ` +
+    'jets. The ascent engine is kept for an emergency; everything from here to docking is flown on ' +
+    'the small thrusters.',
+
+  LM_COAST_CDH: () =>
+    `Half an orbit to the opposite apsis, where CDH will make the two orbits parallel. ${hours(lunar.cdhTime - live.sim.t)} to go.`,
+
+  LM_CDH: () =>
+    'Constant delta height: Eagle’s orbit is reshaped to follow Columbia’s at a fixed distance ' +
+    'below it, all the way round — same line of apsides, same a × e. From here the angle Columbia ' +
+    'stands above Eagle’s horizon climbs steadily, and that angle is the clock for TPI.',
+
+  LM_COAST_TPI: () => {
+    const dh = lunar.cdh ? ` ${km(lunar.cdh.dh)} below Columbia,` : ''
+    return (
+      `Coelliptic,${dh} gaining. Columbia is ${deg(lunar.elevation)} above Eagle’s horizon; at ` +
+      `${deg(APOLLO11.tpiElevation)}, a burn along the line of sight carries Eagle up to it in 130° ` +
+      'of orbit — a geometry chosen because errors in the burn barely move where it ends.'
+    )
+  },
+
+  LM_TPI: () =>
+    `Terminal phase initiation: ${ftps(lunar.tpi?.dv ?? 0)}, solved as a Lambert transfer to where ` +
+    `Columbia will be 130° of orbit from now. Range ${distance(range())}.`,
+
+  LM_TRANSFER: () =>
+    `Coasting up to Columbia, ${distance(range())} to go. Two midcourse corrections, fifteen and ` +
+    'thirty minutes after TPI, trim the errors out. Here they come out at hundredths of a foot a ' +
+    'second: this Moon is a point mass, and the real one’s mascons made Apollo 11’s about one.',
+
+  LM_BRAKING: () =>
+    `Braking through the gates: the closing rate comes down in steps as the range does — 30 ft/s at ` +
+    `a mile, 20 at half a mile, 10 at 1,500 ft, 5 at 500 — so there is always room to stop. ` +
+    `${distance(range())}, closing at ${ftps(closing())}.`,
+
+  LM_STATION_KEEP: () =>
+    'Station-keeping, thirty metres apart, nothing closing. Apollo 11 held here about ten minutes, ' +
+    'the two crews looking each other over before the docking.',
+
+  LM_DOCKING: () =>
+    `Collins flies Columbia the last metres at a tenth of a metre a second; Eagle holds attitude with ` +
+    `its docking tunnel turned up to him. ${distance(Math.max(0, range() - DOCKING_REACH))} between the probe and the drogue.`,
+
+  DOCKED: () =>
+    `Docked, ${hms(lunar.dockedTime - lunar.liftoffTime)} after liftoff, at ${lunar.dockingSpeed.toFixed(2)} m/s. ` +
+    'Apollo 11’s was 3:41:00. The crews move through the tunnel with the samples, and Eagle is ' +
+    'cast off to stay in lunar orbit.',
+
   LOST: () =>
     'The vehicle is on a trajectory the mission cannot recover. The simulation keeps integrating ' +
     'it, because that is what the physics does.',
+}
+
+/* Lunar helpers: the state, read when the line is. */
+const FT = 0.3048
+const ftps = (v) => `${(v / FT).toFixed(1)} ft/s`
+const deg = (r) => `${((r * 180) / Math.PI).toFixed(1)}°`
+const distance = (m) => (m < 10e3 ? `${m.toFixed(0)} m` : km(m))
+const hms = (s) => {
+  const a = Math.max(0, Math.round(s))
+  return `${Math.floor(a / 3600)}:${String(Math.floor((a % 3600) / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`
+}
+function range() {
+  const s = live.sim.state
+  const o = INDEX.ship * 6
+  const t = INDEX.target * 6
+  return Math.hypot(s[t] - s[o], s[t + 1] - s[o + 1], s[t + 2] - s[o + 2])
+}
+function closing() {
+  const s = live.sim.state
+  const o = INDEX.ship * 6
+  const t = INDEX.target * 6
+  const dx = s[t] - s[o]
+  const dy = s[t + 1] - s[o + 1]
+  const dz = s[t + 2] - s[o + 2]
+  const r = Math.hypot(dx, dy, dz)
+  return -((s[t + 3] - s[o + 3]) * dx + (s[t + 4] - s[o + 4]) * dy + (s[t + 5] - s[o + 5]) * dz) / r
 }
 
 /**
@@ -280,7 +389,7 @@ export const COMMENTARY = {
  * interface failing to notice that it is. `Commentary` retires these after a
  * while; everything else stays because something is still happening.
  */
-export const TERMINAL = new Set(['SPLASHDOWN', 'LOST'])
+export const TERMINAL = new Set(['SPLASHDOWN', 'DOCKED', 'LOST'])
 
 /**
  * The line for the phase the vehicle is in, or null if that phase has none.

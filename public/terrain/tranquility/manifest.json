@@ -1,0 +1,91 @@
+{
+  "site": "tranquility",
+  "name": "Tranquility Base",
+  "latitude": 0.67408,
+  "longitude": 23.47297,
+  "reference": "heights in metres relative to the 1737.4 km sphere",
+  "levels": [
+    {
+      "id": "near",
+      "file": "near.png",
+      "samples": 1024,
+      "metresPerSample": 2,
+      "grid": {
+        "latTop": 0.7078043718717141,
+        "latStep": -0.00006595577243351247,
+        "lonLeft": 23.4392640448431,
+        "lonStep": 0.00006596581934559254
+      },
+      "encoding": {
+        "base": -1966.43,
+        "step": 0.01
+      },
+      "site": {
+        "row": 511.3179730501597,
+        "col": 510.96091112541035,
+        "height": -1927.4778354427763
+      },
+      "low": -1966.42431640625,
+      "high": -1905.153564453125,
+      "source": "LROC NAC DTM NAC_DTM_APOLLO11 v1.9 (ASU / NASA), 2 m",
+      "url": "https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/DATA/SDP/NAC_DTM/APOLLO11/NAC_DTM_APOLLO11.LBL"
+    },
+    {
+      "id": "mid",
+      "file": "mid.png",
+      "samples": 1024,
+      "metresPerSample": 29.612646898583478,
+      "grid": {
+        "latTop": 1.17333984375,
+        "latStep": -0.0009765625,
+        "lonLeft": 22.97412109375,
+        "lonStep": 0.0009765625
+      },
+      "encoding": {
+        "base": -2132.5,
+        "step": 0.5
+      },
+      "site": {
+        "row": 511.24207999999635,
+        "col": 510.8212800000001,
+        "height": -1927.8112322688016
+      },
+      "low": -2132.5,
+      "high": -1620,
+      "source": "LOLA LDEM 1024 px/deg (NASA GSFC / PDS Geosciences), 29.6 m",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img",
+      "files": [
+        "ldem_1024_00n_15n_000_030.img"
+      ]
+    },
+    {
+      "id": "far",
+      "file": "far.png",
+      "samples": 2048,
+      "metresPerSample": 118.45058759433391,
+      "grid": {
+        "latTop": 4.669921875,
+        "latStep": -0.00390625,
+        "lonLeft": 19.478515625,
+        "lonStep": 0.00390625
+      },
+      "encoding": {
+        "base": -4169,
+        "step": 0.5
+      },
+      "site": {
+        "row": 1022.9355199999991,
+        "col": 1022.58032,
+        "height": -1935.5109180671984
+      },
+      "low": -4169,
+      "high": 1506.5,
+      "source": "LOLA LDEM 256 px/deg (NASA GSFC / PDS Geosciences), 118 m",
+      "url": "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/cylindrical/img",
+      "files": [
+        "ldem_256_00n_90n_000_180.img",
+        "ldem_256_90s_00s_000_180.img"
+      ]
+    }
+  ]
+}

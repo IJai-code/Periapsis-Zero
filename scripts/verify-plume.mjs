@@ -130,10 +130,13 @@ for (const key of Object.keys(VESSELS)) {
     /*
      * A stage that lights on the pad must be near matched or over-expanded
      * there — that is what a sea-level nozzle is. A stage that only lights in
-     * vacuum must be under-expanded where it burns.
+     * vacuum must be under-expanded where it burns. A lunar vessel's pad is in
+     * vacuum, so its first stage is one of those: Eagle's ascent engine, area
+     * ratio 46, is a vacuum nozzle lit on the ground.
      */
-    if (i === 0 && matched > 12e3) firstStagesShock = false
-    if (i > 0) {
+    const airless = i === 0 && vessel.lunar
+    if (i === 0 && !airless && matched > 12e3) firstStagesShock = false
+    if (i > 0 || airless) {
       plumeState(out, st.nozzle, 80e3)
       if (!(out[0] > 0)) vacuumStagesFlare = false
     }
@@ -200,7 +203,7 @@ const checks = [
   ['the area relation inverts, across every nozzle in the fleet', worstArea < 1e-6],
   ['and so does the pressure relation', worstPress < 1e-9],
   // What the model has to say about real hardware.
-  ['every stage that lights on the pad is a sea-level nozzle', firstStagesShock],
+  ['every stage that lights on a pad in air is a sea-level nozzle', firstStagesShock],
   ['every stage that lights in vacuum flares there', vacuumStagesFlare],
   ['the F-1 shows diamonds on the pad', (plumeState(out, f1, 0), out[1] > 0.4)],
   ['and they are gone by the altitude it is matched at', diamondsGoneBy <= Math.ceil(f1Matched)],

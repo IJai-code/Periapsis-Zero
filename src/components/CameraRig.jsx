@@ -6,7 +6,8 @@ import { RAIL_BY_ID } from '../sim/rails.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { currentHullLift } from '../gfx/pads.js'
-import { EYE_FOV, groundViewpoint } from '../gfx/groundView.js'
+import { EYE_FOV, groundViewpoint, lunarViewpoint } from '../gfx/groundView.js'
+import { lunarChaseOffset } from '../gfx/lunarChase.js'
 import { BODIES, SHIP } from '../sim/constants.js'
 import {
   CHASE_MULTIPLE,
@@ -650,7 +651,8 @@ export function CameraRig() {
      */
     if (focus === 'ground') {
       const site = mission.site ?? activeSite()
-      groundViewpoint(scratch.eye, scratch.eyeUp, site, live.sunDir, live.pos.earth)
+      if (site.body === 'moon') lunarViewpoint(scratch.eye, scratch.eyeUp, site)
+      else groundViewpoint(scratch.eye, scratch.eyeUp, site, live.sunDir, live.pos.earth)
       camera.position.copy(scratch.eye)
 
       siteDirection(scratch.siteDir, site, live.sim.t)
@@ -759,15 +761,20 @@ export function CameraRig() {
      * all.
      */
     if (focus === 'chase') {
-      scratch.back.set(0, 0, -1).applyQuaternion(ship.quaternion)
-      scratch.up.set(0, 1, 0).applyQuaternion(ship.quaternion)
-      // The stage on screen, and its exhaust when there is one: a lit vehicle
-      // is 1.72 times the object an unlit one is, and the extra points this way.
-      const reach = ship.thrust > 0 ? hull * LIT_REACH : hull
-      scratch.desired
-        .set(0, 0, 0)
-        .addScaledVector(scratch.back, CHASE_MULTIPLE.back * reach)
-        .addScaledVector(scratch.up, CHASE_MULTIPLE.up * reach)
+      if (SHIP.lunar) {
+        // Eagle is filmed from the Moon's frame, not its own: see gfx/lunarChase.js.
+        lunarChaseOffset(scratch.desired, scratch.up, hull)
+      } else {
+        scratch.back.set(0, 0, -1).applyQuaternion(ship.quaternion)
+        scratch.up.set(0, 1, 0).applyQuaternion(ship.quaternion)
+        // The stage on screen, and its exhaust when there is one: a lit vehicle
+        // is 1.72 times the object an unlit one is, and the extra points this way.
+        const reach = ship.thrust > 0 ? hull * LIT_REACH : hull
+        scratch.desired
+          .set(0, 0, 0)
+          .addScaledVector(scratch.back, CHASE_MULTIPLE.back * reach)
+          .addScaledVector(scratch.up, CHASE_MULTIPLE.up * reach)
+      }
 
       const blend = flight.current
       if (blend?.chaseBlend) {

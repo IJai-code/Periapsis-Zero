@@ -242,13 +242,35 @@ export function restore(snap) {
 }
 
 /**
- * The one checked-in state, resolved against this file rather than the working
+ * The checked-in states, resolved against this file rather than the working
  * directory — `verify-all` spawns gates by absolute path and a relative default
  * would break the moment anything ran from elsewhere.
  *
- * `scripts/fixtures/README.md` says what it is and how to regenerate it.
+ * Two, because two regimes are asked about and they are 114 hours and a capture
+ * burn apart. `lunar-orbit` is the one with gates in the suite; `lunar-approach`
+ * is the state *before* the sphere of influence, which is what the approach and
+ * LOI scripts need and which no re-flight from orbit can give them.
+ *
+ * `scripts/fixtures/README.md` says what each is and how to regenerate it.
  */
 export const LUNAR_ORBIT_FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'lunar-orbit.json')
+export const LUNAR_APPROACH_FIXTURE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'fixtures',
+  'lunar-approach.json',
+)
+/*
+ * The same phase for the other stack. There are two because a state carries no
+ * vessel: `restore()` fills the state vector and the ship's own fields, and the
+ * stage table comes from the environment. So a fixture is only coherent under
+ * the vessel it was flown with, and `verify-staging` is written against Artemis
+ * (see its header) while the three Apollo-8 instruments above are not.
+ */
+export const LUNAR_APPROACH_ARTEMIS_FIXTURE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'fixtures',
+  'lunar-approach-artemis.json',
+)
 
 export const loadSnapshot = (path) => restore(JSON.parse(readFileSync(path, 'utf8')))
 export const saveSnapshot = (path) => writeFileSync(path, JSON.stringify(snapshot()))

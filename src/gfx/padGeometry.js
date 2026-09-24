@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { exhaustOpening, hullRadiusBetween, padFor, vehicleFootprint } from './pads.js'
 import { stageLength } from './framing.js'
+import { LUNAR_SITES } from '../sim/launchsite.js'
 
 /**
  * The launch complexes, as geometry. Pure three.js, no React: built here so
@@ -557,7 +558,16 @@ export const ARM_SWING = Math.PI / 2
  * pads it is the vehicle.
  */
 const _envelopes = new Map()
+/**
+ * A lunar site has no pad to measure, and what its shadows have to hold is not
+ * a structure but the ground people stand on: the LM, 7.3 m to the top of its
+ * tunnel, and the rocks and craters round it out to 150 m. At the Sun Eagle
+ * lifted off under, 22°, that box is 159 m wide either side of the LM — 7.8 cm
+ * a texel.
+ */
+const LUNAR_ENVELOPE = Object.freeze({ reach: 150, top: 7.3 })
 export function padEnvelope(siteId) {
+  if (LUNAR_SITES[siteId]) return LUNAR_ENVELOPE
   const held = _envelopes.get(siteId)
   if (held !== undefined) return held
   const pad = padFor(siteId)

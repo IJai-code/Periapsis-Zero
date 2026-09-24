@@ -1,5 +1,6 @@
-import { BODIES } from './constants.js'
+import { BODIES, SHIP } from './constants.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
+import { MOON_SPIN_RATE, moonAxes, moonClock } from './moonFrame.js'
 import { deflectionOfVertical, surfaceGravity } from './prem.js'
 import { requested } from './requested.js'
 
@@ -69,6 +70,37 @@ export const LAUNCH_SITES = {
 }
 
 /**
+ * Sites on the Moon.
+ *
+ * Kept apart from LAUNCH_SITES because everything that iterates those — the
+ * four-pad flights, the pad builder, the SRTM ground, the observer's trench
+ * rule — is Earth's. A lunar site stands on another body, turns in another
+ * frame (sim/moonFrame.js), and has no pad but the stage it landed on.
+ *
+ * Tranquility Base is where Eagle stood: 0.67408°N 23.47297°E, the position the
+ * LROC narrow-angle camera fixed from orbit. The azimuth is not the site's to
+ * choose — an ascent steers into the plane of the spacecraft it is going to
+ * meet — so it is left to the lunar sequencer; this one is only the heading of
+ * that plane's ground track, west, for anything that reads it early.
+ */
+export const LUNAR_SITES = {
+  tranquility: {
+    id: 'tranquility',
+    name: 'Tranquility Base',
+    body: 'moon',
+    latitude: 0.67408,
+    longitude: 23.47297,
+    azimuth: 270,
+  },
+}
+
+/** Every site a vehicle can stand on, whatever it stands on. */
+export const ALL_SITES = { ...LAUNCH_SITES, ...LUNAR_SITES }
+
+/** Whether a site is on the Moon. */
+export const isLunar = (site) => site?.body === 'moon'
+
+/**
  * Which pad the next flight leaves from.
  *
  * Module state rather than a store field, because two things outside React need
@@ -77,7 +109,18 @@ export const LAUNCH_SITES = {
  * `PERIAPSIS_SITE` under Node, `?site=` in a browser — so a headless run or a
  * shared link can fly from anywhere without editing source.
  */
-let active = LAUNCH_SITES[requested('PERIAPSIS_SITE', 'site', LAUNCH_SITES, 'ksc', 'launch site')]
+const asked = ALL_SITES[requested('PERIAPSIS_SITE', 'site', ALL_SITES, SHIP.site ?? 'ksc', 'launch site')]
+
+/*
+ * And a vessel stands on the body it was built for — the LM on the Moon, a
+ * Saturn V on Earth. A link that asks for the other kind of site gets the
+ * vessel's own, and the console says so, rather than an ascent stage on a
+ * launch mound or a Saturn V on the Sea of Tranquility.
+ */
+let active = Boolean(SHIP.lunar) === isLunar(asked) ? asked : ALL_SITES[SHIP.site ?? 'ksc']
+if (active !== asked) {
+  console.warn(`[periapsis] ${SHIP.name} does not fly from ${asked.name}; standing it on ${active.name}`)
+}
 
 /** The pad the vehicle is standing on. */
 export const activeSite = () => active
@@ -88,7 +131,7 @@ export const activeSite = () => active
  * what puts the stack on the new pad.
  */
 export function selectSite(id) {
-  const site = LAUNCH_SITES[id]
+  const site = ALL_SITES[id]
   if (!site) throw new Error(`unknown launch site "${id}"`)
   active = site
   return site
@@ -151,6 +194,23 @@ const E2 = [
  * release by construction rather than by tuning.
  */
 export function clampToSite(state, t, site, earthOffset, shipOffset) {
+  siteClock[0] = t
+  clampToSiteNow(state, site, earthOffset, shipOffset)
+}
+
+/**
+ * The same, at the time in `siteClock[0]`: the frame path's form. The clamp runs
+ * every step the vehicle stands on its pad, and the time handed to it as an
+ * argument is a double crossing a call — boxed, sixteen bytes a step, measured.
+ */
+export const siteClock = new Float64Array(1)
+export function clampToSiteNow(state, site, earthOffset, shipOffset) {
+  const t = siteClock[0]
+  if (site.body === 'moon') {
+    moonClock[0] = t
+    clampToMoon(state, site, earthOffset, shipOffset)
+    return
+  }
   const phi = site.latitude * DEG
   const theta = site.longitude * DEG + SPIN_RATE * t
   const R = BODIES.earth.radius
@@ -183,6 +243,21 @@ export function clampToSite(state, t, site, earthOffset, shipOffset) {
  * would drift relative to the vehicle standing on it.
  */
 export function siteDirection(out, site, t) {
+  if (site.body === 'moon') {
+    moonClock[0] = t
+    moonAxes(_lunar)
+    const phi = site.latitude * DEG
+    const lam = site.longitude * DEG
+    const x = Math.cos(phi) * Math.cos(lam)
+    const y = Math.cos(phi) * Math.sin(lam)
+    const z = Math.sin(phi)
+    out.set(
+      x * _lunar[0] + y * _lunar[3] + z * _lunar[6],
+      x * _lunar[1] + y * _lunar[4] + z * _lunar[7],
+      x * _lunar[2] + y * _lunar[5] + z * _lunar[8],
+    )
+    return out
+  }
   const phi = site.latitude * DEG
   const theta = site.longitude * DEG + SPIN_RATE * t
   const cosPhi = Math.cos(phi)
@@ -247,5 +322,47 @@ export function inclinationFor(site, azimuthDeg = site.azimuth) {
 
 /** Eastward velocity the planet's rotation contributes for free, m/s. */
 export function rotationBonus(site) {
+  if (site.body === 'moon') return MOON_SPIN_RATE * BODIES.moon.radius * Math.cos(site.latitude * DEG)
   return SPIN_RATE * BODIES.earth.radius * Math.cos(site.latitude * DEG)
+}
+
+/*
+ * The Moon's frame axes, written in place by the lunar branches: +x prime
+ * meridian, +y 90°E, +z north — see sim/moonFrame.js.
+ */
+const _lunar = new Float64Array(9)
+
+/**
+ * The lunar clamp: `clampToSite` for a site on the Moon.
+ *
+ * The same constraint as on Earth — position and velocity written, not
+ * balanced against a surface reaction — in the Moon's own frame, at the time
+ * `clampToSite` has put in `moonClock`. The site is
+ * rotated to time t by the Moon's uniform spin and added to the Moon; the
+ * velocity is the Moon's plus ω × r, with ω along the lunar pole at the spin
+ * rate, which carries a site at Tranquility round at 4.58 m/s.
+ */
+function clampToMoon(state, site, moonOffset, shipOffset) {
+  moonAxes(_lunar)
+  const phi = site.latitude * DEG
+  const lam = site.longitude * DEG
+  const x = Math.cos(phi) * Math.cos(lam)
+  const y = Math.cos(phi) * Math.sin(lam)
+  const z = Math.sin(phi)
+  // The vehicle's state stands its own height above the ground: see
+  // `lunarAscent.standHeight` in vessels.js.
+  const R = BODIES.moon.radius + (SHIP.lunarAscent?.standHeight ?? 0)
+  const rx = R * (x * _lunar[0] + y * _lunar[3] + z * _lunar[6])
+  const ry = R * (x * _lunar[1] + y * _lunar[4] + z * _lunar[7])
+  const rz = R * (x * _lunar[2] + y * _lunar[5] + z * _lunar[8])
+  state[shipOffset] = state[moonOffset] + rx
+  state[shipOffset + 1] = state[moonOffset + 1] + ry
+  state[shipOffset + 2] = state[moonOffset + 2] + rz
+  const w = MOON_SPIN_RATE
+  const px = _lunar[6]
+  const py = _lunar[7]
+  const pz = _lunar[8]
+  state[shipOffset + 3] = state[moonOffset + 3] + w * (py * rz - pz * ry)
+  state[shipOffset + 4] = state[moonOffset + 4] + w * (pz * rx - px * rz)
+  state[shipOffset + 5] = state[moonOffset + 5] + w * (px * ry - py * rx)
 }

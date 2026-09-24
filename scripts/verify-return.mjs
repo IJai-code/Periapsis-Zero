@@ -8,10 +8,16 @@
  * the descent rate is taken relative to the rotating surface rather than in the
  * inertial frame, where Earth's own 400 m/s would swamp it.
  *
- *   node scripts/verify-return.mjs <lunar-orbit-snapshot.json>
+ * The state is `scripts/fixtures/lunar-orbit.json` unless another is given —
+ * that file is a lunar-orbit state, which is what the leg starts from, and
+ * pinning it keeps this a test of the return and not of whatever TLI targeting
+ * did this week. The fixture's README argues that choice and states its cost.
+ *
+ *   node scripts/verify-return.mjs                    the fixture
+ *   node scripts/verify-return.mjs other-state.json   some other state
  */
 
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_ORBIT_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
@@ -20,11 +26,7 @@ import { BODIES, SHIP } from '../src/sim/constants.js'
 import { deltaV, ship, totalMass } from '../src/sim/ship.js'
 
 const RE = BODIES.earth.radius
-const snap = process.argv[2]
-if (!snap) {
-  console.error('usage: node scripts/verify-return.mjs <lunar-orbit-snapshot.json>')
-  process.exit(2)
-}
+const snap = process.argv[2] ?? LUNAR_ORBIT_FIXTURE
 
 /** Geocentric state, and the flight-path angle — negative is descending. */
 function flightPathAngle() {

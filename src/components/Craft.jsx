@@ -5,7 +5,7 @@ import { live } from '../sim/live.js'
 import { ship } from '../sim/ship.js'
 import { INDEX } from '../sim/system.js'
 import { CRAFT } from '../sim/constants.js'
-import { alignNose, getModel, loadModel, useModel } from '../gfx/models.js'
+import { alignNose, getModel, loadModel, makePart, useModel } from '../gfx/models.js'
 import { useUi } from '../sim/store.js'
 import { Placeholder } from './Placeholders.jsx'
 import { Hull } from './Hull.jsx'
@@ -17,6 +17,7 @@ import { stageLength } from '../gfx/framing.js'
 import { currentHullLift } from '../gfx/pads.js'
 import { mission } from '../sim/mission.js'
 import { activeSite } from '../sim/launchsite.js'
+import { columbiaAttitude } from '../sim/lunarMission.js'
 
 /**
  * One spacecraft: position from the integrator, hull from either a loaded glTF
@@ -56,7 +57,13 @@ export function Craft({ id }) {
   const stageSpec = id === 'ship' ? (spec.stages?.[stage] ?? null) : null
 
   const override = useUi((s) => s.modelFor[id])
-  const modelId = override ?? stageSpec?.model ?? null
+  const modelId = override ?? stageSpec?.model ?? spec.model ?? null
+  /**
+   * A part of the file rather than all of it — Eagle's ascent stage, Columbia
+   * out of the Apollo–Soyuz stack. See PARTS in gfx/models.js. A pick from the
+   * dropdown is a whole model, so an override drops it.
+   */
+  const partKey = override ? null : (stageSpec?.part ?? spec.part ?? null)
   /**
    * For the ship this is the section-derived length, which is also what every
    * camera frames it by — one number, so the hull and the framing cannot drift
@@ -97,6 +104,22 @@ export function Craft({ id }) {
   // three's clone shares geometry and materials, so this is cheap.
   const model = useMemo(() => {
     if (!source) return null
+    if (partKey) {
+      // A part is drawn at its own measured size, about its own anchor, and
+      // turned like a hull: it is posed by a flight attitude, nose on +Z.
+      const holder = new THREE.Group()
+      const part = makePart(source, `${modelId}:${partKey}`)
+      holder.add(part)
+      alignNose(holder, modelId)
+      /*
+       * Where the drawing puts the stage over its descent stage, against where
+       * the clamp holds its state: the drawn ascent stage's centre is 5.193 m
+       * up, the state `standHeight`'s 5.11 — so it is drawn 8 cm up its own
+       * axis from its state, in flight as on the ground. See DOCKING_REACH.
+       */
+      holder.userData.lift = spec.lunarAscent && id === 'ship' ? part.userData.aboveBase - spec.lunarAscent.standHeight : 0
+      return holder
+    }
     const instance = source.clone(true)
     instance.scale.setScalar(visual / source.userData.longest)
     // The ship flies nose along +Z; a model file stands along +Y. The other
@@ -104,7 +127,7 @@ export function Craft({ id }) {
     // is already glTF's up, so they are left as the file has them.
     if (id === 'ship') alignNose(instance, modelId)
     return instance
-  }, [source, visual, id, modelId])
+  }, [source, visual, id, modelId, partKey])
 
   // Direction only, so the raw SI difference is fine: every display transform
   // here is a uniform scale, which leaves directions untouched.
@@ -121,7 +144,16 @@ export function Craft({ id }) {
       if (ship.stage !== stage) setStage(ship.stage)
       g.quaternion.copy(ship.quaternion)
       // Body +Z is the nose, so the lift runs along it: up, on the pad.
-      if (lift.current) lift.current.position.z = currentHullLift((mission.site ?? activeSite()).id)
+      if (lift.current) {
+        lift.current.position.z = currentHullLift((mission.site ?? activeSite()).id) + (model?.userData.lift ?? 0)
+      }
+      return
+    }
+
+    // A craft in lunar orbit is flown, not left to face along its orbit: see
+    // columbiaAttitude.
+    if (spec.primary === 'moon') {
+      columbiaAttitude(g.quaternion)
       return
     }
 
@@ -150,7 +182,10 @@ export function Craft({ id }) {
             <primitive object={model} />
             {/* A glTF hull carries no exhaust, and the stage that flies one is
                 the S-IC — the only stage with shock diamonds. See Plume.jsx. */}
-            {id === 'ship' && plume && (
+            {/* Not the LM's: the ascent engine burned Aerozine 50 and nitrogen
+                tetroxide, whose exhaust in vacuum is all but invisible — every
+                liftoff film shows the stage rising on nothing. */}
+            {id === 'ship' && plume && !spec.lunar && (
               <Plume stage={stage} seats={plume.seats} bell={plume.bell} z={-visual / 2 - plume.bell} />
             )}
           </>

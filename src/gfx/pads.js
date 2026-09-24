@@ -251,6 +251,9 @@ export function liftFactor(altitude) {
  * aim, so the two agree on where the vehicle is drawn. Allocation-free.
  */
 export function currentHullLift(siteId) {
+  // The LM stands on its own descent stage, and the clamp already holds its
+  // state at its height there — see `lunarAscent.standHeight`.
+  if (VESSELS[ACTIVE_VESSEL].lunar) return 0
   if (ship.stage !== 0) return 0
   return hullLift(siteId) * liftFactor(live.elements.altitude)
 }

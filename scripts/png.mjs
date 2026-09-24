@@ -14,6 +14,39 @@ export function encodePNG(rgba, w, h){
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk('IHDR',ihdr),
     chunk('IDAT', zlib.deflateSync(raw,{level:6})), chunk('IEND',Buffer.alloc(0))])
 }
+/**
+ * An RGB PNG with every row Paeth-filtered: for data that varies smoothly, such
+ * as a height field packed into two channels, the filter turns each byte into a
+ * small difference from its neighbours and deflate does several times better
+ * than on the raw values `encodePNG` stores. rgb: Uint8Array length w*h*3.
+ */
+export function encodePNGPaeth(rgb, w, h) {
+  const stride = w * 3
+  const raw = Buffer.alloc(h * (stride + 1))
+  for (let y = 0; y < h; y++) {
+    const o = y * (stride + 1)
+    raw[o] = 4
+    for (let i = 0; i < stride; i++) {
+      const x = rgb[y * stride + i]
+      const a = i >= 3 ? rgb[y * stride + i - 3] : 0
+      const b = y > 0 ? rgb[(y - 1) * stride + i] : 0
+      const c = i >= 3 && y > 0 ? rgb[(y - 1) * stride + i - 3] : 0
+      raw[o + 1 + i] = (x - paeth(a, b, c)) & 255
+    }
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
 /** Nearest-neighbour downscale, and flip vertically so row 0 (south) ends up at the bottom. */
 export function preview(buf, w, h, outW){
   const s = w/outW, outH = Math.round(h/s), o = new Uint8Array(outW*outH*4)

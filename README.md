@@ -3325,12 +3325,30 @@ node scripts/flight.mjs --until LUNAR_ORBIT --save orbit.json
 ```
 
 Alongside it are the checks each phase is claimed on. They take a snapshot so a
-phase can be re-flown without re-flying the mission. Two of them —
-`verify-heating.mjs` and `verify-allocation.mjs` — default to a checked-in one,
-`scripts/fixtures/lunar-orbit.json`, so they run with no arguments and
-`verify-heating` can sit in the suite; either still accepts a path to some other
-state. `npm run fixture:lunar` regenerates it, and `scripts/fixtures/README.md`
-argues why that state is pinned rather than re-flown and what pinning it costs.
+phase can be re-flown without re-flying the mission. Two states are checked in,
+114 hours and a capture burn apart — `scripts/fixtures/lunar-orbit.json` beyond the
+capture and `scripts/fixtures/lunar-approach.json` 130,381 km outside the sphere of
+influence, the regime no captured state can stand in for.
+
+Eight scripts default to one of them, so they run with no arguments; each still
+accepts a path to some other state. Six of the eight sit in the suite:
+`verify-heating`, `verify-allocation`, `verify-return` and `verify-tei-timing` on
+the orbit fixture, `verify-loi` on the Apollo-8 approach. Two are instruments
+rather than gates — `verify-approach` and `verify-loi-sweep` print and assert
+nothing, so they stay out on purpose, see below. `npm run fixture:lunar`,
+`fixture:approach` and `fixture:approach:artemis` regenerate the three, and
+`scripts/fixtures/README.md` argues why they are pinned rather than re-flown and
+what pinning costs.
+
+`verify-staging` is the one that needed a state **and a vessel**
+(`scripts/fixtures/lunar-approach-artemis.json`): it is written against the
+Artemis stack, whose capture burns stage 2, the ICPS. A state carries no vessel —
+`restore()` fills the state vector and the ship's fields, and the stage table comes
+from the environment — so on an Apollo-8 state that index is the S-IVB, jettisoned
+back at TLI, and setting it does nothing. Measured before it was fixed: identical
+delivered delta-v to two decimals for *every* value of the shorting, and
+`STAGING seen: false`. It was running and reporting green while exercising
+nothing.
 
 | script | what it establishes |
 | --- | --- |
@@ -3359,6 +3377,34 @@ argues why that state is pinned rather than re-flown and what pinning it costs.
 | `verify-allocation.mjs` | heap delta in two regimes — steady state and across the phase boundaries — under `--expose-gc` |
 | `verify-j3.mjs` | the apsidal rate and the J₃ forced eccentricity, against the integrated field |
 | `verify-csm.mjs` | what cascaded shadow maps would cost here, and why the single map is adaptive instead |
+| `verify-lunar-ascent.mjs` | Eagle from Tranquility Base to the latch: the ascent guided onto P12's insertion state at 1x and at the 60x cap, the coelliptic rendezvous through CSI, CDH, TPI and the braking gates, and the docking closed at a tenth of a metre a second — each against Apollo 11's own timeline |
+| `verify-loi.mjs` | the lunar orbit insertion, its osculating elements at cutoff checked against the orbit those elements describe once flown — the apsides agree to 12 and 13 m against a 100 m bar |
+| `verify-staging.mjs` | a separation forced into the middle of the capture: the stage runs dry and goes, the vehicle holds retrograde through the 2.5 s interrupt, the mass drop is the burnt propellant plus dry structure to 1e-6 kg, and the capture still closes afterwards |
+
+### What is not in the suite, and why
+
+Eleven of `scripts/verify-*.mjs` are not among the gates `verify-all.mjs` runs,
+and the distinctions are worth stating rather than inferring from a green run:
+
+- **Instruments, not gates.** `verify-approach` and `verify-loi-sweep` default to
+  a fixture and run with no arguments, but neither asserts anything: no `checks`
+  array, no verdict line, and no exit code other than zero. Registering them would
+  add green lines that can never turn red — the blind-gate failure
+  `scripts/allocation.mjs` was rewritten to remove — so they stay out until each
+  has a claim worth holding it to. Both of the other two instruments are now
+  gates: `verify-loi` and `verify-staging` above.
+- **Needing a capture from the running app.** `verify-camera-filter` replays an
+  attitude recording; `record-attitude.mjs` is what produces one.
+- **Red, and therefore deliberately not gating the build.** `verify-vessels`
+  (three arithmetic checks), `verify-nrho-capture` (three), `verify-nrho-keeping`
+  (five) and `verify-entry-guidance` (cross-range alone, its other nine passing)
+  all run with no argument and fail; they are recorded under *Known limitations*
+  in the CHANGELOG with the checks that fail, so `36 of 36 gates pass` is not read
+  as a claim about them.
+
+The remaining four (`verify-nrho-cycle`, `verify-nrho-ephemeris`,
+`verify-nrho-family`, `verify-predict`) run unaided and pass, and are simply not
+yet registered.
 
 The harness starts at the store's own default of 1 day/s rather than at a safer
 setting of its own, because that is exactly the case that used to break — see the

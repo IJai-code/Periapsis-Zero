@@ -66,8 +66,11 @@ export const BODIES = {
  */
 export const ORDER = ['sun', 'earth', 'moon']
 
-/** Massless craft, appended after the massive set. */
-export const TEST_PARTICLES = ['ship', 'iss', 'hubble']
+/**
+ * Massless craft, appended after the massive set. A vessel flying to meet
+ * another craft brings it along as `target` — Eagle's Columbia.
+ */
+export const TEST_PARTICLES = ['ship', 'iss', 'hubble', ...(VESSELS[ACTIVE_VESSEL].target ? ['target'] : [])]
 
 /** Full state-vector order. Slot k occupies offsets 6k .. 6k+5. */
 export const BODY_ORDER = [...ORDER, ...TEST_PARTICLES]
@@ -90,6 +93,26 @@ export const G0 = 9.80665
  * change the vehicle. The stack itself lives in ./vessels.js with its sources.
  */
 export const SHIP = VESSELS[ACTIVE_VESSEL]
+
+/**
+ * Craft a vessel can fly to meet. Placed by the mission rather than here — where
+ * Columbia has to be depends on when Eagle lifts off (see lunarMission.js) — so
+ * `orbit` is only where it waits until then.
+ */
+const TARGETS = {
+  columbia: {
+    name: 'Columbia',
+    primary: 'moon',
+    orbit: { altitude: 110e3, inclination: 0, phase: 0 },
+    visual: 11.03, // CSM, docking probe to engine bell
+    // CM and SM with the propellant left for trans-Earth injection.
+    mass: 16_500,
+    drag: { cd: 2.0, area: 12 },
+    // The catalogue's file is the Apollo–Soyuz stack; Columbia is its CSM half.
+    model: 'apollo_csm',
+    part: 'csm',
+  },
+}
 
 /**
  * Uncontrolled craft, flown as additional test particles. Real orbits: the ISS
@@ -115,6 +138,7 @@ export const SATELLITES = {
     mass: 11110,
     drag: { cd: 2.2, area: 30 },
   },
+  ...(SHIP.target ? { target: TARGETS[SHIP.target] } : {}),
 }
 
 /** Everything with a hull, keyed by state-vector id. */

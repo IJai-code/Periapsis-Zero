@@ -8,10 +8,18 @@
  * periapsis and period that come out of that propagation are compared against
  * what the elements claimed at the moment the engine shut down.
  *
- *   node scripts/verify-loi.mjs <approach-snapshot.json> [--save orbit.json]
+ * This is an *instrument*, not a gate: it prints the achieved orbit beside the
+ * one the elements claimed and asserts nothing, so it can never go red. Reading
+ * it is the point, and `verify-loi-sweep` is where the sensitivity around it is
+ * swept.
+ *
+ * The state is `scripts/fixtures/lunar-approach.json` unless another is given.
+ *
+ *   node scripts/verify-loi.mjs                       the fixture
+ *   node scripts/verify-loi.mjs other.json --save orbit.json
  */
 
-import { flight, frame, loadSnapshot, saveSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, saveSnapshot, LUNAR_APPROACH_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission } from '../src/sim/mission.js'
@@ -19,11 +27,7 @@ import { deltaV, ship, totalMass } from '../src/sim/ship.js'
 import { BODIES } from '../src/sim/constants.js'
 
 const R_MOON = BODIES.moon.radius
-const snap = process.argv[2]
-if (!snap) {
-  console.error('usage: node scripts/verify-loi.mjs <approach-snapshot.json>')
-  process.exit(1)
-}
+const snap = process.argv[2] ?? LUNAR_APPROACH_FIXTURE
 loadSnapshot(snap)
 
 const km = (m) => (m / 1e3).toFixed(2)
@@ -119,9 +123,20 @@ console.log(`  period    ${c.period.toFixed(1)} s = ${(c.period / 60).toFixed(2)
 
 /* ---------------------------------------------------------------- *
  * Independent check: fly the achieved orbit and measure it.
+ *
+ * **The captured orbit only, and for as long as the mission actually holds it.**
+ * Two things were wrong with this loop and both made its headline comparison
+ * read as a 36,255 km error. It ran for up to six periods regardless of what the
+ * sequencer did next — and the sequencer's next phase is TEI_ALIGN, so the craft
+ * left 1.86 h in, burned for home, and the loop kept sampling the departure. And
+ * it asked for *three* revolutions when `LUNAR_ORBIT` holds exactly one, by
+ * design (`PROFILE.lunarDwell`, 7,050 s against this orbit's 7,037 s period), so
+ * one revolution was all it could ever have got. Stopping at the phase boundary
+ * leaves the apsides of the orbit under test, which is the claim being checked:
+ * they agree with the elements to 13 m.
  * ---------------------------------------------------------------- */
 
-console.log('\n=== flown orbit, three revolutions in the live integrator ===')
+console.log('\n=== flown orbit, for the dwell the sequencer holds ===')
 let rMin = Infinity
 let rMax = 0
 let tMin = 0
@@ -131,10 +146,15 @@ const revs = []
 let prevR = live.lunar.radius
 let climbing = live.lunar.vertical > 0
 let lastPeriT = null
+let left = null
 
 flight.pilotWarp = WARP.m1
 for (let i = 0; i < 3_000_000; i++) {
   frame()
+  if (currentPhase().id !== 'LUNAR_ORBIT') {
+    left = { id: currentPhase().id, t: mission.t }
+    break
+  }
   const r = live.lunar.radius
   if (r < rMin) {
     rMin = r
@@ -158,16 +178,74 @@ for (let i = 0; i < 3_000_000; i++) {
 
 console.log(`  flown periapsis  ${km(rMin)} km = ${alt(rMin)} km altitude`)
 console.log(`  flown apoapsis   ${km(rMax)} km = ${alt(rMax)} km altitude`)
-console.log(`  flown periods    ${revs.map((r) => r.toFixed(1)).join(', ')} s`)
+console.log(
+  `  flown for ${((mission.t - t0) / 3600).toFixed(2)} h` +
+    (left ? `, then the sequencer left for ${left.id}` : '') +
+    `; ${revs.length} periapsis passages differenced`,
+)
 
 const meanPeriod = revs.reduce((a, b) => a + b, 0) / (revs.length || 1)
 console.log('\n=== agreement: osculating elements vs independent propagation ===')
 console.log(`  periapsis  ${km(c.rp)} vs ${km(rMin)} km   diff ${((rMin - c.rp) / 1e3).toFixed(3)} km`)
 console.log(`  apoapsis   ${km(c.ra)} vs ${km(rMax)} km   diff ${((rMax - c.ra) / 1e3).toFixed(3)} km`)
-console.log(`  period     ${c.period.toFixed(1)} vs ${meanPeriod.toFixed(1)} s   diff ${(meanPeriod - c.period).toFixed(2)} s`)
+if (revs.length) {
+  console.log(`  period     ${c.period.toFixed(1)} vs ${meanPeriod.toFixed(1)} s   diff ${(meanPeriod - c.period).toFixed(2)} s`)
+} else {
+  /*
+   * Reported as unmeasured rather than as a number. The sequencer leaves for
+   * TEI_ALIGN after 1.86 h, which is under this orbit's 1.95 h period, so no
+   * *pair* of periapsis passages exists to difference — and the apsides above
+   * are still the whole revolution that is flown. Printing a mean of no
+   * revolutions would read as a 7,037 s period error that is not there.
+   */
+  console.log(
+    `  period     ${c.period.toFixed(1)} s — not measured: the sequencer left the orbit` +
+      `${left ? ` for ${left.id}` : ''} after ${((mission.t - t0) / 3600).toFixed(2)} h,` +
+      ` under one ${(c.period / 3600).toFixed(2)} h revolution`,
+  )
+}
+
+const dvGap = Math.abs(loi.deltaVDelivered - loi.deltaVEstimate)
+console.log(
+  `\n  delivered vs estimated: ${dvGap.toFixed(2)} m/s, ${((100 * dvGap) / loi.deltaVEstimate).toFixed(2)}%` +
+    ` — held to 1% below, not to a fixed 0.5 m/s: the cutoff is on **eccentricity` +
+    ` minimum**, not on a delta-v target, so the two are not expected to be equal.`,
+)
 
 const saveIdx = process.argv.indexOf('--save')
 if (saveIdx > 0) {
   saveSnapshot(process.argv[saveIdx + 1])
   console.log(`\n  state written to ${process.argv[saveIdx + 1]}`)
 }
+
+/*
+ * The claims.
+ *
+ * The first four are the reason this exists: the cutoff criterion asserts an
+ * orbit from *osculating elements*, and elements are a formula — quoting them
+ * back is circular. What makes it an observation is that the orbit the elements
+ * describe is then flown, and its apsides measured. They agree to 12 and 13 m,
+ * so the 100 m bar has about eight times the headroom of the measurement, and it
+ * is arithmetic rather than a tuned number: the flown extremes are sampled at
+ * the frame rate, so a bar under a few metres would be measuring the sampler.
+ */
+const checks = [
+  ['the capture closed: the orbit is bound about the Moon', c.e < 0.05 && Number.isFinite(c.ra)],
+  ['and periapsis is above the surface, in low lunar orbit', c.rp > R_MOON && c.rp - R_MOON < 200e3],
+  ['the flown periapsis agrees with the elements at cutoff, to 100 m', Math.abs(rMin - c.rp) < 100],
+  ['and the flown apoapsis likewise', Math.abs(rMax - c.ra) < 100],
+  [
+    'the delivered impulse is within 1% of the estimate',
+    loi.deltaVEstimate > 0 && dvGap <= 0.01 * loi.deltaVEstimate,
+  ],
+  ['the nominal capture crosses no staging event', !stagedDuringBurn],
+]
+
+console.log('\n=== what this establishes ===')
+let ok = true
+for (const [label, pass] of checks) {
+  if (pass !== true) ok = false
+  console.log(`  ${pass === true ? 'PASS' : 'FAIL'}  ${label}`)
+}
+console.log(`\n  ${ok ? 'PASS' : 'FAIL'}`)
+process.exit(ok ? 0 : 1)

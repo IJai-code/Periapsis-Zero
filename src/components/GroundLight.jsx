@@ -63,6 +63,7 @@ export function GroundLight() {
   const up = useMemo(() => new THREE.Vector3(), [])
   const azimuth = useMemo(() => new THREE.Vector3(), [])
   const centre = useMemo(() => new THREE.Vector3(), [])
+  const sunward = useMemo(() => new THREE.Vector3(), [])
   // Walking every vertex of a pad is a gate's job, not a frame's: once per site.
   const envelope = useMemo(() => padEnvelope(site.id), [site.id])
 
@@ -75,8 +76,14 @@ export function GroundLight() {
     padScenePoint(pad, site)
 
     // Local vertical at the pad, and the Sun's height above the horizon on it.
-    up.copy(pad).sub(live.pos.earth).normalize()
-    const sinElevation = live.sunDir.dot(up)
+    up.copy(pad).sub(live.pos[site.body ?? 'earth']).normalize()
+    /*
+     * On the Moon, the Sun's direction from the site itself: `sunDir` is
+     * Earth's, and from 384,400 km away the Sun sits up to 0.15° elsewhere in
+     * the sky — a shadow's angle, at a low sun, visibly.
+     */
+    const sun = site.body === 'moon' ? sunward.copy(live.pos.sun).sub(pad).normalize() : live.sunDir
+    const sinElevation = sun.dot(up)
 
     /*
      * The shadow runs along the ground away from the Sun, so the box slides
@@ -87,11 +94,11 @@ export function GroundLight() {
      */
     const extent = shadowExtentFor(envelope.reach, envelope.top, sinElevation)
     const offset = shadowOffsetFor(envelope.reach, extent)
-    azimuth.copy(live.sunDir).addScaledVector(up, -sinElevation).normalize()
+    azimuth.copy(sun).addScaledVector(up, -sinElevation).normalize()
     centre.copy(pad).addScaledVector(azimuth, -offset)
 
     target.position.copy(centre)
-    l.position.copy(centre).addScaledVector(live.sunDir, SHADOW_DISTANCE)
+    l.position.copy(centre).addScaledVector(sun, SHADOW_DISTANCE)
 
     const shadow = l.shadow
     const cam = shadow.camera

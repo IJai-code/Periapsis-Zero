@@ -13,10 +13,17 @@
  *
  * 3. Whether the answer depends on the integrator's step size.
  *
- *   node scripts/verify-loi-sweep.mjs <approach-snapshot.json>
+ * This is an *instrument*, not a gate: it prints three sweeps and the step
+ * ceiling's own contributions and asserts nothing, so it can never go red.
+ * Reading it is the point.
+ *
+ * Both states default to the checked-in fixtures, so it runs with no arguments.
+ *
+ *   node scripts/verify-loi-sweep.mjs                  both fixtures
+ *   node scripts/verify-loi-sweep.mjs a.json o.json    some other pair
  */
 
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_APPROACH_FIXTURE, LUNAR_ORBIT_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live, refreshDerived } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
@@ -32,20 +39,16 @@ import { BODIES, SHIP, TEST_PARTICLES } from '../src/sim/constants.js'
 import { INDEX } from '../src/sim/system.js'
 
 const R = BODIES.moon.radius
-const snap = process.argv[2]
-const orbitSnap = process.argv[3]
+const snap = process.argv[2] ?? LUNAR_APPROACH_FIXTURE
+const orbitSnap = process.argv[3] ?? LUNAR_ORBIT_FIXTURE
 /**
- * Both are required. The usage line used to name only the first, and the second
- * was read without being checked — so a run given one argument got through the
- * first two experiments and then died inside `readFileSync` on `undefined`,
- * which reads as a broken harness rather than a missing argument.
+ * Both states are needed and both now have defaults, which is a stronger fix than
+ * the check that used to stand here: the usage line named only the first and the
+ * second was read without being checked, so a run given one argument got through
+ * the first two experiments and then died inside `readFileSync` on `undefined`,
+ * which reads as a broken harness rather than a missing argument. An explicit
+ * guard would still let a one-argument run through; a default cannot.
  */
-if (!snap || !orbitSnap) {
-  console.error(
-    'usage: node scripts/verify-loi-sweep.mjs <approach-snapshot.json> <lunar-orbit-snapshot.json>',
-  )
-  process.exit(1)
-}
 const alt = (m) => (m - R) / 1e3
 
 /**

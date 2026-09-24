@@ -131,6 +131,33 @@ Way; 6.5 at night; the whole catalogue from orbit.
 
 ### Changed
 
+- **A second flight fixture, and the four instruments it unblocked**
+  (`scripts/fixtures/lunar-approach.json`, `scripts/flight.mjs`, `package.json`) —
+  the vehicle on the translunar coast at MET 70.713 h, 130,381 km outside the
+  Moon's sphere of influence, which is the one regime no captured state can stand
+  in for. `verify-approach`, `verify-loi`, `verify-loi-sweep` and `verify-staging`
+  each used to require such a state as an argument, so none could run without
+  someone capturing a snapshot by hand and `verify-loi-sweep` needed two at once;
+  all four now default to it and run unaided. They remain **out of `verify-all`**,
+  and that is the finding rather than an omission: none of them asserts anything —
+  no `checks` array, no verdict line, no exit code but zero — so registering them
+  would have added four green lines that can never turn red. Three processes wrote
+  the file byte-identically (sha256 `85dd0a8c…`, 2,325 bytes).
+
+- **Fixed two errors that made `verify-loi`'s headline comparison read as a
+  36,255 km failure** (`scripts/verify-loi.mjs`) — its "flown orbit" section
+  claimed to fly the achieved orbit for three revolutions and compare that against
+  the elements at cutoff. It ran for up to six periods regardless of the sequencer,
+  whose next phase is `TEI_ALIGN`: measured with a probe, the craft left
+  `LUNAR_ORBIT` 1.86 h in, burned for home, and the loop kept sampling the
+departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km —
+  all of it the return leg, in the one section meant to check the capture. It also
+  asked for three revolutions when `LUNAR_ORBIT` holds exactly one by design
+  (`PROFILE.lunarDwell`, 7,050 s against this orbit's 7,037 s), so three were never
+  available. Stopped at the phase boundary, the apsides agree with the elements to
+  **13 m** — periapsis 80.34 against 80.33 km, apoapsis 109.45 against 109.43 — the
+  period is reported as unmeasured rather than as a zero, and the capture stands.
+
 - **The Moon shows Earth its near side** (`src/components/Moon.jsx`,
   `src/gfx/moon.js`) — it showed longitude 90°E, the limb: pointed at Earth, with
   the imagery's 0° on three's +x and the mesh turned half a turn. The generated
@@ -327,6 +354,69 @@ Way; 6.5 at night; the whole catalogue from orbit.
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-loi` and `verify-staging` are gates now, and both were lying** — each
+  ran, printed numbers, and exited zero whatever those numbers said. Converted to
+  a `checks` array, a PASS/FAIL verdict and `process.exit(1)` on failure; both
+  verified to actually go red — `verify-staging` on a state whose capture crosses
+  no separation (4 of 7 fail), `verify-loi` with its apsis bar tightened to a
+  millimetre (both fail). The suite runs **36 of 36**.
+
+  `verify-loi` asserts what its own section is for: the apsides of the orbit the
+  *elements* describe, against the apsides *flown*, to 100 m — measured 12 and
+  13 m, so about eight times the headroom, and no tighter than a few metres
+  because the flown extremes are sampled at the frame rate. **Not** the brief's
+  `|dv_delivered − dv_target| ≤ 0.5 m/s`: the cutoff is on **eccentricity
+  minimum**, not on a delta-v target, so the two are not meant to be equal and the
+  gap is 0.89 m/s (0.11%). It is held to 1% of the estimate instead, which is a
+  claim about the burn model rather than about a target that does not exist.
+
+  `verify-staging` needed a state **and a vessel**, and the vessel was the bug. It
+  is written against the Artemis stack, whose capture burns stage 2, the ICPS; on
+  an Apollo-8 state that index is the S-IVB, jettisoned back at TLI, so the
+  shorting did nothing and the script never exercised staging at all. Measured:
+  delivered delta-v identical to two decimals for *every* shorting value, and
+  `STAGING seen: false`. On Artemis's own approach state it separates mid-burn —
+  151 frames of interrupt, worst pointing 0.028 mrad, and the mass drop is
+  3,490.038 kg: 0.038 kg burnt that frame plus the ICPS's 3,490 kg of dry
+  structure, off the arithmetic by 1.8e-12 kg. What it asserts: the stage really
+  goes, the interrupt is brief, the vehicle holds retrograde through it, the drop
+  is bookkeeping rather than an event in the trajectory (the craft travels no
+  further across that frame than the one before), and the capture still closes
+  into a bound low lunar orbit afterwards. Three of the brief's other proposed
+  checks were not written, and the reasons are physical: a separation applies **no
+  velocity impulse** (`separate()` touches no state), so an impulse check is
+  vacuous; and staging here is triggered by propellant depletion rather than a
+  schedule, so `±0.01 s` against a flight profile has no referent.
+
+- **Three gates that ran but were never registered** — `verify-lunar-ascent`
+  (written with this release, and absent from both `verify-all`'s gate list and
+  `package.json`), `verify-tei-timing` and `verify-return`. The last two each name
+  a *lunar-orbit* snapshot in their own usage line and the checked-in fixture is
+  exactly that, so both now default to `scripts/fixtures/lunar-orbit.json` the way
+  `verify-heating` already did, and accept a path to any other state as before.
+  Registering them also made the boundary explicit:
+  `verify-all`'s header now says which gates are out and why — four waiting on a
+  lunar-*approach* fixture that does not exist, one on an attitude capture, and
+  four that are red (below).
+
+- **`verify-lunar-ascent`** — Eagle from Tranquility Base to the latch, held to
+  three kinds of claim. The clamp stands the LM at its stand height over the site
+  and carries it round at the Moon's spin there to a part in 10⁹; Columbia is
+  placed on Apollo 11's 56.6 × 62.5 nmi orbit by solving for that mission's own
+  TPI time, and the conic reads back to a millimetre. The ascent cuts off on its
+  horizontal speed to the step the ceiling holds (0.02 m/s), climbing at P12's
+  rate and at P12's height, and flown at the 60× powered cap it reaches the same
+  orbit as at 1× — 16.733 × 87.602 km against 16.724 × 87.582. CSI, CDH and TPI
+  deliver exactly the Δv they were loaded with; TPI lands within 30 s of Apollo
+  11's 2:41:51 and the docking within 40 s of 3:41:00, closing at 0.096 m/s, with
+  the ascent stage's RCS left more than half full. Thirteen frame paths are
+  measured at 0.06 B against the 6 B bar. It cost one measurement to get there:
+  its pad paths need a **40,000-call** warm-up rather than the harness's default,
+  because returning to the pad after the flights above makes the optimiser
+  recompile them and the new code lands at about 4,000 calls — the clamp read
+  16 B while its code was the one compiled mid-flight and 0.06 B recompiled, on
+  identical work. A 2,000-call warm-up would have sat under that threshold.
 
 - **`verify-moon-frame`** — the frame is a rotation and obeys the three laws; the
   recorded mean orbit is a fresh measurement of the simulated one; flown against
@@ -570,13 +660,36 @@ Way; 6.5 at night; the whole catalogue from orbit.
 - **The frame rate was measured on one machine.** At 2048 × 1536 with the GPU made
   to finish each frame: 9.6 to 17 ms through the count and liftoff, the
   particles within the run-to-run spread of free, the sky 7 to 8 ms of it.
-- **From the surface-engine brief, not built:** a lunar surface and lunar ascent
-  (there is no lunar module vehicle, landing or lunar launch site — the model
-  catalogue does hold an Apollo LM), Mars surface views (Mars is an ephemeris body
+- **The suite does not gate on every gate, and four of the ones it leaves out
+  are red.** `verify-vessels` fails three arithmetic checks (not every vessel has
+  stages, chutes and an ascent programme; not every stack carries enough ideal Δv
+  for a lunar return; not every vessel can lift itself). `verify-nrho-capture`
+  fails three: flown, the craft reaches the reference within 1 m/s of velocity
+  but not within 10 km of position, and it is further from it by the last
+  maintenance pass than at the first. `verify-nrho-keeping` fails five: flown
+  unguided it does not stay inside a 5 km corridor; at 1 km and 1 cm/s of
+  navigation error it does not cost under 0.1 m/s a revolution; undisturbed it
+  drifts more than 5 m from the reference at apolune; kicked 10 cm/s along track
+  it is not back within 1 km by the last pass; and it does not do that for under
+  0.06 m/s a revolution. `verify-entry-guidance` fails one check on the pinned
+  corridor — cross-range bounded under 150 km — with its other nine passing. Each
+  runs with no argument, so each is a line away from gating the build; they are
+  out deliberately rather than by omission, and `36 of 36 gates pass` is a claim
+  about the registered gates and not about these four.
+
+- **What the surface-engine brief still leaves unbuilt:** a *powered descent* to
+  the lunar surface — the LM is placed standing on its descent stage and flown up
+  from there, not flown down to it — Mars surface views (Mars is an ephemeris body
   on rails), Starbase (no pad), SRTM beyond the existing tiles and normal-mapped
   structures. A 500 km far plane was not adopted: it would clip the Sun, the Moon
   and every star from the ground, and the logarithmic depth buffer already covers
-  0.1 m to 10¹³ m.
+  0.1 m to 10¹³ m. The lunar surface and the ascent from it are no longer on this
+  list: `tranquility` is a site like the Earth pads, with the ground in three
+  levels of real height data (LROC NAC DTM at 2 m a sample inside ±1 km, LOLA at
+  29.6 m to ±15 km and 118 m to ±121 km, fetched by `scripts/fetch-moon-terrain.mjs`
+  into `public/terrain/tranquility/`), and `src/sim/lunarMission.js` flies Eagle
+  from a count on the descent stage to Columbia's docking port — held to Apollo
+  11's own numbers by `verify-lunar-ascent` in the suite.
 
 - **The decay theory cannot carry J₃, and that is what now limits it.** The odd
   zonal forces an eccentricity that turns with perigee, `e_J3 = J₃ R sin i /

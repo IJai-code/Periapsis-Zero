@@ -8,9 +8,15 @@
  * only question is how early the solve is trustworthy while the Moon is still
  * pulling on it.
  *
- *   node scripts/verify-tei-timing.mjs <lunar-orbit-snapshot.json>
+ * The state is `scripts/fixtures/lunar-orbit.json` unless another is given —
+ * that file is a lunar-orbit state, which is what the sweep wants, and pinning
+ * it is what lets this gate sit in the suite. The fixture's README argues that
+ * choice and states its cost.
+ *
+ *   node scripts/verify-tei-timing.mjs                    the fixture
+ *   node scripts/verify-tei-timing.mjs other-state.json   some other state
  */
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_ORBIT_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
@@ -18,7 +24,7 @@ import { BODIES } from '../src/sim/constants.js'
 import { solveReturnCorridor, projectPerigee } from '../src/sim/targeting.js'
 
 const RE = BODIES.earth.radius
-const snap = process.argv[2]
+const snap = process.argv[2] ?? LUNAR_ORBIT_FIXTURE
 loadSnapshot(snap)
 
 // Fly once to just after the departure burn, then branch from there.

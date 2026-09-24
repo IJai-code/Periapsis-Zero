@@ -29,6 +29,28 @@
  * `scripts/fixtures/lunar-orbit.json`, 2.3 KB — and costs the suite 0.5 s.
  * `verify-allocation` joins it from the same fixture, and goes last because it
  * is the slowest thing here: it flies 280,000 frames to measure two regimes.
+ *
+ * Three more gates were in the same position and are now here for the same
+ * reason. That fixture *is* a lunar-orbit state, which is what `verify-return`
+ * and `verify-tei-timing` each name in their own usage line, so both default to
+ * it rather than requiring it. `verify-lunar-ascent` needs no state at all — it
+ * flies Eagle off Tranquility Base — so it only ever needed registering; it sits
+ * beside `verify-moon-frame` because the frame is what its clamp is written in.
+ *
+ * `verify-loi` and `verify-staging` joined them once each had a claim worth
+ * asserting. `verify-staging` needed two things, not one: a state, and the vessel
+ * that state belongs to — it is written against the Artemis stack, whose capture
+ * burns the ICPS at stage 2, and on an Apollo-8 state that index is the S-IVB and
+ * the script silently stops exercising staging altogether.
+ *
+ * What is deliberately *not* here is as informative as what is. `verify-approach`
+ * and `verify-loi-sweep` want the same approach fixture and are *instruments* —
+ * they print and assert nothing, so registering them would add green lines that
+ * can never turn red. `verify-camera-filter` wants a capture from the running app.
+ * `verify-entry-guidance`, `verify-vessels`, `verify-nrho-capture` and
+ * `verify-nrho-keeping` run unaided and are red; they are recorded under *Known
+ * limitations* in the README with the checks that fail, so that a green run here
+ * is not read as a claim about them.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -58,6 +80,9 @@ const GATES = [
   ['verify-terrain', false],
   ['verify-solar', false],
   ['verify-moon-frame', true],
+  ['verify-lunar-ascent', true],
+  ['verify-loi', false],
+  ['verify-staging', false],
   ['verify-stars', false],
   ['verify-loiter', false],
   ['verify-radial', false],
@@ -69,6 +94,8 @@ const GATES = [
   ['verify-ground-view', true],
   ['verify-csm', false],
   ['verify-plume', true],
+  ['verify-tei-timing', false],
+  ['verify-return', false],
   ['verify-heating', false],
   ['verify-plasma', true],
   ['verify-audio', true],

@@ -68,6 +68,13 @@ const SI = Math.sin(I)
 /** The equator's inclination to the ecliptic, radians — Cassini's I. */
 export const MOON_EQUATOR_TILT = I
 
+/**
+ * The spin about the Moon's own pole, rad/s: the mean motion less the node's
+ * regression seen through the tilt, L' - Ω'(1 - cos I). The rate a point on
+ * the surface is carried round at — 4.58 m/s at the equator.
+ */
+export const MOON_SPIN_RATE = L_RATE - NODE_RATE * (1 - CI)
+
 /*
  * The time, in a slot rather than an argument: the renderer calls this every
  * frame and the clamp every step, and a double handed to a function V8 does

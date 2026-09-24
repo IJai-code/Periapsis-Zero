@@ -312,7 +312,85 @@ const ARTEMIS = {
   ascent: { ...ASCENT_DEFAULTS },
 }
 
-const VESSELS_BY_ID = { apollo8: APOLLO8, artemis: ARTEMIS }
+/**
+ * Apollo 11 — Eagle, LM-5's ascent stage, lifting off Tranquility Base on
+ * 21 July 1969 to meet Columbia in lunar orbit.
+ *
+ * The first vessel here that does not leave Earth. It stands on the descent
+ * stage it landed on — which stays behind as its launch pad — and flies the
+ * lunar sequence (sim/lunarMission.js): a vertical rise, an explicit-guidance
+ * ascent to a 17 x 87 km orbit, and the coelliptic rendezvous Apollo flew,
+ * CSI, CDH and TPI, to dock with the command module about three and a half
+ * hours after liftoff.
+ *
+ * Figures: the ascent propulsion system's 3,500 lbf (15.57 kN) at 311 s, 120
+ * psia chamber pressure, an area ratio of 46. Masses are NASA's NSSDCA record
+ * for LM-5: a 2,445 kg ascent stage holding 2,376 kg of Aerozine 50 and N2O4.
+ * Flown, they burn 429 s to the insertion state below — Eagle's burn was 435 s
+ * (a first figure of 4,700 kg gross burned 417). Sixteen 100 lbf (445 N) RCS
+ * jets in four quads, 290 s. The insertion target is the one P12
+ * guided to: 60,000 ft (18.29 km), 5,535 ft/s (1,687 m/s) horizontal and 32
+ * ft/s (9.75 m/s) climbing, which is an orbit of about 18 x 86 km; Eagle's was
+ * 9.5 x 47.3 nautical miles, 17.6 x 87.6 km. Sources: the Apollo 11 Flight
+ * Journal and Mission Report, and the LM's published specifications.
+ */
+const APOLLO11 = {
+  id: 'apollo11',
+  name: 'Apollo 11',
+  vehicle: 'LM-5 Eagle · ascent stage',
+  era: 'July 1969',
+  /** Flies the lunar sequence, from a site on the Moon. */
+  lunar: true,
+  site: 'tranquility',
+  /** Who it is flying to meet: a craft in lunar orbit, `SATELLITES.target`. */
+  target: 'columbia',
+
+  stages: [
+    {
+      name: 'Ascent stage',
+      dryMass: 2_445,
+      propellant: 2_376,
+      thrust: 15_568,
+      isp: 311,
+      /** The APS: area ratio 46, chamber 120 psia. */
+      nozzle: { areaRatio: 46, chamberPressure: 827_000 },
+      drag: { cd: 2.0, area: 12 }, // there is no air; kept so nothing divides by nothing
+      visual: 4.1, // descent-stage interface to the top of the docking tunnel, as drawn
+      model: 'apollo_lm',
+      /** The ascent stage alone: the model is the whole LM. See PARTS in gfx/models.js. */
+      part: 'ascent',
+    },
+  ],
+
+  /** Translation: four jets on an axis, 445 N each, 290 s. */
+  rcs: { thrust: 4 * 445, isp: 290 },
+
+  /**
+   * The lunar ascent. Ten seconds straight up to clear the descent stage and
+   * the ground, then guided to the insertion state above.
+   */
+  lunarAscent: {
+    verticalRise: 10,
+    insertion: { altitude: 18_288, radial: 9.75, horizontal: 1_687 },
+    /**
+     * Where the ascent stage's state stands above the ground: its middle, on a
+     * descent stage 3.23 m to the deck — 3.23 + 3.76 / 2. The clamp holds it
+     * there, and the ascent is flown from there, so no lift has to be drawn in.
+     */
+    standHeight: 3.23 + 3.76 / 2,
+  },
+
+  chutes: APOLLO8.chutes,
+  inertia: 7_000, // kg m^2 — about half a ring of 4.7 t at 1.7 m
+  rcsTorque: 1_500, // N m — two jets on a 1.7 m arm
+  assistGain: 2.2,
+  orbit: { altitude: 110e3, inclination: 0, phase: 0 },
+  parkingOrbit: { altitude: 110e3, inclination: 0 },
+  drag: { cd: 2.0, area: 12 },
+  ascent: { ...ASCENT_DEFAULTS },
+}
+
+const VESSELS_BY_ID = { apollo8: APOLLO8, artemis: ARTEMIS, apollo11: APOLLO11 }
 /**
  * Nominal length of the whole vehicle, in metres — the first stage's, since
  * that is the full stack on the pad.
@@ -348,7 +426,9 @@ for (const [id, v] of Object.entries(VESSELS)) {
     }
   })
   // The last stage is what comes home, so it is the one entry needs a lift
-  // vector and a parachute from.
+  // vector and a parachute from — except on a lunar vessel. Eagle's ascent
+  // stage was left in lunar orbit; it was Columbia that came home.
+  if (v.lunar) continue
   const last = v.stages.at(-1)
   if (!(last.drag.ld > 0)) throw new Error(`${id}: the re-entry stage has no lift-to-drag`)
   if (last.propellant !== 0) throw new Error(`${id}: the re-entry stage should be ballistic`)

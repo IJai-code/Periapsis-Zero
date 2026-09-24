@@ -4,6 +4,8 @@ import { activeStage, deltaV, ship, totalMass } from '../sim/ship.js'
 import { SHIP } from '../sim/constants.js'
 import { useUi } from '../sim/store.js'
 import { beginCountdown, commitTLI, currentPhase, mission } from '../sim/mission.js'
+import { APOLLO11, lunar } from '../sim/lunarMission.js'
+import { INDEX } from '../sim/system.js'
 
 /**
  * Metres to a readable distance.
@@ -105,11 +107,124 @@ const PROPULSION = [
   { key: 'dv', label: 'Δv remaining', get: () => `${deltaV().toFixed(0)} m/s` },
 ]
 
+/*
+ * The lunar vessel's own instruments. Its orbit is the Moon's to read, and
+ * what it is doing from liftoff to the latch is closing on Columbia, so where
+ * an Earth vessel has its trans-lunar, return and entry blocks it has a
+ * rendezvous one: the range and rate the crew flew by, Columbia's elevation
+ * that timed TPI, the next event and what each burn took — in feet a second,
+ * the units every one of them is quoted in in the Flight Journal.
+ */
+const FT = 0.3048
+const ftps = (v) => `${(v / FT).toFixed(1)} ft/s`
+/** Hours, minutes and seconds after liftoff, the Flight Journal's way. */
+const hms = (s) => {
+  const a = Math.max(0, Math.round(s))
+  return `${Math.floor(a / 3600)}:${String(Math.floor((a % 3600) / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`
+}
+
+/** Metres near the ground, where kilometres would read zero. */
+const height = (m) => (Math.abs(m) < 1000 ? `${m.toFixed(0)} m` : km(m))
+/** An orbit's figures mean nothing while the vehicle stands on the ground. */
+const flying = () => !currentPhase().held
+
+const LUNAR_ORBIT = [
+  { key: 'lAlt', label: 'Altitude', get: () => height(live.lunar.altitude), wide: true },
+  { key: 'lVel', label: 'Orbital velocity', get: () => `${(live.lunar.speed / 1000).toFixed(3)} km/s` },
+  {
+    key: 'lVs',
+    label: 'Vertical speed',
+    get: () => {
+      const v = live.lunar.vertical
+      return `${v >= 0 ? '+' : ''}${v.toFixed(1)} m/s`
+    },
+  },
+  { key: 'lPer', label: 'Perilune', get: () => (flying() && live.lunar.bound ? km(live.lunar.perigee) : '—') },
+  { key: 'lApo', label: 'Apolune', get: () => (flying() && live.lunar.bound ? km(live.lunar.apogee) : '—') },
+  {
+    key: 'lPeriod',
+    label: 'Period',
+    get: () => (flying() && live.lunar.bound && live.lunar.perigee > 0 ? clock(live.lunar.period) : '—'),
+  },
+]
+
+/** Range and closing rate to Columbia, from the state: for the panel's timer. */
+const sep = new Float64Array(2)
+function separation() {
+  const st = live.sim.state
+  const o = INDEX.ship * 6
+  const t = INDEX.target * 6
+  const dx = st[t] - st[o]
+  const dy = st[t + 1] - st[o + 1]
+  const dz = st[t + 2] - st[o + 2]
+  const r = Math.sqrt(dx * dx + dy * dy + dz * dz)
+  sep[0] = r
+  sep[1] = r > 0 ? -((st[t + 3] - st[o + 3]) * dx + (st[t + 4] - st[o + 4]) * dy + (st[t + 5] - st[o + 5]) * dz) / r : 0
+}
+
+/** What comes next, and in how long — from the sequencer's own plan. */
+function nextEvent() {
+  const id = currentPhase().id
+  const now = live.sim.t
+  const at = (label, t) => (t > now ? `${label} in ${mmss(t - now)}` : label)
+  if (id === 'LUNAR_PRE_LAUNCH') return mission.running ? `Liftoff in ${mmss(mission.countdown)}` : 'Holding'
+  if (id === 'LUNAR_LIFTOFF' || id === 'LUNAR_ASCENT') return 'Insertion'
+  if (id === 'LM_COAST_CSI' || id === 'LM_CSI') return at('CSI', lunar.csiTime)
+  if (id === 'LM_COAST_CDH' || id === 'LM_CDH') return at('CDH', lunar.cdhTime)
+  if (id === 'LM_COAST_TPI' || id === 'LM_TPI') return `TPI at ${((APOLLO11.tpiElevation * 180) / Math.PI).toFixed(1)}°`
+  if (id === 'LM_TRANSFER') {
+    const next = lunar.mccDone < 2 ? lunar.mcc[lunar.mccDone] : 0
+    return next > now ? at(`MCC ${lunar.mccDone + 1}`, next) : at('Braking', lunar.interceptTime)
+  }
+  if (id === 'LM_BRAKING') return 'Station-keeping at 30 m'
+  if (id === 'LM_STATION_KEEP') return 'Docking'
+  if (id === 'LM_DOCKING') return 'Capture'
+  if (id === 'DOCKED') return 'Hard dock'
+  return '—'
+}
+
+const RENDEZVOUS = [
+  {
+    key: 'rvRange',
+    label: 'Range to Columbia',
+    get: () => {
+      separation()
+      return sep[0] < 10e3 ? `${sep[0].toFixed(1)} m` : km(sep[0])
+    },
+    wide: true,
+  },
+  {
+    key: 'rvRate',
+    label: 'Closing rate',
+    get: () => {
+      separation()
+      return `${sep[1].toFixed(2)} m/s · ${ftps(sep[1])}`
+    },
+  },
+  {
+    key: 'rvElev',
+    label: 'Columbia elevation',
+    get: () => (lunar.liftoffTime > 0 && !lunar.tpi ? `${((lunar.elevation * 180) / Math.PI).toFixed(1)}°` : '—'),
+  },
+  { key: 'rvNext', label: 'Next', get: nextEvent },
+  { key: 'rvCsi', label: 'CSI', get: () => (lunar.csi?.time ? ftps(lunar.csi.dv) : lunar.csi ? `${ftps(lunar.csi.dv)} planned` : '—') },
+  { key: 'rvCdh', label: 'CDH', get: () => (lunar.cdh ? ftps(lunar.cdh.dv) : '—') },
+  { key: 'rvTpi', label: 'TPI', get: () => (lunar.tpi ? ftps(lunar.tpi.dv) : '—') },
+  { key: 'rvRcs', label: 'RCS Δv used', get: () => `${lunar.rcsUsed.toFixed(1)} m/s` },
+  {
+    key: 'rvDock',
+    label: 'Docked',
+    get: () =>
+      lunar.docked ? `${hms(lunar.dockedTime - lunar.liftoffTime)} at ${lunar.dockingSpeed.toFixed(2)} m/s` : '—',
+    wide: true,
+  },
+]
+
 /** Release the hold. Only meaningful before the count starts. */
 function LaunchButton() {
   const [held, setHeld] = useState(true)
   useEffect(() => {
-    const id = setInterval(() => setHeld(currentPhase().id === 'PRE_LAUNCH' && !mission.running), 200)
+    const id = setInterval(() => setHeld(Boolean(currentPhase().held) && !mission.running), 200)
     return () => clearInterval(id)
   }, [])
   if (!held) return null
@@ -422,7 +537,13 @@ function assertUniqueKeys(groups) {
   return seen.size
 }
 
-assertUniqueKeys([MISSION, FIELDS, TLI, MCC, LUNAR, RETURN, ENTRY, PROPULSION])
+assertUniqueKeys([MISSION, FIELDS, TLI, MCC, LUNAR, RETURN, ENTRY, PROPULSION, LUNAR_ORBIT, RENDEZVOUS])
+
+/** The two missions' rows: an Earth vessel's, or the lunar vessel's. */
+const LUNAR_MISSION = MISSION.slice(0, 2)
+const GROUPS = SHIP.lunar
+  ? [LUNAR_MISSION, LUNAR_ORBIT, RENDEZVOUS, PROPULSION]
+  : [MISSION, FIELDS, TLI, MCC, LUNAR, RETURN, ENTRY, PROPULSION]
 
 function Row({ label, id, wide }) {
   return (
@@ -438,48 +559,10 @@ function Row({ label, id, wide }) {
   )
 }
 
-export function ShipTelemetry() {
-  const root = useRef(null)
-  const assist = useUi((s) => s.assist)
-
-  useEffect(() => {
-    const all = [...MISSION, ...FIELDS, ...TLI, ...MCC, ...LUNAR, ...RETURN, ...ENTRY, ...PROPULSION]
-    const nodes = new Map()
-    for (const f of all) {
-      const el = root.current?.querySelector(`[data-ship="${f.key}"]`)
-      if (el) nodes.set(f, el)
-    }
-    const bar = root.current?.querySelector('[data-ship-bar]')
-    const fuel = root.current?.querySelector('[data-fuel-bar]')
-    const tick = () => {
-      for (const [f, el] of nodes) el.textContent = f.get()
-      if (bar) bar.style.width = `${ship.throttle * 100}%`
-      const st = activeStage()
-      if (fuel) fuel.style.width = st ? `${(ship.stageProp[ship.stage] / st.propellant) * 100}%` : '0%'
-    }
-    tick()
-    const id = setInterval(tick, 110)
-    return () => clearInterval(id)
-  }, [])
-
+/** An Earth vessel's orbit, and its trip to the Moon and back. */
+function EarthSections() {
   return (
-    <div ref={root} className="panel w-60 rounded-sm p-3.5">
-      <div className="rule mb-1 flex items-center justify-between border-b border-white/10 pb-2">
-        <span>Flight — {SHIP.name}</span>
-        <span className={assist ? 'text-hud' : 'text-white/25'}>{assist ? 'SAS' : 'sas'}</span>
-      </div>
-      {/* The actual vehicle, which the mission name does not give away. */}
-      <div className="mb-2.5 text-[9px] leading-tight text-white/25">
-        {SHIP.vehicle} · {SHIP.era}
-      </div>
-
-      <div className="mb-3 space-y-1.5 border-b border-white/10 pb-3">
-        {MISSION.map((f) => (
-          <Row key={f.key} id={f.key} label={f.label} wide={f.wide} />
-        ))}
-        <LaunchButton />
-      </div>
-
+    <>
       <div className="space-y-1.5">
         {FIELDS.map((f) => (
           <Row key={f.key} id={f.key} label={f.label} wide={f.wide} />
@@ -521,6 +604,70 @@ export function ShipTelemetry() {
           <Row key={f.key} id={f.key} label={f.label} wide={f.wide} />
         ))}
       </div>
+
+    </>
+  )
+}
+
+export function ShipTelemetry() {
+  const root = useRef(null)
+  const assist = useUi((s) => s.assist)
+
+  useEffect(() => {
+    const all = GROUPS.flat()
+    const nodes = new Map()
+    for (const f of all) {
+      const el = root.current?.querySelector(`[data-ship="${f.key}"]`)
+      if (el) nodes.set(f, el)
+    }
+    const bar = root.current?.querySelector('[data-ship-bar]')
+    const fuel = root.current?.querySelector('[data-fuel-bar]')
+    const tick = () => {
+      for (const [f, el] of nodes) el.textContent = f.get()
+      if (bar) bar.style.width = `${ship.throttle * 100}%`
+      const st = activeStage()
+      if (fuel) fuel.style.width = st ? `${(ship.stageProp[ship.stage] / st.propellant) * 100}%` : '0%'
+    }
+    tick()
+    const id = setInterval(tick, 110)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div ref={root} className="panel w-60 rounded-sm p-3.5">
+      <div className="rule mb-1 flex items-center justify-between border-b border-white/10 pb-2">
+        <span>Flight — {SHIP.name}</span>
+        <span className={assist ? 'text-hud' : 'text-white/25'}>{assist ? 'SAS' : 'sas'}</span>
+      </div>
+      {/* The actual vehicle, which the mission name does not give away. */}
+      <div className="mb-2.5 text-[9px] leading-tight text-white/25">
+        {SHIP.vehicle} · {SHIP.era}
+      </div>
+
+      <div className="mb-3 space-y-1.5 border-b border-white/10 pb-3">
+        {(SHIP.lunar ? LUNAR_MISSION : MISSION).map((f) => (
+          <Row key={f.key} id={f.key} label={f.label} wide={f.wide} />
+        ))}
+        <LaunchButton />
+      </div>
+
+      {SHIP.lunar ? (
+        <>
+          <div className="space-y-1.5">
+            {LUNAR_ORBIT.map((f) => (
+              <Row key={f.key} id={f.key} label={f.label} wide={f.wide} />
+            ))}
+          </div>
+          <div className="rule mt-4 mb-2.5 border-b border-white/10 pb-2">Rendezvous</div>
+          <div className="space-y-1.5">
+            {RENDEZVOUS.map((f) => (
+              <Row key={f.key} id={f.key} label={f.label} wide={f.wide} />
+            ))}
+          </div>
+        </>
+      ) : (
+        <EarthSections />
+      )}
 
       <div className="rule mt-4 mb-2.5 border-b border-white/10 pb-2">Propulsion</div>
       <div className="mb-1 h-px w-full bg-white/10">

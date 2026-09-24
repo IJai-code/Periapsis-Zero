@@ -89,6 +89,17 @@ export const SECTIONS = {
     { name: 'Command module', stage: 4, kind: 'capsule', length: 3.47, diameter: 3.9, to: 1.4 },
     { name: 'Launch escape system', stage: 0, kind: 'tower', length: 10.0, diameter: 0.66 },
   ],
+  /**
+   * Eagle's ascent stage, as the fallback the model replaces once it loads: the
+   * APS and aft equipment bay, the crew cabin — 4.29 m across and 4.04 deep,
+   * drawn round at 3.9 — and the docking tunnel on top. Not a likeness; the
+   * glTF is, and these only have to stand in the right place at the right size.
+   */
+  apollo11: [
+    { name: 'APS and aft bay', stage: 0, kind: 'tank', length: 1.0, diameter: 1.6, engines: 1, bell: 0.9, colour: '#8f8a80' },
+    { name: 'Crew cabin', stage: 0, kind: 'tank', length: 2.3, diameter: 3.9, colour: '#b9b7b2' },
+    { name: 'Docking tunnel', stage: 0, kind: 'interstage', length: 0.8, diameter: 0.84, colour: '#6f6c66' },
+  ],
   artemis: [
     {
       name: 'Core stage',

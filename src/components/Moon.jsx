@@ -6,6 +6,8 @@ import { BODIES } from '../sim/constants.js'
 import { attachBloodMoon } from '../gfx/shaders.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
 import { moonClock, moonTurn } from '../sim/moonFrame.js'
+import { lunarPhotometry } from '../gfx/lunarPhotometry.js'
+import { lunarGround } from '../gfx/moonTerrain.js'
 
 /** The rotation the group is turned by, written in place every frame. */
 const _turn = new THREE.Matrix4()
@@ -13,6 +15,37 @@ const _turn = new THREE.Matrix4()
 const R = BODIES.moon.radius
 
 const SLOTS = { map: 'moon.color', normalMap: 'moon.normal' }
+
+/**
+ * Cut the globe away where real ground is drawn in its place.
+ *
+ * Near a lunar site the surface is the terrain in LunarSurface.jsx, and the
+ * globe underneath it would fight it for depth — worse, bury every crater, since
+ * the ground there is shifted to put the site on the sphere and a crater floor
+ * is below it. So while the ground is drawn the globe discards every fragment
+ * inside its bounds, read off the same map coordinates that place the imagery:
+ * the terrain is built on those bounds exactly, and blends to the sphere's
+ * height along them.
+ */
+function cutForGround(material) {
+  const previous = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    previous.call(material, shader, renderer)
+    shader.uniforms.uGroundHole = lunarGround.hole
+    shader.uniforms.uGroundBounds = { value: lunarGround.bounds }
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uGroundHole;\nuniform vec4 uGroundBounds;')
+      .replace(
+        '#include <map_fragment>',
+        `if ( uGroundHole > 0.5 && vMapUv.x > uGroundBounds.x && vMapUv.x < uGroundBounds.y &&
+          vMapUv.y > uGroundBounds.z && vMapUv.y < uGroundBounds.w ) discard;
+        #include <map_fragment>`,
+      )
+  }
+  const key = material.customProgramCacheKey
+  material.customProgramCacheKey = () => `${key.call(material)}|ground-cut`
+  return material
+}
 
 export function Moon({ textures }) {
   const group = useRef()
@@ -51,7 +84,8 @@ export function Moon({ textures }) {
       metalness: 0,
     })
     attachBloodMoon(m, eclipse)
-    return m
+    // Regolith, not paint — see gfx/lunarPhotometry.js — and cut for the ground.
+    return lunarPhotometry(cutForGround(m))
   }, [textures, eclipse])
 
   // Swapping maps leaves the material — and therefore the blood-moon uniforms
@@ -85,7 +119,9 @@ export function Moon({ textures }) {
           A quarter-turn about the pole carries those onto the group's +z and
           +x, which are the prime meridian and 90°E. */}
       <mesh material={material} rotation={[0, -Math.PI / 2, 0]}>
-        <sphereGeometry args={[R, 128, 80]} />
+        {/* 512 x 256: a facet's middle sits 32 m inside the true sphere, where
+            128 x 80 left it 520 m in — the height the terrain's edge meets it at. */}
+        <sphereGeometry args={[R, 512, 256]} />
       </mesh>
     </group>
   )

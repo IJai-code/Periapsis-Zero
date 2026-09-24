@@ -47,6 +47,14 @@ export const ship = {
   targetQuaternion: new Quaternion(),
 
   /**
+   * RCS translation, as a world-frame acceleration command, m/s² — written by
+   * whatever is flying a small burn or a closing phase, and added to the main
+   * engine's thrust. Independent of attitude: a lunar module translates on its
+   * jets whichever way it is pointing. Zero unless something asks.
+   */
+  rcs: new Vector3(),
+
+  /**
    * Parachute drag area actually developed, Cd·A in m^2, and what it is opening
    * toward. A canopy does not appear at full area: it inflates, and on the
    * mains it is deliberately reefed and let out in stages. Modelled as a
@@ -132,6 +140,7 @@ export function resetShip() {
   ship.bankCommand = 0
   ship.stage = 0
   ship.separations = 0
+  ship.rcs.set(0, 0, 0)
   SHIP.stages.forEach((s, i) => (ship.stageProp[i] = s.propellant))
   ship.mass = totalMass()
   input.pitch = 0
@@ -239,9 +248,9 @@ export function applyThrust(dt, simDt, extAccel) {
   ship.thrust = stage && remaining > 0 ? ship.throttle * stage.thrust : 0
 
   const a = ship.thrust / ship.mass
-  extAccel[0] = ship.forward.x * a
-  extAccel[1] = ship.forward.y * a
-  extAccel[2] = ship.forward.z * a
+  extAccel[0] = ship.forward.x * a + ship.rcs.x
+  extAccel[1] = ship.forward.y * a + ship.rcs.y
+  extAccel[2] = ship.forward.z * a + ship.rcs.z
 
   if (ship.thrust > 0) {
     // mdot = F / (Isp g0). Mass falls as the burn proceeds, so acceleration

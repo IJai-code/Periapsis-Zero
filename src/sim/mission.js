@@ -3,7 +3,7 @@ import { COUNT_LENGTH, ignitionThrottle } from './countdown.js'
 import { live } from './live.js'
 import { activeStage, separate, ship, totalMass } from './ship.js'
 import { INDEX } from './system.js'
-import { activeSite, clampToSite, rotationBonus } from './launchsite.js'
+import { activeSite, clampToSite, clampToSiteNow, rotationBonus, siteClock } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
 import { projectPerigee, solveMidCourse, solveReturnCorridor } from './targeting.js'
 import { referenceStateAt, solveHaloKeeping } from './halo.js'
@@ -24,6 +24,36 @@ import {
   resolveNode,
 } from './nodes.js'
 import { dominantBody } from './soi.js'
+import {
+  APOLLO11,
+  DOCKING_REACH,
+  DOCKING_SPEED,
+  STATION_KEEP,
+  applyDocked,
+  beginCdh,
+  beginCsi,
+  beginMcc,
+  beginTpi,
+  faceTarget,
+  flyBurn,
+  flyClosing,
+  flyDocking,
+  holdOnSurface,
+  latch,
+  K_CLOSING,
+  K_ELEVATION,
+  K_RANGE,
+  lunar,
+  lunarCeiling,
+  lunarLive,
+  lunarStepCeiling,
+  placeColumbia,
+  readTarget,
+  resetLunar,
+  steerAscent,
+  steerVertical,
+  targetCsi,
+} from './lunarMission.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 import { EARTH_FIELD, fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
@@ -336,6 +366,8 @@ export const PROFILE = {
 
 export const mission = {
   site: activeSite(),
+  /** Where in the state vector the body the site stands on is: see resetMission. */
+  bodyOffset: (INDEX[activeSite().body ?? 'earth'] * 6) | 0,
   index: 0,
   /** Phase to resume after a staging interrupt. */
   resumeIndex: 0,
@@ -2219,6 +2251,7 @@ const PHASES = [
     id: 'PRE_LAUNCH',
     label: 'Pre-launch',
     clamped: true,
+    held: true,
     enter() {
       ship.throttle = 0
       ship.autopilot = true
@@ -3418,6 +3451,254 @@ const PHASES = [
    * fourth wrong explanation for this pad, and the only one that a two-line
    * altitude check would have caught before it was ever written down.
    */
+
+  /* ---------------------------------------------------------------- *
+   * The lunar sequence — Eagle, from Tranquility Base to Columbia.
+   * The guidance is in sim/lunarMission.js; these are its steps.
+   * ---------------------------------------------------------------- */
+  {
+    id: 'LUNAR_PRE_LAUNCH',
+    label: 'Pre-launch',
+    clamped: true,
+    held: true,
+    enter() {
+      ship.throttle = 0
+      ship.autopilot = true
+      ship.rcs.set(0, 0, 0)
+      mission.countdown = mission.countLength
+    },
+    control(dt) {
+      holdOnSurface()
+      mission.countdown -= dt
+      mission.t = -mission.countdown
+    },
+    done: () => mission.countdown <= 0,
+    next: () => INDEX_OF.LUNAR_LIFTOFF,
+  },
+  {
+    /**
+     * Ignition is liftoff: there are no hold-downs on the Moon. The explosive
+     * nuts that hold the stages together fire as the ascent engine lights, and
+     * it lights into the top of the descent stage — "fire in the hole" — which
+     * is left behind as the launch pad it has been since the landing.
+     */
+    id: 'LUNAR_LIFTOFF',
+    label: 'Liftoff',
+    leavingSurface: true,
+    enter() {
+      ship.throttle = 1
+      mission.t = 0
+      lunar.liftoffTime = live.sim.t
+      mission.warpRequest = WARP.x1
+    },
+    control() {
+      ship.throttle = 1
+      steerVertical()
+    },
+    done: () => mission.phaseT >= SHIP.lunarAscent.verticalRise,
+    next: () => INDEX_OF.LUNAR_ASCENT,
+  },
+  {
+    id: 'LUNAR_ASCENT',
+    label: 'Powered ascent',
+    control() {
+      ship.throttle = 1
+      if (steerAscent()) {
+        ship.throttle = 0
+        lunar.ascentCutoff = true
+      }
+    },
+    done: () => lunar.ascentCutoff || ship.stageProp[0] <= 0,
+    next: () => INDEX_OF.LUNAR_INSERTION,
+  },
+  {
+    id: 'LUNAR_INSERTION',
+    label: 'Orbit insertion',
+    enter() {
+      ship.throttle = 0
+      lunar.insertion = {
+        time: mission.t,
+        perilune: live.lunar.perigee,
+        apolune: live.lunar.apogee,
+        propellant: ship.stageProp[0],
+      }
+      targetCsi()
+    },
+    control() {
+      faceTarget()
+    },
+    done: () => true,
+    next: () => INDEX_OF.LM_COAST_CSI,
+  },
+  {
+    id: 'LM_COAST_CSI',
+    label: 'Coast to CSI',
+    control() {
+      faceTarget()
+      const togo = lunar.csiTime - live.sim.t
+      mission.warpRequest = togo > 180 ? WARP.m1 : WARP.x1
+    },
+    done: () => live.sim.t >= lunar.csiTime - 1e-3,
+    next: () => INDEX_OF.LM_CSI,
+  },
+  {
+    id: 'LM_CSI',
+    label: 'Coelliptic sequence initiation',
+    enter() {
+      mission.warpRequest = WARP.x1
+      beginCsi()
+    },
+    control(dt, simDt) {
+      flyBurn(simDt)
+    },
+    done: () => !lunar.burning,
+    next: () => INDEX_OF.LM_COAST_CDH,
+  },
+  {
+    id: 'LM_COAST_CDH',
+    label: 'Coast to CDH',
+    enter() {
+      ship.rcs.set(0, 0, 0)
+    },
+    control() {
+      faceTarget()
+      const togo = lunar.cdhTime - live.sim.t
+      mission.warpRequest = togo > 180 ? WARP.m1 : WARP.x1
+    },
+    done: () => live.sim.t >= lunar.cdhTime - 1e-3,
+    next: () => INDEX_OF.LM_CDH,
+  },
+  {
+    id: 'LM_CDH',
+    label: 'Constant delta height',
+    enter() {
+      mission.warpRequest = WARP.x1
+      beginCdh()
+    },
+    control(dt, simDt) {
+      flyBurn(simDt)
+    },
+    done: () => !lunar.burning,
+    next: () => INDEX_OF.LM_COAST_TPI,
+  },
+  {
+    id: 'LM_COAST_TPI',
+    label: 'Coast to TPI',
+    enter() {
+      ship.rcs.set(0, 0, 0)
+    },
+    control() {
+      faceTarget()
+      readTarget()
+      // A minute a second until Columbia is within a couple of degrees of the
+      // elevation, then ten times real time to catch it cleanly.
+      mission.warpRequest = lunarLive[K_ELEVATION] < APOLLO11.tpiElevation - 0.04 ? WARP.m1 : WARP.x10
+    },
+    done: () => lunarLive[K_ELEVATION] >= APOLLO11.tpiElevation,
+    next: () => INDEX_OF.LM_TPI,
+  },
+  {
+    id: 'LM_TPI',
+    label: 'Terminal phase initiation',
+    enter() {
+      mission.warpRequest = WARP.x1
+      beginTpi()
+    },
+    control(dt, simDt) {
+      flyBurn(simDt)
+    },
+    done: () => !lunar.burning,
+    next: () => INDEX_OF.LM_TRANSFER,
+  },
+  {
+    id: 'LM_TRANSFER',
+    label: 'Terminal phase',
+    enter() {
+      ship.rcs.set(0, 0, 0)
+    },
+    control(dt, simDt) {
+      readTarget()
+      if (lunar.burning) {
+        flyBurn(simDt)
+        mission.warpRequest = WARP.x1
+        return
+      }
+      faceTarget()
+      if (lunar.mccDone < 2 && live.sim.t >= lunar.mcc[lunar.mccDone]) {
+        lunar.mccDone++
+        beginMcc()
+        return
+      }
+      const next = lunar.mccDone < 2 ? lunar.mcc[lunar.mccDone] : Infinity
+      mission.warpRequest = next - live.sim.t > 120 && lunarLive[K_RANGE] > 8000 ? WARP.m1 : WARP.x10
+    },
+    done: () => !lunar.burning && lunarLive[K_RANGE] - DOCKING_REACH < 1830,
+    next: () => INDEX_OF.LM_BRAKING,
+  },
+  {
+    id: 'LM_BRAKING',
+    label: 'Braking',
+    enter() {
+      lunar.brakingStart = mission.t
+    },
+    control(dt, simDt) {
+      flyClosing(simDt)
+      mission.warpRequest = WARP.x10
+    },
+    done: () => lunarLive[K_RANGE] - DOCKING_REACH <= STATION_KEEP + 2 && Math.abs(lunarLive[K_CLOSING]) < 0.05,
+    next: () => INDEX_OF.LM_STATION_KEEP,
+  },
+  {
+    /**
+     * Thirty metres apart and holding. Apollo 11 station-kept for about ten
+     * minutes, and docked at 128:03:00; this holds until the final approach,
+     * flown at a tenth of a metre a second, would dock at the same time after
+     * liftoff — the one moment in the sequence set by the crew's schedule rather
+     * than by a burn — and for a minute at least.
+     */
+    id: 'LM_STATION_KEEP',
+    label: 'Station-keeping',
+    enter() {
+      lunar.stationKeeping = live.sim.t
+    },
+    control(dt, simDt) {
+      flyClosing(simDt)
+      mission.warpRequest = WARP.x10
+    },
+    done: () =>
+      live.sim.t >=
+      Math.max(
+        lunar.stationKeeping + 60,
+        lunar.liftoffTime + APOLLO11.dockedAt - STATION_KEEP / DOCKING_SPEED,
+      ),
+    next: () => INDEX_OF.LM_DOCKING,
+  },
+  {
+    id: 'LM_DOCKING',
+    label: 'Docking',
+    enter() {
+      ship.rcs.set(0, 0, 0)
+    },
+    control(dt, simDt) {
+      flyDocking(simDt)
+      mission.warpRequest = lunarLive[K_RANGE] - DOCKING_REACH > 5 ? WARP.x10 : WARP.x5
+    },
+    done: () => lunarLive[K_RANGE] <= DOCKING_REACH,
+    next: () => INDEX_OF.DOCKED,
+  },
+  {
+    id: 'DOCKED',
+    label: 'Docked',
+    docked: true,
+    enter() {
+      ship.rcs.set(0, 0, 0)
+      ship.throttle = 0
+      latch()
+      mission.warpRequest = null
+    },
+    control() {},
+    done: () => false,
+  },
   {
     id: 'LOST',
     label: 'Vehicle lost',
@@ -3477,7 +3758,7 @@ function setPhase(next, resuming = false) {
 }
 
 export const currentPhase = () => PHASES[mission.index]
-export const isClamped = () => Boolean(PHASES[mission.index].clamped)
+export const isClamped = () => Boolean(PHASES[mission.index].clamped || PHASES[mission.index].docked)
 
 /**
  * Release the hold and begin the count.
@@ -3708,6 +3989,20 @@ export function enterNrhoCycle(reference = null) {
 
 export function beginCountdown({ groundSequence = false } = {}) {
   /*
+   * On the Moon the count is always the watched minute, and it is when
+   * Columbia is put where the rendezvous needs it: for a liftoff at the end of
+   * this count — see placeColumbia.
+   */
+  if (SHIP.lunar) {
+    mission.countLength = COUNT_LENGTH
+    mission.countdown = COUNT_LENGTH
+    mission.t = -COUNT_LENGTH
+    mission.running = true
+    mission.warpRequest = WARP.x1
+    if (INDEX.target !== undefined) placeColumbia(mission.site, live.sim.t + COUNT_LENGTH)
+    return
+  }
+  /*
    * The ground sequence is a minute and is watched, so it asks for real time
    * rather than the sixty-times the harness count asks for — at 1 min/s the
    * whole minute would pass in one wall-clock second and every event in it
@@ -3730,13 +4025,21 @@ export function resetMission() {
   // Picked up here rather than held from module load, so changing the pad and
   // resetting is all it takes to fly from somewhere else.
   mission.site = activeSite()
-  mission.index = 0
+  /*
+   * The state offset of the body the site stands on, resolved once here. Looked
+   * up by the site's body name every frame instead, V8 carries the product as a
+   * double, and the clamp is handed a boxed number each step it holds the pad —
+   * and stored without the `| 0`, the field itself becomes a double one.
+   */
+  mission.bodyOffset = (INDEX[mission.site.body ?? 'earth'] * 6) | 0
+  mission.index = SHIP.lunar ? INDEX_OF.LUNAR_PRE_LAUNCH : 0
   mission.resumeIndex = 0
-  mission.countLength = PROFILE.countdown
+  // The lunar count is always the watched minute; see beginCountdown.
+  mission.countLength = SHIP.lunar ? COUNT_LENGTH : PROFILE.countdown
   mission.groundSequence = false
-  mission.t = -PROFILE.countdown
+  mission.t = -mission.countLength
   mission.phaseT = 0
-  mission.countdown = PROFILE.countdown
+  mission.countdown = mission.countLength
   mission.lastSeparations = ship.separations
   mission.running = false
   mission.planeLocked = false
@@ -3789,7 +4092,11 @@ export function resetMission() {
    * orbit and sent the vehicle 5.5 million km out.
    */
   clearNodes()
-  PHASES[0].enter()
+  resetLunar()
+  // Columbia where it would be for a count started now. The count places it
+  // again when it does start — see beginCountdown.
+  if (SHIP.lunar && INDEX.target !== undefined) placeColumbia(mission.site, live.sim.t + mission.countLength)
+  PHASES[mission.index].enter()
 }
 
 /**
@@ -3825,7 +4132,7 @@ function surfaceAltitude() {
  */
 function belowSurface() {
   const phase = PHASES[mission.index]
-  if (phase.splashed || phase.clamped || phase.landing || phase.id === 'LOST') return false
+  if (phase.splashed || phase.clamped || phase.docked || phase.landing || phase.leavingSurface || phase.id === 'LOST') return false
   return surfaceAltitude() < 0
 }
 
@@ -3842,7 +4149,7 @@ function belowSurface() {
 function nodeAhead(now) {
   const id = PHASES[mission.index].id
   if (id === 'NODE_ALIGN' || id === 'NODE_BURN' || id === 'STAGING' || id === 'LOST') return null
-  if (mission.index === 0 && !mission.running) return null
+  if (PHASES[mission.index].held && !mission.running) return null
   return pendingNode(now)
 }
 
@@ -4020,6 +4327,10 @@ export function updateStepCeiling(now) {
   const phase = PHASES[mission.index].id
   if (phase === 'GRAVITY_TURN' || phase === 'CIRCULARISE') limitStepToCutoff(phase === 'CIRCULARISE')
   else if (phase === 'NRHO_STATION_KEEP') limitStepToKeepBurn()
+  else if (SHIP.lunar) {
+    lunarStepCeiling(phase)
+    if (lunarCeiling[0] < stepCeiling[0]) stepCeiling[0] = lunarCeiling[0]
+  }
 }
 
 export function updateMission(dt, simDt = dt) {
@@ -4039,8 +4350,8 @@ export function updateMission(dt, simDt = dt) {
   }
 
   const phase = PHASES[mission.index]
-  mission.phaseT += mission.index === 0 ? dt : simDt
-  if (mission.index > 0) mission.t += simDt
+  mission.phaseT += phase.held ? dt : simDt
+  if (!phase.held) mission.t += simDt
 
   // A separation preempts whatever is running, so the event gets its own phase
   // without the sequencer duplicating the propulsion model's staging logic.
@@ -4051,8 +4362,9 @@ export function updateMission(dt, simDt = dt) {
     return
   }
 
-  if (mission.index === 0 && !mission.running) {
-    aimThrust(_up)
+  if (phase.held && !mission.running) {
+    if (SHIP.lunar) holdOnSurface()
+    else aimThrust(_up)
     return // held, count not started
   }
 
@@ -4072,7 +4384,7 @@ export function updateMission(dt, simDt = dt) {
     return
   }
 
-  phase.control(dt)
+  phase.control(dt, simDt)
 
   /**
    * Transition. `done()` may answer in two ways.
@@ -4109,8 +4421,17 @@ export function updateMission(dt, simDt = dt) {
 
 /** Hold the vehicle on the pad. Called after the integration step. */
 export function applyClamp() {
-  clampToSite(live.sim.state, live.sim.t, mission.site, INDEX.earth * 6, INDEX.ship * 6)
+  // Docked is a clamp too — to Columbia rather than to the ground.
+  if (PHASES[mission.index].docked) {
+    applyDocked()
+    return
+  }
+  siteClock[0] = live.sim.t
+  clampToSiteNow(live.sim.state, mission.site, mission.bodyOffset, SHIP_OFFSET)
 }
+
+/** The ship's place in the state vector, once: see `bodyOffset` for why not per frame. */
+const SHIP_OFFSET = (INDEX.ship * 6) | 0
 
 /** True once the capsule is in the water. */
 export const isSplashed = () => Boolean(PHASES[mission.index].splashed)

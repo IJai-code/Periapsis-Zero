@@ -17,6 +17,7 @@ import { FlightStrip } from './FlightStrip.jsx'
 import { Commentary } from './Commentary.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
+import { SHIP } from '../sim/constants.js'
 import { prediction } from '../sim/predict.js'
 
 /**
@@ -185,8 +186,10 @@ export function Hud() {
             <FocusMenu />
             {/* Setting the flight up, not flying it: out of the way on the map. */}
             {!map && <Presets />}
-            {!map && <LaunchSite />}
-            {!map && <Geophysics />}
+            {/* Earth's pads; a lunar vessel's site is its own, fixed. */}
+            {!map && !SHIP.lunar && <LaunchSite />}
+            {/* Earth's interior, and gravity at an Earth pad: nothing to say on the Moon. */}
+            {!map && !SHIP.lunar && <Geophysics />}
             {!map && <ModelSelector />}
             <Toggles />
             {/*

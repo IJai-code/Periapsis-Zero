@@ -135,6 +135,30 @@ const SHOTS = {
   MAIN_CHUTES: ['chase', 'Main canopies'],
   SPLASHDOWN: ['ship', 'Splashdown'],
 
+  /* --- Eagle, from Tranquility Base to Columbia --- */
+  /**
+   * On the ground for the count and the liftoff, at eye level beside the LM —
+   * see `lunarViewpoint` — then on the hull. The coasts between the burns are
+   * an hour each and nothing happens in them but the geometry, so they pull
+   * back to the Moon; every burn and the whole terminal phase ride the hull,
+   * because what is happening is the attitude and the other craft.
+   */
+  LUNAR_PRE_LAUNCH: ['ground', 'On Tranquility Base', WARP.x1],
+  LUNAR_LIFTOFF: ['ground', 'Liftoff', WARP.x1],
+  LUNAR_ASCENT: ['chase', 'Powered ascent'],
+  LUNAR_INSERTION: ['chase', 'Orbit insertion'],
+  LM_COAST_CSI: ['moon', 'Coast to CSI'],
+  LM_CSI: ['chase', 'Coelliptic sequence initiation'],
+  LM_COAST_CDH: ['moon', 'Coast to CDH'],
+  LM_CDH: ['chase', 'Constant delta height'],
+  LM_COAST_TPI: ['moon', 'Coast to TPI'],
+  LM_TPI: ['chase', 'Terminal phase initiation'],
+  LM_TRANSFER: ['chase', 'Terminal phase'],
+  LM_BRAKING: ['chase', 'Braking'],
+  LM_STATION_KEEP: ['chase', 'Station-keeping'],
+  LM_DOCKING: ['chase', 'Docking'],
+  DOCKED: ['chase', 'Docked'],
+
   /**
    * Pull back to the planet. Wherever the vehicle got to, the useful thing to
    * see is the body it is inside, not a chase camera buried in the crust.

@@ -4,6 +4,8 @@ import { SPIN_AXIS } from '../sim/atmosphere.js'
 import { siteDirection } from '../sim/launchsite.js'
 import { live } from '../sim/live.js'
 import { padFor } from './pads.js'
+import { moonAxes, moonClock } from '../sim/moonFrame.js'
+import { groundProbe, probeGround, siteAxes } from './moonTerrain.js'
 
 /**
  * Standing on the ground, watching.
@@ -211,4 +213,68 @@ export function groundViewpoint(out, up, site, sunDir, earthPos) {
 export function lastPlacement(across, launch) {
   across.copy(_across)
   launch.copy(_launch)
+}
+
+/* ---------------------------------------------------------------- *
+ * On the Moon
+ * ---------------------------------------------------------------- */
+
+/**
+ * Where a person would stand to watch the LM go: 30 m out, south-south-west.
+ *
+ * Nobody did, for Apollo 11 — the only film is from Eagle's own window — so
+ * this is placed for what the ground is like there, not for a record. The LM
+ * faces west and flies west, and the Sun is 22° up in the east, so an observer
+ * to the south-south-west has it lit from the right: the east faces in sun,
+ * the shadows running long to the left, the ascent stage crossing the frame
+ * right to left as it pitches over. 30 m keeps the whole LM, 7 m tall, in the
+ * lower part of the frame with the ground it stands on, and is outside most of
+ * the descent stage's blown-off insulation. The eye is 1.75 m above the
+ * real ground under the observer, from the same heights the ground is drawn
+ * with.
+ */
+const LUNAR_OFF = 30
+const LUNAR_AZIMUTH = 205 * DEG
+const R_MOON = BODIES.moon.radius
+const _mx = new Float64Array(9)
+let _axes = null
+let _axesFor = ''
+
+export function lunarViewpoint(out, up, site) {
+  if (_axesFor !== site.id) {
+    _axes = siteAxes(site.latitude, site.longitude)
+    _axesFor = site.id
+  }
+  const A = _axes
+  moonClock[0] = live.sim.t
+  moonAxes(_mx)
+  const east = LUNAR_OFF * Math.sin(LUNAR_AZIMUTH)
+  const south = -LUNAR_OFF * Math.cos(LUNAR_AZIMUTH)
+  groundProbe[0] = east
+  groundProbe[1] = south
+  probeGround()
+  const h = groundProbe[2] + EYE
+  // The site's east, up and south in the scene, from the Moon's body axes.
+  const Ex = A[0] * _mx[0] + A[1] * _mx[3] + A[2] * _mx[6]
+  const Ey = A[0] * _mx[1] + A[1] * _mx[4] + A[2] * _mx[7]
+  const Ez = A[0] * _mx[2] + A[1] * _mx[5] + A[2] * _mx[8]
+  const Ux = A[3] * _mx[0] + A[4] * _mx[3] + A[5] * _mx[6]
+  const Uy = A[3] * _mx[1] + A[4] * _mx[4] + A[5] * _mx[7]
+  const Uz = A[3] * _mx[2] + A[4] * _mx[5] + A[5] * _mx[8]
+  const Sx = A[6] * _mx[0] + A[7] * _mx[3] + A[8] * _mx[6]
+  const Sy = A[6] * _mx[1] + A[7] * _mx[4] + A[8] * _mx[7]
+  const Sz = A[6] * _mx[2] + A[7] * _mx[5] + A[8] * _mx[8]
+  const moon = live.pos.moon
+  out.x = moon.x + Ux * (R_MOON + h) + Ex * east + Sx * south
+  out.y = moon.y + Uy * (R_MOON + h) + Ey * east + Sy * south
+  out.z = moon.z + Uz * (R_MOON + h) + Ez * east + Sz * south
+  // The observer's own vertical, so the horizon is level.
+  up.x = out.x - moon.x
+  up.y = out.y - moon.y
+  up.z = out.z - moon.z
+  const n = Math.sqrt(up.x * up.x + up.y * up.y + up.z * up.z)
+  up.x /= n
+  up.y /= n
+  up.z /= n
+  return out
 }

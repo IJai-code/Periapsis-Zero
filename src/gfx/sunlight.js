@@ -187,12 +187,14 @@ export function shadowFloorFor(reach, top) {
 export const SHADOW_DISTANCE = 4000
 
 const R = BODIES.earth.radius
+const R_MOON = BODIES.moon.radius
 const _up = new Vector3()
 const _pad = new Vector3()
 
-/** Where the pad is in the scene right now, which is on a planet that is turning. */
+/** Where the pad is in the scene right now, which is on a planet that is turning — or a moon. */
 export function padScenePoint(out, site) {
   siteDirection(_up, site, live.sim.t)
+  if (site.body === 'moon') return out.copy(live.pos.moon).addScaledVector(_up, R_MOON)
   return out.copy(live.pos.earth).addScaledVector(_up, R)
 }
 

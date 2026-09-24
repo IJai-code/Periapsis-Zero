@@ -146,15 +146,17 @@ export function buildInitialState() {
   })
 
   // The vehicle starts on the pad, not in orbit — Phase 5 flies the ascent.
-  clampToSite(state, 0, activeSite(), ORDER.indexOf('earth') * 6, BODY_ORDER.indexOf('ship') * 6)
-  for (const [id, spec] of Object.entries(SATELLITES)) placeCraft(state, id, spec.orbit)
+  // On whichever body the site is on: Earth's pads, or the Moon's.
+  const site = activeSite()
+  clampToSite(state, 0, site, ORDER.indexOf(site.body ?? 'earth') * 6, BODY_ORDER.indexOf('ship') * 6)
+  for (const [id, spec] of Object.entries(SATELLITES)) placeCraft(state, id, spec.orbit, spec.primary)
   return state
 }
 
 /**
- * Put a craft in a circular orbit about Earth, in the already-shifted scene
- * frame. Written straight onto Earth's barycentric state, so the orbit is
- * geocentric while the integration stays barycentric.
+ * Put a craft in a circular orbit about Earth — or the body it names — in the
+ * already-shifted scene frame. Written straight onto that body's barycentric
+ * state, so the orbit is geocentric while the integration stays barycentric.
  *
  * The plane is built from an explicit orbit normal tilted out of the ecliptic,
  * which makes the inclination exact by construction and the direction prograde:
@@ -163,12 +165,12 @@ export function buildInitialState() {
  * which moves the craft along its orbit without disturbing either the
  * inclination or the circularity.
  */
-function placeCraft(state, id, { altitude, inclination, phase = 0 }) {
-  const earth = ORDER.indexOf('earth') * 6
+function placeCraft(state, id, { altitude, inclination, phase = 0 }, primary = 'earth') {
+  const earth = ORDER.indexOf(primary) * 6
   const slot = BODY_ORDER.indexOf(id) * 6
 
-  const mu = G * BODIES.earth.mass
-  const r = BODIES.earth.radius + altitude
+  const mu = G * BODIES[primary].mass
+  const r = BODIES[primary].radius + altitude
   const speed = Math.sqrt(mu / r) // circular
   const i = inclination * DEG
 

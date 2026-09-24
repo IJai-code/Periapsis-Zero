@@ -8,18 +8,23 @@
  * the encounter — the geocentric-only limit returns the 900 s planetary default
  * at 400,000 km from Earth, which is 7.9 steps per lunar revolution.
  *
- *   node scripts/verify-approach.mjs <snapshot.json>
+ * This is an *instrument*, not a gate: it prints the table and a closest
+ * approach and asserts nothing, so it can never go red. Reading it is the point.
+ *
+ * The state is `scripts/fixtures/lunar-approach.json` unless another is given —
+ * that file is the post-midcourse approach state, still 130,000 km outside the
+ * sphere of influence, which is where this script has to start to see the conic
+ * stop being a fiction.
+ *
+ *   node scripts/verify-approach.mjs                    the fixture
+ *   node scripts/verify-approach.mjs other-state.json   some other state
  */
 
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_APPROACH_FIXTURE } from './flight.mjs'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission } from '../src/sim/mission.js'
 
-const snap = process.argv[2]
-if (!snap) {
-  console.error('usage: node scripts/verify-approach.mjs <snapshot.json>')
-  process.exit(1)
-}
+const snap = process.argv[2] ?? LUNAR_APPROACH_FIXTURE
 loadSnapshot(snap)
 
 console.log(`from ${currentPhase().id} at MET ${(mission.t / 3600).toFixed(2)} h\n`)
