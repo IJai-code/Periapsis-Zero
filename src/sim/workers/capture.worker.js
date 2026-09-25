@@ -11,13 +11,22 @@
  */
 import { solveHaloCapture } from '../capture.js'
 import { nrhoGatewayMember } from '../cr3bp.js'
+import { ownRails } from '../rails.js'
+
 
 self.onmessage = (event) => {
   const { id, sim, member, options } = event.data
   try {
     // No member sent means the Gateway's orbit, found here: its 2.5 s of
     // continuation would block the page just as the search would.
-    const solution = solveHaloCapture(sim, member ?? nrhoGatewayMember(), {
+    //
+    // The rails arrive as a recipe — a table reduced to the two fields
+    // `ownRails` reads — and are rebuilt here into a real table with this side's
+    // own closure. They cannot arrive as a table: `refresh` is a function, and a
+    // `postMessage` payload holding one throws instead of degrading. The live
+    // sky's positions come across in the recipe, so the worker solves against
+    // the planets the page is actually flying; see captureWorker.js.
+    const solution = solveHaloCapture({ ...sim, rails: ownRails(sim.rails) }, member ?? nrhoGatewayMember(), {
       ...options,
       onCell: (done, total) => self.postMessage({ id, type: 'progress', done, total }),
     })

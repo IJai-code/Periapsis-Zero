@@ -55,6 +55,31 @@ const PAD_OFFSET = {
 const PAD_FOV = { min: 2.5, max: 42, fill: 0.22 }
 
 /**
+ * The ground observer's lens, once it is tracking something rather than
+ * standing still.
+ *
+ * The eye view is a *fixed* viewpoint at eye height, which is what makes a
+ * launch read at the scale it happens at — and it is also why it loses the
+ * vehicle: a 65-degree frame held at 380 m puts the top of its useful field
+ * about 240 m above the deck, so from the moment the vehicle passes that the
+ * rocket is a dot travelling up the middle of a very wide photograph, and by
+ * 2 km it is not a visible object at all.
+ *
+ * Every broadcast of a launch solves this the same way and always has: the
+ * camera does not move, the *lens* does. So the frame starts at the eye's own
+ * field — the countdown and ignition are seen as a bystander sees them — and
+ * pushes in as the vehicle climbs, holding it at roughly a third of frame.
+ * `min` is the long end: at 2.5 degrees and 380 m of stand-off the frame is
+ * about 516 m across, so the 110 m stack is still a fifth of it, and it stays
+ * legible out past 40 km. Past that the director has long since cut away.
+ *
+ * The push is triggered off altitude rather than camera range, so it works the
+ * same standing 380 m from LC-39B and 30 m from Eagle: in both cases the lens
+ * opens up as the vehicle clears the ground it was sitting on.
+ */
+const GROUND_FOV = { min: 0.9, fill: 0.30, clearAlt: 60, fullAlt: 320 }
+
+/**
  * Spring stiffness for the pad camera's aim, as a settling time.
  *
  * This is the one place a spring earns its keep. Measured against recorded
@@ -72,6 +97,17 @@ const GROUND_AIM_SETTLE = 0.7
 
 /** How long the cut out of the pad shot takes to blend into the chase. */
 const CHASE_BLEND = 1.5
+
+/**
+ * How many chase-lengths away the previous shot may be before entering the
+ * chase becomes a cut rather than a move. Described where it is used.
+ *
+ * Eight, because the shot this is reached from is the ground or pad camera at
+ * a few hundred metres — under one length on Apollo 8's 110 m stack, and about
+ * 1.7 on a 3.47 m capsule — while the shot that made it necessary is Earth's
+ * lock at 38,000 lengths. Nothing legitimate lands between.
+ */
+const CHASE_CUT_FACTOR = 8
 
 /**
  * How quickly a locked camera closes on a vehicle that has just changed size.
@@ -424,14 +460,33 @@ export function CameraRig() {
        * camera stands several hull lengths away by construction. The blend is
        * timed rather than sprung because the offset is being retargeted; a
        * spring adds an overshoot the cut does not need.
+       *
+       * But a blend is a *flight of the camera*, and it is only the right
+       * answer when the two shots are near enough that a flight between them
+       * reads as a move. Measured, they are not: `COAST_TO_APOAPSIS` and
+       * `CIRCULARISE` frame the craft from Earth's lock at 5.2 radii — 33,150 km
+       * — so cutting to the chase meant flying the camera **33,791 km in 1.5 s**
+       * to end 412 m behind the vehicle. Rendered at 60x it is the single worst
+       * thing in the flight, and it is the shot the two burns above are cut to.
+       *
+       * So the gap decides. Within a few chase lengths it is a move and gets the
+       * blend; beyond that it is a different place entirely and a cut is the
+       * only honest transition — which is also what the director's own shots do
+       * everywhere else.
        */
+      const hull = STAGE_LENGTH[Math.min(Math.max(ship.stage | 0, 0), STAGE_LENGTH.length - 1)]
+      const reach = ship.thrust > 0 ? hull * LIT_REACH : hull
+      const near = Math.hypot(CHASE_MULTIPLE.back * reach, CHASE_MULTIPLE.up * reach)
       scratch.offset.subVectors(camera.position, live.pos.ship)
-      flight.current = {
-        chaseBlend: true,
-        elapsed: 0,
-        duration: CHASE_BLEND,
-        fromOffset: scratch.offset.clone(),
-      }
+      flight.current =
+        scratch.offset.length() > near * CHASE_CUT_FACTOR
+          ? { chaseSnap: true }
+          : {
+              chaseBlend: true,
+              elapsed: 0,
+              duration: CHASE_BLEND,
+              fromOffset: scratch.offset.clone(),
+            }
       opening.current = false
       return
     }
@@ -672,8 +727,27 @@ export function CameraRig() {
         omegaForSettling(GROUND_AIM_SETTLE),
         Math.min(delta, 1 / 20),
       )
-      if (Math.abs(camera.fov - EYE_FOV) > 1e-3) {
-        camera.fov = EYE_FOV
+      /*
+       * The tracked lens, described by `GROUND_FOV` above. `push` is zero while
+       * the vehicle is on the pad and one once it is well clear, and the frame
+       * is blended between the eye's own field and whatever holds the vehicle
+       * at `fill` of frame at the range it is actually at.
+       *
+       * Clamped at both ends for the reason the pad camera is: too wide and
+       * there is no tracking in it, too narrow and every tremor in the aim
+       * spring is amplified into a visible shake.
+       */
+      const range = camera.position.distanceTo(live.pos.ship)
+      const push = THREE.MathUtils.clamp(
+        (live.elements.altitude - GROUND_FOV.clearAlt) / (GROUND_FOV.fullAlt - GROUND_FOV.clearAlt),
+        0,
+        1,
+      )
+      const tracked =
+        (2 * Math.atan(hull / (GROUND_FOV.fill * 2 * Math.max(range, 1e-6))) * 180) / Math.PI
+      const fov = EYE_FOV + (THREE.MathUtils.clamp(tracked, GROUND_FOV.min, EYE_FOV) - EYE_FOV) * push
+      if (Math.abs(camera.fov - fov) > 1e-3) {
+        camera.fov = fov
         camera.updateProjectionMatrix()
       }
       camera.up.copy(scratch.eyeUp)
@@ -777,7 +851,12 @@ export function CameraRig() {
       }
 
       const blend = flight.current
-      if (blend?.chaseBlend) {
+      if (blend?.chaseSnap) {
+        // Straight to the shot. A cut has no duration to run, so this clears on
+        // the same frame it was asked for.
+        scratch.offset.copy(scratch.desired)
+        flight.current = null
+      } else if (blend?.chaseBlend) {
         blend.elapsed += delta
         const t = easeInOutCubic(Math.min(1, blend.elapsed / blend.duration))
         scratch.offset.lerpVectors(blend.fromOffset, scratch.desired, t)

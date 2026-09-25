@@ -41,7 +41,24 @@ import { continueFamily, correctPeriodicOrbit, nrhoSeed } from '../src/sim/cr3bp
 import { referenceStateAt, solveHaloKeeping } from '../src/sim/halo.js'
 import { lambert, solveHaloCapture } from '../src/sim/capture.js'
 
-const HOLD = Number(process.argv[2] ?? 4)
+/**
+ * Revolutions held. Seven, and the number is measured rather than chosen for
+ * roundness.
+ *
+ * The maintenance cycle does not put the craft back on the reference, it walks
+ * it there: the node-flown arrival is a few km out and the offset then falls by
+ * about 45% a revolution. At four revolutions that walk is not finished —
+ * measured, 71.6, 33.9, 16.3, 17.4 km — and the last-pass check below fails on
+ * a cycle that is converging perfectly well. At seven it is done: 9.7, 5.0,
+ * 1.7 km, and the check has twice its bar in hand.
+ *
+ * Four was enough when the reference was shot in a different field from the one
+ * the craft flew (see `adoptFieldFrom`): the craft then started each cycle
+ * already on the reference by construction of the law and had less to remove.
+ * Now that the reference is a trajectory of the flown field, the whole of the
+ * delivered-capture error has to be walked off, and that takes six revolutions.
+ */
+const HOLD = Number(process.argv[2] ?? 7)
 const SEP_NOMINAL = 384400e3
 const TU_DAYS = 27.321661 / (2 * Math.PI)
 const O = INDEX.ship * 6
@@ -107,6 +124,20 @@ console.log(`  delta-v left in the stack: ${budget.toFixed(0)} m/s; capture into
 
 const solvedAt = Date.now()
 const capture = solveHaloCapture(live.sim, member, { revolutions: HOLD + 2 })
+
+/**
+ * Whether the solved capture can cross a worker boundary, which is how the page
+ * runs this search. `structuredClone` is the same algorithm `postMessage` uses,
+ * and it throws on a function rather than dropping one.
+ */
+let cloneable = false
+try {
+  structuredClone(capture)
+  cloneable = true
+} catch (error) {
+  cloneable = false
+  console.log(`\n  the solution cannot be sent to a worker: ${error.message}`)
+}
 const solveMs = Date.now() - solvedAt
 
 console.log(`\n=== C. the capture, ${capture.tried.length} cells in ${(solveMs / 1000).toFixed(1)} s ===`)
@@ -288,6 +319,20 @@ const checks = [
   ['Lambert reproduces a worked example to 1 cm/s', lambertError < 0.01],
   ['the mission reaches its lunar approach', arrived],
   ['a capture onto the halo is found', capture.converged],
+  /**
+   * And the solution can be sent.
+   *
+   * The page solves this in a worker, so the whole solve is a `postMessage`
+   * payload — and a reference carries the rails table it was shot against, whose
+   * `refresh` is a closure. Structured clone refuses functions *outright*: the
+   * message throws, the promise never resolves, and the only symptom is a
+   * capture that is never planned. None of the checks above could see it, because
+   * every one of them runs the search in this process, where nothing is ever
+   * sent anywhere. It shipped broken for exactly that reason.
+   *
+   * So the answer is asserted to survive the boundary it actually crosses.
+   */
+  ['and survives being sent to a worker', cloneable],
   ['its three burns total under 600 m/s', capture.converged && capture.total < 600],
   ['which is less than the 819 m/s capture into lunar orbit it replaces', capture.converged && capture.total < 819],
   ['and fits in the propellant the vehicle arrives with', capture.converged && capture.total < budget],

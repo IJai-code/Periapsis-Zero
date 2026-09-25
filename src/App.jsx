@@ -57,9 +57,20 @@ export default function App() {
     const preset = requestedPreset()
     if (!preset) return
     const run = startPreset(preset)
-    // `focus` only when the preset names one, so the director keeps the shot
-    // everywhere else — see the seeded ref in Driver.jsx for why it survives.
-    setUi(preset.focus ? { warp: run.warp, paused: false, focus: preset.focus } : { warp: run.warp, paused: false })
+    /*
+     * The shot `startPreset` resolved, which is the preset's own if it names one
+     * and the director's for the phase we arrived in otherwise.
+     *
+     * Applying it here is the only place it can be applied. The driver seeds its
+     * memory of the director's request on the first frame *instead* of applying
+     * it, so that a camera chosen before the loop started survives into it — and
+     * a preset that left this unset was therefore stuck on the store's `earth`
+     * for as long as consecutive phases kept asking for the same thing. Setting
+     * it to what the director will ask for anyway is not a fight: the request
+     * already equals it, so no cut is triggered and the pilot keeps the camera
+     * from the next phase boundary on, exactly as before.
+     */
+    setUi({ warp: run.warp, paused: false, ...(run.focus ? { focus: run.focus } : {}) })
   }, [])
 
   const enter = useCallback(() => {

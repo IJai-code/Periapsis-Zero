@@ -21,9 +21,10 @@
  * growing.
  *
  * **Crossing** lets the same run pass through TEI, entry and splashdown. That
- * retains about 219 KB, and it is not a leak: three times the frames retains
- * the same amount, so it is paid once at the transitions. What allocates there
- * has not been established, and no guess is recorded here as though it had.
+ * retains about 261 KB, and it is not a leak: three times the frames retains
+ * 257.95 KB, so it is paid once at the transitions. What allocates there has
+ * not been established, and no guess is recorded here as though it had — but
+ * where the last 43 KB of it came from has been, and that is recorded below.
  *
  * ── where the two bounds come from ────────────────────────────────────
  *
@@ -35,13 +36,13 @@
  * call, a different measurement, and imposing it here would *loosen* this gate
  * 5.5x: 6 B/frame over 60,000 frames is 352 KB.
  *
- * The crossing bound is **256 KB**, and it is set from the spread rather than
- * from the mean. Seven runs of this gate as it stands read 221.18 to 234.79 KB,
- * mean 228.28, sd 4.50 — so the process-to-process variance is several KB on a
- * 228 KB quantity, and 256 KB is mean + 6.2 sd. A bound at 220 KB, which is
- * roughly the mean, would fail almost every run on code nobody had touched, and
- * a gate that goes red at random is worse than no gate: this repository has
- * already had one red gate hide ten others.
+ * The crossing bound is **296 KB**, and it is set from the spread rather than
+ * from the mean, the same way it was the first time. Seven runs read 253.39 to
+ * 270.26 KB, mean 261.39, sd 5.59 — so the process-to-process variance is
+ * several KB on a 261 KB quantity, and 296 KB is mean + 6.2 sd. A bound at the
+ * mean would fail half the runs on code nobody had touched, and a gate that
+ * goes red at random is worse than no gate: this repository has already had one
+ * red gate hide ten others.
  *
  * The figure moved while this was being written, which is worth recording. Run
  * as a single regime the same crossing reads 218.82 KB over 11 runs; run second,
@@ -49,6 +50,28 @@
  * frames, same code, ~10 KB apart — so a bound like this belongs to the harness
  * that measures it and not only to the thing measured, and re-deriving it after
  * changing the harness is not optional.
+ *
+ * ── the bound was re-derived, and here is what moved it ───────────────
+ *
+ * The previous bound was 256 KB, from a sample of 228.28 KB. The reading is now
+ * 261.39 KB, so it was re-derived rather than loosened to fit: same sample
+ * size, same mean + 6.2 sd rule, and the checks themselves are untouched.
+ *
+ * The 33 KB is attributable, not a mystery. A worktree at the last commit reads
+ * 218.24 KB through this same harness; copying the working tree's files in one
+ * at a time and re-running puts the whole of the change in `targeting.js`, at
+ * +40 KB on its own (219.93 KB without it, 260.29 KB with it, same three other
+ * files either way). That edit gives the projection scratch the live field —
+ * Earth's oblateness and the planet rails — so a projected path is drawn through
+ * the gravity it will be flown through. Its allocation is one `ownRails` table,
+ * a few hundred bytes; the rest is the scratch propagating further per call now
+ * that the field has more in it, and the heap being that much larger when the
+ * reading is taken.
+ *
+ * Two things say this is still the gate it was. Three times the frames retains
+ * 257.95 KB, so the cost is still paid once and the per-frame figure still
+ * falls — 1.336 to 0.440 B/frame. And the steady regime, which is the actual
+ * zero-allocation mandate, is unchanged at -0.028 B/frame.
  *
  *   node --expose-gc scripts/verify-allocation.mjs             both regimes
  *   node --expose-gc scripts/verify-allocation.mjs state.json  from another state
@@ -73,7 +96,7 @@ const CROSSING_FRAMES = 200_000
 const STEADY_BYTES_PER_FRAME = (64 * 1024) / 60_000
 
 /** The crossing bound, from the measured spread rather than the measured mean. */
-const CROSSING_BYTES = 256 * 1024
+const CROSSING_BYTES = 296 * 1024
 
 /**
  * One regime: restore, warm up, measure. The warm-up is outside the reading so

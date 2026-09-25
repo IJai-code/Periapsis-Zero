@@ -2,6 +2,8 @@ import { G0, SHIP } from '../sim/constants.js'
 import { activeStage, ship } from '../sim/ship.js'
 import { live } from '../sim/live.js'
 import { density } from '../sim/atmosphere.js'
+import { currentPhase, mission } from '../sim/mission.js'
+import { delugeLevel, ventLevel } from '../sim/countdown.js'
 
 /**
  * What the vehicle sounds like, synthesised.
@@ -10,9 +12,23 @@ import { density } from '../sim/atmosphere.js'
  * numbers written into them every frame. The graph is
  *
  *     brown noise -> lowpass  -> rumble gain  --+
- *     white noise -> bandpass -> crackle gain --+--> master -> compressor -> out
+ *     white noise -> bandpass -> crackle gain --+
  *     two detuned oscillators -> sub gain     --+
- *     staging clunk (one-shot buffers)        --+
+ *     white noise -> bandpass -> rush gain    --+
+ *     white noise -> highpass -> vent gain    --+
+ *     one-shot buffers: staging, chutes, splash, ignition --+--> master
+ *                                                             -> compressor -> out
+ *
+ * The two voices after the engine are the parts of a flight that are not the
+ * engine. The **rush** is air: it is driven by dynamic pressure rather than by
+ * thrust, so it is loudest at max Q and again through entry, and it is silent
+ * in a vacuum no matter how fast anything is moving through it. The **vent** is
+ * the pad: the hiss of boiling LOX out of the vents and the roar of the sound
+ * suppression water, both taken straight from `countdown.js` so the picture of
+ * the last minute and its sound are the same timeline. Before either, a launch
+ * being watched had the engines and nothing else, so the sixty seconds before
+ * ignition were silent — the one minute of the mission that is all plumbing
+ * and weather, and the only part with no engine in it at all.
  *
  * The rumble is the engine; its level follows thrust and its lowpass corner
  * follows how *big* the engine is, measured as mass flow — an F-1 moving
@@ -46,8 +62,16 @@ export const CUTOFF = 1
 export const SUB = 2
 export const SUB_FREQ = 3
 export const CRACKLE = 4
-/** This frame's five parameters. One array, at load, written in place. */
-export const mix = new Float64Array(5)
+/** Level of the aerodynamic rush, 0..1. Air moving past the hull, not the engine. */
+export const RUSH = 5
+/** Its band centre, Hz — broad and dark for a big blunt body, brighter for a capsule. */
+export const RUSH_FREQ = 6
+/** The pad's own noise: LOX vents and deluge water, 0..1. */
+export const VENT = 7
+/** How many parameters a mix carries. The array is sized from it, so the two cannot drift. */
+export const MIX_SIZE = 8
+/** This frame's parameters. One array, at load, written in place. */
+export const mix = new Float64Array(MIX_SIZE)
 
 /** Sea-level density, kg/m^3: the reference the attenuation is against. */
 export const RHO0 = 1.225
@@ -67,7 +91,19 @@ export const ATTENUATION_EXPONENT = 0.35
 export const MDOT_REF = SHIP.stages[0].thrust / (SHIP.stages[0].isp * G0)
 
 /**
- * The five parameters from the flight state.
+ * Dynamic pressure the rush is measured against, Pa.
+ *
+ * 32 kPa is a Saturn V's max Q, and it is the right reference for a launch
+ * because the reference has to be the loudest the rush ever gets: the voice is
+ * a square root of the ratio, so it reads 0.5 at a quarter of max Q — a normal
+ * ascent, audible but clearly under the engines — and 1.0 exactly where the
+ * vehicle is being pushed hardest. Entry re-enters the same band from above,
+ * which is why the same voice serves both.
+ */
+export const Q_REF = 32000
+
+/**
+ * The parameters from the flight state.
  *
  * @param {Float64Array} out    written in place
  * @param {number} thrust       N, this frame
@@ -91,6 +127,51 @@ export function mixFor(out, thrust, maxThrust, mdot, mdotRef, rho, gate = 1) {
   return out
 }
 
+/**
+ * The voices that are not the engine: the air past the hull, and the pad.
+ *
+ * A separate function rather than four more parameters on `mixFor`, and the
+ * split is a measurement. V8 inlines `mixFor`'s seven-argument call and does not
+ * inline a nine-argument one, and the doubles of a call it will not inline are
+ * boxed at the boundary — 47.50 bytes a call, against 0.83 for the same
+ * arithmetic inlined. `gfx/sunlight.js` and `gfx/groundView.js` both hit this and
+ * both responded the same way: take the argument count down, not the arithmetic.
+ *
+ * @param {Float64Array} out  written in place
+ * @param {number} rho        kg/m^3, air at the vehicle
+ * @param {number} q          Pa, dynamic pressure
+ * @param {number} vent       0..1, the pad's own noise (vents and deluge)
+ * @param {number} gate       0..1, the same outside mute `mixFor` takes
+ * @param {number} heavy      0..1, the burning stage against the vehicle's
+ *                            heaviest — how blunt the thing in the air is. Only
+ *                            shapes the rush's band, and defaults to the middle
+ *                            so a caller with no engine has a defined voice.
+ */
+export function mixAir(out, rho, q, vent, gate = 1, heavy = 0.5) {
+  const att = rho > 0 ? Math.min(1, Math.pow(rho / RHO0, ATTENUATION_EXPONENT)) * gate : 0
+  /*
+   * Square-rooted in pressure because loudness is roughly the log of intensity
+   * and a linear reading spends the whole ascent in the top tenth of the range;
+   * attenuated by density for the same reason the engine is, since it is air
+   * and a vacuum carries none of it. Deliberately *not* scaled by thrust: this
+   * is the vehicle moving through atmosphere, which happens whether or not
+   * anything is lit — the entry the capsule flies with no engine at all is the
+   * loudest air in the mission.
+   */
+  out[RUSH] = Math.min(1, Math.sqrt(Math.max(q, 0) / Q_REF)) * att * 0.55
+  /*
+   * Blunter and heavier is broader and lower; a small stage is brighter.
+   *
+   * Measured on the two extremes this flies: an S-IC at full throttle gives
+   * 240 Hz, which is a wall of low-frequency air, and an unpowered entry gives
+   * the middle of the range, 390 Hz — a capsule is a hiss and there is no
+   * engine running to darken it, which is the sound entry actually makes.
+   */
+  out[RUSH_FREQ] = 240 + 300 * (1 - Math.min(1, Math.max(0, heavy)))
+  out[VENT] = Math.min(1, Math.max(0, vent)) * 0.5 * gate
+  return out
+}
+
 /** Time constants for the parameter smoothing, seconds. */
 const TAU_GAIN = 0.06
 const TAU_FREQ = 0.12
@@ -108,6 +189,11 @@ export function applyMix(n, m, t) {
   // Detuned by a fiftieth: a beat of about half a hertz, the throb.
   n.sub2.frequency.setTargetAtTime(m[SUB_FREQ] * 1.021, t, TAU_FREQ)
   n.crackle.gain.setTargetAtTime(m[CRACKLE], t, TAU_GAIN * 0.7)
+  n.rush.gain.setTargetAtTime(m[RUSH], t, TAU_GAIN)
+  n.rushBand.frequency.setTargetAtTime(m[RUSH_FREQ], t, TAU_FREQ)
+  // The pad's own noise comes and goes over seconds, not tenths: a vent opening
+  // is a valve, not an engine.
+  n.vent.gain.setTargetAtTime(m[VENT], t, 0.35)
 }
 
 /* ---------------------------------------------------------------- *
@@ -119,6 +205,8 @@ let nodes = null
 let enabled = true
 let suspendTimer = null
 let lastSeparations = 0
+/** Phase the last one-shot was fired for, so a phase is announced once. */
+let lastPhaseFired = ''
 /** Whether the last mix written was silence, so an idle coast writes nothing. */
 let wroteSilence = false
 
@@ -197,6 +285,41 @@ function renderClunk(ac) {
   return buffer
 }
 
+/**
+ * A one-shot rendered once, from a spec: decaying partials, a noise transient,
+ * and a tail fade so it never clicks.
+ *
+ * The staging clunk was written out by hand and the three events after it are
+ * the same shape with different numbers, so they share this rather than being
+ * three more copies of the same twenty lines.
+ *
+ * @param {number[][]} partials  [Hz, amplitude, decay rate] rows
+ * @param {number} noise         amplitude of the opening noise transient
+ * @param {number} noiseSeconds  how long it lasts
+ */
+function renderBurst(ac, { seconds, partials, thump, noise, noiseSeconds }) {
+  const n = Math.floor(ac.sampleRate * seconds)
+  const buffer = ac.createBuffer(1, n, ac.sampleRate)
+  const data = buffer.getChannelData(0)
+  const rnd = makeRandom(11)
+  let peak = 1e-6
+  for (let i = 0; i < n; i++) {
+    const t = i / ac.sampleRate
+    let v = 0
+    for (let k = 0; k < partials.length; k++) {
+      const [f, a, decay] = partials[k]
+      v += a * Math.sin(2 * Math.PI * f * t) * Math.exp(-decay * t)
+    }
+    if (thump) v += thump[1] * Math.sin(2 * Math.PI * thump[0] * t) * Math.exp(-thump[2] * t)
+    if (noise > 0 && t < noiseSeconds) v += (rnd() * 2 - 1) * (1 - t / noiseSeconds) * noise
+    const tail = t > seconds - 0.05 ? (seconds - t) / 0.05 : 1
+    data[i] = v * tail
+    if (Math.abs(data[i]) > peak) peak = Math.abs(data[i])
+  }
+  for (let i = 0; i < n; i++) data[i] = (data[i] / peak) * 0.95
+  return buffer
+}
+
 function build(ac) {
   const master = ac.createGain()
   master.gain.value = 0
@@ -247,16 +370,112 @@ function build(ac) {
   sub2.connect(subGain)
   subGain.connect(master)
 
-  const clunk = ac.createGain()
-  clunk.gain.value = 0.85
-  clunk.connect(master)
+  /**
+   * The aerodynamic rush: its own noise source, through a fairly broad band.
+   *
+   * A separate source rather than a share of the crackle's, because the two
+   * have to move independently — the crackle is a property of the engine and
+   * stops when it does, and the rush is a property of the air and keeps going
+   * through an entry with nothing lit. Sharing one node would make the entry
+   * silent and the vacuum noisy at the same time.
+   */
+  const rushNoise = ac.createBufferSource()
+  rushNoise.buffer = whiteNoise(ac, 3, 24680)
+  rushNoise.loop = true
+  const rushBand = ac.createBiquadFilter()
+  rushBand.type = 'bandpass'
+  rushBand.frequency.value = 400
+  rushBand.Q.value = 0.7
+  const rush = ac.createGain()
+  rush.gain.value = 0
+  rushNoise.connect(rushBand)
+  rushBand.connect(rush)
+  rush.connect(master)
+
+  // The pad: vents and deluge are both steam and water under pressure, which is
+  // a high, hissing band rather than the bottom-heavy roar of an engine.
+  const ventNoise = ac.createBufferSource()
+  ventNoise.buffer = whiteNoise(ac, 3, 13579)
+  ventNoise.loop = true
+  const ventFilter = ac.createBiquadFilter()
+  ventFilter.type = 'highpass'
+  ventFilter.frequency.value = 1100
+  ventFilter.Q.value = 0.5
+  const vent = ac.createGain()
+  vent.gain.value = 0
+  ventNoise.connect(ventFilter)
+  ventFilter.connect(vent)
+  vent.connect(master)
+
+  const oneshots = ac.createGain()
+  oneshots.gain.value = 1
+  oneshots.connect(master)
 
   brown.start()
   white.start()
   sub.start()
   sub2.start()
+  rushNoise.start()
+  ventNoise.start()
 
-  return { master, rumble, lowpass, crackle, sub, sub2, subGain, clunk, clunkBuffer: renderClunk(ac) }
+  return {
+    master,
+    rumble,
+    lowpass,
+    crackle,
+    sub,
+    sub2,
+    subGain,
+    rush,
+    rushBand,
+    vent,
+    oneshots,
+    clunk,
+    /**
+     * The four events with something to say, rendered once at load.
+     *
+     *   staging   the pyros, a large structure let go of, a thump beneath it
+     *   ignition  five seconds of a first stage coming up to thrust, still held
+     *   chutes    a mortar, three canopies cracking open, fabric in a 200 km/h wind
+     *   splash    a capsule hitting water — a low thud under a very short hiss
+     */
+    clunkBuffer: renderClunk(ac),
+    ignitionBuffer: renderBurst(ac, {
+      seconds: 5,
+      partials: [
+        [31, 0.5, 0.7],
+        [58, 0.6, 0.9],
+        [97, 0.45, 1.4],
+        [173, 0.3, 2.2],
+      ],
+      thump: [22, 0.9, 0.55],
+      noise: 0.7,
+      noiseSeconds: 2.6,
+    }),
+    chuteBuffer: renderBurst(ac, {
+      seconds: 2.2,
+      partials: [
+        [74, 0.4, 1.1],
+        [128, 0.35, 1.7],
+        [261, 0.25, 2.6],
+        [497, 0.2, 3.4],
+      ],
+      thump: [46, 0.7, 5],
+      noise: 1.1,
+      noiseSeconds: 1.1,
+    }),
+    splashBuffer: renderBurst(ac, {
+      seconds: 1.6,
+      partials: [
+        [61, 0.5, 2.4],
+        [139, 0.3, 4],
+        [288, 0.22, 6],
+      ],
+      thump: [38, 1.0, 3.2],
+      noise: 1.3,
+      noiseSeconds: 0.5,
+    }),
+  }
 }
 
 /* ---------------------------------------------------------------- *
@@ -315,6 +534,26 @@ export function setAudioEnabled(on) {
 /** 'none' before the first gesture, else the context's own state. For the HUD and the gate. */
 export const audioState = () => (ctx ? ctx.state : 'none')
 
+/**
+ * One rendered buffer, played once. Event-rate: this allocates a source node,
+ * by design of the Web Audio API — four or five times a mission, against the
+ * sixty-per-second path above it, which allocates nothing.
+ */
+function playOneShot(buffer, gain = 1) {
+  if (!ctx || !nodes || !enabled || ctx.state !== 'running') return
+  const src = ctx.createBufferSource()
+  src.buffer = buffer
+  if (gain !== 1) {
+    const g = ctx.createGain()
+    g.gain.value = gain
+    src.connect(g)
+    g.connect(nodes.oneshots)
+  } else {
+    src.connect(nodes.oneshots)
+  }
+  src.start()
+}
+
 /** The one-shot. Event-rate: this allocates a source node, by design of the API. */
 export function playStaging() {
   if (!ctx || !nodes || !enabled || ctx.state !== 'running') return
@@ -322,6 +561,21 @@ export function playStaging() {
   src.buffer = nodes.clunkBuffer
   src.connect(nodes.clunk)
   src.start()
+}
+
+/** Engines coming up to thrust while the vehicle is still held down. */
+export function playIgnition() {
+  playOneShot(nodes?.ignitionBuffer, 0.9)
+}
+
+/** A mortar, canopies cracking open, fabric in a two-hundred-kilometre-an-hour wind. */
+export function playChutes() {
+  playOneShot(nodes?.chuteBuffer)
+}
+
+/** A capsule arriving in the water. */
+export function playSplash() {
+  playOneShot(nodes?.splashBuffer)
 }
 
 /**
@@ -339,18 +593,51 @@ export function updateAudio(gate = 1) {
     if (seps > lastSeparations) playStaging()
     lastSeparations = seps
   }
+
+  /**
+   * The events that are not a change in a level but a thing happening.
+   *
+   * Keyed on the phase id and fired on entry, which is the same "on change"
+   * contract the director and the warp ladder use, and for the same reason: a
+   * one-shot is an edge and a level is a state. Nothing here fires on a
+   * re-entered phase — the mission clock only runs forward — and a reset puts
+   * `lastPhaseFired` back with `ship.separations`, so a fresh flight can fire
+   * each of them again.
+   */
+  const phase = currentPhase().id
+  if (phase !== lastPhaseFired) {
+    lastPhaseFired = phase
+    if (phase === 'LIFTOFF' && ship.thrust > 0) playIgnition()
+    else if (phase === 'DROGUE') playChutes()
+    else if (phase === 'SPLASHDOWN') playSplash()
+  }
+
   if (!ctx || !nodes || !enabled) return
 
   const stage = activeStage()
   const maxThrust = stage !== null ? stage.thrust : 0
   const mdot = stage !== null && ship.thrust > 0 ? ship.thrust / (stage.isp * G0) : 0
   const rho = density(live.elements.altitude)
+  /**
+   * The pad's own noise, read off the same timeline that draws it.
+   *
+   * `mission.t` is the countdown's own clock: negative before release, zero at
+   * release, and it keeps running afterwards — so the deluge fading out twenty
+   * seconds after liftoff is the same curve as the deluge fading off the pad,
+   * and there is no second source of truth for when the water stops. Outside
+   * the countdown both functions return zero on their own, so a preset handed
+   * over in orbit announces no vents at all.
+   */
+  const vent = Math.max(ventLevel(mission.t), delugeLevel(mission.t))
+  const heavy = mdot > 0 ? Math.min(1, Math.sqrt(mdot / MDOT_REF)) : 0.5
   mixFor(mix, ship.thrust, maxThrust, mdot, MDOT_REF, rho, gate)
+  mixAir(mix, rho, live.dynamicPressure, vent, gate, heavy)
 
   // Most of a mission is silence — every coast, the whole front door — and
-  // there is no point handing the audio thread six events a frame to say so
+  // there is no point handing the audio thread eight events a frame to say so
   // twice. One silent write lands the fade; the next is skipped.
-  const silent = mix[RUMBLE] === 0 && mix[SUB] === 0 && mix[CRACKLE] === 0
+  const silent =
+    mix[RUMBLE] === 0 && mix[SUB] === 0 && mix[CRACKLE] === 0 && mix[RUSH] === 0 && mix[VENT] === 0
   if (silent && wroteSilence) return
   wroteSilence = silent
   applyMix(nodes, mix, ctx.currentTime)

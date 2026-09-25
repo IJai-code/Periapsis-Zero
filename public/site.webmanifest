@@ -1,0 +1,13 @@
+{
+  "name": "Periapsis Zero",
+  "short_name": "Periapsis",
+  "description": "Real-time N-body solar system simulation driven by an RK4 integrator.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#0a0b0d",
+  "theme_color": "#0a0b0d",
+  "icons": [
+    { "src": "/icons/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/favicon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

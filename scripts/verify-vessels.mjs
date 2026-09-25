@@ -13,9 +13,19 @@
 
 import { VESSELS } from '../src/sim/vessels.js'
 import { MODEL_BY_ID } from '../src/gfx/modelsManifest.js'
-import { BODIES, G0, SHIP } from '../src/sim/constants.js'
+import { BODIES, G, G0, SHIP } from '../src/sim/constants.js'
 
 const g = 9.80665
+
+/**
+ * Surface gravity of the world a vessel launches from.
+ *
+ * A stack that lifts off the Moon is not held down by 9.81 m/s^2, and thrust to
+ * weight is a ratio between the two. Apollo 11's ascent stage reads 0.33 against
+ * Earth's gravity and 1.99 against the Moon's, and only the second is a fact
+ * about that vehicle.
+ */
+const MOON_G = (G * BODIES.moon.mass) / (BODIES.moon.radius * BODIES.moon.radius)
 
 /** Published figures, for comparison. Sources in sim/vessels.js. */
 const PUBLISHED = {
@@ -23,11 +33,31 @@ const PUBLISHED = {
   artemis: { launchMass: 2.6e6, liftoffTW: 1.57, cmBeta: 420, entrySpeed: 11_000 },
 }
 
+/**
+ * The ideal delta-v to climb from the surface to the insertion state a lunar
+ * vessel declares — the energy it has to buy, `v^2 / 2 + mu(1/R - 1/r)`.
+ *
+ * Derived from the vessel's own figures rather than quoted, so the bar it is
+ * held to cannot drift away from the orbit it claims to reach. It is a floor
+ * and not a prediction: a real ascent loses more than this to gravity and
+ * steering, which is why the measured figure sits 20% above it.
+ */
+function lunarAscentIdeal(v) {
+  const ins = v.lunarAscent?.insertion
+  if (!ins) return null
+  const mu = G * BODIES.moon.mass
+  const R = BODIES.moon.radius
+  const r = R + ins.altitude
+  const speed = Math.hypot(ins.radial, ins.horizontal)
+  return Math.sqrt(2 * (0.5 * speed * speed + mu / R - mu / r))
+}
+
 console.log('=== the stacks ===')
 const rows = []
 for (const [id, v] of Object.entries(VESSELS)) {
   const launch = v.stages.reduce((a, s) => a + s.dryMass + s.propellant, 0)
-  const tw = v.stages[0].thrust / (launch * g)
+  const world = v.lunar ? MOON_G : g
+  const tw = v.stages[0].thrust / (launch * world)
   let m = launch
   let dv = 0
   for (const s of v.stages) {
@@ -38,7 +68,8 @@ for (const [id, v] of Object.entries(VESSELS)) {
   const cm = v.stages.at(-1)
   const beta = cm.dryMass / (cm.drag.cd * cm.drag.area)
   const pub = PUBLISHED[id] ?? {}
-  rows.push({ id, v, launch, tw, dv, beta, pub })
+  const need = lunarAscentIdeal(v)
+  rows.push({ id, v, launch, tw, dv, beta, pub, need, lunar: Boolean(v.lunar) })
 
   console.log(`\n  ${v.name} — ${v.vehicle}, ${v.era}`)
   console.log(`    stages          ${v.stages.length}: ${v.stages.map((s) => s.name).join(' · ')}`)
@@ -46,8 +77,10 @@ for (const [id, v] of Object.entries(VESSELS)) {
     (pub.launchMass ? `   published ${(pub.launchMass / 1e3).toFixed(0)} t` +
       `   (${(((launch - pub.launchMass) / pub.launchMass) * 100).toFixed(1)}%)` : ''))
   console.log(`    liftoff T/W     ${tw.toFixed(3)}` +
-    (pub.liftoffTW ? `        published ${pub.liftoffTW.toFixed(2)}` : ''))
-  console.log(`    ideal delta-v   ${(dv / 1e3).toFixed(2)} km/s`)
+    (pub.liftoffTW ? `        published ${pub.liftoffTW.toFixed(2)}` : '') +
+    (v.lunar ? `   against the Moon's ${MOON_G.toFixed(2)} m/s^2` : ''))
+  console.log(`    ideal delta-v   ${(dv / 1e3).toFixed(2)} km/s` +
+    (need ? `   ascent needs ${(need / 1e3).toFixed(2)} to its insertion state` : ''))
   console.log(`    capsule beta    ${beta.toFixed(0)} kg/m^2` +
     (pub.cmBeta ? `   published ${pub.cmBeta}` +
       `   (${(((beta - pub.cmBeta) / pub.cmBeta) * 100).toFixed(1)}%)` : ''))
@@ -122,8 +155,17 @@ if (process.argv.includes('--fly')) {
 
 console.log('\n=== what this establishes ===')
 const checks = [
-  ['every vessel has stages, chutes and an ascent programme',
-   rows.every(({ v }) => v.stages.length > 1 && v.chutes?.main && v.ascent?.targetSpeed)],
+  // Split by the world it launches from, because the claim is different in each.
+  // An Earth stack is a *stack*: it stages, or it never reaches orbit. A lunar
+  // ascent stage is deliberately one stage standing on another — the descent
+  // stage is the launch pad — so demanding more than one would fail a vehicle
+  // for being correctly modelled.
+  ['every Earth stack has stages, chutes and an ascent programme, and every lunar vehicle a surface ascent and chutes',
+   rows.every(({ v, lunar }) =>
+     v.chutes?.main &&
+     (lunar
+       ? v.stages.length >= 1 && v.lunarAscent?.insertion !== undefined
+       : v.stages.length > 1 && v.ascent?.targetSpeed))],
   ['every named mesh exists in the catalogue', meshOk],
   ['launch masses are within 5% of published',
    rows.every(({ launch, pub }) => !pub.launchMass || Math.abs(launch - pub.launchMass) / pub.launchMass < 0.05)],
@@ -132,11 +174,19 @@ const checks = [
   // Apollo's needs no adjustment; Orion's area was chosen to hold it.
   ['capsule ballistic coefficients are within 5% of published',
    rows.every(({ beta, pub }) => !pub.cmBeta || Math.abs(beta - pub.cmBeta) / pub.cmBeta < 0.05)],
-  ['every stack carries enough ideal delta-v for a lunar return',
-   rows.every(({ dv }) => dv > 14_000)],
+  // Two different journeys, so two different floors. An Earth stack has to
+  // reach the Moon and come home; a lunar ascent stage has to reach the orbit
+  // it names, and the floor is that state's own energy rather than a quoted
+  // budget — measured 2.07 km/s against 1.70 required.
+  ['every Earth stack carries enough ideal delta-v for a lunar return',
+   rows.every(({ dv, lunar }) => lunar || dv > 14_000)],
+  ['every lunar vehicle carries the ideal delta-v to its insertion state',
+   rows.every(({ dv, need, lunar }) => !lunar || (need !== null && dv > need))],
   // A vehicle that cannot lift itself never leaves the pad, and the sequencer
-  // would sit in GRAVITY_TURN until the propellant ran out.
-  ['every vessel can lift itself', rows.every(({ tw }) => tw > 1.05)],
+  // would sit in GRAVITY_TURN until the propellant ran out. Against the gravity
+  // of the world it is standing on — see `MOON_G`.
+  ['every vessel can lift itself off the world it launches from',
+   rows.every(({ tw }) => tw > 1.05)],
   ...(parked
     ? [
         /**

@@ -31,8 +31,24 @@ const scratch = new RK4NBody(
 const SHIP = 3 * 6
 const MOON = 2 * 6
 
+/**
+ * Give the scratch the live field once, on first use.
+ *
+ * Nothing here sets it up at load, because `live.sim` does not exist yet — and
+ * a targeting projection that omitted Earth's oblateness and the outer planets'
+ * pull would aim at a trajectory the craft is not going to fly. The rails come
+ * as a private table: this scratch is re-seeded several times a second, and
+ * refreshing the shared sky from a four-day projection would move the planets
+ * out from under the live run.
+ */
+let fieldReady = false
+
 /** Copy the live state into the scratch, optionally with a velocity impulse. */
 function seed(dvx = 0, dvy = 0, dvz = 0) {
+  if (!fieldReady) {
+    scratch.adoptFieldFrom(live.sim)
+    fieldReady = true
+  }
   const src = live.sim.state
   for (let i = 0; i < SLOTS; i++) scratch.state[i] = src[i]
   scratch.state[SHIP + 3] += dvx
@@ -71,7 +87,7 @@ function closestApproach(maxSeconds) {
     const closing = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1
 
     const dt = Math.min(900, Math.max(1, (range / closing) * 0.05))
-    scratch.step(dt)
+    scratch.stepWithRails(dt)
     elapsed += dt
     steps++
   }
@@ -181,7 +197,7 @@ function perigeeMinimum(maxSeconds) {
       Math.max(0.5, (range / closing) * 0.02),
       Math.max(0.5, (mRange / mClosing) * 0.02),
     )
-    scratch.step(bestDt)
+    scratch.stepWithRails(bestDt)
     elapsed += bestDt
     steps++
   }
@@ -478,7 +494,7 @@ export function projectPerilune(dvx = 0, dvy = 0, dvz = 0, revolutions = 1, maxS
     const closing = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1
 
     const dt = Math.min(900, Math.max(0.5, (range / closing) * 0.02))
-    scratch.step(dt)
+    scratch.stepWithRails(dt)
     elapsed += dt
     steps++
   }

@@ -1,5 +1,6 @@
 import { G } from './constants.js'
 import { ATMOSPHERE_TOP, density } from './atmosphere.js'
+import { ownRails as privateRails } from './rails.js'
 
 /**
  * Classical Runge-Kutta 4th-order N-body integrator, in two tiers.
@@ -634,5 +635,55 @@ export class RK4NBody {
     if (this.liftK && other.liftK) this.liftK.set(other.liftK)
     if (this.bank && other.bank) this.bank.set(other.bank)
     return this
+  }
+
+  /**
+   * Adopt another integrator's gravity wholesale: the softening, the
+   * oblateness, and the planetary rails.
+   *
+   * `clone()` and `resetFrom()` already carry the field, for a projection that
+   * is copied from the run it forecasts. This is the same contract for the
+   * *scratch* integrators that are built from nothing to solve into —
+   * `capture.js`, `halo.js` and `targeting.js` each make a four-body one, and
+   * each of them used to take `testSoftening2` and stop there.
+   *
+   * That omission was not cosmetic. The halo reference is a trajectory the
+   * field is supposed to actually fly, and it was being shot without Earth's
+   * oblateness and without the outer planets' pull, then flown in a simulation
+   * that has both. Measured, the craft fell off its own reference by 17-39 km a
+   * revolution and the station-keeping cycle paid 0.1 m/s to drag it back every
+   * pass, where the same gate had recorded 0.35 m and a millionth of a m/s.
+   * The rail term alone is 2.8e-7 m/s^2 at the Moon, which is 44 km of double
+   * integral over one revolution.
+   *
+   * The rails come as a **private table** unless `ownRails` is turned off. A
+   * projection borrows the live sky and holds it, which is right for a few
+   * orbits; a solve spanning seventeen of them has to move the planets itself,
+   * and moving them through the shared buffer would leave the live run reading
+   * a sky a season ahead of its own clock.
+   */
+  adoptFieldFrom(other, { ownRails = true } = {}) {
+    this.testSoftening2 = other.testSoftening2
+    // `?? null`, not a plain assignment: a caller may hand this a state package
+    // that only carries `t` and a softening, and `undefined` here would sail
+    // past the `zonal !== null` test in `derivative` and dereference it.
+    this.zonal = other.zonal ?? null
+    if (other.rails) this.rails = ownRails ? privateRails(other.rails) : other.rails
+    return this
+  }
+
+  /**
+   * One RK4 step with the rails re-solved for it.
+   *
+   * `step()` does not do this, and cannot: `applyRails` has to stay out of it
+   * for the allocation reason recorded there. `advance()` does it once a frame,
+   * which is right for the live simulation. An integrator driven a step at a
+   * time — every scratch solver here — has to ask for it, and one that does not
+   * has rails installed and an all-zero `railAccel`, which is the same as not
+   * having them at all.
+   */
+  stepWithRails(dt) {
+    if (this.rails !== null && this.movesRails) this.applyRails()
+    this.step(dt)
   }
 }

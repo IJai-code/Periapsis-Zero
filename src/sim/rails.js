@@ -194,8 +194,13 @@ const TWO_PI = Math.PI * 2
  * pole, and are folded into the scene's y-up frame the same way system.js folds
  * the integrated bodies — (x, z, -y) — so the two agree about which way the
  * solar system turns.
+ *
+ * `into` is the buffer to write, `railHelio` by default. A solver that spans
+ * months has to move the planets itself while it works, and doing that through
+ * the shared buffer would leave the live simulation reading a sky a season
+ * ahead of its own clock — see `ownRails`.
  */
-export function updateRails(t) {
+export function updateRails(t, into = railHelio) {
   const T = t / CENTURY
   for (let k = 0; k < RAIL_COUNT; k++) {
     const o = k * 12
@@ -241,10 +246,61 @@ export function updateRails(t) {
     const ez = sw * si * px + cw * si * py
 
     const oh = k * 3
-    railHelio[oh] = ex
-    railHelio[oh + 1] = ez
-    railHelio[oh + 2] = -ey
+    into[oh] = ex
+    into[oh + 1] = ez
+    into[oh + 2] = -ey
   }
+}
+
+/**
+ * A rails table with a position buffer of its own.
+ *
+ * The live simulation and every projection drawn from it share one buffer,
+ * which is right: a projection borrows the sky the live run last solved and
+ * holds it, so the drawn path and the flown path answer to the same planetary
+ * positions. It is wrong for the solving scratch integrators — the halo shooter
+ * in `halo.js` propagates seventeen revolutions, roughly a hundred days, and
+ * the capture solver in `capture.js` spans most of a translunar coast. A
+ * hundred days of stale planets is not a held sky, it is a wrong one, and
+ * re-solving into the shared buffer instead would move the *live* simulation's
+ * sky to the far end of the solve.
+ *
+ * So a scratch gets its own table and its own buffer, and refreshes it as it
+ * goes. `from` seeds the buffer and carries the Sun's slot; the caller supplies
+ * it whenever a table already exists.
+ */
+export function ownRails(from = null) {
+  const helio = new Float64Array(RAIL_COUNT * 3)
+  if (from) helio.set(from.helio)
+  return {
+    count: RAIL_COUNT,
+    mu: RAIL_MU,
+    helio,
+    sunOffset: from ? from.sunOffset : 0,
+    refreshAfter: RAIL_REFRESH,
+    refresh: (t) => updateRails(t, helio),
+  }
+}
+
+/**
+ * A rails table's cloneable content: exactly what `ownRails` reads, and nothing
+ * else.
+ *
+ * A rails table cannot cross a `postMessage`. `refresh` is a closure and
+ * structured clone refuses functions outright, so a message carrying one fails
+ * outright rather than arriving degraded — which is what happened to the halo
+ * capture, whose worker is handed a solved reference containing the table it was
+ * shot against.
+ *
+ * So the *content* travels and the closure is rebuilt on the far side. It is the
+ * right split on its own terms, not a workaround: `ownRails` takes only `helio`
+ * and `sunOffset` from its seed, so those two fields are the whole of what a
+ * table means as data, and the closure that refreshes them is an implementation
+ * detail of whoever is holding the clock.
+ */
+export function railsRecipe(table) {
+  if (!table) return null
+  return { helio: Float64Array.from(table.helio), sunOffset: table.sunOffset }
 }
 
 /**

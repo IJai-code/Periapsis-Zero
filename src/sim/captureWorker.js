@@ -1,5 +1,6 @@
 import { solveHaloCapture } from './capture.js'
 import { nrhoGatewayMember } from './cr3bp.js'
+import { railsRecipe } from './rails.js'
 
 /**
  * Run the halo capture search in a worker, from the page.
@@ -13,6 +14,17 @@ import { nrhoGatewayMember } from './cr3bp.js'
  * the numeric options. A null member asks for the Gateway's orbit, built on
  * whichever side of the call the search runs. A caller's `shoot` override is a function and cannot be
  * sent, so the worker always shoots with `shootHalo`.
+ *
+ * The field goes with the state, because the search shoots references and the
+ * reference has to be a trajectory of the field the craft will fly — see
+ * `adoptFieldFrom`.
+ *
+ * Earth's oblateness is plain data. The rails go as a *recipe*: a table carries a
+ * `refresh` closure, functions do not survive `postMessage`, and a payload
+ * containing one throws rather than arriving without it. `railsRecipe` is that
+ * same table reduced to the two fields `ownRails` reads, so the worker rebuilds
+ * an identical table — with the live sky's positions seeded into it, not a stale
+ * or a default one — and makes its own closure.
  */
 
 /** The options a worker can be sent; everything else is dropped rather than failing to clone. */
@@ -22,7 +34,13 @@ let worker = null
 let nextId = 1
 
 export function solveHaloCaptureInWorker(sim, member, options = {}, onProgress = null) {
-  const snapshot = { state: Float64Array.from(sim.state), t: sim.t, testSoftening2: sim.testSoftening2 }
+  const snapshot = {
+    state: Float64Array.from(sim.state),
+    t: sim.t,
+    testSoftening2: sim.testSoftening2,
+    zonal: sim.zonal ?? null,
+    rails: railsRecipe(sim.rails),
+  }
   const onCell = onProgress ? (done, total) => onProgress(done / total) : null
 
   if (typeof Worker === 'undefined') {
@@ -32,7 +50,6 @@ export function solveHaloCaptureInWorker(sim, member, options = {}, onProgress =
       return Promise.reject(error)
     }
   }
-
   const sent = {}
   for (const key of SENDABLE) if (options[key] !== undefined) sent[key] = options[key]
   if (!worker) worker = new Worker(new URL('./workers/capture.worker.js', import.meta.url), { type: 'module' })

@@ -2,6 +2,7 @@ import { BODIES, G } from './constants.js'
 import { RK4NBody } from './rk4.js'
 import { MU } from './lagrange.js'
 import { INDEX } from './system.js'
+import { ownRails as privateRails, railsRecipe } from './rails.js'
 import { propagateToCrossing, synodic, updateSynodicFrame } from './cr3bp.js'
 
 /**
@@ -66,12 +67,26 @@ const CRAFT = INDEX.ship * 6
 /** A four-body integrator of the simulation's own kind: Sun, Earth, Moon and a massless craft. */
 function makeScratch(sim) {
   const scratch = new RK4NBody([BODIES.sun.mass, BODIES.earth.mass, BODIES.moon.mass, 0], new Float64Array(24), 3)
-  scratch.testSoftening2 = sim.testSoftening2
+  // The whole field, or the reference will not be a trajectory this field
+  // flies — see `adoptFieldFrom`, and the 17-39 km a revolution it cost.
+  scratch.adoptFieldFrom(sim)
   return scratch
 }
 
-/** Fly the bodies in `from` (18 slots) with the craft at Moon-relative X (normalised) for `span` s. */
-function flySegment(scratch, from, X, span, step, out) {
+/**
+ * Fly the bodies in `from` (18 slots) with the craft at Moon-relative X
+ * (normalised) for `span` s.
+ *
+ * `epoch` is the simulated time the segment starts at, and it has to be *set*:
+ * `scratch.t` is what the planetary rails are solved against, and a scratch that
+ * only accumulates it carries whatever offset the propagations before it left
+ * behind. That went unnoticed for as long as the scratch flew point-mass
+ * gravity, and a Newton solve breaks on it immediately — the nominal and the
+ * perturbed probe then see the planets at different phases, so the Jacobian
+ * measures the planet's motion instead of the trajectory's.
+ */
+function flySegment(scratch, from, X, span, step, out, epoch) {
+  scratch.t = epoch
   scratch.state.set(from)
   for (let i = 0; i < 3; i++) {
     scratch.state[SHIP + i] = from[MOON + i] + X[i] * LENGTH
@@ -79,7 +94,7 @@ function flySegment(scratch, from, X, span, step, out) {
   }
   const n = Math.ceil(span / step)
   const h = span / n
-  for (let s = 0; s < n; s++) scratch.step(h)
+  for (let s = 0; s < n; s++) scratch.stepWithRails(h)
   for (let i = 0; i < 3; i++) {
     out[i] = (scratch.state[SHIP + i] - scratch.state[MOON + i]) / LENGTH
     out[3 + i] = (scratch.state[SHIP + 3 + i] - scratch.state[MOON + 3 + i]) / SPEED
@@ -158,10 +173,11 @@ export function shootHalo(
   }
   bodies.set(scratch.state.subarray(0, BODY_SLOTS), 0)
   epochs[0] = sim.t
+  scratch.t = epochs[0]
   for (let k = 1; k <= K; k++) {
     const n = Math.ceil(span / step)
     const h = span / n
-    for (let s = 0; s < n; s++) scratch.step(h)
+    for (let s = 0; s < n; s++) scratch.stepWithRails(h)
     bodies.set(scratch.state.subarray(0, BODY_SLOTS), BODY_SLOTS * k)
     epochs[k] = epochs[k - 1] + span
   }
@@ -206,7 +222,7 @@ export function shootHalo(
     let merit = 0
     for (let k = 0; k < K; k++) {
       for (let i = 0; i < 6; i++) patch[i] = S[6 * k + i]
-      flySegment(scratch, bodies.subarray(BODY_SLOTS * k, BODY_SLOTS * (k + 1)), patch, span, step, out)
+      flySegment(scratch, bodies.subarray(BODY_SLOTS * k, BODY_SLOTS * (k + 1)), patch, span, step, out, epochs[k])
       for (let i = 0; i < 6; i++) {
         const d = out[i] - S[6 * (k + 1) + i]
         into[6 * k + i] = d
@@ -238,9 +254,9 @@ export function shootHalo(
       for (let c = 0; c < 6; c++) {
         for (let i = 0; i < 6; i++) patch[i] = X[6 * k + i]
         patch[c] += probe
-        flySegment(scratch, from, patch, span, step, plus)
+        flySegment(scratch, from, patch, span, step, plus, epochs[k])
         patch[c] -= 2 * probe
-        flySegment(scratch, from, patch, span, step, minus)
+        flySegment(scratch, from, patch, span, step, minus, epochs[k])
         for (let r = 0; r < 6; r++) Phi[36 * k + r * 6 + c] = (plus[r] - minus[r]) / (2 * probe)
       }
     }
@@ -322,6 +338,18 @@ export function shootHalo(
     span,
     step,
     softening2: sim.testSoftening2,
+    /**
+     * The gravity the shooting solved in, so a re-fly of it happens in the same
+     * one.
+     *
+     * `rails` goes out as a *recipe* rather than as the table itself. A table
+     * carries a `refresh` closure, this reference is returned up the worker
+     * boundary, and a function in a `postMessage` payload throws — so the whole
+     * capture solve failed with "could not be cloned" on every attempt. The
+     * recipe holds everything `ownRails` reads, and `scratchFor` below rebuilds a
+     * table from it, so the closure is made on whichever side needs one.
+     */
+    field: { testSoftening2: sim.testSoftening2, zonal: sim.zonal, rails: railsRecipe(sim.rails) },
     revolutions: K,
     converged,
     iterations,
@@ -340,7 +368,9 @@ let _flight = null
 /** One scratch integrator for everything that re-flies the reference after it is built. */
 function scratchFor(reference) {
   if (!_flight) _flight = new RK4NBody([BODIES.sun.mass, BODIES.earth.mass, BODIES.moon.mass, 0], new Float64Array(24), 3)
-  _flight.testSoftening2 = reference.softening2
+  _flight.testSoftening2 = reference.field.testSoftening2
+  _flight.zonal = reference.field.zonal ?? null
+  if (!_flight.rails) _flight.rails = privateRails(reference.field.rails)
   return _flight
 }
 
@@ -354,13 +384,14 @@ export function referenceStateAt(reference, t, out) {
   const k = Math.min(revolutions, Math.floor((t - epochs[0]) / span))
   if (!(k >= 0) || t > epochs[revolutions]) return false
   const scratch = scratchFor(reference)
+  scratch.t = epochs[k]
   scratch.state.set(bodies.subarray(BODY_SLOTS * k, BODY_SLOTS * (k + 1)))
   for (let i = 0; i < 6; i++) scratch.state[SHIP + i] = scratch.state[MOON + i] + states[6 * k + i]
   const dt = t - epochs[k]
   if (dt > 0) {
     const n = Math.ceil(dt / step)
     const h = dt / n
-    for (let s = 0; s < n; s++) scratch.step(h)
+    for (let s = 0; s < n; s++) scratch.stepWithRails(h)
   }
   for (let i = 0; i < 6; i++) out[i] = scratch.state[SHIP + i] - scratch.state[MOON + i]
   return true
@@ -435,12 +466,13 @@ export function solveHaloKeeping(
   const dv = [0, 0, 0]
 
   const residual = (dvx, dvy, dvz, into) => {
+    scratch.t = now
     scratch.state.set(known.subarray(0, BODY_SLOTS))
     for (let i = 0; i < 6; i++) scratch.state[SHIP + i] = known[CRAFT + i]
     scratch.state[SHIP + 3] += dvx
     scratch.state[SHIP + 4] += dvy
     scratch.state[SHIP + 5] += dvz
-    for (let s = 0; s < n; s++) scratch.step(h)
+    for (let s = 0; s < n; s++) scratch.stepWithRails(h)
     for (let i = 0; i < 3; i++) {
       into[i] = (scratch.state[SHIP + i] - scratch.state[MOON + i] - states[6 * j + i]) / LENGTH
       into[3 + i] = (scratch.state[SHIP + 3 + i] - scratch.state[MOON + 3 + i] - states[6 * j + 3 + i]) / SPEED

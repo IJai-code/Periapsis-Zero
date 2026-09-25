@@ -43,14 +43,20 @@
  * burns the ICPS at stage 2, and on an Apollo-8 state that index is the S-IVB and
  * the script silently stops exercising staging altogether.
  *
- * What is deliberately *not* here is as informative as what is. `verify-approach`
- * and `verify-loi-sweep` want the same approach fixture and are *instruments* —
- * they print and assert nothing, so registering them would add green lines that
- * can never turn red. `verify-camera-filter` wants a capture from the running app.
- * `verify-entry-guidance`, `verify-vessels`, `verify-nrho-capture` and
- * `verify-nrho-keeping` run unaided and are red; they are recorded under *Known
- * limitations* in the README with the checks that fail, so that a green run here
- * is not read as a claim about them.
+ * `verify-approach` joined once the conic became something to assert rather than
+ * report: its B-plane and v_inf at the sphere of influence, and the flyby the
+ * conic goes on to predict. `verify-entry-guidance`, `verify-vessels`,
+ * `verify-nrho-capture` and `verify-nrho-keeping` were red and are not any more.
+ * `verify-predict` and the three NRHO gates — `cycle`, `ephemeris`, `family` —
+ * run with no state, pass, and were simply never registered; they cost 0.7 to
+ * 5.3 s between them, so there was nothing to weigh.
+ *
+ * What is deliberately *not* here is as informative as what is, and only two
+ * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
+ * asserts nothing, so registering it would add a green line that can never turn
+ * red — it is the last one, and the four others that were in that state are now
+ * gates above. `verify-camera-filter` replays an attitude recording and wants a
+ * path to one, so it cannot start unaided.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -84,6 +90,7 @@ const GATES = [
   ['verify-loi', false],
   ['verify-staging', false],
   ['verify-stars', false],
+  ['verify-icons', false],
   ['verify-loiter', false],
   ['verify-radial', false],
   ['verify-j3', false],
@@ -99,6 +106,15 @@ const GATES = [
   ['verify-heating', false],
   ['verify-plasma', true],
   ['verify-audio', true],
+  ['verify-approach', false],
+  ['verify-entry-guidance', false],
+  ['verify-vessels', false],
+  ['verify-predict', false],
+  ['verify-nrho-cycle', false],
+  ['verify-nrho-ephemeris', false],
+  ['verify-nrho-family', false],
+  ['verify-nrho-capture', false],
+  ['verify-nrho-keeping', false],
   ['verify-allocation', true],
 ]
 

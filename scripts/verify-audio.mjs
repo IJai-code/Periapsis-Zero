@@ -18,11 +18,17 @@ import {
   CRACKLE,
   CUTOFF,
   MDOT_REF,
+  MIX_SIZE,
+  Q_REF,
   RUMBLE,
+  RUSH,
+  RUSH_FREQ,
   SUB,
   SUB_FREQ,
+  VENT,
   applyMix,
   mix,
+  mixAir,
   mixFor,
 } from '../src/sfx/engine.js'
 import { density } from '../src/sim/atmosphere.js'
@@ -40,18 +46,28 @@ const first = SHIP.stages[0]
 /** The lightest engine the vehicle carries — not the capsule, which has none. */
 const last = SHIP.stages.filter((s) => s.thrust > 0 && s.isp > 0).reduce((a, b) => (b.thrust < a.thrust ? b : a))
 const mdotOf = (stage, throttle = 1) => (throttle * stage.thrust) / (stage.isp * G0)
-const at = (stage, throttle, altitude, gate = 1) =>
-  Array.from(
-    mixFor(
-      new Float64Array(5),
-      throttle * stage.thrust,
-      stage.thrust,
-      mdotOf(stage, throttle),
-      MDOT_REF,
-      density(altitude),
-      gate,
-    ),
-  )
+/*
+ * Sized from `MIX_SIZE` rather than restated. It was a literal 5, and a literal
+ * is how this gate would have gone on passing while a new voice was written
+ * past the end of the array — a typed-array store out of range is silently
+ * dropped, so every assertion here would still have held.
+ */
+/**
+ * A whole mix, the way the frame loop builds one: the engine's voices, then
+ * the air's and the pad's.
+ *
+ * Two calls because that is what ships — and because the two are measured
+ * separately below, the split has to be exercised here rather than hidden
+ * behind a helper that only exists in the gate.
+ */
+function at(stage, throttle, altitude, gate = 1, q = 0, vent = 0) {
+  const out = new Float64Array(MIX_SIZE)
+  const mdot = mdotOf(stage, throttle)
+  const rho = density(altitude)
+  mixFor(out, throttle * stage.thrust, stage.thrust, mdot, MDOT_REF, rho, gate)
+  mixAir(out, rho, q, vent, gate, mdot > 0 ? Math.min(1, Math.sqrt(mdot / MDOT_REF)) : 0.5)
+  return Array.from(out)
+}
 
 console.log('=== the mix ===')
 console.log(`  reference mass flow   ${MDOT_REF.toFixed(0)} kg/s (${first.name ?? 'stage 0'} at full throttle)`)
@@ -86,15 +102,45 @@ console.log(`  ${last.name ?? 'last'}: cutoff ${light[CUTOFF].toFixed(0)} Hz, su
 const gated = at(first, 1, 0, 0)
 const gateMutes = gated[RUMBLE] === 0 && gated[SUB] === 0 && gated[CRACKLE] === 0 && gated[CUTOFF] === heavy[CUTOFF]
 
-/* 6. everything finite and in range, over a grid */
+/* 6. the rush is air, not thrust: it appears with pressure alone */
+const quietAir = at(first, 0, 0, 1, 0)[RUSH]
+const maxQ = at(first, 0, 0, 1, Q_REF)[RUSH]
+const halfQ = at(first, 0, 0, 1, Q_REF / 4)[RUSH]
+const rushRises = quietAir === 0 && maxQ > halfQ && halfQ > quietAir
+/* ...and it is gone in a vacuum however fast the vehicle is moving */
+const rushVacuum = at(first, 0, 1200e3, 1, Q_REF)[RUSH]
+/* Entry is the same air with nothing lit, which is the case the voice exists for. */
+const entryRush = at(last, 0, 60e3, 1, Q_REF * 4)[RUSH]
+const entryHeard = entryRush > 0
+/* A heavier body in the same air is a darker rush. */
+/*
+ * Under thrust, because that is when there is an engine to say how blunt the
+ * thing in the air is. With nothing lit both sit at 390 Hz by design — see the
+ * comment on `mixAir` — so comparing them coasting would assert a difference
+ * the voice deliberately does not have.
+ */
+const rushDark = at(first, 1, 0, 1, Q_REF)[RUSH_FREQ] < at(last, 1, 0, 1, Q_REF)[RUSH_FREQ]
+console.log(`  rush at rest / quarter Q / max Q   ${quietAir.toFixed(3)}, ${halfQ.toFixed(3)}, ${maxQ.toFixed(3)}`)
+console.log(`  rush in vacuum ${rushVacuum.toFixed(3)}, on entry ${entryRush.toFixed(3)}`)
+
+/* 7. the pad: vents follow their input, and the gate still mutes them */
+const ventOff = at(first, 0, 0, 1, 0, 0)[VENT]
+const ventOn = at(first, 0, 0, 1, 0, 1)[VENT]
+const ventGated = at(first, 0, 0, 0, 0, 1)[VENT]
+const ventFollows = ventOff === 0 && ventOn > 0 && ventGated === 0
+const ventClamped = at(first, 0, 0, 1, 0, 4)[VENT] <= 1
+
+/* 8. everything finite and in range, over a grid */
 let inRange = true
 for (const stage of SHIP.stages)
   for (const t of [0, 0.25, 0.5, 1])
     for (const h of [0, 5e3, 50e3, 150e3, 999e3, 1001e3]) {
-      const m = at(stage, t, h)
+      const m = at(stage, t, h, 1, Q_REF * 4, 1)
       for (const v of m) if (!Number.isFinite(v)) inRange = false
       if (m[RUMBLE] < 0 || m[RUMBLE] > 1 || m[SUB] < 0 || m[SUB] > 1 || m[CRACKLE] < 0 || m[CRACKLE] > 1) inRange = false
+      if (m[RUSH] < 0 || m[RUSH] > 1 || m[VENT] < 0 || m[VENT] > 1) inRange = false
       if (m[CUTOFF] < 20 || m[CUTOFF] > 400 || m[SUB_FREQ] < 15 || m[SUB_FREQ] > 80) inRange = false
+      if (m[RUSH_FREQ] < 100 || m[RUSH_FREQ] > 900) inRange = false
     }
 
 /* ------------------------------------------------------------------ *
@@ -109,6 +155,9 @@ const stubs = {
   sub: { frequency: param() },
   sub2: { frequency: param() },
   crackle: { gain: param() },
+  rush: { gain: param() },
+  rushBand: { frequency: param() },
+  vent: { gain: param() },
 }
 let frame = 0
 const control = await knownAllocation()
@@ -116,6 +165,13 @@ const mixBytes = await bytesPerCall(
   () => {
     frame = (frame + 1) & 1023
     mixFor(mix, first.thrust * (0.5 + frame / 2048), first.thrust, mdotOf(first), MDOT_REF, density(frame * 60), 1)
+  },
+  { calls: 50000, warm: 50000 },
+)
+const airBytes = await bytesPerCall(
+  () => {
+    frame = (frame + 1) & 1023
+    mixAir(mix, density(frame * 60), (frame & 255) * 140, 0.5, 1, 0.5 + frame / 2048)
   },
   { calls: 50000, warm: 50000 },
 )
@@ -136,6 +192,7 @@ const densityBytes = await bytesPerCall(
 )
 console.log('\n=== allocation ===')
 console.log(`  mixFor       ${sampleText(mixBytes)}`)
+console.log(`  mixAir       ${sampleText(airBytes)}`)
 console.log(`  applyMix     ${sampleText(applyBytes)}`)
 console.log(`  density      ${sampleText(densityBytes)}`)
 console.log(`  control      ${sampleText(control)}`)
@@ -152,9 +209,15 @@ const checks = [
   ['a heavier engine is lower and darker', darker],
   ['and crackles more', crackles],
   ['the gate mutes the level and leaves the timbre alone', gateMutes],
+  ['the rush appears with dynamic pressure and no thrust at all', rushRises],
+  ['and is gone in vacuum, where no air is moving past anything', rushVacuum === 0],
+  ['and is carried through entry with nothing lit', entryHeard],
+  ['a heavier body makes a darker rush', rushDark],
+  ['the pad noise follows its input and is muted with everything else', ventFollows && ventClamped],
   ['every parameter is finite and inside its range', inRange],
   seesAllocation('the allocation measurement can see an allocation', control),
-  allocatesNothing('the mix allocates nothing', mixBytes, SMALLEST_OBJECT / 2),
+  allocatesNothing('the engine mix allocates nothing', mixBytes, SMALLEST_OBJECT / 2),
+  allocatesNothing('and neither does the air mix', airBytes, SMALLEST_OBJECT / 2),
   allocatesNothing('writing it to the graph allocates nothing', applyBytes, SMALLEST_OBJECT / 2),
   allocatesNothing('nor does the density lookup it depends on', densityBytes, SMALLEST_OBJECT / 2),
 ]

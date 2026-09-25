@@ -214,7 +214,7 @@ const shotMs = Date.now() - shotStart
 /** Re-fly every segment at `step` and return the worst mismatch where each should meet the next. */
 function refly(ref, step) {
   const sc = new RK4NBody([BODIES.sun.mass, BODIES.earth.mass, BODIES.moon.mass, 0], new Float64Array(24), 3)
-  sc.testSoftening2 = ref.softening2
+  sc.adoptFieldFrom(ref.field)
   let position = 0
   let velocity = 0
   let perilune = Infinity
@@ -223,7 +223,7 @@ function refly(ref, step) {
     for (let i = 0; i < 6; i++) sc.state[18 + i] = sc.state[12 + i] + ref.states[6 * k + i]
     const n = Math.ceil(ref.span / step)
     for (let s = 0; s < n; s++) {
-      sc.step(ref.span / n)
+      sc.stepWithRails(ref.span / n)
       if (k === 0) perilune = Math.min(perilune, Math.hypot(sc.state[18] - sc.state[12], sc.state[19] - sc.state[13], sc.state[20] - sc.state[14]))
     }
     const d = [0, 1, 2, 3, 4, 5].map((i) => sc.state[18 + i] - sc.state[12 + i] - ref.states[6 * (k + 1) + i])

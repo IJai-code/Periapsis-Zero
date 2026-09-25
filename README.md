@@ -38,6 +38,17 @@ panorama among the sources, so the skybox is always the procedural one unless
 you supply `milkyway.jpg` yourself. See
 [public/textures/README.md](public/textures/README.md) for the file names.
 
+## The mark
+
+The favicon, boot splash and HUD watermark are one drawing, derived rather than
+hand-made: `npm run icons` rasterises `scripts/make-favicon.mjs` — a periapsis
+tick on an orbital arc, in the interface's own colours, converted from the CSS's
+oklch values so the mark cannot drift from the palette — into every size under
+`public/icons/`, plus an exact-geometry SVG and a generated module
+(`src/gfx/brand.js`) the React surfaces import. `npm run icons -- --check`
+re-renders and compares byte-for-byte; `verify-icons` in the suite holds the
+whole set, the HTML references, the manifest and the boot splash to it.
+
 ## Mission profile
 
 The sequencer flies the whole thing hands-off from the pad. Every figure below
@@ -382,7 +393,7 @@ angle survive the body moving underneath you.
 
 ## Missions
 
-The HUD's Missions panel jumps into four flights, and none of them is a saved
+The HUD's Missions panel jumps into six flights, and none of them is a saved
 state. Each is a link — `?preset=…&vessel=…&site=…#flight` — because the vessel
 and the pad are fixed when the page loads. On load, before the frame loop mounts,
 the flight computer flies the real mission from the pad to the preset's starting
@@ -391,6 +402,8 @@ point, then hands the dial back and plays:
 | preset | starts in | flown headlessly in |
 | --- | --- | --- |
 | Apollo 8 · from the pad | `PRE_LAUNCH` at T-60 on LC-39B, five hours after the epoch, standing on the ground | 174 ms |
+| Apollo 11 · lunar liftoff | `LUNAR_PRE_LAUNCH` at T-60 s on Tranquility Base, 305.27 h after the epoch, standing on the Moon | 144 ms |
+| Apollo 11 · docking | `LM_BRAKING` at MET 201.3 min, a mile and a bit short of Columbia, the last half hour to the latch | 317 ms |
 | Apollo 8 · lunar orbit | `LOI_ALIGN` at MET 184.7 h, turning for the capture burn, periselene 2.8 min out | 286 ms |
 | Artemis · halo capture | `LUNAR_APPROACH` at MET 70.8 h, then solves the four-burn capture in the worker | 178 ms |
 | Vandenberg · polar loiter | `TLI_ALIGN` at MET 0.8 h, 144 h after the epoch, the 2.51 and 8.01 m/s raise burns 9 and 53 min out | 743 ms |
@@ -405,6 +418,127 @@ The frame loop lives in `sim/fastForward.js` for this, and `scripts/flight.mjs`
 re-exports it, so a preset flies exactly the code every figure in this document
 was measured with. Moved, the harness still reaches lunar approach at MET
 244.062 h in 43,768 frames.
+
+### The shot a preset lands on
+
+A preset that names no `focus` used to keep the store's own default — `earth` —
+and that is not a neutral choice, because the driver applies the director's shot
+only when the request *changes*. On the first frame it seeds its memory of the
+request from the director **without applying it**, which is deliberate: a pilot
+who chose a camera before the loop started keeps it. A preset has chosen
+nothing, so the seed handed it `earth` and there was then no change to trigger —
+and where consecutive phases share a shot, none at all.
+
+Measured on the three presets that named no shot, before the fix:
+
+| preset | handed over | camera |
+| --- | --- | --- |
+| Apollo 8 · lunar orbit | `LOI_ALIGN`, 398,081 km out, 149 s to periselene | locked on **Earth**, and `LOI_BURN` is the same shot as `LOI_ALIGN`, so the request never changed and **the capture was never shown** |
+| Artemis · halo capture | `LUNAR_APPROACH`, the Moon 313,936 km away | locked on **Earth** |
+| Vandenberg · polar loiter | `TLI_ALIGN` | `earth` — the one of the three where that is right |
+
+`startPreset` now asks the director what it wants for the phase the flight
+actually arrived in, which is one table read and no state: `updateDirector` keys
+on the phase id, and calling it before the loop starts leaves `director.request`
+set to exactly what the first frame will compute. A preset that does name a shot
+still wins. All six now land where the table says they should:
+
+    apollo8-launch        PRE_LAUNCH     ground   1×
+    apollo11-liftoff      LUNAR_PRE_LAUNCH ground 1×
+    apollo11-docking      LM_BRAKING     chase   10×
+    apollo8-lunar-orbit   LOI_ALIGN      chase    1×
+    artemis-halo          LUNAR_APPROACH moon    60×
+    vandenberg-polar      TLI_ALIGN      earth   60×
+
+`apollo8-lunar-orbit` also had to *name* its pace. Left unset it inherited
+whatever the fast-forward was running at when it stopped — six hours a second
+off the lunar coast — so the burn the blurb promises was over in a couple of
+frames. The sequencer does ask for real time entering `LOI_ALIGN`, but that is
+applied on change and a preset handing over is the pilot setting the dial: the
+standing request was already real time, so nothing changed and nothing was
+applied.
+
+### The halo capture never ran, because a function cannot be sent to a worker
+
+The Artemis capture is solved off the main thread, and it was not being solved
+at all. `mission.capture.error` read:
+
+```
+Failed to execute 'postMessage' on 'DedicatedWorkerGlobalScope':
+  (t) => updateRails(t, helio) could not be cloned.
+```
+
+`shootHalo` builds a halo reference 
+*against* a field and records that field on the result so a caller can re-fly
+the same trajectory — and a rails table carries its `refresh` as a closure.
+Structured clone does not degrade a function, it **throws**, so the message was
+rejected outright: no solution came back, `capture.planned` stayed false, and the
+only symptom on screen was a capture that never happened. Every gate passed,
+because every gate runs the search in its own process and never sends anything.
+
+`railsRecipe` is a table reduced to the two fields `ownRails` reads — `helio` and
+`sunOffset` — so the content crosses and the closure is rebuilt on the far side,
+where the clock lives. That is the right split on its own terms, not a
+workaround. Verified in the page: the capture now solves in **14.5 s**
+(174.4 / 269.5 / 105.8 m/s over three burns), the coast then runs at six hours a
+second, and the flight arrives at `HALO_CAPTURE` and flies its first burn at real
+time.
+
+`verify-nrho-capture` gained the check that would have caught it — the solved
+capture has to survive `structuredClone`, the same algorithm `postMessage` uses:
+
+    a table as it was shipped : THROWS: (t) => updateRails(t, helio) could not be cloned.
+    the recipe it is now      : clones
+
+### Watching a launch
+
+Three faults, all measured on the page.
+
+**The ascent ran at 60×.** The director's `GRAVITY_TURN` row asks for a minute a
+second, and it is right to on the presets that fly the whole mission — but on a
+flight started from the pad the ascent *is* the thing, and eight minutes of real
+time became eight seconds of 60×. Every camera move in it became a smear. A
+`groundSequence` launch now holds the ascent at real time.
+
+**The ground camera could not follow the vehicle.** It is a fixed viewpoint at eye
+height with a 65° frame, which is what makes a launch read at the scale it
+happens at — and also why it loses the rocket: at 380 m of stand-off the top of
+its useful field is about 240 m above the deck. Past that the vehicle is a dot
+climbing the middle of a wide photograph, and by 2 km it is not a visible object
+at all. Every broadcast solves this the same way: the camera does not move, the
+lens does. The frame starts at the eye's own field — the count and ignition are
+seen as a bystander sees them — then pushes in as the vehicle clears the ground,
+holding it at 30% of frame. Measured through the ascent: fov 65° → 12° while the
+stack stays at 23–30% of frame, then a cut to the chase at 2 km where it locks at
+16%. The push is triggered off altitude, so it works identically 380 m from
+LC-39B and 30 m from Eagle.
+
+**Shot changes were flights of the camera.** Entering the chase blends the offset
+over 1.5 s, which is right when the two shots are near enough that a move reads as
+a move — a ground camera is under one hull length of 110.6 m. It is not right from
+Earth's lock, 5.2 radii out: `COAST_TO_APOAPSIS` and `CIRCULARISE` frame the craft
+from there, so cutting to the chase meant flying the camera **33,791 km in 1.5 s**.
+The gap now decides: within eight chase lengths it is a move and gets the blend,
+beyond that it is a different place and gets a cut.
+
+### Sound
+
+`sfx/engine.js` already had the engine. Added: an **aerodynamic rush** driven by
+dynamic pressure rather than thrust — loudest at max Q and again through entry,
+silent in a vacuum however fast anything moves through it — and the **pad's own
+noise**, the LOX vents and the sound-suppression water, read straight off the
+same `countdown.js` timeline that draws them, so the last minute's picture and
+its sound are one set of numbers. Plus three rendered one-shots: ignition held on
+the pad, the drogues, and splashdown.
+
+The shape matters: the air voices went into a second function, `mixAir`, rather
+than four more parameters on `mixFor`. V8 inlines a seven-argument call and does
+not inline a nine-argument one, and the doubles of a call it will not inline are
+boxed at the boundary — measured at **47.50 bytes a call**, against 0.00 once the
+split was made. `gfx/sunlight.js` and `gfx/groundView.js` hit the same wall and
+answered it the same way. `verify-audio` now sizes its mix from `MIX_SIZE` rather
+than a literal, since a typed-array store past the end is silently dropped and
+the old literal would have gone on passing while a new voice went nowhere.
 
 Wiring it in exposed two things. The driver armed the sequencer on mount with
 `resetMission()`, and it mounts only once the assets are ready — after a preset
@@ -2212,6 +2346,121 @@ way would cost 249 m/s rather than 580. And a reference ends — past its last
 patch point the keeping solve reports failure and the pass flies nothing, and
 nothing extends one yet.
 
+## Surface launch from the Moon
+
+`LUNAR_PRE_LAUNCH → LUNAR_LIFTOFF → LUNAR_ASCENT → LUNAR_INSERTION →
+LM_COAST_CSI → LM_CSI → LM_COAST_CDH → LM_CDH → LM_COAST_TPI → LM_TPI →
+LM_TRANSFER → LM_BRAKING → LM_STATION_KEEP → LM_DOCKING`
+
+The same sequencer that flies Apollo 8 off Kennedy flies Eagle off Tranquility
+Base, and the two are one vehicle model: `vessels.js` gives a lunar stack a
+surface ascent programme and chutes instead of an ascent programme and a launch
+pad, and mission.js picks the phase list from `SHIP.lunar`. What changes is
+where the launch clamp is and what the flight is *for*.
+
+### The ground it stands on
+
+Tranquility Base is a real place with real topography in it, so the LM stands on
+real heights rather than on the drawn sphere. `public/terrain/tranquility/`
+carries three levels of NASA data, nested, and `gfx/moonTerrain.js` stitches
+them:
+
+| level | span | grid | source |
+| --- | --- | --- | --- |
+| near | 2.05 km | 1024², 2 m a sample | LROC NAC DTM `NAC_DTM_APOLLO11` v1.9, ASU / NASA |
+| mid | 30.3 km | 1024², 29.6 m a sample | LOLA LDEM, 1024 px/deg, NASA GSFC / PDS |
+| far | 242 km | 2048², 118 m a sample | LOLA LDEM, 256 px/deg, NASA GSFC / PDS |
+
+The NAC model is the one worth having: it is the site surveyed at 2 m, the same
+model the Apollo 11 landing-site studies are done on, so the craters, the blocky
+rim and the rays the crew walked through are the ones on the screen. Each level
+leaves a hole exactly where the next finer one is drawn and the finer level is
+fitted to that edge, so **the seam is closed by construction** rather than hidden
+under a skirt — the finer level's vertices land on the coarser level's triangle
+edges, where bilinear interpolation along a grid line is the same straight line.
+The outermost level is blended onto height zero and the globe is cut away under
+it, so the real ground replaces the drawn Moon instead of fighting it for depth.
+
+**The datum is the flight model's, not the survey's.** The site is 1,927.478 m
+below LOLA's 1737.4 km reference, and the flight model's surface is a sphere, so
+each level is shifted up by its own height at the site. Relief is preserved
+exactly — what is discarded is the absolute radius. The three levels agree on
+that height to 8 m, and the NAC model and the 30 m LOLA grid to 0.3 m, which is
+what makes a single shift legitimate rather than a fudge. On the pad the LM
+stands `5.110006 m` above the datum, to floating-point noise on the `5.11 m`
+stand height the vehicle is drawn at.
+
+### The last minute is a real minute
+
+The lunar hold is not the Earth hold with the site swapped. There are no
+hold-downs on the Moon: the explosive nuts that hold the stages together fire as
+the ascent engine lights, and it lights into the top of the descent stage —
+*fire in the hole* — which is left behind as the launch pad it has been since
+the landing. So `LUNAR_PRE_LAUNCH` **clamps** the vehicle to the site for a
+T-60 s count and holds the engine at zero, and `LUNAR_LIFTOFF` is ignition, with
+no release event in between: `ship.throttle = 1` and the clamp is gone.
+
+The clamp is the same constraint the Earth pads use, state slots overwritten
+after each step rather than balanced against a pad reaction, so it is exact at
+any step size and costs no frame time. It also carries the vehicle round with
+the Moon: the gate measures the pad velocity at `4.575230 m/s` against the Moon's
+own spin at that latitude, `4.575230 m/s`.
+
+### Why the count starts when it does
+
+The whole plan is scheduled around the **Sun**, because the one thing a lunar
+launch cannot ignore is that the launch site turns and the Sun does not. Eagle
+landed at a sun 10.8° up and lifted off 21.6 hours later with the Sun half a
+degree an hour higher — 21.8°, low in the east, every rock throwing a shadow
+three times its height. The integrated Moon first puts that sun over the site
+**305.29 h** after the epoch, found by stepping the whole system an hour at a
+time rather than by inverting the Moon's mean elements, so the only thing that
+decides it is the ephemeris actually being flown. The preset starts 60 s before
+that, which is the countdown: `launchHour: 305.29 - 60 / 3600`.
+
+### The ascent, and the orbit it has to reach
+
+Cutoff is on P12's insertion state, not on a delta-v: **18.288 km** altitude,
+**9.815 m/s** climbing, **1687.010 m/s** horizontal, against P12's 18.288 km,
+9.75 and 1687 — the guidance solves for the two rates and the height, so being
+right about the energy and wrong about the shape does not count. Measured: a
+**428.6 s** burn against Eagle's 435, cutting off with 188 kg of propellant
+left, into a **16.72 × 87.58 km** orbit against Eagle's 17.6 × 87.6.
+
+Flown at the 60× cap instead of at 1× the same ascent reaches `16.733 × 87.602`
+km against `16.724 × 87.582`, 20 m apart. That is the check that the ascent is
+not implicitly tuned to a frame rate.
+
+The rendezvous that follows is Apollo 11's own timeline, phase by phase. The two
+clock columns are the gate's own output: flown, and the flight card it is held
+against.
+
+| event | flown | Apollo 11 | note |
+| --- | --- | --- | --- |
+| insertion | 0:07:09 | 0:07:16 | cutoff on the guided state |
+| CSI | 0:58:29 | 0:57:34 | 51.4 ft/s against a loaded 51.5 |
+| CDH | 1:56:42 | 1:55:49 | 16.8 ft/s, 14.2 nmi below |
+| TPI | 2:41:43 | 2:41:51 | 23.1 ft/s, 26.6° elevation |
+| braking | 3:21:17 | 3:14:56 | first gate, 6,000 ft |
+| docked | 3:40:53 | 3:41:00 | at 0.096 m/s, inside the dead band |
+
+The midcourse corrections the plan arms fifteen and thirty minutes after TPI
+come out at 0.29 and 0.00 ft/s, and the whole rendezvous spends 37.1 m/s of
+ascent stage RCS with more than half the load left. TPI is the phase the ascent
+cannot fake: it is targeted *from* the coelliptic orbit, and the two midcourse
+corrections are armed off it, so an ascent that reached some other orbit than
+that one would not land on the flight card even if its apsides looked right.
+
+Every function the ascent, the rendezvous and the docking run each frame —
+`holdOnSurface`, `steerVertical`, `steerAscent`, `flyBurn`, `flyClosing`,
+`flyDocking`, `faceTarget`, `readTarget`, `columbiaAttitude`, `lunarStepCeiling`,
+`applyDocked`, `writeBasis`, and the surface clamp itself — reads **0.06 B a
+call** against a 6 B bar, so the lunar surface costs the frame loop nothing.
+
+`verify-lunar-ascent.mjs` is the gate: it flies the ascent at both warps, the
+whole coelliptic sequence, and the docking, and asserts each against Apollo 11's
+own figures rather than against this implementation's previous output.
+
 ## Coming home
 
 `LUNAR_ORBIT → TEI_ALIGN → TEI_BURN → TRANS_EARTH → EI_SOLVE → EI_BURN →
@@ -3330,12 +3579,14 @@ phase can be re-flown without re-flying the mission. Two states are checked in,
 capture and `scripts/fixtures/lunar-approach.json` 130,381 km outside the sphere of
 influence, the regime no captured state can stand in for.
 
-Eight scripts default to one of them, so they run with no arguments; each still
-accepts a path to some other state. Six of the eight sit in the suite:
-`verify-heating`, `verify-allocation`, `verify-return` and `verify-tei-timing` on
-the orbit fixture, `verify-loi` on the Apollo-8 approach. Two are instruments
-rather than gates — `verify-approach` and `verify-loi-sweep` print and assert
-nothing, so they stay out on purpose, see below. `npm run fixture:lunar`,
+Nine scripts default to one of them, so they run with no arguments; each still
+accepts a path to some other state. Eight of the nine sit in the suite — five on
+the orbit fixture (`verify-heating`, `verify-allocation`, `verify-return`,
+`verify-tei-timing`, `verify-entry-guidance`) and three on the Apollo-8 approach
+(`verify-approach`, `verify-loi`, `verify-loi-sweep`). The ninth is
+`verify-staging`, which takes the Artemis approach fixture *and* its vessel, see
+below. One of the nine is an instrument rather than a gate: `verify-loi-sweep`
+prints and asserts nothing, so it stays out on purpose. `npm run fixture:lunar`,
 `fixture:approach` and `fixture:approach:artemis` regenerate the three, and
 `scripts/fixtures/README.md` argues why they are pinned rather than re-flown and
 what pinning costs.
@@ -3353,7 +3604,7 @@ nothing.
 | script | what it establishes |
 | --- | --- |
 | `verify-anomalies.mjs` | apsis clocks against a two-body propagation, both branches |
-| `verify-approach.mjs` | where the selenocentric conic becomes real |
+| `verify-approach.mjs` | the approach held to its conic: v_inf 0.808 km/s, a B-plane miss of 5,574 km clear of the Moon, and the flyby that conic predicts — 23.2 km off read at the sphere of influence, 16.3 km read inside it, where it stops improving because the Sun and Earth are bending the approach |
 | `verify-loi.mjs` | the capture, checked against an independent propagation |
 | `verify-loi-sweep.mjs` | ignition placement, closed vs open loop, step ceiling |
 | `verify-staging.mjs` | a separation forced into the middle of the capture |
@@ -3361,7 +3612,9 @@ nothing.
 | `verify-return.mjs` | departure, corridor trim, entry loads and splashdown |
 | `verify-tei-timing.mjs` | when the corridor trim is cheapest |
 | `verify-heating.mjs` | convective against radiative, down the whole entry — 494 W/cm² peak, radiative leading by 2.46x |
-| `verify-entry-guidance.mjs` | lifting entry against ballistic, same trajectory |
+| `verify-entry-guidance.mjs` | lifting entry against ballistic on the same trajectory — 6.68 g against 13.21, cross-range 27 km against 306 km unguided, and no altitude regained once it is in the air |
+| `verify-predict.mjs` | the forward projection against the osculating conic rather than against itself — and against the reason conics were rejected: energy flat in low orbit, and visibly not flat on a translunar coast |
+| `verify-vessels.mjs` | every stack's published mass, liftoff thrust-to-weight and ballistic coefficient, that stages are ordered heaviest first, and that each vehicle can lift itself off the world it launches from |
 | `verify-nrho-cycle.mjs` | the sequencer's first cycle, and that it does not leak |
 | `verify-cr3bp.mjs` | the halo corrector, against full-period closure |
 | `verify-nrho-family.mjs` | continuation into the NRHO regime, and that it *is* one |
@@ -3383,28 +3636,27 @@ nothing.
 
 ### What is not in the suite, and why
 
-Eleven of `scripts/verify-*.mjs` are not among the gates `verify-all.mjs` runs,
-and the distinctions are worth stating rather than inferring from a green run:
+**45 of `scripts/verify-*.mjs` are the gates `verify-all.mjs` runs**, and the two
+that are not are worth stating rather than inferring from a green run:
 
-- **Instruments, not gates.** `verify-approach` and `verify-loi-sweep` default to
-  a fixture and run with no arguments, but neither asserts anything: no `checks`
-  array, no verdict line, and no exit code other than zero. Registering them would
-  add green lines that can never turn red — the blind-gate failure
-  `scripts/allocation.mjs` was rewritten to remove — so they stay out until each
-  has a claim worth holding it to. Both of the other two instruments are now
-  gates: `verify-loi` and `verify-staging` above.
-- **Needing a capture from the running app.** `verify-camera-filter` replays an
-  attitude recording; `record-attitude.mjs` is what produces one.
-- **Red, and therefore deliberately not gating the build.** `verify-vessels`
-  (three arithmetic checks), `verify-nrho-capture` (three), `verify-nrho-keeping`
-  (five) and `verify-entry-guidance` (cross-range alone, its other nine passing)
-  all run with no argument and fail; they are recorded under *Known limitations*
-  in the CHANGELOG with the checks that fail, so `36 of 36 gates pass` is not read
-  as a claim about them.
+- **One instrument, not a gate.** `verify-loi-sweep` defaults to a fixture and
+  runs with no arguments, but it asserts nothing: no `checks` array, no verdict
+  line, and no exit code other than zero. Registering it would add a green line
+  that can never turn red — the blind-gate failure `scripts/allocation.mjs` was
+  rewritten to remove — so it stays out until it has a claim worth holding it to.
+  It is the last of the four that were in that state. The other three —
+  `verify-approach`, `verify-loi` and `verify-staging` — each had one written
+  for it and are gates above.
+- **One that cannot start unaided.** `verify-camera-filter` replays an attitude
+  recording, so it wants a path to one; `record-attitude.mjs` is what produces a
+  recording from the running app.
 
-The remaining four (`verify-nrho-cycle`, `verify-nrho-ephemeris`,
-`verify-nrho-family`, `verify-predict`) run unaided and pass, and are simply not
-yet registered.
+That is the whole exclusion list. Four gates that used to be red and unregistered
+(`verify-vessels`, `verify-nrho-capture`, `verify-nrho-keeping`,
+`verify-entry-guidance`) and four that passed but had never been registered
+(`verify-predict`, `verify-nrho-cycle`, `verify-nrho-ephemeris`,
+`verify-nrho-family`) are all in the suite, so there is no longer a set of gates
+whose failure a green run says nothing about.
 
 The harness starts at the store's own default of 1 day/s rather than at a safer
 setting of its own, because that is exactly the case that used to break — see the

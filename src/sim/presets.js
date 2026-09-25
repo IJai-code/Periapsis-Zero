@@ -1,5 +1,6 @@
 import { flight, flyMission, standOnPad } from './fastForward.js'
 import { armHaloCaptureInBackground, currentPhase, mission } from './mission.js'
+import { director, updateDirector } from './director.js'
 import { ACTIVE_VESSEL } from './vessels.js'
 import { activeSite } from './launchsite.js'
 import { live } from './live.js'
@@ -88,12 +89,25 @@ export const PRESETS = [
     warp: WARP.x10,
   },
   {
+    /*
+     * The capture burn in real time, and it has to *say* real time.
+     *
+     * Handed over without a pace, this preset inherited whatever the
+     * fast-forward was running at when it stopped — six hours a second across
+     * the lunar coast — so the burn the blurb promises was over in a couple of
+     * frames. The sequencer asks for real time on entering `LOI_ALIGN`, but the
+     * driver applies that request only when it *changes*, and a preset handing
+     * over is the pilot setting the dial: the standing request was already real
+     * time, so nothing changed and nothing was applied. Naming it here is the
+     * only place the pace can be set for this flight.
+     */
     id: 'apollo8-lunar-orbit',
     vessel: 'apollo8',
     site: 'ksc',
     title: 'Apollo 8 · lunar orbit',
     blurb: 'Kennedy to the Moon, then the capture burn in real time.',
     until: 'LOI_ALIGN',
+    warp: WARP.x1,
   },
   {
     id: 'artemis-halo',
@@ -103,6 +117,17 @@ export const PRESETS = [
     blurb: "Onto the Gateway's orbit in four burns, solved in the background.",
     until: 'LUNAR_APPROACH',
     halo: true,
+    /*
+     * The shot is the Moon, not Earth.
+     *
+     * The director's `LUNAR_APPROACH` entry is `moon`, and on every other
+     * preset the camera change is what applies it. Here it was not: the driver
+     * seeds its "last request" from the director on the first frame *without
+     * applying it*, so a preset that names no shot keeps the store's default —
+     * Earth — and the whole lunar approach plays 300,000 km off screen. See the
+     * `focus` derivation in `startPreset`.
+     */
+    focus: 'moon',
     // A minute a second while the capture is solved — see `startPreset`.
     warp: WARP.m1,
   },
@@ -195,6 +220,36 @@ let started = null
  * when it is asked for, and at the coast's usual 6 h/s the periselene it plans a
  * burn at would arrive before the search finished — the arming would then
  * rightly refuse it.
+ *
+ * ── the shot is derived, not defaulted ────────────────────────────────
+ *
+ * A preset that names no `focus` used to keep whatever the store opened with —
+ * `earth` — and that is not a neutral choice. The driver applies the director's
+ * shot only when the request *changes*, and on the first frame it seeds its
+ * memory of the request from the director *without applying it*, which is
+ * deliberate: a pilot who chose a camera before the loop started keeps it. A
+ * preset, though, has chosen nothing; it is a link asking to be shown a
+ * particular flight. So the seed handed it the store's `earth` and the director
+ * then had nothing to change to — its standing request was already `earth` for
+ * phases that shared a shot, and for the three that did not, the change arrived
+ * at the *next* phase boundary.
+ *
+ * Measured on the three presets that name no shot, that meant:
+ *
+ *   apollo8-lunar-orbit  LOI_ALIGN, 398,081 km out, burning at the Moon on a
+ *                        camera locked on Earth — and because `LOI_BURN` is the
+ *                        same shot as `LOI_ALIGN`, the request never changed
+ *                        and the whole capture was never shown at all.
+ *   artemis-halo         LUNAR_APPROACH, camera on Earth, the Moon 300,000 km
+ *                        away and the halo capture ahead of it.
+ *   vandenberg-polar     TLI_ALIGN — the one of the three where `earth` is the
+ *                        right answer, which is why the fault went unnoticed.
+ *
+ * Asking the director what it wants for the phase we actually arrived in costs
+ * one lookup and needs no state: `updateDirector` is a table read keyed on the
+ * phase id, and calling it here leaves `director.request` set to the same value
+ * the first frame of the loop will compute. A preset that does name a shot
+ * still wins, which is what `apollo11-docking` and both ground presets rely on.
  */
 export function startPreset(preset) {
   if (started) return started
@@ -202,12 +257,14 @@ export function startPreset(preset) {
   const arrived = preset.fromPad
     ? standOnPad(preset.launchHour ?? 0)
     : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
+  updateDirector()
   started = {
     preset,
     arrived,
     ms: performance.now() - begun,
     phase: currentPhase().id,
     warp: preset.warp ?? flight.warp,
+    focus: preset.focus ?? director.request,
     capture: preset.halo && arrived ? armHaloCaptureInBackground(null) : null,
   }
   return started

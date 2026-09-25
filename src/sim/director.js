@@ -173,6 +173,30 @@ const SHOTS = {
  * silent, and indistinguishable from a deliberate hold. The same reasoning the
  * HUD's duplicate-key assertion carries: a comment cannot fail.
  */
+/**
+ * The ascent phases a *watched* launch is filmed from the ground.
+ *
+ * `mission.groundSequence` marks a flight started from the pad for someone to
+ * look at — see `countdown.js`. On one of those the ground shot is not a
+ * substitute for the pad camera, it is the shot: a person standing beside the
+ * vehicle with a tracking lens on it, which is what a launch looks like from
+ * the outside and the only view that makes a vehicle read as *leaving*.
+ *
+ * The set is exactly the phases the table gives `pad` — `LIFTOFF` and
+ * `PITCH_KICK` — and it was briefly longer, which was wrong and worth recording.
+ *
+ * `GRAVITY_TURN` was added on the argument that the tracking lens in `CameraRig`
+ * makes a ground camera useful past 2 km. The lens does; the *phase* does not,
+ * because `GRAVITY_TURN` runs until the vehicle reaches its parking apoapsis.
+ * Measured on the page, holding the tracker through it kept the ground camera
+ * on the stack for **eleven minutes** and out to **172 km**, at which point the
+ * vehicle is 0.3% of frame — the shot the old wide eye view lost the rocket in,
+ * arrived at from the other direction. The hand-over at 2 km is not a limitation
+ * of the camera; it is where a vehicle at this scale stops being something a
+ * person on the ground is watching, which is true of a broadcast too.
+ */
+const WATCHED_LAUNCH_GROUND = new Set(['LIFTOFF', 'PITCH_KICK'])
+
 const missing = PHASE_IDS.filter((id) => !SHOTS[id])
 if (missing.length) {
   throw new Error(`director: no shot for phase(s) ${missing.join(', ')}`)
@@ -212,9 +236,26 @@ export function updateDirector() {
    * for `pad`, the ground sequence gets `ground`; everywhere else the table
    * stands, and the gravity turn still cuts to the chase as it always has.
    */
-  director.request = mission.groundSequence && shot[0] === 'pad' ? 'ground' : shot[0]
+  director.request = mission.groundSequence && (shot[0] === 'pad' || WATCHED_LAUNCH_GROUND.has(id))
+    ? 'ground'
+    : shot[0]
   director.shot = shot[1]
-  director.warp = shot[2] ?? null
+  /**
+   * A watched launch runs at the speed it happens, and that is a correction to
+   * the table rather than a preference.
+   *
+   * `GRAVITY_TURN` asks for a minute a second, and it is right to: on the
+   * presets that fly the whole mission the ascent is the most boring eight
+   * minutes of a three-day flight and there is somewhere to be. On a launch
+   * started from the pad there is not — the ascent *is* the thing, it is why
+   * the page was opened, and eight minutes of real time become eight seconds of
+   * 60x. Every camera move in it becomes a smear: the pad shot is over in 0.4 s
+   * of wall clock, the cut to the chase happens before the viewer has seen the
+   * vehicle leave the tower, and the whole sequence is over before the lens has
+   * finished pushing in. Measured on the page, that is what it did.
+   */
+  const wanted = shot[2] ?? null
+  director.warp = mission.groundSequence && wanted === WARP.m1 ? WARP.x1 : wanted
   director.cuts += 1
   return director
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PRESETS, presetHref } from '../sim/presets.js'
+import { Mark } from './Mark.jsx'
 
 /**
  * The front door, over the live simulation.
@@ -152,8 +153,9 @@ export function Landing({ ready, progress, label, onEnter }) {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between border-b border-hud/[0.12] px-7 py-4 sm:px-16 lg:px-24">
         <span
           style={step(shown, 0)}
-          className="font-mono text-[10px] tracking-[0.34em] text-hud/75 uppercase"
+          className="flex items-center gap-2.5 font-mono text-[10px] tracking-[0.34em] text-hud/75 uppercase"
         >
+          <Mark size={18} />
           Sol · Terra · Luna
         </span>
         <span

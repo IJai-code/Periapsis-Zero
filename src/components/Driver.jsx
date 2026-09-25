@@ -71,6 +71,9 @@ const ORIGIN_BODY = {
 }
 
 export function Driver() {
+  /** The generated boot splash — see index.html; resolved once, first frame. */
+  const boot =
+    typeof document !== 'undefined' ? document.getElementById('boot') : null
   const warp = useUi((s) => s.warp)
   const paused = useUi((s) => s.paused)
   const assist = useUi((s) => s.assist)
@@ -170,6 +173,18 @@ export function Driver() {
   }, [three])
 
   useFrame((_, delta) => {
+    /**
+     * The boot splash hands off on the first rendered frame — not on mount,
+     * which would fade it while the canvas is still blank and flash a
+     * black gap between the splash and the first pixels. Idempotent: the
+     * querySelector runs once per session, the first branch exits after the
+     * flag flips, and no allocation happens on later frames.
+     */
+    if (boot !== null && !boot.dataset.bootDone) {
+      boot.dataset.bootDone = '1'
+      boot.classList.add('boot-done')
+      window.setTimeout(() => boot.remove(), 700)
+    }
     /**
      * Nearest surface, computed *first* — against last frame's rendered state,
      * which is the last moment the camera and `live.pos` agree.

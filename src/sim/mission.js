@@ -301,8 +301,36 @@ export const PROFILE = {
   entryNominalLift: 0.5,
   /** Roll rate the capsule manages on RCS, rad/s. Apollo's was about 20 deg/s. */
   entryRollRate: 0.35,
-  /** Cross-range that triggers a bank reversal, m. */
-  entryCrossRange: 60e3,
+  /**
+   * Cross-range that triggers a bank reversal, m.
+   *
+   * This and the lead below are the only lateral gains, and they were chosen
+   * together off a grid (see `verify-entry-guidance.mjs` for the corridor): the
+   * residual cross-range at splashdown varies from 10 to 117 km across it, and
+   * the optimum is a narrow ridge rather than a plateau, so the point taken is
+   * the one with the best *worst* neighbour rather than the best centre —
+   * 60 s / 40 km holds within 51 km across a 15 s and 10 km perturbation, where
+   * the grid's outright minimum reached 52 km at a neighbour. Both values are
+   * refits: 60 km was fitted to a switching law that did not converge, under
+   * which it produced 237 km of drift.
+   */
+  entryCrossRange: 40e3,
+  /**
+   * Lead time in the cross-range switching function, s.
+   *
+   * The reversal law switches on `cross + lead * crossRate`, which is a sliding
+   * mode on the surface where that sum is zero — and on that surface the
+   * cross-range obeys `cross(t) = cross(0) * exp(-t / lead)`. So the lead is not
+   * a gain to be tuned but the time constant the controller drives the error to
+   * zero with, and it is what makes the loop converge instead of merely
+   * reversing.
+   *
+   * It is a time constant, and the entry is only ~400 s long, which is why it
+   * has to be a good fraction of that: at 40 s the loop asks the error to
+   * vanish in a tenth of the time the vehicle has authority, and the single
+   * reversal it gets fires too late to spend that authority.
+   */
+  entryCrossRangeLead: 60,
   /** Minimum seconds between reversals, so the deadband cannot chatter. */
   entryReversalDwell: 15,
   /** Lift-to-drag override; 0 flies it ballistically, for comparison. */
@@ -1300,29 +1328,64 @@ function updateEntryGuidance() {
   const o = INDEX.ship * 6
   const e = INDEX.earth * 6
   _sr.set(st[o] - st[e], st[o + 1] - st[e + 1], st[o + 2] - st[e + 2])
+  _sv.set(st[o + 3] - st[e + 3], st[o + 4] - st[e + 4], st[o + 5] - st[e + 5])
   const cross = _sr.dot(_entryNormal)
+  const crossRate = _sv.dot(_entryNormal)
   en.crossRange = cross
   if (Math.abs(cross) > Math.abs(en.peakCrossRange)) en.peakCrossRange = cross
 
   /**
-   * Reverse when the error is past the deadband *and still growing*.
+   * Which way a positive bank moves the cross-range — a constant, and worth
+   * deriving once because it is the thing an earlier version got backwards.
    *
-   * Stated on the rate rather than on the bank's sign, which is the robust
-   * form: whether a positive bank drives cross-range positive or negative
-   * depends on how the lateral axis was constructed, and an earlier version
-   * that reasoned from that convention had it backwards and never reversed at
-   * all — the capsule simply flew 194 km off plane. Asking whether the vehicle
-   * is currently moving further out cannot be got backwards.
+   * The lateral axis the integrator rolls lift onto is `w = vhat x uhat`, with
+   * `uhat` the local vertical projected perpendicular to the wind. Since `uhat`
+   * is a combination of `rhat` and `vhat`, it is perpendicular to this plane's
+   * normal, so `uhat . n = 0` and the cross-range acceleration of a banked
+   * capsule is `+(L/D) a cos(gamma) * sin(bank) * (w . n)`. And
+   * `w . n = (vhat x rhat) . n / |vhat x rhat| = -|rhat x vhat|`, because the
+   * normal is itself `normalize(rhat x vhat)`.
    *
-   * The dwell stops it chattering at the deadband, where the error hovers and
-   * the rate flickers sign every few frames.
+   * So the factor is `-|rhat x vhat|`: **always negative**, magnitude the cosine
+   * of the flight-path angle — 0.994 across this entry. A positive bank always
+   * reduces the cross-range. It is not a convention that could be chosen
+   * differently; it falls out of defining the normal as `r x v`.
    */
-  _sv.set(st[o + 3] - st[e + 3], st[o + 4] - st[e + 4], st[o + 5] - st[e + 5])
-  const crossRate = _sv.dot(_entryNormal)
+  const latSign = -Math.sqrt(Math.max(0, 1 - (_sr.dot(_sv) / (_sr.length() * _sv.length())) ** 2))
+
+  /**
+   * Switch on the cross-range *and its rate* — the sliding mode above.
+   *
+   * Switching purely on whether the error is growing, which is what this did
+   * first, cannot converge. The loop only reversed while the error was
+   * *increasing*, so the first excursion past the deadband left the vehicle
+   * permanently outside it: every dwell expiry then found a growing error and
+   * flipped again. Measured, that degenerates into a 15 s
+   * square wave whose mean lateral acceleration is nearly zero — 19 reversals
+   * that still let the cross-range reach **237 km, against 306 km with the loop
+   * switched off entirely**. It was removing a fifth of the drift and reporting
+   * the rest as guidance.
+   *
+   * With the lead term the sign of the sum is the direction the lateral
+   * acceleration must have, so the loop holds its bank while the error decays
+   * and only reverses when the decay would otherwise overshoot. The dwell stops
+   * it chattering at the deadband.
+   *
+   * What it cannot do is drive the residual to zero: the bank *magnitude* is
+   * fixed by the vertical demand, so there is no "stop rolling" state to settle
+   * in — the vehicle can only choose which way to push, and what is left over
+   * is whatever the last reversal left. Measured over this corridor the error
+   * starts at zero, is pushed out to 306 km by the banked schedule itself, and
+   * the loop returns it to 27 km peak and 19 km at splashdown on one reversal.
+   * That residue belongs to the fixed-magnitude bank schedule, not the
+   * switching law.
+   */
+  const sw = cross + PROFILE.entryCrossRangeLead * crossRate
+  en.switching = sw
   const sinceReversal = mission.t - en.lastReversal
   if (
-    Math.abs(cross) > PROFILE.entryCrossRange &&
-    cross * crossRate > 0 &&
+    Math.abs(sw) > PROFILE.entryCrossRange &&
+    latSign * _bankSign.value * sw > 0 &&
     sinceReversal > PROFILE.entryReversalDwell
   ) {
     _bankSign.value = -_bankSign.value
@@ -2671,6 +2734,32 @@ const PHASES = [
       // the dominant attractor and the selenocentric conic — periapsis time
       // included — describes no trajectory the craft is actually on.
       if (!live.insideLunarSOI) {
+        /*
+         * Handing the dial back was right for this coast and wrong for the one
+         * halo flight flies, which is the only mission whose arrival is not at
+         * the far end of it.
+         *
+         * A translunar craft is hours from its periselene here, so "the pilot's
+         * dial" costs nothing. The halo preset is handed over with the Moon
+         * 313,936 km away — measured — and the capture search *starting* on the
+         * state it has then. Left alone it ran at the preset's own minute a
+         * second and took **about an hour of wall clock** to reach the capture
+         * it advertises, which is indistinguishable from not working.
+         *
+         * So a flight with a capture planned or being solved states its own
+         * pace, and the two are different numbers for a reason. While the
+         * search runs the craft has to stay close to where it was when it was
+         * asked, because the solution is for *that* state and `applyHaloCapture`
+         * rightly refuses one whose first burn has come due — a minute a second.
+         * Once it is planned there is nothing left to invalidate, and the coast
+         * is the longest stretch of nothing in any mission: six hours a second,
+         * which puts the Moon about ten seconds away and hands over to the
+         * ladder below as soon as the sphere of influence begins.
+         */
+        if (mission.capture.solving || mission.capture.planned) {
+          mission.warpRequest = mission.capture.planned ? WARP.h6 : WARP.m1
+          return
+        }
         mission.warpRequest = null
         return
       }

@@ -13,20 +13,31 @@
  * *plateau* near the target, that the vehicle neither skips nor overshoots, and
  * that cross-range stays bounded through bank reversals.
  *
- *   node scripts/verify-entry-guidance.mjs <lunar-orbit-snapshot.json>
+ * The no-skip condition is stated as *altitude regained* rather than as "the
+ * vertical rate is never positive", which is what it said first. A reversing
+ * entry cannot satisfy the sign form: the bank sign is reversed by rolling, and
+ * rolling from +bank to -bank sweeps the lift vector through full-up, so the
+ * vertical rate must go positive for a few seconds — here +72 m/s out of an
+ * 11 km/s entry, at the moment of the reversal. The magnitude of the regained
+ * altitude separates the two, and it is falsifiable on this corridor: hold the
+ * roll rate down to 0.05 rad/s and the same entry regains 48 km, climbing back
+ * out of the atmosphere. At the flying roll rate it regains nothing.
+ *
+ * The state is the checked-in lunar-orbit fixture unless another is given, the
+ * same default `verify-heating` and `verify-allocation` take, so the gate can
+ * sit in the suite with no arguments.
+ *
+ *   node scripts/verify-entry-guidance.mjs                    the fixture
+ *   node scripts/verify-entry-guidance.mjs other-state.json   some other state
  */
 
-import { flight, frame, loadSnapshot } from './flight.mjs'
+import { flight, frame, loadSnapshot, LUNAR_ORBIT_FIXTURE } from './flight.mjs'
 import { WARP } from '../src/sim/warp.js'
 import { live } from '../src/sim/live.js'
 import { currentPhase, mission, PROFILE } from '../src/sim/mission.js'
 import { ship } from '../src/sim/ship.js'
 
-const snap = process.argv[2]
-if (!snap) {
-  console.error('usage: node scripts/verify-entry-guidance.mjs <lunar-orbit-snapshot.json>')
-  process.exit(2)
-}
+const snap = process.argv[2] ?? LUNAR_ORBIT_FIXTURE
 
 function fly(ld) {
   loadSnapshot(snap)
@@ -37,6 +48,8 @@ function fly(ld) {
   let peakGAlt = 0
   let minAltAfterPeak = Infinity
   let maxClimb = -Infinity
+  let minAltEver = Infinity
+  let regain = 0
   let sawEntry = false
 
   for (let i = 0; i < 6_000_000; i++) {
@@ -52,9 +65,18 @@ function fly(ld) {
         peakGAlt = live.elements.altitude
       }
       // A skip shows up as the altitude rate turning positive while still fast.
+      // Reported, not asserted — see the header.
       if (live.elements.speed > 7500 && live.elements.vertical > maxClimb) {
         maxClimb = live.elements.vertical
       }
+      /**
+       * And the asserted form: how far the vehicle climbs back *up* once it is
+       * deep in the atmosphere. Zero for a monotone descent, however much the
+       * bank rolls.
+       */
+      const alt = live.elements.altitude
+      if (alt < minAltEver) minAltEver = alt
+      if (minAltEver < 95e3 && alt - 95e3 > regain) regain = alt - 95e3
       if (peakG > 1 && live.elements.altitude < minAltAfterPeak) {
         minAltAfterPeak = live.elements.altitude
       }
@@ -106,6 +128,9 @@ function fly(ld) {
     reached: currentPhase().id,
     peakG,
     peakGAlt,
+    minAltAfterPeak,
+    maxClimb,
+    regain,
     peakQ: en.peakQ,
     peakTotalFlux: en.peakTotalFlux,
     heatLoadProxy: trace.reduce((a, s, i) => (i ? a + s.flux * (s.t - trace[i - 1].t) : 0), 0),
@@ -139,6 +164,8 @@ row('seconds within 1 g of target', ball.dwell, lift.dwell, f0)
 row('entry phase duration, s', ball.entryDuration, lift.entryDuration, f0)
 row('seconds above 50 W/cm2', ball.hotTime, lift.hotTime, f0)
 row('bank reversals', ball.reversals, lift.reversals, f0)
+row('peak climb while above 7.5 km/s, m/s', ball.maxClimb, lift.maxClimb, f0)
+row('altitude regained below 95 km, m', ball.regain, lift.regain, f0)
 row('peak cross-range, km', ball.peakCross / 1e3, lift.peakCross / 1e3, f2)
 row('splashdown descent, m/s', ball.splashVert, lift.splashVert, f2)
 
@@ -162,7 +189,7 @@ const checks = [
   ['guided peak is below ballistic', lift.peakG < ball.peakG],
   ['guided peak within 1.5 g of the target', Math.abs(lift.peakG - PROFILE.entryTargetG) < 1.5],
   ['load actually held on a plateau (>20 s in band)', lift.dwell > 20],
-  ['no skip: never climbing while above 7.5 km/s', lift.maxClimb < 0],
+  ['no skip: no altitude regained below 95 km', lift.regain === 0],
   ['cross-range bounded under 150 km', Math.abs(lift.peakCross) < 150e3],
   ['bank reversals happened', lift.reversals > 0],
   ['descent rate still under 10 m/s', lift.splashVert > 0 && lift.splashVert < 10],

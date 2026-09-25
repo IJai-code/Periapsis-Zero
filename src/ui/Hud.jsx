@@ -15,6 +15,7 @@ import { BurnPanel } from './BurnPanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { FlightStrip } from './FlightStrip.jsx'
 import { Commentary } from './Commentary.jsx'
+import { Mark } from './Mark.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
 import { SHIP } from '../sim/constants.js'
@@ -155,7 +156,13 @@ export function Hud() {
       */}
       <div className="absolute top-4 left-4 flex max-h-[calc(100vh-9rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-8rem)]">
         <div className="pointer-events-auto">
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-center gap-2.5">
+            {/*
+              The mark rides the lockup — the same drawing the tab icon is,
+              generated into brand.js, so the corner and the browser chrome
+              agree by construction.
+            */}
+            <Mark size={22} />
             <div className="font-display text-xl leading-none font-light tracking-[0.3em] text-hud/90">
               PERIAPSIS ZERO
             </div>
@@ -240,6 +247,15 @@ export function Hud() {
       <div className="absolute bottom-4 left-4">
         <FlyHud />
       </div>
+
+      {/*
+        The watermark, bottom-right: the one corner nothing else claims — FlyHud
+        holds the left, the centre column the middle — so the mark closes the
+        frame the way a broadcast bug closes a picture. Plain, so it sits on
+        the sim rather than on a tile; dimmed to furniture, and it fades the
+        moment the map wants the room.
+      */}
+      {!map && <Mark size={20} className="absolute right-4 bottom-4 opacity-50" />}
 
       {/*
         Commentary above the controls, in the centre column rather than at the

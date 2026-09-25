@@ -140,7 +140,10 @@ export function lambert(r1, r2, dt, mu, longWay = false) {
 /** A four-body integrator of the simulation's own kind: Sun, Earth, Moon and a massless craft. */
 function scratchFor(sim) {
   const sc = new RK4NBody([BODIES.sun.mass, BODIES.earth.mass, BODIES.moon.mass, 0], new Float64Array(24), 3)
-  sc.testSoftening2 = sim.testSoftening2
+  // The whole field, not just the softening: a capture solved against a point
+  // mass and then flown against an oblate planet with seven planets pulling on
+  // it is a solution to a different problem. See `adoptFieldFrom`.
+  sc.adoptFieldFrom(sim)
   return sc
 }
 
@@ -157,12 +160,20 @@ function selenocentric(state, out) {
   return out
 }
 
-/** Fly a packed state from `from` to `to`; writes into `out` and returns it. */
+/**
+ * Fly a packed state from `from` to `to`, in absolute simulation time; writes
+ * into `out` and returns it.
+ *
+ * `from` is also the scratch's clock, which the planetary rails are solved
+ * against. A scratch that only accumulates time carries the offset of every
+ * propagation before it.
+ */
 function fly(sc, state, from, to, step, out) {
+  sc.t = from
   sc.state.set(state)
   const n = Math.max(1, Math.ceil(Math.abs(to - from) / step))
   const h = (to - from) / n
-  for (let s = 0; s < n; s++) sc.step(h)
+  for (let s = 0; s < n; s++) sc.stepWithRails(h)
   out.set(sc.state)
   return out
 }
@@ -183,9 +194,10 @@ function aimAt(sc, state, t0, t1, targetR, seedDv, { probe = 1e-2, step = 30, to
   const trial = [0, 0, 0]
 
   const residual = (d, into) => {
+    sc.t = t0
     sc.state.set(state)
     for (let i = 0; i < 3; i++) sc.state[SHIP + 3 + i] += d[i]
-    for (let s = 0; s < n; s++) sc.step(h)
+    for (let s = 0; s < n; s++) sc.stepWithRails(h)
     selenocentric(sc.state, arrival)
     for (let i = 0; i < 3; i++) into[i] = arrival[i] - targetR[i]
   }
@@ -243,11 +255,12 @@ export function nextPeriselene(sim, { step = 30, horizon = 8 * 86400 } = {}) {
   const sc = scratchFor(sim)
   const packed = pack(sim, new Float64Array(24))
   const here = new Float64Array(6)
+  sc.t = sim.t
   sc.state.set(packed)
   let prev = Infinity
   let prevPrev = Infinity
   for (let t = 0; t < horizon; t += step) {
-    sc.step(step)
+    sc.stepWithRails(step)
     selenocentric(sc.state, here)
     const r = norm([here[0], here[1], here[2]])
     if (prev < prevPrev && prev < r) {
@@ -329,12 +342,13 @@ export function solveHaloCapture(
     for (let i = 0; i < 3; i++) scratch[SHIP + 3 + i] -= first * along[i]
 
     // Where that ellipse turns round, found by stepping.
+    sc.t = peri.t
     sc.state.set(scratch)
     let apoT = 0
     let prev = 0
     let prevPrev = 0
     for (let k = 1; k < 40000; k++) {
-      sc.step(60)
+      sc.stepWithRails(60)
       selenocentric(sc.state, at)
       const r = norm([at[0], at[1], at[2]])
       if (prev > prevPrev && prev > r && prev > 20000e3) {
@@ -359,10 +373,17 @@ export function solveHaloCapture(
         const span = days * 86400
         const arriveAt = apoT + span
         const bodies = fly(sc, transfer, apoT, arriveAt, step, new Float64Array(24))
-        const reference = shoot({ state: bodies, t: arriveAt, testSoftening2: sim.testSoftening2 }, shape, {
-          revolutions,
-          step,
-        })
+        const reference = shoot(
+          {
+            state: bodies,
+            t: arriveAt,
+            testSoftening2: sim.testSoftening2,
+            zonal: sim.zonal,
+            rails: sim.rails,
+          },
+          shape,
+          { revolutions, step },
+        )
         const targetR = [reference.states[0], reference.states[1], reference.states[2]]
         const targetV = [reference.states[3], reference.states[4], reference.states[5]]
 

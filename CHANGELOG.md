@@ -5,7 +5,82 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Fixed
+
+**The halo capture never ran.** `shootHalo` records the field it solved against on
+the returned reference, and a rails table carries its `refresh` as a closure —
+which structured clone does not degrade but *throws* on. The capture is solved in
+a worker, so the `postMessage` was rejected outright and no solution ever came
+back: `mission.capture.error` read `(t) => updateRails(t, helio) could not be
+cloned`, `planned` stayed false, and the only symptom was a capture that never
+happened. No gate saw it because every gate runs the search in its own process.
+`railsRecipe` (`src/sim/rails.js`) reduces a table to the two fields `ownRails`
+reads, so the content crosses and the closure is rebuilt where the clock is.
+Verified in the page: solved in 14.5 s, 174.4 / 269.5 / 105.8 m/s, and the craft
+reached `HALO_CAPTURE` and flew its first burn at real time.
+
+**Presets landed on the wrong camera.** A preset naming no `focus` kept the
+store's default, `earth`, because the driver applies the director's shot only on
+change and seeds its memory of the request on the first frame *without applying
+it*. `apollo8-lunar-orbit` was handed over in `LOI_ALIGN` at 398,081 km locked on
+Earth — and since `LOI_BURN` carries the same shot, the request never changed and
+the capture was never shown at all; `artemis-halo` was handed over at
+`LUNAR_APPROACH` with the Moon 313,936 km away, also on Earth. `startPreset` now
+resolves the shot from the director for the phase the flight arrived in. All six
+presets land where the table says.
+
+**And the lunar-orbit preset landed at the wrong pace.** Unset, it inherited the
+fast-forward's standing six hours a second, so the capture burn its blurb
+promises was over in a couple of frames. It now names real time.
+
+**The ascent ran at 60×.** On a flight started from the pad the ascent *is* the
+thing, and eight minutes became eight seconds of 60×: every camera move in it a
+smear. A `groundSequence` launch holds real time through the gravity turn.
+
+**The ground launch camera could not follow the vehicle.** A fixed eye-height
+viewpoint with a 65° frame loses a rocket above about 240 m of stand-off, and by
+2 km it is not a visible object at all. It now pushes in as the vehicle clears
+the ground — the camera stays put, the lens moves, as a broadcast does — holding
+the stack at 30% of frame (fov 65° → 12° measured) before handing to the chase at
+2 km, where it locks at 16%.
+
+**Shot changes were flights of the camera.** Entering the chase blends over
+1.5 s, right when the shots are near — a ground camera is under one hull length
+of 110.6 m. From Earth's lock at 5.2 radii it meant flying 33,791 km in 1.5 s, and
+that is the shot both `COAST_TO_APOAPSIS` and `CIRCULARISE` are cut to. The gap
+decides now: eight chase lengths or less is a move, beyond that a cut.
+
 ### Added
+
+**A mark for the sim, derived like everything else here** (`scripts/make-favicon.mjs`,
+`public/icons/`, `src/gfx/brand.js`, `src/ui/Mark.jsx`) — a periapsis tick on an
+orbital arc: the champagne arc bending at the bottom of an obsidian field, the
+orbiting body sitting at the bend, an ember chevron beneath pointing up at it.
+Drawn by code, not by hand: one geometry (`geom()`) feeds the raster, an exact
+quadratic Bézier SVG, and a generated module for React; colours are converted
+from the CSS's own oklch values so the mark cannot drift from the palette; a
+hand-rolled PNG encoder (stored-block deflate, CRC32/adler32) and a multi-image
+`.ico` carrying 16/32/48. Rasterised once at 512 and box-downsampled to every
+size, plus `npm run icons -- --check` proving the committed set matches the
+source byte-for-byte. `index.html` grows a boot splash carrying the mark —
+dismissed on the driver's first rendered frame in flight, on a 2.5 s fuse on the
+landing page where no driver mounts, 12 s as the safety net either way — and the
+mark echoes in the HUD lockup, a bottom-right watermark that hides with the map,
+and the landing masthead. The favicon set plus `theme-color` replaces the
+browser's default globe in the tab bar.
+
+**An aerodynamic rush and the pad's own noise** (`src/sfx/engine.js`) — the rush
+is driven by dynamic pressure rather than thrust, so it is loudest at max Q and
+again through entry and silent in a vacuum however fast anything moves through
+it; the vents and deluge are read off the same `countdown.js` timeline that draws
+them. Three one-shots: ignition held on the pad, the drogues, splashdown. The air
+voices live in a second function, `mixAir`, because V8 inlines a seven-argument
+call and does not inline a nine-argument one — measured at 47.50 bytes a call
+before the split, 0.00 after.
+
+**`structuredClone` on the solved capture** (`verify-nrho-capture`) — the check
+that would have caught the worker bug: the same algorithm `postMessage` uses, and
+it throws on a function rather than dropping one. Falsified both ways.
 
 **Earth's interior, from PREM** (`src/sim/prem.js`) — the Preliminary Reference
 Earth Model (Dziewonski & Anderson, 1981), oceanless, as eleven shells carrying
@@ -637,7 +712,160 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
   code is the suite's rather than the first gate's — so a red gate still fails
   the build but cannot hide the eighteen behind it.
 
+- **The entry autopilot's lateral law could not converge**
+  (`updateEntryGuidance`, `src/sim/mission.js`). It flipped the bank sign whenever
+  the cross-range was past its deadband *and still growing*. That is not a control
+  law: the first excursion past the deadband leaves the vehicle permanently
+  outside it, so every dwell expiry then finds a growing error and flips again.
+  Measured, it degenerated into a 15 s square wave with a near-zero mean lateral
+  acceleration — **19 reversals that still let the cross-range reach 237 km,
+  against 306 km with the loop switched off entirely**. It was removing a fifth of
+  the drift and reporting the rest as guidance.
+
+  The law is now the sliding mode on `sw = cross + lead · crossRate`, where the
+  sign of that sum is the direction the lateral acceleration must have, and on
+  the surface where it vanishes the error decays as `exp(−t / lead)` — so the lead
+  is not a gain but the time constant the controller drives it to zero with, 60 s
+  against a 400 s entry. It is set with the deadband, jointly, off a grid, and at
+  the point with the best **worst neighbour** rather than the best centre, because
+  the ridge is narrow: 60 s / 40 km holds within 51 km across a ±15 s and ±10 km
+  perturbation, where the grid's outright minimum reached 52 km at a neighbour.
+  Both values are refits — the 60 km deadband had been fitted to the law that did
+  not work. Cross-range at splashdown: **27 km against 83 km** for the same law on
+  the old gains.
+
+  The direction the error moves for a given bank is derived rather than assumed,
+  because an earlier version reasoned from the roll convention and had it
+  backwards: with the lateral axis the integrator rolls lift onto, the factor is
+  `−|r̂ × v̂|` — always negative, magnitude the cosine of the flight-path angle.
+  0.994 across this entry. And the drift is **self-inflicted**: the entry is
+  exactly on its arrival plane, `cross = 0` at separation, and the 306 km is
+  created by having to fly banked at all.
+
+- **`verify-entry-guidance`'s no-skip check was not reachable, and it is now one
+  that is.** It asserted the vertical rate is never positive while the craft is
+  above 7.5 km/s. A reversing entry cannot satisfy that: the bank sign is reversed
+  by rolling, and rolling from `+bank` to `−bank` sweeps the lift vector through
+  full-up, so the rate must go positive for a few seconds — **+72 m/s** out of an
+  11 km/s entry, at the moment of the reversal, and it scales with the roll rate
+  (133, 279, 383 m/s at 0.20, 0.10, 0.05 rad/s). What is asserted instead is
+  **altitude regained below 95 km**: zero for a monotone descent, however much the
+  bank rolls, and falsifiable rather than merely true — hold the roll rate to
+  0.05 rad/s and the same entry regains **48 km**, climbing back out of the
+  atmosphere. The gate's ten checks pass; the peak climb is still printed, as a
+  diagnostic rather than a bar.
+
+- **`verify-approach` is a gate and not an instrument.** It printed a table and a
+  closest approach and asserted nothing, so it could never go red. It now holds
+  the lunar approach to the conic it is on, measured at the sphere of influence:
+  **v_inf 0.8076 km/s**, flight-path angle **−85.85°**, B-plane miss **5,574.342
+  km** against a lunar radius of 1,737 km. And it holds the flyby to the conic's
+  own prediction, which is the claim with teeth — B is read 69,823 km out and the
+  periapsis is 81 km above the surface.
+
+  Measured rather than assumed, twice. The prediction error falls from **23.196 km
+  (1.28%)** at the sphere of influence to **16.339 km** and then **stops**: the
+  readings inside 5,000 km and 2,500 km agree with each other to **32 m** while
+  both sit 16 km from the flyby. That floor is the Sun and the Earth bending the
+  approach, not a truncation error, so the gate asserts convergence *to a floor*
+  and would be asserting a two-body problem if it asked for zero. And γ is
+  reported at each reading rather than bounded, because at a stated range
+  `(v_inf, B)` and `(|v|, γ)` are the same two numbers in different coordinates;
+  its one independent use is as a cross-check on the construction — for a
+  straight-line approach `γ = −acos(B/r)`, asserted to agree within 1°, which is
+  what would catch an axis error in the B-plane. Falsified both ways: on a state
+  that is already in lunar orbit it fails, and with the B-plane bar moved from
+  `R + 100 km` to 6,500 km it fails too.
+
+- **Four gates that were red are green and registered**, so no gate that runs is
+  left out of the build: `verify-vessels` (9 checks — published mass,
+  thrust-to-weight and ballistic coefficient per stack, and that each vehicle can
+  lift itself off the world it launches from), `verify-nrho-capture` (18),
+  `verify-nrho-keeping` (19) and `verify-entry-guidance` (10).
+
+  The NRHO pair is the field. The four-body scratch integrators in `capture.js`,
+  `halo.js` and `targeting.js` were flying point-mass gravity while the craft
+  flies an oblate Earth with seven planets on rails, so a "reference" was not a
+  trajectory of the field it was compared against. They now adopt it
+  (`adoptFieldFrom`), with the rails as a **private table** — a scratch that
+  spans a hundred days must move the planets itself, and doing it through the
+  shared buffer would leave the live run reading a sky a season ahead of its own
+  clock — and with each segment's **clock set explicitly**, because the rails are
+  solved against `t` and a scratch that only accumulates it carries the offset of
+  every propagation before it. Under the live field the keeping gate's own
+  reference law holds every flight with every solve converging, and the capture
+  reaches the reference within 10 km and 1 m/s and stays inside 100 km of it for
+  seven revolutions.
+
+- **`verify-allocation`'s crossing bound was re-derived, and the drift is
+  attributed rather than absorbed.** The reading moved from a sample of 228.28 KB
+  to 261.39 KB, so the bound went from 256 KB to 296 KB by the same rule it was
+  first set by — seven runs (253.39 to 270.26, sd 5.59), mean + 6.2 sd — with the
+  checks themselves untouched. A worktree at the last commit reads 218.24 KB
+  through the same harness; copying the working tree in one file at a time puts
+  the whole of it in `targeting.js` (+40 KB: 219.93 KB without it, 260.29 KB with
+  it, the same three other files either way), the edit that gives the projection
+  scratch the live field. Three times the frames retains 257.95 KB, so it is still
+  paid once rather than leaked (1.336 → 0.440 B/frame), and the steady regime —
+  the actual zero-allocation mandate — is unchanged at −0.028 B/frame.
+
+- **Four gates that passed had never been registered** — `verify-predict`,
+  `verify-nrho-cycle`, `verify-nrho-ephemeris` and `verify-nrho-family`. They run
+  unaided, assert 18, 6, 3 and 10 checks, and cost 5.3, 0.7, 2.8 and 2.4 s
+  between them, so there was nothing to weigh against registering them. The suite
+  runs **45 of 45**.
+
+- **`verify-icons`** — one gate over every brand surface. It re-runs the
+  generator's `--check` (all 10 files byte-for-byte against a fresh render),
+  asserts PNG magic bytes and manifest icon dimensions from the decoded headers,
+  confirms `index.html` references only files that exist (this server's SPA
+  fallback answers 200 with HTML for anything missing, so 200 alone can lie),
+  checks `brand.js` imports cleanly into node, and proves the boot splash
+  markers balanced. Falsified by removing `mark.svg`: red with the missing file
+  named, green once restored. The suite runs **46 of 46**.
+
 ### Known limitations
+
+- **The Earth-launched mission timeline is about twice the real flight, and the
+  lunar approach arrives near apogee.** Measured: TLI at MET **46.62 h** (Apollo
+  8's was 2.83), lunar periselene at **184.7 h** (69.0), splashdown at **303.9 h**
+  (147.0). The parking orbit waits 46.4 h for its window, and the transfer's
+  apogee is a little beyond the Moon's distance, so the craft spends the last
+  third of the coast crawling towards it — 201,512 km covered in 114.0 h, an
+  average 491 m/s, entering the sphere of influence at 1.41 km/s. Both legs are
+  affected symmetrically (return coast 115.6 h against a real 57). The README's
+  preset table measures these figures rather than promising different ones, so
+  nothing here is a regression — but the flight is a week where the real one was
+  six days, and a fix means re-solving the TLI window, not adjusting a constant.
+  `verify-loiter`'s own window scenario is unaffected (it flies its own hour).
+
+- **Vandenberg's polar loiter measures exactly as documented and no fault was
+  found in it.** Reported as broken; measured at `PERIAPSIS_SITE=vandenberg`,
+  hour 144: the parking orbit waits **282.3 h** for a window its **204.8 h** of
+  life cannot reach, and the flight computer plans the two-node raise the preset
+  comment claims — **2.515 m/s and 8.008 m/s, 10.52 m/s in total**, the first
+  9.6 min after hand-over. Hours 0 through 120 all *reach* their window and plan
+  nothing, which is the contrast the preset exists to show. The one fault it did
+  share was the camera default, which for this preset already agreed with the
+  director (`earth`).
+
+- **The Earth's surface detail does not change with distance.** The surface is a
+  set of full-globe maps — day, night, clouds, normal, roughness — at a single
+  resolution, so closing on it resolves nothing new however close the camera
+  gets. *Hyper detail from the inside* would need a second level to switch to —
+  a tiled or quad-tree surface, or at least a detail overlay keyed on range — and
+  there is no such level in the pipeline today. This is a capability gap, not a
+  defect: nothing is broken, the surface is simply drawn at one scale.
+
+- **`earth_roughness.jpg` is not in the repository**, and the roughness slot is
+  filled by an inverted `earth_specular.jpg` instead. Worth recording because the
+  probe *works*: under Vite's SPA fallback every unknown path answers `200` with
+  `index.html`, so an existence check on the status code alone would accept a map
+  that does not exist — `exists()` in `gfx/hdTextures.js` also requires an
+  `image/` content type, correctly rejects the fallback, and takes the alternate,
+  which `invertToRoughness` flips because three multiplies by the green channel
+  and specular maps are bright where roughness maps are dark. The rendering is
+  right; adding the real map is a one-file change to `public/textures/`.
 
 - **The simulated Moon runs 1% slow.** Its J2000 elements are mean values used as
   the osculating state, and the Sun's tide moves the osculating semi-major axis
@@ -660,22 +888,17 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
 - **The frame rate was measured on one machine.** At 2048 × 1536 with the GPU made
   to finish each frame: 9.6 to 17 ms through the count and liftoff, the
   particles within the run-to-run spread of free, the sky 7 to 8 ms of it.
-- **The suite does not gate on every gate, and four of the ones it leaves out
-  are red.** `verify-vessels` fails three arithmetic checks (not every vessel has
-  stages, chutes and an ascent programme; not every stack carries enough ideal Δv
-  for a lunar return; not every vessel can lift itself). `verify-nrho-capture`
-  fails three: flown, the craft reaches the reference within 1 m/s of velocity
-  but not within 10 km of position, and it is further from it by the last
-  maintenance pass than at the first. `verify-nrho-keeping` fails five: flown
-  unguided it does not stay inside a 5 km corridor; at 1 km and 1 cm/s of
-  navigation error it does not cost under 0.1 m/s a revolution; undisturbed it
-  drifts more than 5 m from the reference at apolune; kicked 10 cm/s along track
-  it is not back within 1 km by the last pass; and it does not do that for under
-  0.06 m/s a revolution. `verify-entry-guidance` fails one check on the pinned
-  corridor — cross-range bounded under 150 km — with its other nine passing. Each
-  runs with no argument, so each is a line away from gating the build; they are
-  out deliberately rather than by omission, and `36 of 36 gates pass` is a claim
-  about the registered gates and not about these four.
+- **The guided entry lands with a cross-range residual it cannot drive to
+  zero.** Splashdown is **27 km** off the arrival plane, against 306 km with the
+  lateral loop switched off. The switching law is not the limit: the bank
+  *magnitude* is fixed by the vertical demand, so there is no "stop rolling" state
+  to settle in — the vehicle can only choose which way to push, and what is left
+  over is whatever the last reversal left. Driving it further down would mean
+  modulating the bank magnitude against the lateral error, which is a different
+  control law than the one Apollo flew (magnitude for vertical, sign for lateral)
+  and was not adopted. The residual is also why the gate's bar is 150 km rather
+  than tens: tightening it to 20 km would be asserting a schedule this design does
+  not have.
 
 - **What the surface-engine brief still leaves unbuilt:** a *powered descent* to
   the lunar surface — the LM is placed standing on its descent stage and flown up
