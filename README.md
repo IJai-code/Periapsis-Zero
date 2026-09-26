@@ -41,13 +41,32 @@ you supply `milkyway.jpg` yourself. See
 ## The mark
 
 The favicon, boot splash and HUD watermark are one drawing, derived rather than
-hand-made: `npm run icons` rasterises `scripts/make-favicon.mjs` — a periapsis
-tick on an orbital arc, in the interface's own colours, converted from the CSS's
-oklch values so the mark cannot drift from the palette — into every size under
-`public/icons/`, plus an exact-geometry SVG and a generated module
-(`src/gfx/brand.js`) the React surfaces import. `npm run icons -- --check`
-re-renders and compares byte-for-byte; `verify-icons` in the suite holds the
-whole set, the HTML references, the manifest and the boot splash to it.
+hand-made: `npm run icons` rasterises `scripts/make-favicon.mjs` into every size
+under `public/icons/`, plus an SVG and a generated module (`src/gfx/brand.js`)
+the React surfaces import. The drawing is a mission patch: a planet shaded per
+pixel — Lambert from the upper left, two surface mottles, a night side falling
+into the ground, a sunward atmosphere limb — inside an honest ellipse with the
+planet at its focus, its lower vertex grazing the limb so closest approach
+happens by arithmetic rather than by hand, with the ember marker on the contact
+point and the chart's chevron naming it. Periapsis. Colours are converted from
+the CSS's oklch values so the mark cannot drift from the palette.
+`npm run icons -- --check` re-renders and compares byte-for-byte; `verify-icons`
+in the suite holds the whole set, the HTML references, the manifest and the boot
+splash to it.
+
+## The sky
+
+The seven planets ride `sim/rails.js`, a Standish/Williams Kepler table
+evaluated on its own clock — and the table now carries sky beyond the force
+model: Pluto (the same table), Halley's Comet anchored to its observed 1986
+perihelion and drawn with an anti-sunward tail, and seven moons — Phobos,
+Deimos, the Galileans, Titan — on circular offsets with JPL mean elements.
+Everything past `FORCE_COUNT` is drawn, labelled and steerable as a camera
+target but pulls on nothing: the force model is exactly the seven planets it
+has always been, which is what keeps every measured mission figure a figure
+about the same physics. `verify-cosmos` holds the sky against observed facts —
+Halley's perihelion date and q, Pluto's 248-year period, the moons' measured
+orbits — and asserts the split.
 
 ## Mission profile
 

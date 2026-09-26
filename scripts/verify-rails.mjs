@@ -22,7 +22,7 @@ import { INDEX } from '../src/sim/system.js'
 import { AU, BODIES, ELEMENTS, G } from '../src/sim/constants.js'
 
 const EARTH_A = ELEMENTS.earth.a
-import { RAILS, RAIL_COUNT, RAIL_ELEMENTS, railHelio, updateRails } from '../src/sim/rails.js'
+import { RAILS, RAIL_COUNT, RAIL_ELEMENTS, FORCE_COUNT, railHelio, updateRails } from '../src/sim/rails.js'
 import {
   SMALLEST_OBJECT,
   allocatesNothing,
@@ -49,6 +49,20 @@ const KNOWN = {
   saturn: { days: 10759.22, kms: 9.68 },
   uranus: { days: 30685.4, kms: 6.8 },
   neptune: { days: 60189.0, kms: 5.43 },
+  /*
+   * Pluto: the period is firm (248 yr). No mean-speed column — the published
+   * figure 4.743 km/s is 2*pi*a/T, while the series below is the *time*
+   * average (the ellipse's perimeter over T, 4.67 km/s), and which convention
+   * a given table used is not printed on the table.
+   */
+  pluto: { days: 90560, kms: null },
+  /*
+   * Halley: the published period is 75.3 yr, quoted to a tenth because Jupiter
+   * moves it 74–79. No mean-speed column: the series below is a small-e
+   * expansion and has no authority at e = 0.967. The perihelion this table is
+   * anchored to is held against the observed event in verify-cosmos.
+   */
+  halley: { days: 27500, kms: null },
 }
 
 console.log('=== periods: the rate in the table, against Kepler and against the books ===')
@@ -56,6 +70,10 @@ console.log('  planet      from dL/dt      from a^3       published     worst er
 let worstPeriod = 0
 let worstSpeed = 0
 for (const p of RAILS) {
+  // Moons orbit their planets, not the Sun — solar Kepler is not their
+  // physics. Their radii and periods are held against measured orbits in
+  // verify-cosmos, which is where that question is well-posed.
+  if (p.parent) continue
   // 360 degrees at the tabulated rate.
   const fromRate = (360 / p.L[1]) * CENTURY
   // And from the semi-major axis, which is an independent entry in the table.
@@ -73,7 +91,7 @@ for (const p of RAILS) {
    */
   const e0 = p.e[0]
   const speed = ((2 * Math.PI * a) / fromRate) * (1 - e0 * e0 / 4 - (3 * e0 ** 4) / 64) / 1000
-  const speedErr = Math.abs(speed - KNOWN[p.id].kms) / KNOWN[p.id].kms
+  const speedErr = KNOWN[p.id].kms ? Math.abs(speed - KNOWN[p.id].kms) / KNOWN[p.id].kms : 0
   worstSpeed = Math.max(worstSpeed, speedErr)
 
   console.log(
@@ -207,6 +225,7 @@ console.log('  planet         min           max        against a(1-e) .. a(1+e)'
 let boundsOk = true
 for (let k = 0; k < RAIL_COUNT; k++) {
   const p = RAILS[k]
+  if (p.parent) continue // moons: a planetocentric offset, not a solar conic
   let lo = Infinity
   let hi = 0
   for (let year = 1800; year <= 2050; year += 1) {
@@ -230,7 +249,10 @@ for (let k = 0; k < RAIL_COUNT; k++) {
 updateRails(0)
 let ordered = true
 let lastR = 0
-for (let k = 0; k < RAIL_COUNT; k++) {
+for (let k = 0; k < FORCE_COUNT; k++) {
+  // The seven planets sit in order of distance; the sky below them does not —
+  // Halley crosses five orbits between perihelion and aphelion, and a moon
+  // sits on its parent's radius. Order is a claim about the force set.
   const o = k * 3
   const r = Math.hypot(railHelio[o], railHelio[o + 1], railHelio[o + 2])
   if (r <= lastR) ordered = false
@@ -245,6 +267,7 @@ let worstTilt = 0
 for (let year = 2000; year < 2050; year += 7) {
   updateRails((year - 2000) * 365.25 * DAY)
   for (let k = 0; k < RAIL_COUNT; k++) {
+    if (RAILS[k].parent) continue // moons have no heliocentric inclination
     const o = k * 3
     const r = Math.hypot(railHelio[o], railHelio[o + 1], railHelio[o + 2])
     const tilt = Math.abs(Math.asin(railHelio[o + 1] / r)) / DEG

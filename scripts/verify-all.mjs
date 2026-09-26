@@ -97,6 +97,7 @@ const GATES = [
   ['verify-pads', true],
   ['verify-pad-geometry', false],
   ['verify-surround', false],
+  ['verify-cosmos', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

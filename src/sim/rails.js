@@ -130,7 +130,139 @@ export const RAILS = [
     peri: [44.96476227, -0.32241464],
     node: [131.78422574, -0.00508664],
   },
+  /*
+   * ── the sky beyond the force model ──────────────────────────────────
+   *
+   * Everything above this line pulls on the craft — `sim.rails` in system.js
+   * reads the first FORCE_COUNT slots as third-body gravity. Everything below
+   * is *sky*: drawn, labelled, steerable as a camera target, and pulling on
+   * nothing. Pluto and Halley carry the same Keplerian shape as the planets;
+   * moons carry a `parent` and a circular offset instead, because a moon's
+   * orbit is not a heliocentric ellipse.
+   *
+   * The belt is deliberately absent. Ceres and Vesta's J2000 mean anomalies
+   * are not published in the sources reachable here, and a beacon in the wrong
+   * place is worse than no beacon — the table has always been honest about
+   * what it contains.
+   */
+  {
+    // Standish & Williams' table, the same one the planets above come from —
+    // the former planet was dropped from the JPL page but not from the report.
+    id: 'pluto',
+    name: 'Pluto',
+    mass: 1.303e22,
+    radius: 1.1883e6,
+    colour: '#c9b8a8',
+    a: [39.48211675, -0.00031604],
+    e: [0.2488273, 0.0000517],
+    i: [17.14001206, 0.00000501],
+    L: [238.92903833, 145.17813156],
+    peri: [224.06891629, -0.00968827],
+    node: [110.30393684, -0.00809981],
+  },
+  {
+    /*
+     * Halley, anchored to its perihelion of 1986-02-09 — an observed event,
+     * which is what makes this entry checkable rather than merely typed. The
+     * MPC elements at that passage (q 0.586 AU, e 0.96714, a 17.834 AU,
+     * i 162.26°, Ω 58.42°, ω 111.33°) become J2000 L/ϖ/Ω: ϖ = ω + Ω =
+     * 169.75°, the period a^1.5 = 75.32 yr gives L̇ = 477.96°/cy, and the mean
+     * anomaly at J2000 is 66.4° — 13.89 years of mean motion since perihelion.
+     * `verify-cosmos` runs the elements backwards and demands the observed
+     * date and the observed 0.586 AU come out.
+     */
+    id: 'halley',
+    name: 'Halley’s Comet',
+    mass: 2.2e14,
+    radius: 5.5e3,
+    colour: '#b9c6c9',
+    comet: true,
+    a: [17.834, 0],
+    e: [0.96714, 0],
+    i: [162.26, 0],
+    L: [236.15, 477.96],
+    peri: [169.75, 0],
+    node: [58.42, 0],
+  },
+  /*
+   * Moons. Each carries `parent` (a rail id) and `moon`: the offset radius in
+   * metres, the sidereal period in seconds, and a phase in radians. JPL mean
+   * elements; the orbits are drawn circular, which for a beacon at a moon's
+   * distance is inside the error of the beacon itself. Phases are chosen to
+   * spread the moons around their planets, as SATELLITES does for the ISS.
+   */
+  {
+    id: 'phobos',
+    name: 'Phobos',
+    parent: 'mars',
+    mass: 1.0659e16,
+    radius: 11.267e3,
+    colour: '#8c8378',
+    moon: { a: 9.376e6, period: 7.65 * 3600, phase: 2.1 },
+  },
+  {
+    id: 'deimos',
+    name: 'Deimos',
+    parent: 'mars',
+    mass: 1.4762e15,
+    radius: 6.2e3,
+    colour: '#9a8f83',
+    moon: { a: 23.463e6, period: 30.3 * 3600, phase: 5.0 },
+  },
+  {
+    id: 'io',
+    name: 'Io',
+    parent: 'jupiter',
+    mass: 8.9319e22,
+    radius: 1821.6e3,
+    colour: '#d9c98a',
+    moon: { a: 421.7e6, period: 1.769138 * 86400, phase: 1.0 },
+  },
+  {
+    id: 'europa',
+    name: 'Europa',
+    parent: 'jupiter',
+    mass: 4.7998e22,
+    radius: 1560.8e3,
+    colour: '#c9c2b3',
+    moon: { a: 671.034e6, period: 3.551181 * 86400, phase: 3.4 },
+  },
+  {
+    id: 'ganymede',
+    name: 'Ganymede',
+    parent: 'jupiter',
+    mass: 1.4819e23,
+    radius: 2634.1e3,
+    colour: '#a89b8c',
+    moon: { a: 1070.412e6, period: 7.154553 * 86400, phase: 5.2 },
+  },
+  {
+    id: 'callisto',
+    name: 'Callisto',
+    parent: 'jupiter',
+    mass: 1.0759e23,
+    radius: 2410.3e3,
+    colour: '#8d8377',
+    moon: { a: 1882.709e6, period: 16.689 * 86400, phase: 0.4 },
+  },
+  {
+    id: 'titan',
+    name: 'Titan',
+    parent: 'saturn',
+    mass: 1.3452e23,
+    radius: 2574.7e3,
+    colour: '#c99a5c',
+    moon: { a: 1221.87e6, period: 15.9454 * 86400, phase: 2.6 },
+  },
 ]
+
+/**
+ * How many of the table's bodies pull on the craft. The seven planets above
+ * do; Pluto, Halley and the moons are sky — they are drawn and steered to but
+ * contribute no force, so adding a body here can never move a measured mission
+ * figure. system.js reads exactly this many slots as third-body gravity.
+ */
+export const FORCE_COUNT = 7
 
 export const RAIL_COUNT = RAILS.length
 export const RAIL_IDS = RAILS.map((r) => r.id)
@@ -170,6 +302,7 @@ export const RAIL_ELEMENTS = new Float64Array(RAIL_COUNT * 12)
 const EL = RAIL_ELEMENTS
 RAILS.forEach((p, k) => {
   const o = k * 12
+  if (p.parent) return // moons: no heliocentric elements, see MOON_EL
   EL[o] = p.a[0] * AU
   EL[o + 1] = p.a[1] * AU
   EL[o + 2] = p.e[0]
@@ -182,6 +315,26 @@ RAILS.forEach((p, k) => {
   EL[o + 9] = p.peri[1] * DEG
   EL[o + 10] = p.node[0] * DEG
   EL[o + 11] = p.node[1] * DEG
+})
+
+/**
+ * The moons, flat: [parentSlot, radius, angular rate, phase] per entry,
+ * parentSlot −1 where there is no parent. Same reasoning as RAIL_ELEMENTS —
+ * the frame path reads typed arrays only, so nothing here boxes a number.
+ * The offset is applied after the planets are placed, in the ecliptic fold
+ * (x, z, −y) the rest of the table uses.
+ */
+const MOON_EL = new Float64Array(RAIL_COUNT * 4)
+RAILS.forEach((p, k) => {
+  const o = k * 4
+  if (!p.parent) {
+    MOON_EL[o] = -1
+    return
+  }
+  MOON_EL[o] = RAIL_INDEX[p.parent]
+  MOON_EL[o + 1] = p.moon.a
+  MOON_EL[o + 2] = (Math.PI * 2) / p.moon.period
+  MOON_EL[o + 3] = p.moon.phase
 })
 
 const TWO_PI = Math.PI * 2
@@ -250,6 +403,23 @@ export function updateRails(t, into = railHelio) {
     into[oh + 1] = ez
     into[oh + 2] = -ey
   }
+
+  // Second pass: the moons ride their planets. Each is a circular offset in
+  // the ecliptic, folded like the rest — (x, z, −y) — so a moon lands in the
+  // same sky the planets were folded into. The parent's slot is written
+  // before any moon reads it: planets sort first in the table.
+  for (let k = 0; k < RAIL_COUNT; k++) {
+    const mo = k * 4
+    const ps = MOON_EL[mo]
+    if (ps < 0) continue
+    const a = MOON_EL[mo + 1]
+    const th = MOON_EL[mo + 3] + t * MOON_EL[mo + 2]
+    const oh = k * 3
+    const po = ps * 3
+    into[oh] = into[po] + a * Math.cos(th)
+    into[oh + 1] = into[po + 1]
+    into[oh + 2] = into[po + 2] - a * Math.sin(th)
+  }
 }
 
 /**
@@ -273,7 +443,13 @@ export function ownRails(from = null) {
   const helio = new Float64Array(RAIL_COUNT * 3)
   if (from) helio.set(from.helio)
   return {
-    count: RAIL_COUNT,
+    // FORCE_COUNT, not RAIL_COUNT — the same split system.js draws. A private
+    // table is a *force* model inside every solver; when the sky grew past the
+    // seven planets this said RAIL_COUNT and the moons and comets pulled on
+    // every shooting solution, which moved NRHO references by metres and made
+    // a 5 m keeping bound fail by 3 m. The buffer is still the whole sky; only
+    // the pulling stops early.
+    count: FORCE_COUNT,
     mu: RAIL_MU,
     helio,
     sunOffset: from ? from.sunOffset : 0,

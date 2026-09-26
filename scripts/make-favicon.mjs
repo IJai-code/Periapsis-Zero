@@ -1,10 +1,12 @@
 /**
  * The Periapsis Zero favicon, drawn by code rather than by hand.
  *
- * The mark: an orbital arc bending through a **periapsis tick** — a short
- * chevron that points at the curve exactly where it bends hardest — with a
- * filled dot riding the arc. The sim is named for that moment; the mark *is*
- * the name, drawn the way a trajectory chart marks it.
+ * The mark: a trajectory chart rendered as a mission patch. A shaded planet
+ * with a lit limb and a night side that falls into the ground; an orbit drawn
+ * as an honest ellipse with that planet at its focus; and at the one point the
+ * ellipse grazes the planet's limb — closest approach — an ember marker and
+ * the chart's chevron naming it. Periapsis. The sim is named for that moment;
+ * the mark *is* the name.
  *
  * Colour is the product's own: obsidian ground, a champagne hairline for the
  * orbit, an ember tick at closest approach. The values are converted from the
@@ -94,30 +96,57 @@ const EMBER_HEX = hex(EMBER)
 /**
  * One geometry, three renderers: the raster drawMark below, svgMark()'s
  * vectors, and the module brandModule() emits. Extracted so the three cannot
- * disagree — every coordinate the mark has is computed once here, from the
- * same fractions the raster has always used. Apex at 72% of the height, arms
- * leaving through the upper corners at 18%, `k` fixed by a parabola through
- * those two ordinates — k negative, since screen y grows downward and the
- * arms rise.
+ * disagree — every coordinate the mark has is computed once here.
+ *
+ * The composition is arithmetic, not taste: the orbit is an ellipse with the
+ * planet at its focus, offset by 0.115 S, semi-axes 0.375 S and 0.235 S — so
+ * its lower vertex lands at cy + 0.12 S against a planet of radius 0.13 S.
+ * Closest approach touches the limb: the periapsis marker sits on the planet's
+ * edge because that is where periapsis *is*. A contact achieved by the numbers
+ * holds at 16 px and at 512 without either being tuned for the other.
  */
 function geom(width, height) {
-  const cx = width * 0.5
-  const py = height * 0.72
-  const half = width * 0.78
-  const k = (height * 0.18 - py) / (half * half)
+  const S = Math.min(width, height)
+  const cx = 0.5 * S
+  const cy = 0.5 * S
   return {
+    S,
     cx,
-    py,
-    half,
-    k,
-    tick: width * 0.11,
-    tickDrop: 0.9,
-    tipY: py + Math.max(2, height * 0.062),
-    dotR: width * 0.058,
-    stroke: Math.max(1, width * 0.03),
-    tickStroke: Math.max(1, width * 0.038),
+    cy,
+    pr: 0.13 * S,
+    // The orbit: the planet sits at the focus, so the ellipse is lifted away
+    // from periapsis by c = 0.115 S.
+    ex: 0.5 * S,
+    ey: 0.5 * S - 0.115 * S,
+    ea: 0.375 * S,
+    eb: 0.235 * S,
+    periX: cx,
+    periY: cy + 0.12 * S,
+    periR: 0.03 * S,
+    strokeNear: Math.max(1, 0.028 * S),
+    strokeFar: Math.max(1, 0.02 * S),
+    tick: 0.085 * S,
+    tipY: cy + 0.205 * S,
+    tickStroke: Math.max(1, 0.032 * S),
   }
 }
+
+/**
+ * The stars: six, in the corners the ellipse leaves empty. Fractions of the
+ * frame and a radius at the 512 reference size, so one table feeds both
+ * renderers and the two cannot disagree about where the sky is.
+ */
+const STARS = [
+  [0.145, 0.155, 2.6, 0.75],
+  [0.845, 0.115, 1.9, 0.6],
+  [0.905, 0.34, 2.3, 0.7],
+  [0.085, 0.375, 1.7, 0.5],
+  [0.72, 0.875, 2.0, 0.55],
+  [0.185, 0.86, 1.6, 0.5],
+]
+
+/** Blend two [r,g,b] colours, t toward b. */
+const mix = (a, b, t) => [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t))
 
 function drawMark(width, height) {
   // Bytes, not doubles: the PNG encoder copies 4 bytes a pixel straight out of
@@ -183,48 +212,105 @@ function drawMark(width, height) {
     }
   }
 
-  /**
-   * The orbit: a parabola opening *up the screen* — apex at the periapsis at
-   * the bottom, arms rising and out through the upper corners.
-   *
-   * The first cut had this upside down: screen y grows downward, so "apex on
-   * top, arms falling away" was written as y = apexY − k t² and rendered as a
-   * V — a valley, which is the shape of a periapsis viewed from *inside* the
-   * orbit, not the way a trajectory chart draws one. A chart draws the swing-by
-   * from outside: the path dips *toward* the body it rounds and climbs away.
-   */
-  const { cx, py, half, k, tick, tipY, dotR, stroke, tickStroke } = geom(width, height)
-  const STEPS = 160
-  const at = (t) => [cx + t, py + k * t * t]
-
-  let prev = null
-  for (let i = 0; i <= STEPS; i++) {
-    const t = -half + (2 * half * i) / STEPS
-    const [x, y] = at(t)
-    if (prev) line(prev[0], prev[1], x, y, stroke, HUD)
-    prev = [x, y]
+  /** Soft radial falloff: a halo, a star's bloom, the marker's glow. */
+  const glow = (gx, gy, rad, rgb, alpha) => {
+    for (let y = Math.max(0, Math.floor(gy - rad * 2)); y <= Math.min(height - 1, Math.ceil(gy + rad * 2)); y++) {
+      for (let x = Math.max(0, Math.floor(gx - rad * 2)); x <= Math.min(width - 1, Math.ceil(gx + rad * 2)); x++) {
+        const d = Math.hypot(x + 0.5 - gx, y + 0.5 - gy) / rad
+        const a = alpha * Math.exp(-d * d * 2.2)
+        if (a > 0.003) put(x, y, rgb, a)
+      }
+    }
   }
 
+  const { S, cx, cy, pr, ex, ey, ea, eb, periX, periY, periR, strokeNear, strokeFar, tick, tipY, tickStroke } =
+    geom(width, height)
+
+  /*
+   * Drawn back to front: the field's halo, the stars, the far half of the
+   * orbit, the planet, the periapsis marker, the near half, the annotation.
+   */
+
+  // A halo behind the planet, biased to the light — a patch printed on a
+  // ground, not a hole punched in the page.
+  glow(cx - 0.06 * S, cy - 0.06 * S, 0.38 * S, HUD, 0.085)
+
+  for (const [fx, fy, fr, fa] of STARS) {
+    glow(fx * S, fy * S, (fr * S) / 512, HUD, fa * 0.5)
+    dot(fx * S, fy * S, (fr * S) / 512, HUD, fa)
+  }
+
+  /** The ellipse, sampled. from..to are radians; y grows downward. */
+  const arc = (from, to, w, rgb, alpha) => {
+    const STEPS = 140
+    let prev = null
+    for (let i = 0; i <= STEPS; i++) {
+      const th = from + ((to - from) * i) / STEPS
+      const x = ex + ea * Math.cos(th)
+      const y = ey + eb * Math.sin(th)
+      if (prev) line(prev[0], prev[1], x, y, w, rgb, alpha)
+      prev = [x, y]
+    }
+  }
+
+  // The far half: behind everything, and the drawing says so — thinner, dimmer.
+  arc(Math.PI, 2 * Math.PI, strokeFar, HUD, 0.45)
+
   /**
-   * The periapsis tick: a small ember chevron seated in the crook *under* the
-   * bend, pointing up at it — the annotation a chart puts on the moment of
-   * closest approach. Its tip clears the curve by a couple of pixel-widths so
-   * the two never touch: an annotation points, it does not merge. Sized as
-   * fractions of the frame, identical at 16 px and 512 px.
+   * The planet: a lit sphere, per pixel.
+   *
+   * Lambert from the upper left; a night side with just enough ambient to keep
+   * its shape before it falls into the ground; two darker mottles so the sphere
+   * is a world and not a ball; and a sunward atmosphere limb — the fresnel
+   * crescent every photograph of a planet against black carries. The edge is
+   * coverage-antialiased like the strokes: half a pixel in, half out.
+   */
+  const L = (() => {
+    const v = [-0.55, -0.62, 0.56]
+    const n = Math.hypot(v[0], v[1], v[2])
+    return v.map((u) => u / n)
+  })()
+  const rMax = pr + 1
+  for (let y = Math.max(0, Math.floor(cy - rMax)); y <= Math.min(height - 1, Math.ceil(cy + rMax)); y++) {
+    for (let x = Math.max(0, Math.floor(cx - rMax)); x <= Math.min(width - 1, Math.ceil(cx + rMax)); x++) {
+      const dx = (x + 0.5 - cx) / pr
+      const dy = (y + 0.5 - cy) / pr
+      const rad = Math.hypot(dx, dy)
+      const cov = Math.min(1, Math.max(0, (1 - rad) * pr + 0.5))
+      if (cov <= 0) continue
+      const z = Math.sqrt(Math.max(0, 1 - rad * rad))
+      const lam = Math.max(0, dx * L[0] + dy * L[1] + z * L[2])
+      const m1 = Math.exp(-(((dx - 0.32) ** 2 + (dy + 0.28) ** 2) / 0.16))
+      const m2 = Math.exp(-(((dx + 0.38) ** 2 + (dy - 0.12) ** 2) / 0.1))
+      const albedo = 0.66 * (1 - 0.16 * m1 - 0.11 * m2)
+      const ambient = 0.075
+      const rim = Math.pow(1 - z, 3.2) * (0.3 + 0.7 * lam)
+      const lit = albedo * (ambient + 1.02 * lam)
+      const rgb = [
+        HUD[0] * lit + HUD[0] * rim * 0.9,
+        HUD[1] * lit + HUD[1] * rim * 0.82,
+        HUD[2] * lit + HUD[2] * rim * 0.62,
+      ]
+      put(x, y, rgb, cov)
+    }
+  }
+
+  // The near half, over the planet where they meet: the closest thing in the
+  // picture. Drawn before the marker so the ember point caps the arc exactly
+  // where closest approach happens — the marker is *on* the orbit, at the
+  // moment the sim is named for, and a probe at that point reads ember.
+  arc(0, Math.PI, strokeNear, HUD, 1)
+
+  // Periapsis: the marker on the limb, with the glow a hot point carries.
+  glow(periX, periY, periR * 3, EMBER, 0.4)
+  dot(periX, periY, periR, EMBER, 1)
+
+  /**
+   * The periapsis tick: the chart's chevron, seated below the marker and
+   * pointing up at it — an annotation points, it does not touch.
    */
   line(cx, tipY, cx - tick, tipY + tick * 0.9, tickStroke, EMBER)
   line(cx, tipY, cx + tick, tipY + tick * 0.9, tickStroke, EMBER)
-
-  /**
-   * The orbiting body, at periapsis itself.
-   *
-   * It used to ride the arc at an arbitrary point, where it merged with the
-   * hairline and read as a thickening. At the periapsis it is the third part
-   * of one sentence: the trajectory bends, the body is where it bends, the
-   * ember tick names the moment. That is the whole name of the sim, and the
-   * mark needs nothing else.
-   */
-  dot(cx, py, dotR, HUD, 1)
 
   return px
 }
@@ -237,23 +323,60 @@ function drawMark(width, height) {
 
 const f = (n) => (Math.round(n * 100) / 100).toString()
 
+/** The two ellipse halves as SVG arcs: the far (upper) and near (lower) paths. */
+function orbitPaths(g) {
+  const x0 = g.ex - g.ea
+  const x1 = g.ex + g.ea
+  return {
+    // sweep 1 turns through the top (y down), sweep 0 through the bottom.
+    far: `M ${f(x0)} ${f(g.ey)} A ${f(g.ea)} ${f(g.eb)} 0 0 1 ${f(x1)} ${f(g.ey)}`,
+    near: `M ${f(x0)} ${f(g.ey)} A ${f(g.ea)} ${f(g.eb)} 0 0 0 ${f(x1)} ${f(g.ey)}`,
+  }
+}
+
 function svgMark(size) {
-  const { cx, py, half, k, tick, tipY, dotR, stroke, tickStroke } = geom(size, size)
-  const x0 = cx - half
-  const x2 = cx + half
-  const yEnd = py + k * half * half
-  const cyControl = 2 * py - yEnd // C = 2·apex − midpoint of the endpoints (x is cx by symmetry)
-  const d = `M ${f(x0)} ${f(yEnd)} Q ${f(cx)} ${f(cyControl)} ${f(x2)} ${f(yEnd)}`
+  const g = geom(size, size)
+  const { far, near } = orbitPaths(g)
   const arms = [
-    `M ${f(cx)} ${f(tipY)} L ${f(cx - tick)} ${f(tipY + tick * 0.9)}`,
-    `M ${f(cx)} ${f(tipY)} L ${f(cx + tick)} ${f(tipY + tick * 0.9)}`,
+    `M ${f(g.cx)} ${f(g.tipY)} L ${f(g.cx - g.tick)} ${f(g.tipY + g.tick * 0.9)}`,
+    `M ${f(g.cx)} ${f(g.tipY)} L ${f(g.cx + g.tick)} ${f(g.tipY + g.tick * 0.9)}`,
   ].join(' ')
+  // The raster's Lambert is a gradient here: the key light sits upper-left,
+  // the night side falls to the ground colour at the rim.
+  const tint = hex(mix(HUD, [255, 255, 255], 0.22))
+  const mid = hex(mix(HUD, OBSIDIAN, 0.35))
+  const night = hex(mix(HUD, OBSIDIAN, 0.86))
+  const stars = STARS.map(
+    ([fx, fy, fr, fa]) =>
+      `  <circle cx="${f(fx * size)}" cy="${f(fy * size)}" r="${f((fr * size) / 512)}" fill="${HUD_HEX}" opacity="${f(fa)}"/>`,
+  ).join('\n')
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Periapsis Zero">`,
+    '  <defs>',
+    `    <radialGradient id="pz-halo" cx="0.44" cy="0.43" r="0.52">`,
+    `      <stop offset="0" stop-color="${HUD_HEX}" stop-opacity="0.16"/>`,
+    `      <stop offset="1" stop-color="${HUD_HEX}" stop-opacity="0"/>`,
+    '    </radialGradient>',
+    `    <radialGradient id="pz-planet" cx="0.36" cy="0.30" r="0.92">`,
+    `      <stop offset="0" stop-color="${tint}"/>`,
+    `      <stop offset="0.52" stop-color="${mid}"/>`,
+    `      <stop offset="1" stop-color="${night}"/>`,
+    '    </radialGradient>',
+    `    <radialGradient id="pz-peri">`,
+    `      <stop offset="0" stop-color="${EMBER_HEX}" stop-opacity="0.55"/>`,
+    `      <stop offset="1" stop-color="${EMBER_HEX}" stop-opacity="0"/>`,
+    '    </radialGradient>',
+    '  </defs>',
     `  <rect width="${size}" height="${size}" fill="${OBSIDIAN_HEX}"/>`,
-    `  <path d="${d}" fill="none" stroke="${HUD_HEX}" stroke-width="${f(stroke)}" stroke-linecap="round"/>`,
-    `  <path d="${arms}" fill="none" stroke="${EMBER_HEX}" stroke-width="${f(tickStroke)}" stroke-linecap="round"/>`,
-    `  <circle cx="${f(cx)}" cy="${f(py)}" r="${f(dotR)}" fill="${HUD_HEX}"/>`,
+    `  <rect width="${size}" height="${size}" fill="url(#pz-halo)"/>`,
+    stars,
+    `  <path id="orbit-far" d="${far}" fill="none" stroke="${HUD_HEX}" stroke-width="${f(g.strokeFar)}" stroke-linecap="round" opacity="0.45"/>`,
+    `  <circle cx="${f(g.cx)}" cy="${f(g.cy)}" r="${f(g.pr)}" fill="url(#pz-planet)"/>`,
+    `  <circle cx="${f(g.cx)}" cy="${f(g.cy)}" r="${f(g.pr)}" fill="none" stroke="${tint}" stroke-width="${f(Math.max(1, g.S * 0.005))}" opacity="0.35"/>`,
+    `  <circle cx="${f(g.periX)}" cy="${f(g.periY)}" r="${f(g.periR * 3)}" fill="url(#pz-peri)"/>`,
+    `  <circle cx="${f(g.periX)}" cy="${f(g.periY)}" r="${f(g.periR)}" fill="${EMBER_HEX}"/>`,
+    `  <path id="orbit-near" d="${near}" fill="none" stroke="${HUD_HEX}" stroke-width="${f(g.strokeNear)}" stroke-linecap="round"/>`,
+    `  <path d="${arms}" fill="none" stroke="${EMBER_HEX}" stroke-width="${f(g.tickStroke)}" stroke-linecap="round"/>`,
     `</svg>`,
     '',
   ].join('\n')
@@ -386,10 +509,11 @@ function encodeIco(images) {
 
 function brandModule() {
   const g = geom(512, 512)
-  const x0 = g.cx - g.half
-  const x2 = g.cx + g.half
-  const yEnd = g.py + g.k * g.half * g.half
-  const cY = 2 * g.py - yEnd
+  const { far, near } = orbitPaths(g)
+  const tint = hex(mix(HUD, [255, 255, 255], 0.22))
+  const mid = hex(mix(HUD, OBSIDIAN, 0.35))
+  const night = hex(mix(HUD, OBSIDIAN, 0.86))
+  const stars = STARS.map(([fx, fy, fr, fa]) => `[${f(fx * 512)}, ${f(fy * 512)}, ${f((fr * 512) / 512)}, ${f(fa)}]`)
   return `// Generated by scripts/make-favicon.mjs — the mark's geometry and palette as
 // code, the single source the favicon set, mark.svg and the boot splash are
 // all drawn from. Edit the drawing there and re-run \`npm run icons\`; do not
@@ -400,14 +524,24 @@ export const MARK = {
   ground: '${OBSIDIAN_HEX}',
   hud: '${HUD_HEX}',
   ember: '${EMBER_HEX}',
-  arc: 'M ${f(x0)} ${f(yEnd)} Q ${f(g.cx)} ${f(cY)} ${f(x2)} ${f(yEnd)}',
+  // The planet's gradient: lit upper-left, night side toward the ground.
+  tint: '${tint}',
+  mid: '${mid}',
+  night: '${night}',
+  planet: { cx: ${f(g.cx)}, cy: ${f(g.cy)}, r: ${f(g.pr)} },
+  orbit: { cx: ${f(g.ex)}, cy: ${f(g.ey)}, a: ${f(g.ea)}, b: ${f(g.eb)} },
+  orbitFar: '${far}',
+  orbitNear: '${near}',
+  orbitFarWidth: ${f(g.strokeFar)},
+  orbitNearWidth: ${f(g.strokeNear)},
+  periapsis: { cx: ${f(g.periX)}, cy: ${f(g.periY)}, r: ${f(g.periR)} },
   tick: [
     'M ${f(g.cx)} ${f(g.tipY)} L ${f(g.cx - g.tick)} ${f(g.tipY + g.tick * 0.9)}',
     'M ${f(g.cx)} ${f(g.tipY)} L ${f(g.cx + g.tick)} ${f(g.tipY + g.tick * 0.9)}',
   ],
-  dot: { cx: ${f(g.cx)}, cy: ${f(g.py)}, r: ${f(g.dotR)} },
-  arcWidth: ${f(g.stroke)},
   tickWidth: ${f(g.tickStroke)},
+  // [x, y, radius, opacity] at the 512 reference size.
+  stars: [${stars.join(', ')}],
 }
 `
 }
@@ -544,14 +678,14 @@ if (CHECK) {
   } else {
     console.log(`  ok       favicon.ico carries ${sizes.join('/')}`)
   }
-  // brand.js must carry the same arc and palette the SVG was drawn with.
+  // brand.js must carry the same orbit and palette the SVG was drawn with.
   const brand = readFileSync(BRAND, 'utf8')
   const svg = svgMark(512)
-  const dOnDisk = brand.match(/arc: '([^']+)'/)?.[1]
-  const dAsDrawn = svg.match(/d="([^"]+)"/)?.[1]
+  const dOnDisk = brand.match(/orbitNear: '([^']+)'/)?.[1]
+  const dAsDrawn = svg.match(/id="orbit-near" d="([^"]+)"/)?.[1]
   if (dOnDisk !== dAsDrawn || !brand.includes(`hud: '${HUD_HEX}'`) || !brand.includes(`ember: '${EMBER_HEX}'`)) {
     ok = false
-    console.log(`  STALE    ${BRAND} (arc or palette differs from the drawing)`)
+    console.log(`  STALE    ${BRAND} (orbit or palette differs from the drawing)`)
   } else {
     console.log(`  ok       ${BRAND}`)
   }

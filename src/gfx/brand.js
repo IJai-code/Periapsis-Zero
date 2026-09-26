@@ -8,12 +8,22 @@ export const MARK = {
   ground: '#080a0d',
   hud: '#d5c6a1',
   ember: '#d7733e',
-  arc: 'M -143.36 92.16 Q 256 645.12 655.36 92.16',
+  // The planet's gradient: lit upper-left, night side toward the ground.
+  tint: '#ded3b6',
+  mid: '#8d846d',
+  night: '#252422',
+  planet: { cx: 256, cy: 256, r: 66.56 },
+  orbit: { cx: 256, cy: 197.12, a: 192, b: 120.32 },
+  orbitFar: 'M 64 197.12 A 192 120.32 0 0 1 448 197.12',
+  orbitNear: 'M 64 197.12 A 192 120.32 0 0 0 448 197.12',
+  orbitFarWidth: 10.24,
+  orbitNearWidth: 14.34,
+  periapsis: { cx: 256, cy: 317.44, r: 15.36 },
   tick: [
-    'M 256 400.38 L 199.68 451.07',
-    'M 256 400.38 L 312.32 451.07',
+    'M 256 360.96 L 212.48 400.13',
+    'M 256 360.96 L 299.52 400.13',
   ],
-  dot: { cx: 256, cy: 368.64, r: 29.7 },
-  arcWidth: 15.36,
-  tickWidth: 19.46,
+  tickWidth: 16.38,
+  // [x, y, radius, opacity] at the 512 reference size.
+  stars: [[74.24, 79.36, 2.6, 0.75], [432.64, 58.88, 1.9, 0.6], [463.36, 174.08, 2.3, 0.7], [43.52, 192, 1.7, 0.5], [368.64, 448, 2, 0.55], [94.72, 440.32, 1.6, 0.5]],
 }

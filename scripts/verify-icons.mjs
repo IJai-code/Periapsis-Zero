@@ -89,14 +89,22 @@ try {
   fail(`site.webmanifest unreadable: ${e.message}`)
 }
 
-/* 4. brand.js is importable and carries one arc, two tick strokes, one dot. */
+/* 4. brand.js is importable and carries the mark's full shape. */
 try {
   const { MARK } = await import(join(ROOT, 'src/gfx/brand.js'))
-  const oneArc = typeof MARK.arc === 'string' && MARK.arc.startsWith('M ') && MARK.arc.includes('Q ')
+  const orbit =
+    typeof MARK.orbitNear === 'string' &&
+    MARK.orbitNear.startsWith('M ') &&
+    MARK.orbitNear.includes('A ') &&
+    typeof MARK.orbitFar === 'string' &&
+    MARK.orbitFar.includes('A ')
+  const planet = MARK.planet && MARK.planet.r > 0
+  const periapsis = MARK.periapsis && MARK.periapsis.r > 0
   const twoTicks = Array.isArray(MARK.tick) && MARK.tick.length === 2
-  const dot = MARK.dot && MARK.dot.r > 0
-  if (oneArc && twoTicks && dot) pass(`brand.js imports clean (arc, 2 ticks, dot r=${MARK.dot.r})`)
-  else fail(`brand.js shape wrong: arc=${oneArc} ticks=${twoTicks} dot=${dot}`)
+  const stars = Array.isArray(MARK.stars) && MARK.stars.length > 0
+  if (orbit && planet && periapsis && twoTicks && stars)
+    pass(`brand.js imports clean (orbit, planet r=${MARK.planet.r}, periapsis r=${MARK.periapsis.r}, ${MARK.stars.length} stars, 2 ticks)`)
+  else fail(`brand.js shape wrong: orbit=${orbit} planet=${planet} periapsis=${periapsis} ticks=${twoTicks} stars=${stars}`)
 } catch (e) {
   fail(`brand.js does not import: ${e.message}`)
 }

@@ -6,6 +6,10 @@ import { MARK } from '../gfx/brand.js'
  * scripts/make-favicon.mjs, so this cannot drift from the tab icon without
  * verify-icons going red.
  *
+ * The drawing is layered like the raster: field halo, stars, the orbit's far
+ * half, the planet as a gradient sphere with its limb, the periapsis marker
+ * and its glow, the orbit's near half, and the chevron that names the moment.
+ *
  * `plain` drops the obsidian tile: the HUD sits on the live sim, and a dark
  * square behind the lockup would print a box on the sky. The tile stays on
  * for the landing screen and the loading view, which stand on real surfaces.
@@ -20,12 +24,51 @@ export function Mark({ size = 24, plain = true, className = '' }) {
       role="img"
       aria-label="Periapsis Zero"
     >
+      <defs>
+        <radialGradient id="pz-planet" cx="0.36" cy="0.30" r="0.92">
+          <stop offset="0" stopColor={MARK.tint} />
+          <stop offset="0.52" stopColor={MARK.mid} />
+          <stop offset="1" stopColor={MARK.night} />
+        </radialGradient>
+        <radialGradient id="pz-peri">
+          <stop offset="0" stopColor={MARK.ember} stopOpacity="0.55" />
+          <stop offset="1" stopColor={MARK.ember} stopOpacity="0" />
+        </radialGradient>
+      </defs>
       {plain ? null : <rect width="512" height="512" fill={MARK.ground} />}
-      <path d={MARK.arc} fill="none" stroke={MARK.hud} strokeWidth={MARK.arcWidth} strokeLinecap="round" />
+      {MARK.stars.map(([x, y, r, opacity]) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill={MARK.hud} opacity={opacity} />
+      ))}
+      <path
+        d={MARK.orbitFar}
+        fill="none"
+        stroke={MARK.hud}
+        strokeWidth={MARK.orbitFarWidth}
+        strokeLinecap="round"
+        opacity="0.45"
+      />
+      <circle cx={MARK.planet.cx} cy={MARK.planet.cy} r={MARK.planet.r} fill="url(#pz-planet)" />
+      <circle
+        cx={MARK.planet.cx}
+        cy={MARK.planet.cy}
+        r={MARK.planet.r}
+        fill="none"
+        stroke={MARK.tint}
+        strokeWidth="2.56"
+        opacity="0.35"
+      />
+      <circle cx={MARK.periapsis.cx} cy={MARK.periapsis.cy} r={MARK.periapsis.r * 3} fill="url(#pz-peri)" />
+      <circle cx={MARK.periapsis.cx} cy={MARK.periapsis.cy} r={MARK.periapsis.r} fill={MARK.ember} />
+      <path
+        d={MARK.orbitNear}
+        fill="none"
+        stroke={MARK.hud}
+        strokeWidth={MARK.orbitNearWidth}
+        strokeLinecap="round"
+      />
       {MARK.tick.map((d) => (
         <path key={d} d={d} fill="none" stroke={MARK.ember} strokeWidth={MARK.tickWidth} strokeLinecap="round" />
       ))}
-      <circle cx={MARK.dot.cx} cy={MARK.dot.cy} r={MARK.dot.r} fill={MARK.hud} />
     </svg>
   )
 }

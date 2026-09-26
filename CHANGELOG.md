@@ -7,6 +7,15 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ### Fixed
 
+**The sky pulled on every solver.** `ownRails` — the private rails table each
+shooting solver runs against — read `count: RAIL_COUNT`, so the day the table
+outgrew the seven planets the moons and comets began contributing *gravity*
+inside every capture, halo and keeping solve. Measured: an NRHO reference that
+should hold within 5 m drifted 7.94 m at one apolune; with the split restored
+it holds 0.08–0.75 m. The force/sky boundary is now drawn in one place
+(`FORCE_COUNT` in `rails.js`, read by `system.js` and `ownRails` alike), and
+`verify-cosmos` asserts the sky pulls on nothing.
+
 **The halo capture never ran.** `shootHalo` records the field it solved against on
 the returned reference, and a rails table carries its `refresh` as a closure —
 which structured clone does not degrade but *throws* on. The capture is solved in
@@ -51,6 +60,28 @@ that is the shot both `COAST_TO_APOAPSIS` and `CIRCULARISE` are cut to. The gap
 decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
+
+**A premium mark** (`scripts/make-favicon.mjs`, `src/gfx/brand.js`,
+`src/ui/Mark.jsx`) — the line-and-dot drawing is replaced by a mission-patch
+composition: a per-pixel Lambert-shaded planet with surface mottles, a night
+side that falls into the ground, and a sunward atmosphere limb; an honest
+ellipse with the planet at its focus, its lower vertex grazing the planet's
+limb by construction (cy + 0.12 S against r = 0.13 S) — closest approach,
+with the ember marker on the contact point and the chart's chevron naming it;
+six stars and a halo behind the body. The SVG is layered to match (radial
+gradients for the planet and the marker's glow), `brand.js` carries the full
+shape, and `verify-icons` validates the new schema. Probes at 512 and 16 px
+both read: the periapsis point measures exact ember, the limb lit and dark.
+
+**A wider cosmos** (`src/sim/rails.js`, `src/components/Planets.jsx`) —
+Pluto (the Standish table the planets already come from), Halley's Comet
+(anchored to its observed 1986 perihelion), and seven moons — Phobos, Deimos,
+the four Galileans and Titan — ride their planets as circular offsets with
+JPL mean elements. All of it is *sky*: drawn, labelled, steerable as a camera
+target, and pulling on nothing (`FORCE_COUNT` — see Fixed). Halley carries a
+three-layer additive tail that points anti-sunward and breathes with solar
+distance. The belt stays out: its J2000 mean anomalies are not in the sources
+reachable here, and a beacon in the wrong place is worse than none.
 
 **The world around the pad** (`src/gfx/siteSurround.js`,
 `src/components/SiteSurround.jsx`, `Terrain.jsx`) — each Earth complex gains
@@ -458,6 +489,17 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-cosmos` (8 checks) joins the suite — 48 of 48.** Holds the sky
+  against observed facts rather than against itself: Halley's elements must
+  walk the Kepler machinery back to its observed perihelion of **1986-02-09**
+  (found within 0.31 d) and its observed **0.5860 AU**; Pluto's mean motion
+  must give its **248.0-year** period; every moon's offset and period must
+  match the measured orbit; and the force/sky split must hold — exactly seven
+  pullers, sky pulls on nothing. `verify-rails` was taught the same boundary
+  (moons are planetocentric, not solar conics; the small-e mean-speed series
+  has no authority at Halley's e = 0.967 and gets no column there), and
+  `verify-icons` validates the new mark's schema.
 
 - **`verify-surround` (21 checks) joins the suite — 47 of 47.** Builds every
   site's surroundings under Node against a *sloped* heightfield and asserts the

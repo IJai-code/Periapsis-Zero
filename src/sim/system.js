@@ -12,7 +12,7 @@ import {
 } from './constants.js'
 import { RK4NBody } from './rk4.js'
 import { OMEGA, dragCoefficient } from './atmosphere.js'
-import { RAIL_COUNT, RAIL_MU, RAIL_REFRESH, railHelio, updateRails } from './rails.js'
+import { FORCE_COUNT, RAIL_MU, RAIL_REFRESH, railHelio, updateRails } from './rails.js'
 import { EARTH_FIELD } from './prem.js'
 import { activeSite, clampToSite } from './launchsite.js'
 
@@ -227,9 +227,14 @@ export function createSimulation() {
    * Installed here rather than built into the integrator, so the integrator
    * stays a closed n-body solver and a test that wants the three-body solution
    * alone can have it by leaving this off.
+   *
+   * `count` is FORCE_COUNT, not RAIL_COUNT: the table's tail — Pluto, Halley,
+   * the moons — is sky, drawn and steered to but pulling on nothing. The force
+   * model is exactly the seven planets it has always been, so no body ever
+   * added to the sky can move a measured mission figure.
    */
   sim.rails = {
-    count: RAIL_COUNT,
+    count: FORCE_COUNT,
     mu: RAIL_MU,
     helio: railHelio,
     sunOffset: ORDER.indexOf('sun') * 6,
