@@ -64,7 +64,14 @@ export function Scene({ textures }) {
    * The map and the Moon views still carry it.
    */
   const lunarChase = useUi((s) => s.focus === 'chase') && Boolean(SHIP.lunar)
-  const bare = cinematic || ground || lunarChase
+  /**
+   * Nor the mission intro. The flight is the film's own — trails, name tags,
+   * predicted paths and the map overlay are all the instrument panel reaching
+   * into it. Unlike the opening shot it keeps the planets and the terrain:
+   * crossing those is what the flight is for.
+   */
+  const intro = useUi((s) => s.focus === 'intro')
+  const bare = cinematic || ground || lunarChase || intro
   const active = useActiveTextures(textures)
 
   return (
@@ -93,7 +100,7 @@ export function Scene({ textures }) {
       {CRAFT.target && <Craft id="target" />}
       <ShipControls />
 
-      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase} />
+      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase && !intro} />
       {FLEET_TRAILS.map((t) => (
         <Trail
           key={t.body}
@@ -105,7 +112,7 @@ export function Scene({ textures }) {
           head={t.head}
           tail={t.tail}
           width={1.1}
-          visible={trails && !ground && !lunarChase}
+          visible={trails && !ground && !lunarChase && !intro}
         />
       ))}
       <Trail
@@ -117,12 +124,12 @@ export function Scene({ textures }) {
         head="#cfc8bd"
         tail="#33302b"
         width={1.4}
-        visible={trails && !ground && !lunarChase}
+        visible={trails && !ground && !lunarChase && !intro}
       />
 
       {!bare && <Trajectory />}
       {!bare && <Osculating />}
-      {!cinematic && <MapOverlay />}
+      {!cinematic && !intro && <MapOverlay />}
       {!bare && <Markers />}
       {!cinematic && <Planets />}
       {!cinematic && <Terrain />}

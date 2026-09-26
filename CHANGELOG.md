@@ -61,6 +61,35 @@ decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
 
+**The mission intro** (`src/gfx/introFlights.js`, `src/ui/MissionIntro.jsx`,
+`src/sfx/music.js`) — every mission now opens like the reference film: a black
+curtain holding the mission's name and its own numbers, one continuous
+42-second camera flight from half an AU out down to the hull, the dossier's
+pages turning on the flight's beats, and the score swelling at the reveals.
+Nothing is recorded — the camera flies the live scene, so the flight is sharp
+at any resolution, and it lands exactly where the mission hands over, on the
+frame the fast-forward left. The path is four quadratic Béziers (a Catmull-Rom
+through anchors four decades apart borrows its tangent from the AU-long leg
+and is flung through the planet it approaches; a Bézier cannot leave the hull
+of its own three points), the anchors are taken from the live ephemeris in
+**absolute** coordinates with the sim paused through the flight, and the frame
+path allocates nothing. The settle is built around the vehicle's *host* world
+— at a near-side lunar site the Earth's radial points into the Moon, which
+buried Eagle's intro 600 m underground until `verify-intro` caught it. Each of
+the nine dossiers carries five title beats and a spec table of the flight's
+own numbers — the vehicle, the window, the measured waits and burns.
+
+**Cosmic music** (`src/sfx/music.js`) — a generative score on the engine's own
+AudioContext, no sound files: per-mission profiles (ascent, lunar, rendezvous,
+arrival, deep, vigil, departure, return, fire — each a root and a mode), two
+detuned saws under a low filter, four triangle voices gliding sevenths with
+`setTargetAtTime`, a sub swell felt before it is heard, and shimmer plucks
+echoing through a ping-pong delay into a synthesised reverb. Cues (`reveal`,
+`tension`, `swell`, `hold`) only move targets; `musicTick` eases them in the
+frame path and mutates AudioParams only. The gesture that begins the flight is
+the gesture that unlocks the sound, and the score carries on under the mission
+after the film ends.
+
 **A premium mark** (`scripts/make-favicon.mjs`, `src/gfx/brand.js`,
 `src/ui/Mark.jsx`) — the line-and-dot drawing is replaced by a mission-patch
 composition: a per-pixel Lambert-shaded planet with surface mottles, a night
@@ -489,6 +518,18 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-intro` (45 checks) joins the suite — 49 of 49.** Drives the whole
+  intro flight for every dossier under Node and asserts what the shot
+  promises: the camera never enters anything drawn — swept over four lunar
+  phases and four hand-over worlds (the pad, both lunar hemispheres, lunar
+  orbit), which is the sweep that caught the settle direction burying Eagle's
+  intro 600 m inside a near-side Moon; the absolute flight is invariant under
+  floating-origin moves to under a micron; it opens ≥ 0.4 AU from the Sun and
+  settles `arc.settle` off the hull *above* the host world's horizon; the lens
+  tightens 52° → 40°; every page turns in order; and the `viaMoon` arcs really
+  pass the Moon. Falsified before use: restoring the Earth-radial settle puts
+  the camera 3 km inside the Moon and reds the gate on the first dossier.
 
 - **`verify-cosmos` (8 checks) joins the suite — 48 of 48.** Holds the sky
   against observed facts rather than against itself: Halley's elements must

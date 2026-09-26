@@ -392,7 +392,18 @@ export function Driver() {
     const flying = focus === 'fly'
     const originBody = flying
       ? (live.nearest.id ?? 'earth')
-      : focus === 'node'
+      : focus === 'intro'
+        ? /*
+         * The intro flight crosses fourteen decades in one shot — half an AU
+         * out to a hull — and no single origin serves both ends of that. So
+         * the origin rides the nearest drawn surface exactly as free flight
+         * does: the Sun while the flight is among the planets, Earth on the
+         * way in, the vehicle on the settle. Shaders are why it matters —
+         * `cameraPosition` is float32, and an AU of offset quantises it into
+         * 8 km steps over a vehicle metres across.
+         */
+          (live.nearest.id ?? 'sun')
+        : focus === 'node'
         ? // A node is a point in a body's frame, so the origin belongs on that
           // body — not on the node, which would make the rest of the scene
           // shift under a point the pilot is trying to read.

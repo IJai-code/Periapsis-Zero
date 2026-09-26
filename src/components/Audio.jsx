@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { setAudioEnabled, unlockAudio, updateAudio } from '../sfx/engine.js'
+import { musicTick } from '../sfx/music.js'
 import { uiStore, useUi } from '../sim/store.js'
 
 /**
@@ -37,8 +38,16 @@ export function Audio() {
     return off
   }, [])
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     updateAudio(uiStore.get().paused ? 0 : 1)
+    /**
+     * The score rides the same loop, at the same priority — after the physics,
+     * before the render. It follows the sound toggle rather than the pause
+     * flag: the mission intro is paused by design and is exactly when the score
+     * is most wanted. `musicTick` is a no-op until `startMusic`, so this costs
+     * a boolean test on every other frame of the product.
+     */
+    musicTick(Math.min(delta, 1 / 20), uiStore.get().audio ? 1 : 0)
   }, -1)
 
   return null

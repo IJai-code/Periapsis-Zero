@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
 import { Scene } from './components/Scene.jsx'
@@ -10,6 +10,8 @@ import { setUi } from './sim/store.js'
 import { requestedPreset, startPreset } from './sim/presets.js'
 import { MissionLibrary } from './ui/MissionLibrary.jsx'
 import { Guide, guideShouldOpen } from './ui/Guide.jsx'
+import { MissionIntro } from './ui/MissionIntro.jsx'
+import { introEnd } from './gfx/introFlights.js'
 import { unlockAudio } from './sfx/engine.js'
 
 /**
@@ -30,6 +32,9 @@ export default function App() {
   // here because both steer or span the same shared scene from either half.
   const [guide, setGuide] = useState(guideShouldOpen)
   const [library, setLibrary] = useState(false)
+  /** The mission intro, while one is being shown: the preset and where it lands. */
+  const [intro, setIntro] = useState(null)
+  const introRef = useRef(null)
 
   useEffect(() => {
     const onHash = () => setFlight(isFlight())
@@ -59,6 +64,25 @@ export default function App() {
    * opens paused and the driver waits for the assets, so nothing else has touched
    * the simulation yet. Then the dial is handed over and the flight plays.
    */
+  /**
+   * The hand-off: the intro settles, the mission takes the screen.
+   *
+   * The sim was paused through the flight so the sky the camera crossed would
+   * hold still; it starts again here, on the exact frame the fast-forward left
+   * — T-60 on the pad, or ignition, or a mile from Columbia. The director was
+   * never released, and its standing request has not changed since the frame
+   * loop mounted, so nothing cuts away from the shot being handed over.
+   */
+  const introDone = useCallback(() => {
+    const cur = introRef.current
+    introRef.current = null
+    setIntro(null)
+    if (cur) {
+      introEnd()
+      setUi({ warp: cur.warp, paused: false, focus: cur.focus })
+    }
+  }, [])
+
   useEffect(() => {
     const preset = requestedPreset()
     if (!preset) return
@@ -76,6 +100,20 @@ export default function App() {
      * already equals it, so no cut is triggered and the pilot keeps the camera
      * from the next phase boundary on, exactly as before.
      */
+    /**
+     * In flight, a preset gets the film first: the curtain, the dossier's
+     * pages, one continuous flight through the real system, and then the
+     * mission on the frame the fast-forward left it. The sim stays paused
+     * through the flight — the anchors are taken from the live ephemeris and
+     * the sky has to hold still while the camera crosses it — and starts on
+     * the hand-off above.
+     */
+    if (isFlight()) {
+      introRef.current = { preset, focus: run.focus ?? 'earth', warp: run.warp }
+      setIntro(introRef.current)
+      setUi({ warp: run.warp, paused: true, focus: 'intro' })
+      return
+    }
     setUi({ warp: run.warp, paused: false, ...(run.focus ? { focus: run.focus } : {}) })
   }, [])
 
@@ -133,7 +171,17 @@ export default function App() {
       </Canvas>
 
       {flight ? (
-        assets.ready && <Hud />
+        assets.ready &&
+        (intro ? (
+          <MissionIntro
+            preset={intro.preset}
+            finalFocus={intro.focus}
+            onBegin={introDone}
+            onSkip={introDone}
+          />
+        ) : (
+          <Hud />
+        ))
       ) : (
         <Landing
           ready={assets.ready}

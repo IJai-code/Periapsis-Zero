@@ -21,6 +21,7 @@ import {
   zoomSpeedFor,
 } from '../gfx/framing.js'
 import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
+import { INTRO, introStep } from '../gfx/introFlights.js'
 import { mission } from '../sim/mission.js'
 import { MAX_NODE_FRAMES, plan, prediction } from '../sim/predict.js'
 import { selectedNode } from '../sim/nodes.js'
@@ -424,13 +425,14 @@ export function CameraRig() {
       focus !== 'pad' &&
       focus !== 'ground' &&
       focus !== 'fly' &&
-      focus !== 'cinematic'
+      focus !== 'cinematic' &&
+      focus !== 'intro'
     // Panning moves the orbit target, which is meaningful only when the camera
     // is not already pinned to a body.
     controls.enablePan = focus === 'free'
 
-    // Leaving the pad or ground shot: give the lens back before anything else uses it.
-    if (focus !== 'pad' && focus !== 'ground' && baseFov.current !== null) {
+    // Leaving the pad, ground or intro shot: give the lens back before anything else uses it.
+    if (focus !== 'pad' && focus !== 'ground' && focus !== 'intro' && baseFov.current !== null) {
       camera.fov = baseFov.current
       camera.updateProjectionMatrix()
       baseFov.current = null
@@ -446,6 +448,22 @@ export function CameraRig() {
         camera.fov = EYE_FOV
         camera.updateProjectionMatrix()
       }
+      return
+    }
+
+    /**
+     * The mission intro: a flight the rig flies but does not own.
+     *
+     * The path lives in `gfx/introFlights.js`; what is here is only the same
+     * bargain the pad and ground shots make — hold the lens for whoever drives
+     * it, and give it back when the mode leaves. The camera is placed outright
+     * each frame while `INTRO.active`, and freezes on the settle frame while
+     * the curtain's last page holds.
+     */
+    if (focus === 'intro') {
+      if (baseFov.current === null) baseFov.current = camera.fov
+      flight.current = null
+      opening.current = false
       return
     }
 
@@ -612,6 +630,17 @@ export function CameraRig() {
     }
 
     if (!controls || focus === 'free') return
+
+    /**
+     * The intro flight. `introStep` places the camera and the lens outright;
+     * OrbitControls' target is parked where the lens is pointing so the cut
+     * out of the flight has a direction to fly from.
+     */
+    if (focus === 'intro') {
+      introStep(camera, delta)
+      if (INTRO.look) controls.target.copy(INTRO.look)
+      return
+    }
 
     /* The opening shot. No input, no state beyond the clock. */
     if (focus === 'cinematic') {

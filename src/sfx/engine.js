@@ -506,6 +506,14 @@ function applyEnabled() {
  * from anywhere else. Safe to call repeatedly. Returns false where there is
  * no Web Audio at all.
  */
+/**
+ * The context, for the music. Built on the first gesture like everything else
+ * here; `null` before it, which every caller already knows how to take.
+ */
+export function audioContext() {
+  return ctx
+}
+
 export function unlockAudio() {
   if (typeof window === 'undefined') return false
   const AC = window.AudioContext || window.webkitAudioContext

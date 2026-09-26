@@ -145,6 +145,21 @@ canvas {
 }
 
 /**
+ * The mission intro's beat cards: pages turning in a film — a slow rise and
+ * fade, never a slide. Named for the project so the intro owns its motion.
+ */
+@keyframes pz-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
  * Nothing moves for anyone who has asked for less motion. Set here rather than
  * per-component so a new component cannot forget it.
  */

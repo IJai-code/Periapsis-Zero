@@ -452,6 +452,23 @@ re-exports it, so a preset flies exactly the code every figure in this document
 was measured with. Moved, the harness still reaches lunar approach at MET
 244.062 h in 43,768 frames.
 
+### The mission intro
+
+Every preset now opens as a film before it opens as a flight
+(`src/gfx/introFlights.js`, `src/ui/MissionIntro.jsx`): a curtain carrying the
+mission's name and its own numbers, then one continuous 42-second camera flight
+— half an AU out from the Sun, past the Moon's distance, down to the hull —
+with the dossier's five title beats turning on its clock and a letterbox that
+says *film* rather than *simulator*. Nothing is a recording: the camera flies
+the live scene from a chain of quadratic Béziers whose anchors are taken from
+the ephemeris at the moment the flight begins (the sim is paused through it, so
+the sky holds still while the camera crosses it), and the shot settles on the
+exact frame the fast-forward handed over — T-60 on the pad, or ignition, or a
+mile from Columbia. Esc skips; Enter goes straight to the mission; either way
+the score carries on underneath. The flight's geometry is a gate —
+`verify-intro` drives every dossier's whole path under Node and asserts it
+never enters anything drawn, at any lunar phase, from any hand-over world.
+
 ### The shot a preset lands on
 
 A preset that names no `focus` used to keep the store's own default — `earth` —
@@ -555,6 +572,18 @@ The gap now decides: within eight chase lengths it is a move and gets the blend,
 beyond that it is a different place and gets a cut.
 
 ### Sound
+
+And under the mission intro, **the score** (`src/sfx/music.js`): generative,
+synthesised, and no sound files — the same rule as the engine. Each mission
+names a root and a mode (the lunar flights hover in aeolian, the departures in
+lydian, re-entry in dorian with the drone restless), and the music is two
+detuned saws under a low filter, four triangle voices gliding sevenths with
+`setTargetAtTime`, a sub swell felt before it is heard, and shimmer plucks
+echoing through a ping-pong delay into a synthesised reverb. Cues — `reveal`,
+`tension`, `swell`, `hold` — move targets only; `musicTick` eases them in the
+frame path and mutates AudioParams, so the score allocates nothing at 60 Hz.
+The gesture that begins the film is the gesture that unlocks the sound, and
+the music plays on under the flight after the film ends.
 
 `sfx/engine.js` already had the engine. Added: an **aerodynamic rush** driven by
 dynamic pressure rather than thrust — loudest at max Q and again through entry,

@@ -15,6 +15,7 @@
     "verify:icons": "node scripts/verify-icons.mjs",
     "verify:surround": "node scripts/verify-surround.mjs",
     "verify:cosmos": "node scripts/verify-cosmos.mjs",
+    "verify:intro": "node scripts/verify-intro.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
     "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",
