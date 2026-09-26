@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PRESETS, presetHref } from '../sim/presets.js'
+import { filmAll, filmDownload } from '../gfx/filmRecorder.js'
 import { VESSELS } from '../sim/vessels.js'
 import { ALL_SITES } from '../sim/launchsite.js'
 import { WARP } from '../sim/warp.js'
@@ -96,6 +97,35 @@ export function MissionLibrary({ open, onClose }) {
   const [tag, setTag] = useState('All')
   const gridRef = useRef(null)
   const shown = tag === 'All' ? PRESETS : PRESETS.filter((p) => PLAN[p.id]?.tag === tag)
+
+  /**
+   * The shelf: films the flights have left here.
+   *
+   * Each mission's intro is recorded as it plays (gfx/filmRecorder.js) and
+   * kept on this shelf, so a flight watched becomes a flight kept — its card
+   * plays it back and can hand it over as a file. The object URLs are made
+   * when the drawer opens and given back when it closes.
+   */
+  const [films, setFilms] = useState({})
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    const urls = []
+    filmAll().then((all) => {
+      if (!alive) return
+      const out = {}
+      for (const [id, entry] of Object.entries(all)) {
+        const url = URL.createObjectURL(entry.blob)
+        urls.push(url)
+        out[id] = { url, entry }
+      }
+      setFilms(out)
+    })
+    return () => {
+      alive = false
+      for (const u of urls) URL.revokeObjectURL(u)
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -202,8 +232,19 @@ export function MissionLibrary({ open, onClose }) {
                     {plan.tag}
                   </span>
                 </div>
-                <div className="mt-3 h-16 w-full opacity-90">
-                  <Motif tag={plan.tag} />
+                <div className="mt-3 h-16 w-full overflow-hidden opacity-90">
+                  {films[p.id] ? (
+                    <video
+                      src={films[p.id].url}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Motif tag={plan.tag} />
+                  )}
                 </div>
                 <h2 className="mt-3 font-sans text-[14px] font-normal text-[#efe7db]/92">
                   {p.title}
@@ -227,6 +268,18 @@ export function MissionLibrary({ open, onClose }) {
                     <dd className="text-hud/70 normal-case">{pace(p.warp)}</dd>
                   </div>
                 </dl>
+                {films[p.id] && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      filmDownload(films[p.id].entry, p.id)
+                    }}
+                    className="mt-3 w-fit border border-hud/20 px-2.5 py-1 font-mono text-[9px] tracking-[0.2em] text-hud/65 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+                  >
+                    Your film ↓
+                  </button>
+                )}
                 <span className="mt-4 flex items-center gap-2 font-mono text-[10px] tracking-[0.22em] text-hud/40 uppercase transition-colors duration-500 group-hover:text-ember">
                   Fly this flight
                   <span aria-hidden className="text-hud/30 transition-colors duration-500 group-hover:text-ember">
@@ -240,7 +293,8 @@ export function MissionLibrary({ open, onClose }) {
 
         <footer className="mt-8 border-t border-hud/12 pt-4 font-mono text-[10px] leading-relaxed tracking-wider text-hud/35">
           Arrow keys walk the drawer · Esc closes · Each flight is flown from the pad
-          to the moment it names, in well under a second.
+          to the moment it names, in well under a second · A flight watched is kept
+          here as a film.
         </footer>
       </div>
     </div>

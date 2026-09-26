@@ -61,6 +61,19 @@ decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
 
+**The film of the flight** (`src/gfx/filmRecorder.js`, `MissionIntro`,
+`MissionLibrary`) — the intro is a pure function of its clock, so it is
+recorded as it plays and kept. The WebGL scene and the film's own titles (the
+opening card, the dossier's pages, the letterbox, the hairline) are composited
+into one hidden canvas and recorded at the browser's best codec — VP9 where it
+will, VP8 if it must, MP4 on the engines that only do that — with the frames
+pushed by the recorder's own tick (`requestFrame`) rather than paced by the
+compositor, so a throttled or backgrounded tab still makes a whole film. At
+arrival the take comes off the recorder onto IndexedDB's shelf, where the
+mission library's card plays it back and hands it over as a file — measured:
+the 42-second Apollo 8 flight keeps as a 473 KB VP9 WebM at 880 × 1650. Skip
+discards the take; a browser that records nothing flies exactly as before.
+
 **The mission intro** (`src/gfx/introFlights.js`, `src/ui/MissionIntro.jsx`,
 `src/sfx/music.js`) — every mission now opens like the reference film: a black
 curtain holding the mission's name and its own numbers, one continuous
@@ -945,6 +958,14 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
   named, green once restored. The suite runs **46 of 46**.
 
 ### Known limitations
+
+- **A recorded film carries no duration in its container.** MediaRecorder's
+  WebM has no duration header until it is remuxed — measured `video.duration`
+  of `null` on a finished take. The film plays from the first frame and the
+  file is a valid VP9 WebM (decoded and measured here), but a player that
+  needs the duration before playing, or seeking within it, may treat it as
+  unknown-length until it is re-wrapped. Remuxing on save would fix it and is
+  the obvious next step.
 
 - **The Earth-launched mission timeline is about twice the real flight, and the
   lunar approach arrives near apogee.** Measured: TLI at MET **46.62 h** (Apollo

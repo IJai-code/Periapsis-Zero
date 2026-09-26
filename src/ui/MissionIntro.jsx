@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { INTRO, introEnd, introStart, DOSSIERS } from '../gfx/introFlights.js'
 import { startMusic, cueMusic } from '../sfx/music.js'
+import { filmDownload, filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
 import { unlockAudio } from '../sfx/engine.js'
 
 /**
@@ -28,6 +29,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // 'curtain' | 'flying' | 'arrived'
   const [stage, setStage] = useState('curtain')
   const [beat, setBeat] = useState(-1)
+  const [film, setFilm] = useState(null)
   const raf = useRef(0)
   const started = useRef(false)
   const dossier = DOSSIERS[preset?.id] ?? null
@@ -44,11 +46,15 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     startMusic(dossier?.music ?? 'deep')
     cueMusic('swell')
     introStart(preset.id, finalFocus)
+    // And the film is made of it: the flight is a pure function of its clock,
+    // so what is recorded is not *a* take, it is the flight.
+    startFilm(document.querySelector('canvas'), preset)
     setStage('flying')
   }, [dossier, preset, finalFocus])
 
   /** Skip leaves the film, not the score: it is the mission's, and carries on. */
   const skip = useCallback(() => {
+    stopFilm()
     introEnd()
     onSkip?.()
   }, [onSkip])
@@ -95,15 +101,22 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   }, [stage, beat])
 
   // Arrived: hold the last page a beat, then hand the mission the screen. The
-  // score settles to its resting lean and plays on underneath the flight.
+  // score settles to its resting lean and plays on underneath the flight — and
+  // the film comes off the recorder and onto the library's shelf, where its
+  // card keeps it.
   useEffect(() => {
     if (stage !== 'arrived') return
+    stopFilm().then((blob) => {
+      if (!blob) return
+      setFilm(blob)
+      filmSave(preset.id, blob)
+    })
     const t = setTimeout(() => {
       cueMusic('hold')
       onBegin?.()
-    }, 1800)
+    }, 2600)
     return () => clearTimeout(t)
-  }, [stage, onBegin])
+  }, [stage, onBegin, preset])
 
   if (!preset) return null
   const s = INTRO.s
@@ -157,6 +170,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             </button>
             <div className="mt-4 font-mono text-[9px] tracking-[0.22em] text-hud/35 uppercase">
               With sound · Esc to skip
+              {filmSupported() && ' · the flight is kept as a film'}
             </div>
           </div>
         </div>
@@ -199,6 +213,14 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             >
               Skip
             </button>
+            {stage === 'arrived' && film && (
+              <button
+                onClick={() => filmDownload(film, preset.id)}
+                className="border border-hud/20 px-3 py-1.5 font-mono text-[9px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+              >
+                Save the film ↓
+              </button>
+            )}
             {stage === 'arrived' && (
               <button
                 onClick={() => onBegin?.()}

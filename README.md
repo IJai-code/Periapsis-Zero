@@ -469,6 +469,14 @@ the score carries on underneath. The flight's geometry is a gate —
 `verify-intro` drives every dossier's whole path under Node and asserts it
 never enters anything drawn, at any lunar phase, from any hand-over world.
 
+And the film is *kept* (`src/gfx/filmRecorder.js`): the scene and the titles
+are composited into one canvas and recorded as the flight plays — VP9/WebM at
+the panel's own resolution, paced by the recorder's own `requestFrame` rather
+than the compositor, so a backgrounded tab still makes a whole film. At
+arrival the take lands on an IndexedDB shelf and the mission library's card
+plays it back and hands it over as a file (the 42-second Apollo 8 flight
+keeps at 473 KB). A flight watched becomes a flight kept.
+
 ### The shot a preset lands on
 
 A preset that names no `focus` used to keep the store's own default — `earth` —
