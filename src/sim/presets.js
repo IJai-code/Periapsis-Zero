@@ -159,6 +159,58 @@ export const PRESETS = [
     // first second, before anyone has found the vehicle on screen.
     warp: WARP.m1,
   },
+  {
+    /*
+     * The moment the mission stops being about Earth.
+     *
+     * Handed over as TLI_BURN begins — the phase changes at ignition — so the
+     * third stage lights on screen instead of in a fast-forward. The director
+     * already shoots TLI_BURN as `chase`, and the burn runs about three and a
+     * half minutes at real time, which is the point: it is one of maybe six
+     * burns in the whole flight worth watching second by second.
+     */
+    id: 'apollo8-tli',
+    vessel: 'apollo8',
+    site: 'ksc',
+    title: 'Apollo 8 · trans-lunar injection',
+    blurb: 'Parking orbit to the Moon: the third stage lights, in real time.',
+    until: 'TLI_BURN',
+    warp: WARP.x1,
+  },
+  {
+    /*
+     * The burn for home, from behind the Moon.
+     *
+     * Two and a half days of fast-forward to get there, then TEI at real time:
+     * the crew lit it on the far side with no radio contact, which is the most
+     * alone a human being has ever been. The hand-over is at ignition, on the
+     * `chase` shot the director keeps for TEI_BURN.
+     */
+    id: 'apollo8-tei',
+    vessel: 'apollo8',
+    site: 'ksc',
+    title: 'Apollo 8 · the burn for home',
+    blurb: 'Trans-Earth injection from lunar orbit, in real time.',
+    until: 'TEI_BURN',
+    warp: WARP.x1,
+  },
+  {
+    /*
+     * The whole entry sequence, live: service module separation, the corridor,
+     * the fire, the drogues, the canopies, the ocean.
+     *
+     * Handed over at SM_SEP — minutes before the plasma — so nothing in the
+     * return is sampled. Entry at eleven kilometres a second is the fastest
+     * thing this simulator flies, and it is over in about twelve minutes.
+     */
+    id: 'apollo8-reentry',
+    vessel: 'apollo8',
+    site: 'ksc',
+    title: 'Apollo 8 · re-entry',
+    blurb: 'The return at 11 km/s: separation, plasma, chutes, splashdown.',
+    until: 'SM_SEP',
+    warp: WARP.x1,
+  },
 ]
 
 /**

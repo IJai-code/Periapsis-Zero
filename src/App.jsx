@@ -8,6 +8,8 @@ import { useAssets } from './gfx/useAssets.js'
 import { releaseDirector, resumeDirector } from './sim/director.js'
 import { setUi } from './sim/store.js'
 import { requestedPreset, startPreset } from './sim/presets.js'
+import { MissionLibrary } from './ui/MissionLibrary.jsx'
+import { Guide, guideShouldOpen } from './ui/Guide.jsx'
 import { unlockAudio } from './sfx/engine.js'
 
 /**
@@ -24,6 +26,10 @@ const isFlight = () => window.location.hash === FLIGHT
 export default function App() {
   const assets = useAssets()
   const [flight, setFlight] = useState(isFlight)
+  // The guide opens once per browser; the library opens when asked. Both live
+  // here because both steer or span the same shared scene from either half.
+  const [guide, setGuide] = useState(guideShouldOpen)
+  const [library, setLibrary] = useState(false)
 
   useEffect(() => {
     const onHash = () => setFlight(isFlight())
@@ -76,6 +82,7 @@ export default function App() {
   const enter = useCallback(() => {
     // The click that lets the browser start audio: the graph is built here.
     unlockAudio()
+    setGuide(false)
     window.location.hash = FLIGHT
     setFlight(true)
   }, [])
@@ -133,8 +140,24 @@ export default function App() {
           progress={assets.progress}
           label={assets.label}
           onEnter={enter}
+          onLibrary={() => setLibrary(true)}
+          onTour={() => setGuide(true)}
         />
       )}
+
+      {/* The tour steers the live scene; the library is the drawer of flights.
+          Both sit above either half because both are about the whole product. */}
+      {!flight && (
+        <Guide
+          open={guide && assets.ready}
+          onClose={() => setGuide(false)}
+          onLibrary={() => {
+            setGuide(false)
+            setLibrary(true)
+          }}
+        />
+      )}
+      <MissionLibrary open={library} onClose={() => setLibrary(false)} />
     </div>
   )
 }

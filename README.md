@@ -393,11 +393,22 @@ angle survive the body moving underneath you.
 
 ## Missions
 
-The HUD's Missions panel jumps into six flights, and none of them is a saved
-state. Each is a link — `?preset=…&vessel=…&site=…#flight` — because the vessel
-and the pad are fixed when the page loads. On load, before the frame loop mounts,
-the flight computer flies the real mission from the pad to the preset's starting
-point, then hands the dial back and plays:
+Nine flights, kept in the mission library — the drawer the front door opens
+— and none of them is a saved state. Each is a link —
+`?preset=…&vessel=…&site=…#flight` — because the vessel and the pad are fixed
+when the page loads. On load, before the frame loop mounts, the flight computer
+flies the real mission from the pad to the preset's starting point, then hands
+the dial back and plays.
+
+The library (`src/ui/MissionLibrary.jsx`) carries each flight as a catalogue
+card — craft, pad, the moment it hands over at, and the pace it hands over at —
+indexed by kind: *From the pad*, *To the Moon*, *In orbit*, *Coming home*. It is
+reachable from the front door and from the HUD's Missions panel, walks with the
+arrow keys and closes with Esc. Alongside it, a short cosmic guide
+(`src/ui/Guide.jsx`) opens once per browser and steers the *live* camera through
+five beats — the Sun, the Earth, the Moon, the vehicle, and the hand-over to the
+library — so the introduction is the simulation showing itself around rather
+than a slideshow of renders:
 
 | preset | starts in | flown headlessly in |
 | --- | --- | --- |
@@ -407,6 +418,9 @@ point, then hands the dial back and plays:
 | Apollo 8 · lunar orbit | `LOI_ALIGN` at MET 184.7 h, turning for the capture burn, periselene 2.8 min out | 286 ms |
 | Artemis · halo capture | `LUNAR_APPROACH` at MET 70.8 h, then solves the four-burn capture in the worker | 178 ms |
 | Vandenberg · polar loiter | `TLI_ALIGN` at MET 0.8 h, 144 h after the epoch, the 2.51 and 8.01 m/s raise burns 9 and 53 min out | 743 ms |
+| Apollo 8 · trans-lunar injection | `TLI_BURN` at ignition, the third stage lighting in real time | 134 ms |
+| Apollo 8 · the burn for home | `TEI_BURN` at ignition, from behind the Moon, in real time | 529 ms |
+| Apollo 8 · re-entry | `SM_SEP` minutes before the plasma, then the whole entry sequence live | 632 ms |
 
 The pad preset flies nothing: it holds the vehicle on the pad through five
 hours of the planet turning, so the count starts in mid-morning light rather
@@ -1256,6 +1270,28 @@ degrees further over. Flown, in `scripts/verify-launch-sites.mjs`:
 
 All four park within 0.1 km of the same orbit, and none beats its own latitude
 floor — the hard bound a launch cannot steer around.
+
+### The world around the pad
+
+A launch on a bare table reads as a rocket on a table. Each complex now carries
+its own surroundings (`src/gfx/siteSurround.js`, mounted beside the pad in
+`Terrain.jsx`): at Kennedy the Vehicle Assembly Building 4.9 km down the
+crawlerway with its door face and its ribs, the Launch Control Center, water
+towers, the fuel farm's three spheres, the press site's grandstands, the
+causeway road and its parking lots; at Vandenberg the integration hangar and
+the chaparral; at Baikonur the MIK — a quarter-kilometre of assembly building —
+the rail spur that brought the rocket, and the town on the horizon; at Kourou
+the Jupiter centre and three species' worth of jungle canopy. Plus the people
+who came: hundreds of spectators on the stands' aprons, cars on the lots, trees
+along the roads — three `InstancedMesh` families that cost three draw calls.
+
+Everything meets the same 130 m-sampled real relief the terrain mesh draws, via
+a nearest-vertex sampler over the mesh itself (`makeGroundSampler`), and every
+structure is sunk to a `SKIRT` below the height sampled at its own centre — so
+contact is by construction, not by margin, whatever slope the relief carries.
+The build keeps a per-structure ledger of base heights, and `verify-surround`
+falsifies it: flip one building's skirt and the gate names the building that
+floats.
 
 **What is left in the tanks follows the rotation that points *downrange*, not
 the rotation.** ω·R·cos φ predicts the wrong order: it puts Vandenberg above

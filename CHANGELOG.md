@@ -52,6 +52,35 @@ decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
 
+**The world around the pad** (`src/gfx/siteSurround.js`,
+`src/components/SiteSurround.jsx`, `Terrain.jsx`) — each Earth complex gains
+its real surroundings: Kennedy the VAB 4.9 km down the crawlerway, the LCC,
+water towers, fuel farm, press-site grandstands, causeway and parking lots;
+Baikonur the MIK, the rail spur and the town; Kourou the Jupiter centre and
+jungle canopy; Vandenberg the hangar and chaparral — plus hundreds of
+spectators, cars and trees as three instanced families (three draw calls). All
+of it stands on the same 130 m-sampled relief the terrain draws, via a
+nearest-vertex sampler over the mesh, with every structure sunk to a skirt
+below the height at its own centre — contact by construction. The build keeps
+a per-structure base ledger; `verify-surround` asserts each base crosses its
+own ground and falsifies by naming the building that floats when a skirt is
+flipped.
+
+**A mission library, and three new flights** (`src/ui/MissionLibrary.jsx`,
+`src/sim/presets.js`) — the missions move into a premium catalogue drawer with
+craft, pad, hand-over moment and pace on each card, filterable by kind (*From
+the pad*, *To the Moon*, *In orbit*, *Coming home*), arrow-key walkable, from
+the front door and the HUD alike. The three new presets were probed headlessly
+to their advertised phases: `apollo8-tli` (`TLI_BURN`, 134 ms), `apollo8-tei`
+(`TEI_BURN`, 529 ms), `apollo8-reentry` (`SM_SEP`, 632 ms) — each handed over
+at ignition or minutes before, at real time.
+
+**A cosmic guide on open** (`src/ui/Guide.jsx`) — a once-per-browser, skippable
+tour that steers the *live* camera through five beats (Sun, Earth, Moon,
+vehicle, hand-over), with the final beat opening the library or the pad
+mission. Not a slideshow: each beat is one `setUi({ focus })` on the same rig
+the simulator flies with.
+
 **A mark for the sim, derived like everything else here** (`scripts/make-favicon.mjs`,
 `public/icons/`, `src/gfx/brand.js`, `src/ui/Mark.jsx`) — a periapsis tick on an
 orbital arc: the champagne arc bending at the bottom of an obsidian field, the
@@ -429,6 +458,14 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+- **`verify-surround` (21 checks) joins the suite — 47 of 47.** Builds every
+  site's surroundings under Node against a *sloped* heightfield and asserts the
+  property that matters: no structure floats and none is buried past its skirt,
+  per structure from the build's own base ledger; every tree, car and person
+  stands exactly on the sampled ground; all geometry finite and inside the
+  terrain patch. Falsified before use: flipping one building's skirt reds the
+  gate with the building named and located.
 
 - **`verify-loi` and `verify-staging` are gates now, and both were lying** — each
   ran, printed numbers, and exited zero whatever those numbers said. Converted to

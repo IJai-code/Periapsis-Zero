@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { PRESETS, presetHref } from '../sim/presets.js'
+import { PRESETS } from '../sim/presets.js'
 import { Mark } from './Mark.jsx'
 
 /**
@@ -77,7 +77,7 @@ const step = (shown, i) => ({
   transition: `opacity 900ms cubic-bezier(.2,.7,.3,1) ${i * 110}ms, transform 900ms cubic-bezier(.2,.7,.3,1) ${i * 110}ms`,
 })
 
-export function Landing({ ready, progress, label, onEnter }) {
+export function Landing({ ready, progress, label, onEnter, onLibrary, onTour }) {
   const [shown, setShown] = useState(false)
   const scroller = useRef(null)
   /** How far down we are, and whether there is anything below. Both drive controls. */
@@ -256,54 +256,64 @@ export function Landing({ ready, progress, label, onEnter }) {
               )}
             </div>
 
-            {/* The missions, on the door rather than behind it. Each is a link: the
-                vessel and the pad are fixed at load, so a mission is an address. */}
+            {/* The flights, and the two ways into them. Nine missions is a
+                drawer, not a list — they live in the library now — and the tour
+                is the other door: one row for people who know what they want,
+                one for people who would rather be shown around first. The
+                hairline that changes colour rather than moving is kept from the
+                rows these replace; nothing here rises when touched. */}
             <div style={step(shown, 4)} className="mt-11">
               <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
-                Or start inside one
+                The flights
               </div>
               <div className="mt-3 border-t border-hud/12">
-                {PRESETS.map((p, i) => (
-                  <a
-                    key={p.id}
-                    href={presetHref(p)}
-                    className="group relative flex items-baseline gap-5 border-b border-hud/12 py-4 outline-none transition-colors duration-500 hover:bg-hud/[0.04] focus-visible:bg-hud/[0.05]"
-                  >
-                    {/*
-                      A hairline that is always there and changes *colour* —
-                      champagne at rest, ember under the pointer — rather than
-                      one that grows, and nothing in the row moves or resizes.
-                      An index card in a drawer does not rise when you touch it;
-                      the one you are on is simply marked. Colour is also the
-                      one property here that cannot disturb layout however it is
-                      animated, which is the whole argument for using it.
-                    */}
-                    <span
-                      aria-hidden
-                      className="absolute top-0 bottom-0 -left-4 w-px bg-hud/20 transition-colors duration-500 group-hover:bg-ember group-focus-visible:bg-ember"
-                    />
-                    <span className="font-mono text-[10px] text-hud/40 transition-colors duration-500 group-hover:text-ember">
-                      {String(i + 1).padStart(2, '0')}
+                <button
+                  onClick={onLibrary}
+                  className="group relative flex w-full items-baseline gap-5 border-b border-hud/12 py-5 text-left outline-none transition-colors duration-500 hover:bg-hud/[0.04] focus-visible:bg-hud/[0.05]"
+                >
+                  <span
+                    aria-hidden
+                    className="absolute top-0 bottom-0 -left-4 w-px bg-hud/20 transition-colors duration-500 group-hover:bg-ember group-focus-visible:bg-ember"
+                  />
+                  <span className="font-mono text-[10px] text-hud/40 transition-colors duration-500 group-hover:text-ember">
+                    {String(PRESETS.length).padStart(2, '0')}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                      Mission library
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
-                        {p.title}
-                      </span>
-                      <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
-                        {p.blurb}
-                      </span>
+                    <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
+                      From the pad, to the Moon, and the burn for home — choose where to
+                      arrive.
                     </span>
-                    {/*
-                      The arrow no longer slides. A 4 px translate on hover is
-                      the single most common motion on the web and it is the
-                      thing the brief asked to be rid of; it fades from dim to
-                      ember instead, which says the same thing without moving.
-                    */}
-                    <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">
-                      →
+                  </span>
+                  <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">
+                    →
+                  </span>
+                </button>
+                <button
+                  onClick={onTour}
+                  className="group relative flex w-full items-baseline gap-5 border-b border-hud/12 py-5 text-left outline-none transition-colors duration-500 hover:bg-hud/[0.04] focus-visible:bg-hud/[0.05]"
+                >
+                  <span
+                    aria-hidden
+                    className="absolute top-0 bottom-0 -left-4 w-px bg-hud/20 transition-colors duration-500 group-hover:bg-ember group-focus-visible:bg-ember"
+                  />
+                  <span className="font-mono text-[10px] text-hud/40 transition-colors duration-500 group-hover:text-ember">
+                    ~
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                      Take the tour
                     </span>
-                  </a>
-                ))}
+                    <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
+                      A short tour of the solar system, flown by the camera itself.
+                    </span>
+                  </span>
+                  <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">
+                    →
+                  </span>
+                </button>
               </div>
             </div>
 

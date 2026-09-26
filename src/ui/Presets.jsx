@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { PRESETS, presetHref } from '../sim/presets.js'
+import { MissionLibrary } from './MissionLibrary.jsx'
 
 /**
  * Missions to jump into.
@@ -8,6 +10,7 @@ import { PRESETS, presetHref } from '../sim/presets.js'
  * its starting point. Choosing the one already running starts it again.
  */
 export function Presets() {
+  const [library, setLibrary] = useState(false)
   const active = new URLSearchParams(window.location.search).get('preset')
 
   const open = (event, preset) => {
@@ -40,9 +43,16 @@ export function Presets() {
           )
         })}
       </div>
-      <div className="mt-2 border-t border-white/8 pt-2 text-[9px] leading-relaxed text-white/25">
+      <button
+        onClick={() => setLibrary(true)}
+        className="mt-2 w-full border-t border-white/8 pt-2 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
+      >
+        Open the mission library →
+      </button>
+      <div className="mt-2 text-[9px] leading-relaxed text-white/25">
         Each is flown from the pad when it loads, not restored from a save.
       </div>
+      <MissionLibrary open={library} onClose={() => setLibrary(false)} />
     </div>
   )
 }

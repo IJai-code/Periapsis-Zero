@@ -7,7 +7,9 @@ import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { SPIN_AXIS } from '../sim/atmosphere.js'
 import { mission } from '../sim/mission.js'
 import { FLAT_RADIUS } from '../gfx/pads.js'
+import { makeGroundSampler } from '../gfx/siteSurround.js'
 import { LaunchPad } from './LaunchPad.jsx'
+import { SiteSurround } from './SiteSurround.jsx'
 
 /**
  * The ground the vehicle actually leaves.
@@ -247,6 +249,14 @@ export function Terrain() {
     return geometry
   }, [field, site])
 
+  // A height sampler over the mesh just built, so every building, tree and
+  // spectator in SiteSurround stands on the same 130 m-sampled relief the mesh
+  // draws. Same buffer, same frame, same datum — the surround cannot float.
+  const groundAt = useMemo(
+    () => (mesh ? makeGroundSampler(mesh.attributes.position.array) : () => 0),
+    [mesh],
+  )
+
   const scratch = useMemo(
     () => ({
       up: new THREE.Vector3(),
@@ -309,6 +319,8 @@ export function Terrain() {
       </mesh>
       {/* Same group, same frame, same datum: the pad cannot drift off the ground. */}
       <LaunchPad site={site} />
+      {/* The world around the pad — buildings, roads, crowds — on the same ground. */}
+      <SiteSurround site={site.id} groundAt={groundAt} />
     </group>
   )
 }
