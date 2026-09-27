@@ -13,7 +13,7 @@ import { ship } from './ship.js'
  * The simulator draws a flight. A viewer in 1968 did not see a flight — they
  * saw a feed: a picture from one particular camera, a caption saying which,
  * a clock counting from liftoff, a lower third when something happened, and
- * a voice from Houston bracketed by two beeps. This module is that feed's
+ * the air-to-ground loop. This module is that feed's
  * script. It decides nothing about the flight and nothing reads it back; it
  * only reads the flight and says what a broadcast of it would have shown.
  *
@@ -29,16 +29,15 @@ import { ship } from './ship.js'
  *   so Eagle's ascent — which this simulator starts the flight at — reads the
  *   GET it actually happened at, 124:22:00.79 (Apollo 11 Mission Report,
  *   table 2-I), plus the simulated seconds since.
- * - **The loop.** Transmissions from the ground carry the Quindar tones and
- *   the ones from the spacecraft do not; nothing gets through a spacecraft
- *   behind the Moon, where the geometry says the Earth is hidden; and a
+ * - **The loop.** Nothing gets through a spacecraft behind the Moon, where
+ *   the geometry says the Earth is hidden; and a
  *   reply from the Moon comes back a round trip of light later, 2.6 s, which
  *   is the pause every Apollo recording has in it.
  *
  * Everything here runs on a timer in the page, not in the render loop — it
  * formats strings and builds captions, which allocate, and belongs where the
- * other text readouts already live. `signalLost` is the exception: it is
- * scalar geometry and allocates nothing, so the audio can ask it every frame.
+ * other text readouts already live. `signalLost` is scalar geometry and
+ * allocates nothing, so anything can ask it as often as it likes.
  */
 
 /* ---------------------------------------------------------------- *
@@ -298,7 +297,7 @@ const R_MOON = BODIES.moon.radius
  * so that one of them always sees whatever the Earth's disc does, and the disc
  * is two degrees across from the Moon against the Moon's own thirty-one.
  *
- * Scalars off the state vector; allocates nothing, so the audio can ask.
+ * Scalars off the state vector; allocates nothing.
  */
 export function signalLost() {
   const s = live.sim.state

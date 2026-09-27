@@ -12,7 +12,6 @@ import { MissionLibrary } from './ui/MissionLibrary.jsx'
 import { Guide, guideShouldOpen } from './ui/Guide.jsx'
 import { MissionIntro } from './ui/MissionIntro.jsx'
 import { introEnd } from './gfx/introFlights.js'
-import { unlockAudio } from './sfx/engine.js'
 
 /**
  * Which half of the product is on screen, from the URL.
@@ -124,8 +123,6 @@ export default function App() {
   }, [])
 
   const enter = useCallback(() => {
-    // The click that lets the browser start audio: the graph is built here.
-    unlockAudio()
     setGuide(false)
     window.location.hash = FLIGHT
     setFlight(true)

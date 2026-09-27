@@ -31,7 +31,6 @@ import { live } from '../sim/live.js'
 
 export const DOSSIERS = {
   'apollo8-launch': {
-    music: 'ascent',
     beats: [
       { s: 0.1, eyebrow: 'Kennedy Space Center', line: 'Launch Complex 39B · December 1968' },
       { s: 0.38, eyebrow: 'Saturn V', line: '110 metres of vehicle, 2,970 tonnes at liftoff' },
@@ -48,7 +47,6 @@ export const DOSSIERS = {
     ],
   },
   'apollo11-liftoff': {
-    music: 'lunar',
     beats: [
       { s: 0.1, eyebrow: 'Tranquility Base', line: '20 July 1969 · the Moon' },
       { s: 0.38, eyebrow: 'Eagle', line: 'Armstrong · Aldrin' },
@@ -65,7 +63,6 @@ export const DOSSIERS = {
     ],
   },
   'apollo11-docking': {
-    music: 'rendezvous',
     beats: [
       { s: 0.1, eyebrow: 'Lunar orbit', line: 'Three and a quarter hours after liftoff' },
       { s: 0.38, eyebrow: 'Columbia waits', line: 'Collins, alone in the command module' },
@@ -82,7 +79,6 @@ export const DOSSIERS = {
     ],
   },
   'apollo8-lunar-orbit': {
-    music: 'arrival',
     beats: [
       { s: 0.1, eyebrow: 'Trans-lunar coast', line: 'Three days from the Earth' },
       { s: 0.38, eyebrow: 'The far side', line: 'No radio contact · the loneliest place' },
@@ -99,7 +95,6 @@ export const DOSSIERS = {
     ],
   },
   'artemis-halo': {
-    music: 'deep',
     beats: [
       { s: 0.1, eyebrow: 'The Gateway', line: 'A halo orbit beyond the Moon' },
       { s: 0.38, eyebrow: 'Four burns', line: 'Solved in the background while you watch' },
@@ -116,7 +111,6 @@ export const DOSSIERS = {
     ],
   },
   'vandenberg-polar': {
-    music: 'vigil',
     beats: [
       { s: 0.1, eyebrow: 'Vandenberg', line: 'SLC-6 · the Pacific range' },
       { s: 0.38, eyebrow: 'Polar parking orbit', line: 'A hundred kilometres up, waiting' },
@@ -133,7 +127,6 @@ export const DOSSIERS = {
     ],
   },
   'apollo8-tli': {
-    music: 'departure',
     beats: [
       { s: 0.1, eyebrow: 'Parking orbit', line: 'Two and a half hours from the pad' },
       { s: 0.38, eyebrow: 'The window', line: 'The Moon is already moving where it will be' },
@@ -150,7 +143,6 @@ export const DOSSIERS = {
     ],
   },
   'apollo8-tei': {
-    music: 'return',
     beats: [
       { s: 0.1, eyebrow: 'Lunar orbit', line: '25 December 1968 · behind the Moon' },
       { s: 0.38, eyebrow: 'Trans-Earth injection', line: 'Lit with no radio contact at all' },
@@ -167,7 +159,6 @@ export const DOSSIERS = {
     ],
   },
   'apollo8-reentry': {
-    music: 'fire',
     beats: [
       { s: 0.1, eyebrow: 'Return', line: '11 kilometres a second' },
       { s: 0.38, eyebrow: 'Service module separation', line: 'The heat shield is all that is left' },

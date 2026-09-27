@@ -7,18 +7,15 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ### Fixed
 
-**Nothing made a sound.** `build()` in `sfx/engine.js` returned a `clunk` gain
-node that the one-shot bus had replaced and nothing declared any more, so the
-first gesture threw a ReferenceError inside `unlockAudio`'s silent `catch`, the
-context was put back to null, and every voice — the engine, the pad, the
-one-shots and the score, which builds on the same context — stayed silent while
-`verify-audio` passed, because it measured the arithmetic and never built the
-graph. The clunk now plays through the one-shot bus; the catch logs what failed;
-and `verify-audio` builds the whole graph against a Web Audio shaped enough like
-the browser's to throw where it throws (`scripts/fakeAudio.mjs`), follows every
-voice to the output, fires each one-shot and cues the score. On the current code
-it reads 6 engine voices and 9 score voices, all reaching the destination; on the
-old code it fails with "the graph did not build", as the product did.
+**All sound is gone.** Once it was working it was described as terrifying,
+horrifying and extremely scary, and it went: the engine and pad voices, the
+staging, ignition, parachute and splashdown one-shots, the intro's generative
+score, and the broadcast's Quindar tones, static, squelch and spoken lines.
+`src/sfx/`, `components/Audio.jsx`, the *Engine audio* toggle and `verify-audio`
+are deleted; the broadcast captions the loop instead. (It had been silent
+anyway until this release, for a different reason: `build()` returned a node it
+no longer declared and the error was swallowed. Fixing that is what made it
+audible.)
 
 **The pad presets were handed over at T-13, not T-60.** A held phase runs its
 count on the wall clock, and it kept doing so under a pause — which nothing
@@ -61,10 +58,6 @@ as one smear.
 on its pad and the only go was the fourth panel down the right rail, 996 px from
 the top at a 713 px window. It is at the foot of the frame now, above the
 commentary, for as long as the count has not started.
-
-**Eagle's minute hissed with liquid oxygen.** The pad's vent and deluge noise is
-a function of the count's clock alone, and the lunar count runs on the same
-clock. Not on the Moon now.
 
 A commentary line printed its Markdown emphasis as literal asterisks; it no
 longer does.
@@ -125,7 +118,7 @@ decides now: eight chase lengths or less is a move, beyond that a cut.
 
 **The broadcast.** The flight as it was watched rather than flown
 (`src/ui/Broadcast.jsx`, `src/sim/broadcast.js`, `src/sim/radio.js`,
-`src/sfx/comms.js`, `src/gfx/filmLook.js`). The presets hand over to it after
+`src/gfx/filmLook.js`). The presets hand over to it after
 their film; `B` switches between it and the instruments, and so does a *feed*
 button beside the map's. It carries:
 
@@ -145,20 +138,13 @@ button beside the map's. It carries:
 - **Lower thirds** on every event worth one, with the flight's own figures —
   the orbit Eagle reached here, not the Mission Report's — and "Behind the Moon"
   only when the geometry puts it there.
-- **The loop.** Houston, the spacecraft, the other spacecraft and Launch
-  Control, captioned, with Quindar tones on the ground's transmissions only
-  (2,525 Hz on, 2,475 Hz off, a quarter-second each), band-limited static, a
-  squelch tail, and the words spoken where the browser has voices. Where a line
-  is Apollo's own the script says when it was said. The count is read on its
-  second. Nothing crosses the far side: a spacecraft behind the Moon — decided
-  by the segment to the Earth against the Moon's sphere — has its air-to-ground
-  lines held until acquisition of signal, while the two spacecraft's own VHF
-  exchanges play captioned *onboard recorder*. A reply from the Moon waits a
-  round trip of light, 2.6 s.
-- **Sound that travels.** At a ground camera the rumble arrives at the retarded
-  delay r/(c+v) and at 380/r of its level, which puts it 1.12 s behind the flame
-  at the pad and lowers its pitch to c/(c+v) as the vehicle recedes — the Doppler
-  shift of a receding source, from the delay line alone (`sfx/listener.js`).
+- **The loop**, captioned: Houston, the spacecraft, the other spacecraft and
+  Launch Control. Where a line is Apollo's own the script says when it was
+  said. The count is read on its second. Nothing crosses the far side: a
+  spacecraft behind the Moon — decided by the segment to the Earth against the
+  Moon's sphere — has its air-to-ground lines held until acquisition of signal,
+  while the two spacecraft's own VHF exchanges are captioned *onboard
+  recorder*. A reply from the Moon waits a round trip of light, 2.6 s.
 
 **The film of the flight** (`src/gfx/filmRecorder.js`, `MissionIntro`,
 `MissionLibrary`) — the intro is a pure function of its clock, so it is
@@ -631,7 +617,7 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
 
 ### Gates
 
-**`verify-broadcast`**, 31 checks: every view in every phase of every mission
+**`verify-broadcast`**, 26 checks: every view in every phase of every mission
 captioned, only real cameras called cameras; the clocks' formats and Eagle's
 GET; every lower third evaluating; the far side, synthetically (behind, near
 side, 2% past and inside the limb) and on a flown orbit, where the fraction of
@@ -640,8 +626,7 @@ sample for sample with the limb seen from the vehicle; the script's phases and
 speakers; the count read within 0.15 s of each second; a reply waiting a light
 round trip to a tick; nothing through the far side and the held call played at
 AOS; no burst from a phase crossed at an hour a second; every film look
-complete; the retarded delay and its Doppler to 0.1% and 0.5%; and the far-side
-test and the frame loop's listener allocating nothing.
+complete; and the far-side test allocating nothing.
 
 - **`verify-intro` (45 checks) joins the suite — 49 of 49.** Drives the whole
   intro flight for every dossier under Node and asserts what the shot

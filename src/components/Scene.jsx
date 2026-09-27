@@ -19,7 +19,6 @@ import { Terrain } from './Terrain.jsx'
 import { LunarSurface } from './LunarSurface.jsx'
 import { CameraRig } from './CameraRig.jsx'
 import { Effects } from './Effects.jsx'
-import { Audio } from './Audio.jsx'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
 import { CRAFT, DAY, SHIP, YEAR } from '../sim/constants.js'
@@ -90,7 +89,6 @@ export function Scene({ textures }) {
   return (
     <>
       <Driver />
-      <Audio />
       <Skybox map={active['sky.sky']} />
       {/* The Milky Way underneath is painted, because its band is unresolved
           starlight no catalogue lists. Every individual star is Hipparcos. */}

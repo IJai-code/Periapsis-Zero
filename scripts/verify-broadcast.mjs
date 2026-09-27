@@ -5,13 +5,11 @@
  * would take at face value: that this picture was a camera and that one a
  * simulation, that the clock reads what Apollo's did, that the spacecraft is
  * behind the Moon when the caption says the signal is lost, that a reply from
- * the Moon waits for light, that the count is read on its second, that the
- * rumble from a pad arrives late and low by the physics of sound in air. None
- * of them needs a browser to check, so all of them are checked here.
+ * the Moon waits for light, that the count is read on its second. None of them
+ * needs a browser to check, so all of them are checked here.
  *
  *   node --expose-gc scripts/verify-broadcast.mjs
  */
-import { Vector3 } from 'three'
 import { FEEDS, LOOKS, APOLLO11_LIFTOFF_GET, cameraSource, eventCaption, formatCount, formatGet, formatMet, missionClock, roundTrip, signalLost, LIGHT_SPEED } from '../src/sim/broadcast.js'
 import { SCRIPT, lineSeconds, radio, radioTick, resetRadio } from '../src/sim/radio.js'
 import { PHASE_IDS, mission } from '../src/sim/mission.js'
@@ -20,8 +18,6 @@ import { INDEX } from '../src/sim/system.js'
 import { BODIES } from '../src/sim/constants.js'
 import { ALL_SITES } from '../src/sim/launchsite.js'
 import { LOOK_PROFILES, FilmLookEffect } from '../src/gfx/filmLook.js'
-import { SOUND_SPEED, REFERENCE_RANGE, listen, listenerState } from '../src/sfx/listener.js'
-import { hearing } from '../src/sfx/engine.js'
 import { flight, frame, loadSnapshot, LUNAR_ORBIT_FIXTURE, WARP } from './flight.mjs'
 import { allocatesNothing, bytesPerCall, knownAllocation, sampleText, seesAllocation, SMALLEST_OBJECT } from './allocation.mjs'
 
@@ -335,65 +331,18 @@ try {
 check('every look is complete and finite, and an unknown one falls back to a clean picture', profilesOk && effectOk)
 
 /* ------------------------------------------------------------------ *
- * 7. the sound of a launch from the ground
- * ------------------------------------------------------------------ */
-const cam = new Vector3(0, 0, 0)
-live.pos.ship.set(REFERENCE_RANGE, 0, 0)
-listenerState.fill(0)
-listenerState[2] = 1 / 60
-listen(cam, 'ground', false)
-const standing = hearing[0]
-const standingLevel = hearing[1]
-// Recede at 100 m/s for half a minute from a kilometre out: 4 km at the end,
-// a delay well inside what the line holds.
-const V = 100
-const FRAMES = 1800
-live.pos.ship.set(1000, 0, 0)
-listenerState.fill(0)
-listenerState[2] = 1 / 60
-const delays = []
-for (let k = 0; k < FRAMES; k++) {
-  live.pos.ship.x += V / 60
-  listen(cam, 'ground', false)
-  delays.push(hearing[0])
-}
-const r = live.pos.ship.x
-const retarded = r / (SOUND_SPEED + V)
-const rate = (delays[FRAMES - 1] - delays[FRAMES - 61]) / 1
-const pitch = 1 - rate
-listen(cam, 'chase', false)
-const riding = hearing[0] === 0 && hearing[1] === 1
-listen(cam, 'ground', true)
-const moon = hearing[0] === 0 && hearing[1] === 1
-console.log('\n=== sound from the pad ===')
-console.log(`  at ${REFERENCE_RANGE} m, standing: ${standing.toFixed(3)} s late (r/c = ${(REFERENCE_RANGE / SOUND_SPEED).toFixed(3)}), level ${standingLevel.toFixed(2)}`)
-console.log(`  receding at ${V} m/s from ${(r / 1e3).toFixed(2)} km: ${hearing[0] === 0 ? '' : ''}delay ${delays[FRAMES - 1].toFixed(3)} s (r/(c+v) = ${retarded.toFixed(3)}), heard at ${pitch.toFixed(4)} of pitch (c/(c+v) = ${(SOUND_SPEED / (SOUND_SPEED + V)).toFixed(4)})`)
-check('the sound from a vehicle on the pad arrives r/c late, at full level', Math.abs(standing - REFERENCE_RANGE / SOUND_SPEED) < 1e-9 && standingLevel === 1)
-check('from a receding vehicle it arrives at the retarded delay, to 0.1%', Math.abs(delays[FRAMES - 1] - retarded) / retarded < 1e-3)
-check('which lowers its pitch to c/(c+v), the Doppler shift of a receding source, to 0.5%', Math.abs(pitch - SOUND_SPEED / (SOUND_SPEED + V)) < 0.005)
-check('a view riding the vehicle, and the Moon, hear it as before', riding && moon)
-
-/* ------------------------------------------------------------------ *
- * 8. allocation
+ * 7. allocation
  * ------------------------------------------------------------------ */
 const control = await knownAllocation()
 loadSnapshot(LUNAR_ORBIT_FIXTURE)
 const lostBytes = await bytesPerCall(() => {
   signalLost()
 }, { calls: 20000, warm: 20000 })
-listenerState[2] = 1 / 60
-let wobble = 0
-const listenBytes = await bytesPerCall(() => {
-  live.pos.ship.x = REFERENCE_RANGE + (wobble++ & 1023)
-  listen(cam, 'ground', false)
-}, { calls: 20000, warm: 20000 })
 console.log('\n=== allocation ===')
 console.log(`  signalLost   ${sampleText(lostBytes)}`)
-console.log(`  listen       ${sampleText(listenBytes)}`)
 console.log(`  control      ${sampleText(control)}`)
 checks.push(seesAllocation('the allocation measurement can see an allocation', control))
 checks.push(allocatesNothing('the far-side test allocates nothing', lostBytes, SMALLEST_OBJECT / 2))
-checks.push(allocatesNothing('nor does the listener the frame loop runs', listenBytes, SMALLEST_OBJECT / 2))
 
 /* ------------------------------------------------------------------ *
  * verdict

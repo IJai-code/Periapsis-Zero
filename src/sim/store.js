@@ -63,8 +63,6 @@ export const uiStore = createStore({
    * The mission presets open in it; `B` goes back to the instruments.
    */
   broadcast: false,
-  /** The loop spoken aloud as well as captioned, where the browser has voices. */
-  voice: true,
   /** Captions for the loop and the narration, in the broadcast. */
   captions: true,
   focus: 'earth', // 'free' | 'fly' | 'sun' | 'earth' | 'moon' | ...
@@ -89,12 +87,6 @@ export const uiStore = createStore({
   bloom: true,
   clouds: true,
   atmosphere: true,
-  /**
-   * Engine audio (sfx/engine.js). On by default; the context itself is still
-   * created only on the first gesture, so nothing sounds until the player has
-   * clicked into the flight.
-   */
-  audio: true,
   panelOpen: WIDE_ENOUGH_FOR_PANELS,
   /** The planet's interior, and the two rates it puts on the craft's orbit. */
   geophysics: true,

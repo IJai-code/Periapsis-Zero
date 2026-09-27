@@ -29,7 +29,8 @@ import { INDEX } from './system.js'
  * Moon, milliseconds from orbit — so the pause in every lunar exchange is here
  * because the distance is.
  *
- * Driven by the page's own timer, never by the render loop: it builds strings.
+ * Captions only — the loop is read, not heard. Driven by the page's own
+ * timer, never by the render loop: it builds strings.
  */
 
 const nmi = (m) => (m / 1852).toFixed(1)
@@ -220,12 +221,6 @@ export const radio = {
   /** Wall-clock second the next line may start at: a reply waits for light. */
   gate: 0,
   onTransmit: null,
-  /**
-   * Whether a line is still being said aloud. A synthesiser reads at its own
-   * pace, so the caption holds until it has finished — for up to four seconds
-   * past the line's own estimate, after which the loop moves on regardless.
-   */
-  busy: null,
   /** Mute switch: the scheduler still runs, so a muted loop does not replay later. */
   enabled: true,
 }
@@ -322,7 +317,7 @@ export function radioTick(now, rate = 1) {
 
   // The air: one transmission at a time — except that the count cuts in.
   const cutIn = radio.queue.length > 0 && radio.queue[0].urgent && radio.current !== null
-  if (radio.current && (cutIn || (now >= radio.until && !(radio.busy?.() && now < radio.until + 4)))) {
+  if (radio.current && (cutIn || now >= radio.until)) {
     const ended = radio.current
     radio.current = null
     radio.gate = now

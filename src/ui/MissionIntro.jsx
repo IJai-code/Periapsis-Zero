@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { INTRO, introEnd, introStart, DOSSIERS } from '../gfx/introFlights.js'
-import { startMusic, cueMusic } from '../sfx/music.js'
 import { filmDownload, filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
-import { unlockAudio } from '../sfx/engine.js'
 
 /**
  * The mission intro, watched rather than read.
  *
- * A black curtain holds the mission's name until the viewer asks for it —
- * which is also the gesture the browser demands before any sound may play,
- * so the cosmic score and the flight start together, exactly as the reference
- * film opens: title, then the slow fall into the scene.
+ * A black curtain holds the mission's name until the viewer asks for it,
+ * then the flight begins, exactly as the reference film opens: title, then
+ * the slow fall into the scene. It is silent — the product makes no sound.
  *
  * Under it, one continuous camera flight through the real solar system (see
  * `gfx/introFlights.js`) with the dossier's pages turning on its beats, a
@@ -22,9 +19,6 @@ import { unlockAudio } from '../sfx/engine.js'
  * changes: the flight itself allocates nothing, and neither does watching it.
  */
 
-/** Beat → music lean. The score breathes with the pages. */
-const CUES = ['hold', 'reveal', 'swell', 'reveal']
-
 export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // 'curtain' | 'flying' | 'arrived'
   const [stage, setStage] = useState('curtain')
@@ -35,24 +29,21 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   const dossier = DOSSIERS[preset?.id] ?? null
 
   /**
-   * The gesture: sound and flight begin together. The anchors are taken here
+   * The gesture: the flight begins. The anchors are taken here
    * — while the sim is still paused behind the curtain — so the path is built
    * from the sky the viewer is about to cross.
    */
   const begin = useCallback(() => {
     if (started.current) return
     started.current = true
-    unlockAudio()
-    startMusic(dossier?.music ?? 'deep')
-    cueMusic('swell')
     introStart(preset.id, finalFocus)
     // And the film is made of it: the flight is a pure function of its clock,
     // so what is recorded is not *a* take, it is the flight.
     startFilm(document.querySelector('canvas'), preset)
     setStage('flying')
-  }, [dossier, preset, finalFocus])
+  }, [preset, finalFocus])
 
-  /** Skip leaves the film, not the score: it is the mission's, and carries on. */
+  /** Skip leaves the film and goes straight to the mission. */
   const skip = useCallback(() => {
     stopFilm()
     introEnd()
@@ -86,7 +77,6 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       setBeat((prev) => (prev === b ? prev : b))
       if (!INTRO.active) {
         setStage('arrived')
-        cueMusic('reveal')
         return
       }
       raf.current = requestAnimationFrame(loop)
@@ -95,13 +85,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     return () => cancelAnimationFrame(raf.current)
   }, [stage])
 
-  // The score's leans ride the beats.
-  useEffect(() => {
-    if (stage === 'flying' && beat >= 0) cueMusic(CUES[Math.min(CUES.length - 1, beat)] ?? 'hold')
-  }, [stage, beat])
-
-  // Arrived: hold the last page a beat, then hand the mission the screen. The
-  // score settles to its resting lean and plays on underneath the flight — and
+  // Arrived: hold the last page a beat, then hand the mission the screen — and
   // the film comes off the recorder and onto the library's shelf, where its
   // card keeps it.
   useEffect(() => {
@@ -111,10 +95,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       setFilm(blob)
       filmSave(preset.id, blob)
     })
-    const t = setTimeout(() => {
-      cueMusic('hold')
-      onBegin?.()
-    }, 2600)
+    const t = setTimeout(() => onBegin?.(), 2600)
     return () => clearTimeout(t)
   }, [stage, onBegin, preset])
 
@@ -183,7 +164,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
               Begin the approach ▸
             </button>
             <div className="mt-4 font-mono text-[9px] tracking-[0.22em] text-hud/35 uppercase">
-              With sound · Esc to skip
+              Esc to skip
               {filmSupported() && ' · the flight is kept as a film'}
             </div>
           </div>

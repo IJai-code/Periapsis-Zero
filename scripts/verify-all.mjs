@@ -51,10 +51,10 @@
  * run with no state, pass, and were simply never registered; they cost 0.7 to
  * 5.3 s between them, so there was nothing to weigh.
  *
- * `verify-broadcast` sits after `verify-audio` because it builds on the same
- * graph: the listener it holds to the retarded delay is the one that feeds the
- * engine's delay line, and the far-side geometry it checks is flown from the
- * same lunar-orbit fixture the heating gates use.
+ * `verify-broadcast` checks the broadcast's claims — which views were cameras,
+ * the clocks, the far-side geometry flown from the same lunar-orbit fixture the
+ * heating gates use, and the loop's timing. `verify-audio` is gone with the
+ * sound it verified: the product makes none.
  *
  * What is deliberately *not* here is as informative as what is, and only two
  * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
@@ -113,7 +113,6 @@ const GATES = [
   ['verify-return', false],
   ['verify-heating', false],
   ['verify-plasma', true],
-  ['verify-audio', true],
   ['verify-broadcast', true],
   ['verify-approach', false],
   ['verify-entry-guidance', false],

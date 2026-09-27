@@ -4,7 +4,6 @@ import { currentPhase } from '../sim/mission.js'
 import { FEED, cameraSource, eventCaption, missionClock } from '../sim/broadcast.js'
 import { radio, radioTick } from '../sim/radio.js'
 import { commentaryNow } from '../sim/commentary.js'
-import { hushComms, setComms, speaking, transmit } from '../sfx/comms.js'
 import { TimeControls } from './TimeControls.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
 import { Mark } from './Mark.jsx'
@@ -15,8 +14,9 @@ import { Mark } from './Mark.jsx'
  * The instrument panel is for flying. This is for watching, and it is laid out
  * the way a feed from the mission was: the picture, a caption in the corner
  * saying which camera it is, the mission clock in the other, a lower third
- * when something happens, and the loop — Houston and the spacecraft, with the
- * tones — captioned at the foot of the frame. The narration the instruments
+ * when something happens, and the loop — Houston and the spacecraft —
+ * captioned at the foot of the frame. It is silent: the loop is read, not
+ * heard. The narration the instruments
  * carry comes too, as a caption that appears when something new happens and
  * goes when it has been read, so the picture is left alone the rest of the time.
  *
@@ -43,8 +43,6 @@ function readingSeconds(text) {
 
 export function BroadcastHud() {
   const focus = useUi((s) => s.focus)
-  const audio = useUi((s) => s.audio)
-  const voice = useUi((s) => s.voice)
   const captions = useUi((s) => s.captions)
   const paused = useUi((s) => s.paused)
 
@@ -61,18 +59,6 @@ export function BroadcastHud() {
   const narrationUntil = useRef(0)
   const lowerTimer = useRef(0)
   const chromeTimer = useRef(0)
-
-  // The loop's sound, for as long as the broadcast is on screen.
-  useEffect(() => {
-    radio.onTransmit = transmit
-    radio.busy = speaking
-    return () => {
-      radio.onTransmit = null
-      radio.busy = null
-      hushComms()
-    }
-  }, [])
-  useEffect(() => setComms(audio, voice), [audio, voice])
 
   const showLower = useCallback((id) => {
     const cap = eventCaption(id)
@@ -296,21 +282,17 @@ export function BroadcastHud() {
             showChrome ? 'pointer-events-auto max-h-40 opacity-100' : 'pointer-events-none max-h-0 opacity-0'
           }`}
         >
-          <TimeControls />
-          <div className="flex items-center gap-1">
+          {/* Neither row may shrink: folding the container to nothing would
+              otherwise squash both into the same line on the way down. */}
+          <div className="shrink-0">
+            <TimeControls />
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <button
               onClick={() => setUi({ broadcast: false })}
               className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
             >
               instruments · b
-            </button>
-            <span className="h-3 w-px bg-hud/20" />
-            <button
-              onClick={() => setUi((s) => ({ voice: !s.voice }))}
-              aria-pressed={voice}
-              className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
-            >
-              voices {voice ? 'on' : 'off'}
             </button>
             <span className="h-3 w-px bg-hud/20" />
             <button
@@ -324,8 +306,9 @@ export function BroadcastHud() {
         </div>
       </div>
 
-      {/* The station's bug, where a broadcast keeps it. */}
-      <Mark size={18} className="absolute right-4 bottom-4 opacity-40 sm:right-7" />
+      {/* The station's bug, where a broadcast keeps it — on a screen wide
+          enough that the captions do not reach the corner it sits in. */}
+      <Mark size={18} className="absolute right-4 bottom-4 hidden opacity-40 sm:right-7 sm:block" />
     </div>
   )
 }

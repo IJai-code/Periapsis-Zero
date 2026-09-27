@@ -464,8 +464,8 @@ the live scene from a chain of quadratic Béziers whose anchors are taken from
 the ephemeris at the moment the flight begins (the sim is paused through it, so
 the sky holds still while the camera crosses it), and the shot settles on the
 exact frame the fast-forward handed over — T-60 on the pad, or ignition, or a
-mile from Columbia. Esc skips; Enter goes straight to the mission; either way
-the score carries on underneath. The flight's geometry is a gate —
+mile from Columbia. Esc skips; Enter goes straight to the mission. The flight's
+geometry is a gate —
 `verify-intro` drives every dossier's whole path under Node and asserts it
 never enters anything drawn, at any lunar phase, from any hand-over world.
 
@@ -581,48 +581,12 @@ beyond that it is a different place and gets a cut.
 
 ### Sound
 
-And under the mission intro, **the score** (`src/sfx/music.js`): generative,
-synthesised, and no sound files — the same rule as the engine. Each mission
-names a root and a mode (the lunar flights hover in aeolian, the departures in
-lydian, re-entry in dorian with the drone restless), and the music is two
-detuned saws under a low filter, four triangle voices gliding sevenths with
-`setTargetAtTime`, a sub swell felt before it is heard, and shimmer plucks
-echoing through a ping-pong delay into a synthesised reverb. Cues — `reveal`,
-`tension`, `swell`, `hold` — move targets only; `musicTick` eases them in the
-frame path and mutates AudioParams, so the score allocates nothing at 60 Hz.
-The gesture that begins the film is the gesture that unlocks the sound, and
-the music plays on under the flight after the film ends.
-
-`sfx/engine.js` already had the engine. Added: an **aerodynamic rush** driven by
-dynamic pressure rather than thrust — loudest at max Q and again through entry,
-silent in a vacuum however fast anything moves through it — and the **pad's own
-noise**, the LOX vents and the sound-suppression water, read straight off the
-same `countdown.js` timeline that draws them, so the last minute's picture and
-its sound are one set of numbers. Plus three rendered one-shots: ignition held on
-the pad, the drogues, and splashdown.
-
-The shape matters: the air voices went into a second function, `mixAir`, rather
-than four more parameters on `mixFor`. V8 inlines a seven-argument call and does
-not inline a nine-argument one, and the doubles of a call it will not inline are
-boxed at the boundary — measured at **47.50 bytes a call**, against 0.00 once the
-split was made. `gfx/sunlight.js` and `gfx/groundView.js` hit the same wall and
-answered it the same way. `verify-audio` now sizes its mix from `MIX_SIZE` rather
-than a literal, since a typed-array store past the end is silently dropped and
-the old literal would have gone on passing while a new voice went nowhere.
-
-Wiring it in exposed two things. The driver armed the sequencer on mount with
-`resetMission()`, and it mounts only once the assets are ready — after a preset
-has flown — so that reset put a vehicle 240 hours out back on its pad and threw
-away the capture search it had started. It resets only a mission that has not
-started now. And the nearest-surface readout had named the ship "Artemis" since
-Artemis was the only vessel, over Apollo 8, on every page.
-
-The Halo capture panel reads `mission.capture` on the HUD's clock: the search's
-progress while the worker runs, then the burns it planned and which have flown.
-In the production build the Artemis preset fetches `capture.worker`, plans 586
-m/s — 193.7 and 284.2 m/s now, the correction and insertion solved later against
-the states the craft reaches — and flies on toward the capture burn at the
-sequencer's own warp.
+There is none. The engine and pad sounds, the staging, ignition, parachute and
+splashdown effects, the intro's generative score and the radio's tones, static
+and spoken voices were all removed: they were described as terrifying, and a
+simulator nobody can bear to listen to is not improved by being accurate about
+it. The loop is captioned instead (see *The broadcast*). `src/sfx/`, the audio
+component and `verify-audio` went with them.
 
 ### The broadcast
 
@@ -647,22 +611,14 @@ the map's button). It is presentation, and it is held to what it claims by
   the Moon the GET is running already — 124:22:00.79 at Eagle's liftoff, from the
   Mission Report — with the count to liftoff beneath it.
 - **Lower thirds** when something happens, carrying the flight's own figures.
-- **The loop** (`sim/radio.js`, `sfx/comms.js`): Houston, the spacecraft, the
-  other spacecraft and Launch Control, captioned at the foot of the frame and
-  spoken where the browser has voices, with the Quindar tones — 2,525 Hz on,
-  2,475 Hz off — on the ground's transmissions only, as on the real circuit.
+- **The loop** (`sim/radio.js`): Houston, the spacecraft, the other spacecraft
+  and Launch Control, captioned at the foot of the frame — read, not heard.
   Lines that are Apollo's own say in the script when they were said. The count
   is read on its second. Behind the Moon, decided by the segment to the Earth
   against the Moon's sphere, the air-to-ground loop waits for acquisition of
   signal; the two spacecraft's VHF exchanges still play, captioned *onboard
   recorder*, as documentaries play them. An answer from the Moon comes a round
   trip of light, 2.6 s, after the question.
-- **Sound that travels** (`sfx/listener.js`). At a ground camera the rumble
-  arrives at the retarded delay r/(c+v) — 1.12 s behind the flame at the 380 m
-  stand-off — at 380/r of its level, and a delay line driven by that delay plays
-  it at c/(c+v) of its pitch as the vehicle climbs away: the Doppler shift of a
-  receding source, from the delay alone. Views that ride the vehicle hear it as
-  before; on the Moon there is no air, and the liftoff is silent but for the loop.
 
 The captions and the narration are separate boxes — the loop above, the
 commentary below, the commentary shown for its reading time when a phase begins
@@ -1918,17 +1874,6 @@ in the same frames with the steam cloud at its largest — no difference outside
 the run-to-run spread (16.6 against 16.8, 12.2 against 12.9, 12.1 against 12.2
 ms). The largest single cost in this view is the sky: 7 to 8 ms of the frame when
 it fills the screen from the ground.
-
-### Sound
-
-The engine is synthesised, not sampled (`src/sfx/engine.js`): brown noise
-through a lowpass whose corner follows mass flow, a detuned sub pair for the
-throb, bandpassed crackle for a large exhaust, and a rendered clunk at every
-separation — all scaled by the density of the air at the vehicle, so the ascent
-goes quiet as the sky goes black. Five numbers are written into the graph each
-frame and nothing is allocated doing it; `verify:audio` measures the mix and the
-parameter writes at zero bytes a call. The context is created on the first
-click, as browsers require, and the `Engine audio` toggle mutes and suspends it.
 
 ## Surface launch
 
