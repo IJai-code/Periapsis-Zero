@@ -16,6 +16,8 @@ import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { FlightStrip } from './FlightStrip.jsx'
 import { Commentary } from './Commentary.jsx'
 import { Mark } from './Mark.jsx'
+import { GoForLaunch } from './GoForLaunch.jsx'
+import { BroadcastHud } from './Broadcast.jsx'
 import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
 import { live } from '../sim/live.js'
 import { SHIP } from '../sim/constants.js'
@@ -112,6 +114,7 @@ function useNarrow() {
 export function Hud() {
   const open = useUi((s) => s.panelOpen)
   const map = useUi((s) => s.map)
+  const broadcast = useUi((s) => s.broadcast)
   const narrow = useNarrow()
 
   useEffect(() => {
@@ -127,10 +130,19 @@ export function Hud() {
         return setUi((s) => ({ warp: Math.min(WARP_LEVELS.length - 1, s.warp + 1) }))
       if (e.key.toLowerCase() === 'h') return setUi((s) => ({ panelOpen: !s.panelOpen }))
       if (e.key.toLowerCase() === 'm') return toggleMap()
+      // The feed and the instruments are two ways of looking at one flight.
+      if (e.key.toLowerCase() === 'b') return setUi((s) => ({ broadcast: !s.broadcast, map: false }))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  /*
+    The broadcast replaces the whole instrument layout rather than sitting on
+    top of it: a feed with panels printed over it is neither. The key handler
+    above stays live in both, so the number keys cut between cameras here too.
+  */
+  if (broadcast) return <BroadcastHud />
 
   /* Above the instruments on purpose: telemetry is ambient, the manoeuvre
      panel is whatever the pilot is doing right now. */
@@ -166,6 +178,13 @@ export function Hud() {
             <div className="font-display text-xl leading-none font-light tracking-[0.3em] text-hud/90">
               PERIAPSIS ZERO
             </div>
+            <button
+              onClick={() => setUi({ broadcast: true, map: false })}
+              title="Watch as a broadcast (b)"
+              className="grid h-9 min-w-[3.75rem] place-items-center border border-hud/22 px-2 text-[9px] tracking-[0.2em] text-hud/50 uppercase transition-colors duration-300 outline-none hover:border-ember/70 hover:text-ember focus-visible:border-ember focus-visible:text-ember lg:h-7"
+            >
+              feed · b
+            </button>
             <button
               onClick={toggleMap}
               title="Flight plan (m)"
@@ -267,6 +286,7 @@ export function Hud() {
         means neither can reach the other however either one grows.
       */}
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+        <GoForLaunch />
         <Commentary />
         <TimeControls />
         <button

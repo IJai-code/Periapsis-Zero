@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PRESETS, presetHref } from '../sim/presets.js'
 import { filmAll, filmDownload } from '../gfx/filmRecorder.js'
 import { VESSELS } from '../sim/vessels.js'
@@ -152,7 +153,14 @@ export function MissionLibrary({ open, onClose }) {
 
   if (!open) return null
 
-  return (
+  /*
+   * Portalled to the body. The drawer is `fixed inset-0`, and fixed means the
+   * viewport only while no ancestor has a filter: the flight HUD opens it from
+   * inside the Missions panel, whose smoked glass is a `backdrop-filter`, and
+   * that made the panel its containing block — the whole library was laid out
+   * in a 190-pixel column, scrolled 400 px up out of its own clip.
+   */
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -297,6 +305,7 @@ export function MissionLibrary({ open, onClose }) {
           here as a film.
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

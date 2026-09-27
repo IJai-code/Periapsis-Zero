@@ -142,7 +142,7 @@ export const COMMENTARY = {
 
   TLI_BURN: () =>
     'Trans-lunar injection — the burn that stops this being an orbit of Earth. It happens on the ' +
-    'far side from the Moon, because a burn raises the *opposite* side of an orbit, and the ' +
+    'far side from the Moon, because a burn raises the opposite side of an orbit, and the ' +
     'opposite side is where the Moon has to be met.',
 
   TRANS_LUNAR: () =>

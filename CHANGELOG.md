@@ -7,6 +7,68 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ### Fixed
 
+**Nothing made a sound.** `build()` in `sfx/engine.js` returned a `clunk` gain
+node that the one-shot bus had replaced and nothing declared any more, so the
+first gesture threw a ReferenceError inside `unlockAudio`'s silent `catch`, the
+context was put back to null, and every voice — the engine, the pad, the
+one-shots and the score, which builds on the same context — stayed silent while
+`verify-audio` passed, because it measured the arithmetic and never built the
+graph. The clunk now plays through the one-shot bus; the catch logs what failed;
+and `verify-audio` builds the whole graph against a Web Audio shaped enough like
+the browser's to throw where it throws (`scripts/fakeAudio.mjs`), follows every
+voice to the output, fires each one-shot and cues the score. On the current code
+it reads 6 engine voices and 9 score voices, all reaching the destination; on the
+old code it fails with "the graph did not build", as the product did.
+
+**The pad presets were handed over at T-13, not T-60.** A held phase runs its
+count on the wall clock, and it kept doing so under a pause — which nothing
+noticed until the mission intro paused the page for 42 seconds. Measured in the
+page: hand-off at T-13.0 before, T-58.4 after. On the Moon it was worse than a
+missed minute: Columbia is placed for a liftoff one count of *simulated* time
+after the count begins, so a count that ran through the intro lifted Eagle off
+42 s early for a rendezvous timed for the planned moment. The driver passes a
+zero wall delta while paused, and the lunar count now runs in simulated seconds,
+so no warp can separate it from Columbia's placement either;
+`verify-lunar-ascent` still passes every check.
+
+**The title curtain could not be read.** Its letterbox left the middle quarter
+of the screen open onto whatever the camera faced before the flight — at a pad
+at noon, the sky's glare — straight behind the title, blurb and dossier. The
+curtain is black now and lifts off the bars as the flight begins.
+
+**The tour printed over the front door.** It opened on top of the page's own
+title, button, flight rows and claims, drew the pilot's instruments (apsis tags,
+trails, planet labels) into its shots, left the page parked on the Sun with
+PHOBOS/DEIMOS across the title when skipped, and — left through the library —
+never recorded being seen, so it reopened every visit. The front door steps aside
+while the tour runs, the tour's shots are bare, closing it restores the opening
+shot, and every way out marks it seen. Its vehicle stop was a grey slab (the
+orbit lock on a pad frames the deck's underside); it stands at eye height now.
+
+**"Open the mission library" in the flight HUD opened it inside a 190 px
+panel.** The drawer is `fixed inset-0`, and the Missions panel's glass is a
+`backdrop-filter`, which makes it the containing block for fixed descendants.
+The library is portalled to the body.
+
+**Name tags printed across the panels.** drei ranks tags with z-indexes up to 20
+in the page's shared stacking context, above the HUD's z-10: HALLEY'S COMET over
+the telemetry, URANUS through a row of figures, COLUMBIA inside the commentary.
+The canvas is its own stacking context now. And a moon's tag waits until the moon
+is 1.4° off its planet as seen from the camera, so PHOBOS and DEIMOS stop printing
+as one smear.
+
+**"Start countdown" was below the fold.** "Begin flight" lands on a vehicle held
+on its pad and the only go was the fourth panel down the right rail, 996 px from
+the top at a 713 px window. It is at the foot of the frame now, above the
+commentary, for as long as the count has not started.
+
+**Eagle's minute hissed with liquid oxygen.** The pad's vent and deluge noise is
+a function of the count's clock alone, and the lunar count runs on the same
+clock. Not on the Moon now.
+
+A commentary line printed its Markdown emphasis as literal asterisks; it no
+longer does.
+
 **The sky pulled on every solver.** `ownRails` — the private rails table each
 shooting solver runs against — read `count: RAIL_COUNT`, so the day the table
 outgrew the seven planets the moons and comets began contributing *gravity*
@@ -60,6 +122,43 @@ that is the shot both `COAST_TO_APOAPSIS` and `CIRCULARISE` are cut to. The gap
 decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
+
+**The broadcast.** The flight as it was watched rather than flown
+(`src/ui/Broadcast.jsx`, `src/sim/broadcast.js`, `src/sim/radio.js`,
+`src/sfx/comms.js`, `src/gfx/filmLook.js`). The presets hand over to it after
+their film; `B` switches between it and the instruments, and so does a *feed*
+button beside the map's. It carries:
+
+- **The camera, captioned honestly.** A pad's remote and tracking cameras and the
+  lunar surface television were cameras; a view of Apollo 8 from outside Apollo 8
+  was not, and is captioned SIMULATION, as the networks captioned their models
+  (Artemis's say ANIMATION, and Orion's hull view is its solar array wing
+  camera, which it carries).
+- **What it was recorded on.** One post-processing effect with five sets of
+  numbers — 16 mm film (grain at 24 fps, gate weave, halation, dust, a warm
+  fade), the Apollo surface camera's television (interlace, a rolling hum bar,
+  chroma smear, bloom), 1968 network video for simulations, and present-day HD
+  and clean renders. A cut changes the numbers, never the program.
+- **Apollo's clock.** GET in hhh:mm:ss from liftoff, or the count before it; on
+  the Moon the GET Eagle actually lifted off at, 124:22:00.79 (Mission Report),
+  plus the simulated seconds since, with the count to liftoff underneath.
+- **Lower thirds** on every event worth one, with the flight's own figures —
+  the orbit Eagle reached here, not the Mission Report's — and "Behind the Moon"
+  only when the geometry puts it there.
+- **The loop.** Houston, the spacecraft, the other spacecraft and Launch
+  Control, captioned, with Quindar tones on the ground's transmissions only
+  (2,525 Hz on, 2,475 Hz off, a quarter-second each), band-limited static, a
+  squelch tail, and the words spoken where the browser has voices. Where a line
+  is Apollo's own the script says when it was said. The count is read on its
+  second. Nothing crosses the far side: a spacecraft behind the Moon — decided
+  by the segment to the Earth against the Moon's sphere — has its air-to-ground
+  lines held until acquisition of signal, while the two spacecraft's own VHF
+  exchanges play captioned *onboard recorder*. A reply from the Moon waits a
+  round trip of light, 2.6 s.
+- **Sound that travels.** At a ground camera the rumble arrives at the retarded
+  delay r/(c+v) and at 380/r of its level, which puts it 1.12 s behind the flame
+  at the pad and lowers its pitch to c/(c+v) as the vehicle recedes — the Doppler
+  shift of a receding source, from the delay line alone (`sfx/listener.js`).
 
 **The film of the flight** (`src/gfx/filmRecorder.js`, `MissionIntro`,
 `MissionLibrary`) — the intro is a pure function of its clock, so it is
@@ -531,6 +630,18 @@ departure, so it reported an apoapsis of 36,365 km against the claimed 109.45 km
   three is held under half a heap number, tighter than the old bound.
 
 ### Gates
+
+**`verify-broadcast`**, 31 checks: every view in every phase of every mission
+captioned, only real cameras called cameras; the clocks' formats and Eagle's
+GET; every lower third evaluating; the far side, synthetically (behind, near
+side, 2% past and inside the limb) and on a flown orbit, where the fraction of
+each revolution spent hidden matches acos(√(1−R²/r²)/cos b)/π to 2% and agrees
+sample for sample with the limb seen from the vehicle; the script's phases and
+speakers; the count read within 0.15 s of each second; a reply waiting a light
+round trip to a tick; nothing through the far side and the held call played at
+AOS; no burst from a phase crossed at an hour a second; every film look
+complete; the retarded delay and its Doppler to 0.1% and 0.5%; and the far-side
+test and the frame loop's listener allocating nothing.
 
 - **`verify-intro` (45 checks) joins the suite — 49 of 49.** Drives the whole
   intro flight for every dossier under Node and asserts what the shot

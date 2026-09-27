@@ -248,7 +248,16 @@ export function Driver() {
     // Sequencer first: it commands throttle and target attitude, both of which
     // the steps below consume. Transitions evaluated here are current, not
     // stale — the derived state is the result of the previous step.
-    updateMission(dt, simDt)
+    /*
+     * Paused is paused for the count too. A held phase runs its count on the
+     * wall clock, so that a warp does not skip the watched minute — and it went
+     * on doing that under a pause, which nothing noticed until the mission
+     * intro paused the page for its 42 seconds: the pad presets were handed
+     * over at T-13 instead of T-60, and on the Moon, where Columbia is placed
+     * for a liftoff exactly one count later, the ascent left 42 seconds early
+     * for a rendezvous timed for the planned minute.
+     */
+    updateMission(paused ? 0 : dt, simDt)
 
     /**
      * Burning under time compression is meaningless — a few seconds of engine

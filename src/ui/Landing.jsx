@@ -77,7 +77,7 @@ const step = (shown, i) => ({
   transition: `opacity 900ms cubic-bezier(.2,.7,.3,1) ${i * 110}ms, transform 900ms cubic-bezier(.2,.7,.3,1) ${i * 110}ms`,
 })
 
-export function Landing({ ready, progress, label, onEnter, onLibrary, onTour }) {
+export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hidden = false }) {
   const [shown, setShown] = useState(false)
   const scroller = useRef(null)
   /** How far down we are, and whether there is anything below. Both drive controls. */
@@ -122,7 +122,12 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour }) 
   const pct = Math.round((progress ?? 0) * 100)
 
   return (
-    <div className="absolute inset-0 font-sans">
+    <div
+      aria-hidden={hidden || undefined}
+      className={`absolute inset-0 font-sans transition-[opacity,visibility] duration-700 ${
+        hidden ? 'pointer-events-none invisible opacity-0' : 'visible opacity-100'
+      }`}
+    >
       {/*
         The scrims sit outside the scrolling box now. Inside it they were laid
         out at the top of a 1,079 px column and scrolled off with it, so the foot

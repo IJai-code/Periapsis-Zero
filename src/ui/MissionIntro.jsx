@@ -124,6 +124,20 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
 
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">
+      {/*
+        The curtain itself: black, all of it, until the viewer asks. The bars
+        alone left the middle quarter of the screen open onto whatever the
+        camera happened to face before the flight — at a pad at noon that was
+        the sky's glare, straight behind the title, the blurb and the dossier,
+        which were then cream on pale yellow and could not be read. The bars
+        stay for the film; the curtain lifts off them as the flight begins.
+      */}
+      <div
+        aria-hidden
+        className={`absolute inset-0 bg-black transition-opacity duration-[1600ms] ease-out ${
+          stage === 'curtain' ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
       {/* Letterbox: the one wordless signal that says film. */}
       <div
         aria-hidden

@@ -48,6 +48,25 @@ export const uiStore = createStore({
    * gizmo, the flight-plan list, the clock — works identically in both.
    */
   map: false,
+  /**
+   * The front door's guided tour is running. It steers the same camera as
+   * the flight, so without this the scene cannot tell a tour stop on the Sun
+   * from a pilot looking at it, and draws the pilot's instruments — trails,
+   * apsis tags, planet labels — over a caption meant to be read.
+   */
+  tour: false,
+  /**
+   * The flight as it was watched rather than flown: the instrument panels give
+   * way to the feed a broadcast of the mission carried — the camera's caption,
+   * the mission clock, lower thirds, the air-to-ground loop — and the picture
+   * takes on what it would have been recorded on. See `ui/Broadcast.jsx`.
+   * The mission presets open in it; `B` goes back to the instruments.
+   */
+  broadcast: false,
+  /** The loop spoken aloud as well as captioned, where the browser has voices. */
+  voice: true,
+  /** Captions for the loop and the narration, in the broadcast. */
+  captions: true,
   focus: 'earth', // 'free' | 'fly' | 'sun' | 'earth' | 'moon' | ...
   /**
    * Opens paused, at real time.

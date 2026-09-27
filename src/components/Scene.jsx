@@ -71,7 +71,20 @@ export function Scene({ textures }) {
    * crossing those is what the flight is for.
    */
   const intro = useUi((s) => s.focus === 'intro')
-  const bare = cinematic || ground || lunarChase || intro
+  /**
+   * Nor the front door's tour, for the same reason as the intro: it is a
+   * caption over a shot, and the pilot's instruments in it — an apsis tag, an
+   * orbit trail drawn across the caption, a planet's name tag landing on the
+   * page's own title — were measured on the page doing exactly that.
+   */
+  const tour = useUi((s) => s.tour)
+  /**
+   * Nor the broadcast. A feed from a mission had no predicted path drawn up
+   * out of the pad and no name tag on the Moon; what it had is in the caption.
+   */
+  const broadcast = useUi((s) => s.broadcast)
+  const presenting = intro || tour || broadcast
+  const bare = cinematic || ground || lunarChase || presenting
   const active = useActiveTextures(textures)
 
   return (
@@ -100,7 +113,7 @@ export function Scene({ textures }) {
       {CRAFT.target && <Craft id="target" />}
       <ShipControls />
 
-      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase && !intro} />
+      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase && !presenting} />
       {FLEET_TRAILS.map((t) => (
         <Trail
           key={t.body}
@@ -112,7 +125,7 @@ export function Scene({ textures }) {
           head={t.head}
           tail={t.tail}
           width={1.1}
-          visible={trails && !ground && !lunarChase && !intro}
+          visible={trails && !ground && !lunarChase && !presenting}
         />
       ))}
       <Trail
@@ -124,12 +137,12 @@ export function Scene({ textures }) {
         head="#cfc8bd"
         tail="#33302b"
         width={1.4}
-        visible={trails && !ground && !lunarChase && !intro}
+        visible={trails && !ground && !lunarChase && !presenting}
       />
 
       {!bare && <Trajectory />}
       {!bare && <Osculating />}
-      {!cinematic && !intro && <MapOverlay />}
+      {!cinematic && !presenting && <MapOverlay />}
       {!bare && <Markers />}
       {!cinematic && <Planets />}
       {!cinematic && <Terrain />}

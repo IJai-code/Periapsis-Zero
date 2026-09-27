@@ -42,6 +42,14 @@ const BRIGHTEST_PLANET = -4.9
 /** And the click target, which has to be comfortable rather than truthful. */
 const PICK_ANGLE = 0.02
 
+/**
+ * How far a moon has to be from its planet, as seen from the camera, before
+ * its name tag is shown, radians. 0.025 rad is 1.4°: at the 45° lens and a
+ * 700-pixel frame that is 22 px, a little over one 9 px tag and its gap, so two
+ * tags that would print on each other never both appear.
+ */
+const LABEL_SEPARATION = 0.025
+
 /*
  * A comet's tail. Three nested additive cones, apex at the nucleus, opening
  * away from the Sun — which is the whole physics of a tail in one sentence:
@@ -82,6 +90,8 @@ function CometTail({ onRef }) {
 export function Planets() {
   const labels = useUi((s) => s.labels)
   const focus = useUi((s) => s.focus)
+  /** The tour, the intro and the broadcast are shots with captions; name tags are the pilot's. */
+  const tour = useUi((s) => s.tour || s.broadcast)
   const groups = useRef({})
   /** Every body's parts register under their own names — nothing is indexed. */
   const reg = (id, key) => (el) => {
@@ -114,6 +124,23 @@ export function Planets() {
         beacon.visible = seen > 0
       }
       if (pick) pick.scale.setScalar(Math.max(1, (d * PICK_ANGLE) / p.radius))
+      /*
+       * A moon's name tag, only once the moon has come out from behind its
+       * planet's. From the inner system Phobos and Deimos are a few
+       * milliradians off Mars and the four Galileans a few off Jupiter, so the
+       * tags were printed on top of one another — PHOBOS and DEIMOS as one
+       * smear. The tag waits until the moon is LABEL_SEPARATION off its parent
+       * as seen from the camera, which is a tag's own height at this size.
+       */
+      if (p.parent && entry.label) {
+        const q = live.railPos[p.parent]
+        const hide = q !== undefined && g.position.distanceTo(q) < d * LABEL_SEPARATION
+        // Read back rather than remembered: a tag that remounts (the labels
+        // toggle) comes back visible whatever a flag here last said.
+        if (hide === (entry.label.style.visibility !== 'hidden')) {
+          entry.label.style.visibility = hide ? 'hidden' : 'visible'
+        }
+      }
       // The tail points anti-sunward and breathes with solar distance.
       if (tail) {
         _dir.subVectors(g.position, live.pos.sun)
@@ -175,9 +202,10 @@ export function Planets() {
 
       {p.comet && <CometTail onRef={reg(p.id, 'tail')} />}
 
-      {labels && focus !== 'ground' && (
+      {labels && focus !== 'ground' && focus !== 'intro' && !tour && (
         <Html center zIndexRange={[19, 9]} style={{ pointerEvents: 'none', transform: 'translateY(-34px)' }}>
           <div
+            ref={reg(p.id, 'label')}
             className={`whitespace-nowrap font-mono text-[9px] tracking-[0.22em] uppercase transition-colors ${
               focus === p.id ? 'text-ember' : 'text-white/35'
             }`}

@@ -198,6 +198,87 @@ console.log(`  density      ${sampleText(densityBytes)}`)
 console.log(`  control      ${sampleText(control)}`)
 
 /* ------------------------------------------------------------------ *
+ * the graph, built
+ *
+ * Everything above is the arithmetic. None of it builds the graph, and the
+ * graph is where the product went silent: `build()` returned a `clunk` node it
+ * no longer declared, the ReferenceError was swallowed by `unlockAudio`'s own
+ * try, and the context stayed null — engine, pad, one-shots and the score
+ * alike — while this gate passed. So it is built here, on a Web Audio shaped
+ * enough like the real one to throw where the real one throws, and every voice
+ * is followed to the speakers.
+ * ------------------------------------------------------------------ */
+const { installFakeAudio, reachesDestination, sources } = await import('./fakeAudio.mjs')
+installFakeAudio()
+const engine = await import('../src/sfx/engine.js')
+const music = await import('../src/sfx/music.js')
+
+let unlockError = null
+let unlocked = false
+try {
+  unlocked = engine.unlockAudio()
+} catch (e) {
+  unlockError = e
+}
+const ac = engine.audioContext()
+const running = unlocked && engine.audioState() === 'running' && ac !== null
+const engineSources = ac ? sources(ac) : []
+const engineHeard = engineSources.length > 0 && engineSources.every((s) => s.started && reachesDestination(s))
+
+// A frame of the loop, then each one-shot: every one must start a new source
+// that is heard, or the event it announces happens in silence.
+let frameError = null
+try {
+  for (let i = 0; i < 5; i++) engine.updateAudio(1)
+} catch (e) {
+  frameError = e
+}
+const oneShots = {}
+for (const [name, play] of [
+  ['staging', engine.playStaging],
+  ['ignition', engine.playIgnition],
+  ['chutes', engine.playChutes],
+  ['splash', engine.playSplash],
+]) {
+  const before = ac ? sources(ac).length : 0
+  try {
+    play()
+    const fresh = ac ? sources(ac).slice(before) : []
+    oneShots[name] = fresh.length === 1 && fresh[0].started && reachesDestination(fresh[0])
+  } catch (e) {
+    oneShots[name] = false
+    console.log(`  ${name} threw: ${e.message}`)
+  }
+}
+
+// The score builds on the same context, and must make a sound once cued.
+let musicStarted = false
+let musicError = null
+try {
+  musicStarted = music.startMusic('ascent')
+  music.cueMusic('swell')
+  for (let i = 0; i < 600; i++) {
+    ac.currentTime += 1 / 60
+    music.musicTick(1 / 60, 1)
+  }
+} catch (e) {
+  musicError = e
+}
+const musicSources = ac ? sources(ac).filter((s) => !engineSources.includes(s) && s.kind === 'oscillator') : []
+const musicHeard = musicSources.length > 0 && musicSources.every((s) => reachesDestination(s))
+const musicLevel = music.musicState().current
+const musicAudible = musicLevel[0] > 0.05 && musicLevel[1] > 0.05
+
+console.log('\n=== the graph ===')
+if (unlockError) console.log(`  unlockAudio threw: ${unlockError.message}`)
+if (frameError) console.log(`  updateAudio threw: ${frameError.message}`)
+if (musicError) console.log(`  the score threw: ${musicError.message}`)
+console.log(`  context        ${ac ? engine.audioState() : 'none — the graph did not build'}`)
+console.log(`  engine voices  ${engineSources.length} sources, ${engineSources.filter((s) => reachesDestination(s)).length} reach the output`)
+console.log(`  one-shots      ${Object.entries(oneShots).map(([k, v]) => `${k} ${v ? 'heard' : 'SILENT'}`).join(', ')}`)
+console.log(`  score          ${musicSources.length} voices, lean drone ${musicLevel[0].toFixed(2)} pad ${musicLevel[1].toFixed(2)} after 10 s`)
+
+/* ------------------------------------------------------------------ *
  * verdict
  * ------------------------------------------------------------------ */
 console.log('\n=== what this establishes ===')
@@ -220,6 +301,12 @@ const checks = [
   allocatesNothing('and neither does the air mix', airBytes, SMALLEST_OBJECT / 2),
   allocatesNothing('writing it to the graph allocates nothing', applyBytes, SMALLEST_OBJECT / 2),
   allocatesNothing('nor does the density lookup it depends on', densityBytes, SMALLEST_OBJECT / 2),
+  ['the first gesture builds a running graph', running && unlockError === null],
+  ['every engine voice is started and reaches the output', engineHeard],
+  ['a frame of the loop writes the graph without throwing', frameError === null],
+  ['staging, ignition, chutes and splash are each heard', Object.values(oneShots).every(Boolean)],
+  ['the score builds on the same context and every voice reaches the output', musicStarted && musicError === null && musicHeard],
+  ['and a cued score is actually sounding', musicAudible],
 ]
 let pass = true
 for (const [label, ok] of checks) {

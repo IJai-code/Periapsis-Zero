@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { setAudioEnabled, unlockAudio, updateAudio } from '../sfx/engine.js'
-import { musicTick } from '../sfx/music.js'
+import { audioContext, audioState, setAudioEnabled, unlockAudio, updateAudio } from '../sfx/engine.js'
+import { musicState, musicTick } from '../sfx/music.js'
+import { listen, listenerState } from '../sfx/listener.js'
 import { uiStore, useUi } from '../sim/store.js'
+import { SHIP } from '../sim/constants.js'
 
 /**
  * The engine's ear on the frame loop.
@@ -24,6 +26,12 @@ export function Audio() {
     setAudioEnabled(enabled)
   }, [enabled])
 
+  // Dev-only: the audio modules' own instances, for the same reason the
+  // driver exposes the sim's — a console import after a hot reload is a copy.
+  useEffect(() => {
+    if (import.meta.env.DEV) window.__periapsisAudio = { audioState, audioContext, musicState }
+  }, [])
+
   useEffect(() => {
     const off = () => {
       window.removeEventListener('pointerdown', once)
@@ -38,8 +46,11 @@ export function Audio() {
     return off
   }, [])
 
-  useFrame((_, delta) => {
-    updateAudio(uiStore.get().paused ? 0 : 1)
+  useFrame(({ camera }, delta) => {
+    const ui = uiStore.get()
+    listenerState[2] = ui.paused ? 0 : delta
+    listen(camera.position, ui.focus, SHIP.lunar === true)
+    updateAudio(ui.paused ? 0 : 1)
     /**
      * The score rides the same loop, at the same priority — after the physics,
      * before the render. It follows the sound toggle rather than the pause

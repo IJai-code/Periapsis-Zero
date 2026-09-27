@@ -45,7 +45,13 @@ const STEPS = [
       'workers while you watch.',
   },
   {
-    focus: 'ship',
+    /*
+     * From the ground, at eye height, not the orbit lock. On the pad the
+     * orbit lock's offset put the camera beside the launch deck's underside,
+     * and the stop was a grey slab filling the frame; the eye-level camera is
+     * the one built to stand next to the hull, which is what the caption says.
+     */
+    focus: 'ground',
     eyebrow: 'One vehicle',
     title: 'A hull you can stand next to',
     body:
@@ -73,6 +79,15 @@ export function guideShouldOpen() {
   }
 }
 
+/** Remember that this browser has been shown round, however the tour was left. */
+function markSeen() {
+  try {
+    window.localStorage.setItem(SEEN_KEY, '1')
+  } catch {
+    /* private mode: the guide simply opens again next time */
+  }
+}
+
 export function Guide({ open, onClose, onLibrary }) {
   const [step, setStep] = useState(0)
 
@@ -82,14 +97,30 @@ export function Guide({ open, onClose, onLibrary }) {
     if (open) setUi({ focus: STEPS[step].focus })
   }, [open, step])
 
+  /*
+   * The scene is told a tour is running, so it can leave the pilot's
+   * instruments out of the shots; and when the tour ends, however it ends, the
+   * front door gets its own shot back. Leaving the camera where the last stop
+   * put it parked the page on the Sun, with the planets' name tags printed
+   * across its title.
+   */
+  useEffect(() => {
+    if (!open) return
+    setUi({ tour: true })
+    return () => setUi({ tour: false, focus: 'cinematic' })
+  }, [open])
+
   const close = useCallback(() => {
-    try {
-      window.localStorage.setItem(SEEN_KEY, '1')
-    } catch {
-      /* private mode: the guide simply opens again next time */
-    }
+    markSeen()
     onClose()
   }, [onClose])
+
+  // The library is a way out of the tour too, and counts as having seen it:
+  // it used to skip the note, so the tour reopened on every visit after.
+  const toLibrary = useCallback(() => {
+    markSeen()
+    onLibrary()
+  }, [onLibrary])
 
   const next = useCallback(() => {
     setStep((s) => (s + 1 < STEPS.length ? s + 1 : s))
@@ -178,7 +209,7 @@ export function Guide({ open, onClose, onLibrary }) {
             {last ? (
               <>
                 <button
-                  onClick={onLibrary}
+                  onClick={toLibrary}
                   className="border border-ember/70 px-4 py-2 font-mono text-[10px] tracking-[0.22em] text-ember uppercase transition-colors duration-300 hover:bg-ember/12"
                 >
                   Open the mission library

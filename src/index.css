@@ -159,6 +159,18 @@ canvas {
   }
 }
 
+/** A lower third arriving: in from the left edge of the safe area, as supers do. */
+@keyframes pz-lower {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /**
  * Nothing moves for anyone who has asked for less motion. Set here rather than
  * per-component so a new component cannot forget it.

@@ -3556,9 +3556,16 @@ const PHASES = [
       ship.rcs.set(0, 0, 0)
       mission.countdown = mission.countLength
     },
-    control(dt) {
+    control(dt, simDt) {
       holdOnSurface()
-      mission.countdown -= dt
+      /*
+       * Simulated seconds, where the Earth count takes wall-clock ones. Columbia
+       * is placed for a liftoff one count of *simulated* time after the count
+       * begins (see beginCountdown), so the count has to be kept in the same
+       * seconds or a warp — or a pause, before the driver held the wall clock
+       * too — lifts Eagle off for a rendezvous timed for another moment.
+       */
+      mission.countdown -= simDt
       mission.t = -mission.countdown
     },
     done: () => mission.countdown <= 0,

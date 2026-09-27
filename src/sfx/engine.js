@@ -172,6 +172,30 @@ export function mixAir(out, rho, q, vent, gate = 1, heavy = 0.5) {
   return out
 }
 
+/**
+ * Where the listener is, as two numbers the frame loop writes and the graph
+ * follows: the seconds the sound has been travelling, and how much of it is
+ * left by the time it arrives.
+ *
+ * A camera beside a pad is not on the vehicle. Sound crosses the 380 m to it
+ * at 340 m/s, so the roar arrives a second and a tenth after the flame — the
+ * gap every piece of launch film has in it — and as the vehicle climbs away it
+ * arrives later, weaker and lower: spherical spreading takes the pressure down
+ * as one over the range, and a source receding at v is heard at c/(c+v) of its
+ * pitch. The delay is the *retarded* one, the time since the sound now arriving
+ * left, which for a source receding at a steady v is r/(c+v); driving a delay
+ * line with it produces exactly that pitch, and stays well-behaved when the
+ * vehicle goes supersonic, where r/c alone would ask the line to run backwards.
+ *
+ * `[0]` delay, s. `[1]` level, 0..1. Views that ride the vehicle leave them at
+ * 0 and 1, which is the sound as it was before any of this.
+ */
+export const hearing = new Float64Array([0, 1])
+/** What was last handed to the graph, so a still listener writes nothing. */
+const _heard = new Float64Array([0, 1])
+/** The longest delay the line can hold, s: 6.8 km of air, 23 dB down. */
+export const HEARING_MAX_DELAY = 20
+
 /** Time constants for the parameter smoothing, seconds. */
 const TAU_GAIN = 0.06
 const TAU_FREQ = 0.12
@@ -329,7 +353,15 @@ function build(ac) {
   compressor.ratio.value = 6
   compressor.attack.value = 0.01
   compressor.release.value = 0.2
-  master.connect(compressor)
+  // The listener's distance: a delay line for the travel time, a gain for the
+  // spreading, between the voices and the compressor.
+  const travel = ac.createDelay(HEARING_MAX_DELAY)
+  travel.delayTime.value = 0
+  const reach = ac.createGain()
+  reach.gain.value = 1
+  master.connect(travel)
+  travel.connect(reach)
+  reach.connect(compressor)
   compressor.connect(ac.destination)
 
   const brown = ac.createBufferSource()
@@ -420,6 +452,8 @@ function build(ac) {
 
   return {
     master,
+    travel,
+    reach,
     rumble,
     lowpass,
     crackle,
@@ -430,7 +464,6 @@ function build(ac) {
     rushBand,
     vent,
     oneshots,
-    clunk,
     /**
      * The four events with something to say, rendered once at load.
      *
@@ -523,7 +556,15 @@ export function unlockAudio() {
       ctx = new AC({ latencyHint: 'interactive' })
       nodes = build(ctx)
       lastSeparations = ship.separations
-    } catch {
+    } catch (error) {
+      /*
+       * Said out loud. This catch used to be silent, which is right for a
+       * browser with no Web Audio and wrong for everything else: a graph that
+       * fails to build is a bug, and swallowing it is how the product went
+       * silent for a release with nothing in the console to say why.
+       */
+      console.error('[periapsis] the audio graph did not build; the flight will be silent', error)
+      ctx?.close?.().catch?.(() => {})
       ctx = null
       nodes = null
       return false
@@ -562,13 +603,14 @@ function playOneShot(buffer, gain = 1) {
   src.start()
 }
 
-/** The one-shot. Event-rate: this allocates a source node, by design of the API. */
+/**
+ * The staging clunk. Through the same bus as the other one-shots, at the level
+ * its own gain node used to set — that node was dropped when the bus arrived,
+ * and `build()` went on returning it by name, which threw on the first gesture
+ * and left the whole graph unbuilt. `verify-audio` now builds the graph.
+ */
 export function playStaging() {
-  if (!ctx || !nodes || !enabled || ctx.state !== 'running') return
-  const src = ctx.createBufferSource()
-  src.buffer = nodes.clunkBuffer
-  src.connect(nodes.clunk)
-  src.start()
+  playOneShot(nodes?.clunkBuffer, 0.85)
 }
 
 /** Engines coming up to thrust while the vehicle is still held down. */
@@ -636,7 +678,12 @@ export function updateAudio(gate = 1) {
    * the countdown both functions return zero on their own, so a preset handed
    * over in orbit announces no vents at all.
    */
-  const vent = Math.max(ventLevel(mission.t), delugeLevel(mission.t))
+  /*
+   * Not on the Moon. The count there runs on the same clock, and the vents and
+   * the deluge are functions of nothing but that clock, so Eagle's minute was
+   * hissing with liquid oxygen it does not carry, through air there is none of.
+   */
+  const vent = SHIP.lunar ? 0 : Math.max(ventLevel(mission.t), delugeLevel(mission.t))
   const heavy = mdot > 0 ? Math.min(1, Math.sqrt(mdot / MDOT_REF)) : 0.5
   mixFor(mix, ship.thrust, maxThrust, mdot, MDOT_REF, rho, gate)
   mixAir(mix, rho, live.dynamicPressure, vent, gate, heavy)
@@ -649,4 +696,15 @@ export function updateAudio(gate = 1) {
   if (silent && wroteSilence) return
   wroteSilence = silent
   applyMix(nodes, mix, ctx.currentTime)
+  /*
+   * The listener, only when it has moved enough to hear: a millisecond of
+   * delay or a percent of level. A delay stepped at 60 Hz by less than that is
+   * inaudible, and every write is an event on the audio thread.
+   */
+  if (Math.abs(hearing[0] - _heard[0]) > 1e-3 || Math.abs(hearing[1] - _heard[1]) > 0.01) {
+    _heard[0] = hearing[0]
+    _heard[1] = hearing[1]
+    nodes.travel.delayTime.setTargetAtTime(_heard[0], ctx.currentTime, 0.05)
+    nodes.reach.gain.setTargetAtTime(_heard[1], ctx.currentTime, 0.08)
+  }
 }

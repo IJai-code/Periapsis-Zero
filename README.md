@@ -624,6 +624,50 @@ m/s — 193.7 and 284.2 m/s now, the correction and insertion solved later again
 the states the craft reaches — and flies on toward the capture burn at the
 sequencer's own warp.
 
+### The broadcast
+
+A preset's film hands over to **the broadcast**: the flight as a feed of it
+would have shown it, with the instrument panels a key away (`B`, or *feed* beside
+the map's button). It is presentation, and it is held to what it claims by
+`verify-broadcast`.
+
+- **Which camera, and whether it was one.** The caption top left names the pad's
+  remote or tracking camera, or the lunar surface television. A view no camera
+  could have taken — Apollo 8 from outside Apollo 8, Eagle climbing, Eagle over
+  its own shoulder — is captioned SIMULATION, as CBS captioned its models in
+  1968; Artemis's say ANIMATION, and Orion's hull view is the solar array wing
+  camera it carries (`sim/broadcast.js`, `cameraSource`).
+- **What it was recorded on** (`gfx/filmLook.js`). 16 mm film for the cameras —
+  grain stepped at 24 fps, gate weave, halation, soft dark flecks, a warm fade;
+  the surface camera's television — interlace, a hum bar, chroma smeared
+  sideways, bloom; 1968 network video for the simulations; a present-day camera
+  for Artemis. One effect, five sets of numbers: a cut writes uniforms and never
+  recompiles, and the frame writes none.
+- **The clock** top right: T-minus through the count, then GET in hhh:mm:ss. On
+  the Moon the GET is running already — 124:22:00.79 at Eagle's liftoff, from the
+  Mission Report — with the count to liftoff beneath it.
+- **Lower thirds** when something happens, carrying the flight's own figures.
+- **The loop** (`sim/radio.js`, `sfx/comms.js`): Houston, the spacecraft, the
+  other spacecraft and Launch Control, captioned at the foot of the frame and
+  spoken where the browser has voices, with the Quindar tones — 2,525 Hz on,
+  2,475 Hz off — on the ground's transmissions only, as on the real circuit.
+  Lines that are Apollo's own say in the script when they were said. The count
+  is read on its second. Behind the Moon, decided by the segment to the Earth
+  against the Moon's sphere, the air-to-ground loop waits for acquisition of
+  signal; the two spacecraft's VHF exchanges still play, captioned *onboard
+  recorder*, as documentaries play them. An answer from the Moon comes a round
+  trip of light, 2.6 s, after the question.
+- **Sound that travels** (`sfx/listener.js`). At a ground camera the rumble
+  arrives at the retarded delay r/(c+v) — 1.12 s behind the flame at the 380 m
+  stand-off — at 380/r of its level, and a delay line driven by that delay plays
+  it at c/(c+v) of its pitch as the vehicle climbs away: the Doppler shift of a
+  receding source, from the delay alone. Views that ride the vehicle hear it as
+  before; on the Moon there is no air, and the liftoff is silent but for the loop.
+
+The captions and the narration are separate boxes — the loop above, the
+commentary below, the commentary shown for its reading time when a phase begins
+— and the controls fold away three seconds after the pointer stops.
+
 ## Flight planning
 
 The cyan line is where the craft goes if nothing is commanded; the amber one is

@@ -55,7 +55,8 @@ export default function App() {
       resumeDirector()
     } else {
       releaseDirector()
-      setUi({ focus: 'cinematic', paused: false })
+      // The feed is a view of a flight; the front door is not one.
+      setUi({ focus: 'cinematic', paused: false, broadcast: false })
     }
   }, [flight])
 
@@ -79,7 +80,12 @@ export default function App() {
     setIntro(null)
     if (cur) {
       introEnd()
-      setUi({ warp: cur.warp, paused: false, focus: cur.focus })
+      /*
+       * And it goes on as a broadcast: the film hands over to the feed of the
+       * mission rather than to the flight engineer's panels, which are a key
+       * away (B) for anyone who came to fly it.
+       */
+      setUi({ warp: cur.warp, paused: false, focus: cur.focus, broadcast: true })
     }
   }, [])
 
@@ -142,6 +148,15 @@ export default function App() {
          * nothing at all anywhere else.
          */
         shadows
+        /*
+         * Its own stacking context. The scene's name tags are DOM laid over the
+         * canvas, and drei ranks them by distance with z-indexes up to 20 — so
+         * in the page's one shared context the nearer tags outranked the HUD's
+         * z-10 and printed across the panels: HALLEY'S COMET over the
+         * telemetry, URANUS through a row of figures. Isolated, the whole range
+         * sorts inside the canvas and the HUD sits on top of all of it.
+         */
+        style={{ isolation: 'isolate' }}
         dpr={flight ? [1, 2] : [1, 3]}
         /**
          * One scene unit is one metre, so the camera has to span from a
@@ -187,6 +202,10 @@ export default function App() {
           ready={assets.ready}
           progress={assets.progress}
           label={assets.label}
+          /* The tour is its own screen: it steers the camera the page is
+             laid over, and its captions sat on top of the page's own title,
+             buttons and claims. The door steps aside while it runs. */
+          hidden={guide && assets.ready}
           onEnter={enter}
           onLibrary={() => setLibrary(true)}
           onTour={() => setGuide(true)}

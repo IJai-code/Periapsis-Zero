@@ -10,6 +10,8 @@ const OPTIONS = [
   { key: 'labels', label: 'Labels' },
   { key: 'bloom', label: 'Bloom / vignette' },
   { key: 'audio', label: 'Engine audio' },
+  { key: 'broadcast', label: 'Broadcast feed' },
+  { key: 'voice', label: 'Radio voices' },
   { key: 'geophysics', label: 'Terra interior' },
 ]
 
