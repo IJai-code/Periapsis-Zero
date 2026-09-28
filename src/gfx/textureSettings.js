@@ -14,7 +14,6 @@ export const SRGB_SLOTS = new Set([
   'earth.night',
   'earth.clouds',
   'moon.color',
-  'sky.sky',
 ])
 
 export function configureTexture(texture, slot) {

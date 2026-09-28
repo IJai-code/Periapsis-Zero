@@ -5,6 +5,7 @@ import { FEED, cameraSource, eventCaption, missionClock } from '../sim/broadcast
 import { radio, radioTick } from '../sim/radio.js'
 import { commentaryNow } from '../sim/commentary.js'
 import { TimeControls } from './TimeControls.jsx'
+import { openSearch } from './SearchBar.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
 import { Mark } from './Mark.jsx'
 
@@ -39,6 +40,16 @@ const CHROME_MS = 3000
 function readingSeconds(text) {
   const words = text.split(/\s+/).length
   return Math.min(22, words / 3.2 + 3)
+}
+
+/**
+ * Searching is choosing where to look, which a feed does not let you do — so
+ * it leaves the feed for the cockpit and opens the search there, once the
+ * cockpit has mounted to receive the request.
+ */
+function searchFromFeed() {
+  setUi({ broadcast: false })
+  setTimeout(openSearch, 60)
 }
 
 export function BroadcastHud() {
@@ -139,12 +150,25 @@ export function BroadcastHud() {
     }
   }, [])
 
+  // `/` from the feed: out to the cockpit, where the search lives, and open it.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target instanceof HTMLInputElement) return
+      if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
+        e.preventDefault()
+        searchFromFeed()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const source = cameraSource(focus, phase)
   const apollo = FEED.era === 'apollo'
   const showChrome = chrome || paused
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-10 select-none">
+    <div className="pointer-events-none fixed inset-0 z-10 select-none" style={{ animation: 'pz-fade 900ms ease both' }}>
       {/* The camera, top left: which one, and whether it was one at all. */}
       {source && (
         <div key={source.label} className="absolute top-4 left-4 max-w-[60vw] sm:top-6 sm:left-7" style={{ animation: 'pz-fade 600ms ease both' }}>
@@ -288,6 +312,13 @@ export function BroadcastHud() {
             <TimeControls />
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              onClick={searchFromFeed}
+              className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
+            >
+              search · /
+            </button>
+            <span className="h-3 w-px bg-hud/20" />
             <button
               onClick={() => setUi({ broadcast: false })}
               className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"

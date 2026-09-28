@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
-import { RAIL_BY_ID } from '../sim/rails.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { currentHullLift } from '../gfx/pads.js'
@@ -27,33 +26,12 @@ import { MAX_NODE_FRAMES, plan, prediction } from '../sim/predict.js'
 import { selectedNode } from '../sim/nodes.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
+import { COSMIC, absoluteOf, rebasedOf } from '../sim/where.js'
+import { flightSeconds, planZoomPan, smoother, zoomPanAt } from '../gfx/zoomPath.js'
+import { PILOT_MOVE, QUICK_MOVE, TRANSIT } from '../gfx/transit.js'
+import { BASE_FOV, PAD_FOV, PAD_OFFSET, litQuarter } from '../gfx/shotPoses.js'
 
-/**
- * Where the ground camera stands: 687 m across the launch azimuth, 147 m up.
- *
- * These are now the distances they claim to be. Under the old display scale the
- * vehicle was drawn 0.022 scene units long — about 27,000 km in the position
- * frame — so framing had to be chosen against the *rendered* size, and a camera
- * at a physically honest 500 m would have sat deep inside the rocket. The
- * comment here used to apologise for that. There is nothing left to apologise
- * for: a real tracking camera stands a few hundred metres out with a long lens
- * on it, and so does this one.
- *
- * `lateral` is across the azimuth so the ascent crosses the frame rather than
- * receding straight down the lens; `up` lifts the camera clear of the ground.
- */
-const PAD_OFFSET = {
-  lateral: SHIP.visual * 7,
-  up: SHIP.visual * 1.5,
-}
 
-/**
- * The ground camera zooms to hold the vehicle a roughly constant size, which is
- * what a tracked long lens does and what makes an ascent read as *distance*
- * rather than as the rocket simply shrinking. Clamped at both ends: too narrow
- * and every tremor is amplified, too wide and it stops being a long lens.
- */
-const PAD_FOV = { min: 2.5, max: 42, fill: 0.22 }
 
 /**
  * The ground observer's lens, once it is tracking something rather than
@@ -96,19 +74,6 @@ const PAD_AIM_SETTLE = 0.45
 /** The eye-level view's settle, s: a head turning, a little softer than a mount. */
 const GROUND_AIM_SETTLE = 0.7
 
-/** How long the cut out of the pad shot takes to blend into the chase. */
-const CHASE_BLEND = 1.5
-
-/**
- * How many chase-lengths away the previous shot may be before entering the
- * chase becomes a cut rather than a move. Described where it is used.
- *
- * Eight, because the shot this is reached from is the ground or pad camera at
- * a few hundred metres — under one length on Apollo 8's 110 m stack, and about
- * 1.7 on a 3.47 m capsule — while the shot that made it necessary is Earth's
- * lock at 38,000 lengths. Nothing legitimate lands between.
- */
-const CHASE_CUT_FACTOR = 8
 
 /**
  * How quickly a locked camera closes on a vehicle that has just changed size.
@@ -189,12 +154,66 @@ function nodePosition(out) {
   return true
 }
 
-const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+/** Locks onto a spacecraft rather than a world: they keep their approach direction. */
+const CRAFT_FOCI = new Set(['ship', 'iss', 'hubble', 'target'])
+
+/**
+ * Framing for something beyond the planets: a star, a nebula, a galaxy. Those
+ * register their own radius and the multiple they are best seen from (see
+ * `sim/cosmos.js`), so the table in `framing.js` does not have to know them.
+ */
+function cosmicFraming(id) {
+  const c = COSMIC[id]
+  if (!c) return FRAMING.earth
+  return {
+    distance: c.radius * (c.frame ?? 5),
+    min: c.radius * (c.min ?? 1.2),
+    max: Math.max(c.radius * 1e5, 1e13),
+  }
+}
+
+/**
+ * The body a view's look point rides on, so that a move out of it starts from
+ * where that body *is* on every frame of the move rather than from where it was
+ * when the move began — at a month a second Earth leaves a stationary start
+ * point at 78,000 km per second of the move.
+ */
+function anchorOf(focus) {
+  // The intro ends on its mission's first frame, which rides whatever that
+  // frame rides — the vehicle on a turning, orbiting Earth. Unanchored, the
+  // start of the hand-off was left behind at 30 km/s the moment the clock ran.
+  if (focus === 'intro') return INTRO.finalFocus ? anchorOf(INTRO.finalFocus) : null
+  if (!focus || focus === 'free' || focus === 'fly') return null
+  if (focus === 'cinematic') return 'earth'
+  if (focus === 'chase' || focus === 'pad' || focus === 'ground' || focus === 'ship') return 'ship'
+  if (focus === 'node') return plan.reference ?? 'earth'
+  return focus
+}
+
+const _perp = new THREE.Vector3()
+/** Spherical interpolation between unit vectors. Allocation-free. */
+function slerpUnit(out, a, b, t) {
+  const d = Math.min(1, Math.max(-1, a.dot(b)))
+  if (d > 0.9995) return out.copy(a).lerp(b, t).normalize()
+  if (d < -0.9995) {
+    // Antiparallel: any great circle will do, so take one through a perpendicular.
+    _perp.set(Math.abs(a.x) > 0.9 ? 0 : 1, Math.abs(a.x) > 0.9 ? 1 : 0, 0)
+    _perp.crossVectors(a, _perp).normalize()
+    const th = Math.PI * t
+    return out.copy(a).multiplyScalar(Math.cos(th)).addScaledVector(_perp, Math.sin(th))
+  }
+  const th = Math.acos(d)
+  const s = Math.sin(th)
+  const wa = Math.sin((1 - t) * th) / s
+  const wb = Math.sin(t * th) / s
+  return out.set(a.x * wa + b.x * wb, a.y * wa + b.y * wb, a.z * wa + b.z * wb)
+}
+
 
 /**
  * Camera lock.
  *
- * Locking has two phases. A ~1.2s eased flight to frame the body, then a hard
+ * Locking has two phases. A zoom-pan move to frame the body (see `blend`), then a hard
  * follow that translates the camera and the orbit target by the same vector
  * every frame. Because the offset between them never changes, OrbitControls
  * recomputes an identical spherical position next frame — so the user keeps full
@@ -209,7 +228,6 @@ export function CameraRig() {
   const controls = useThree((s) => s.controls)
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
-  const flight = useRef(null)
   const opening = useRef(true)
 
   const scratch = useMemo(
@@ -233,6 +251,8 @@ export function CameraRig() {
       eye: new THREE.Vector3(),
       eyeUp: new THREE.Vector3(),
       anchor: new THREE.Vector3(),
+      siteNow: new THREE.Vector3(),
+      sitePrev: new THREE.Vector3(),
     }),
     [],
   )
@@ -259,6 +279,160 @@ export function CameraRig() {
   const hullSeen = useRef(STAGE_LENGTH[0])
   const reframe = useRef(0)
   if (flyKeys.current === null) flyKeys.current = new Set()
+  /** The focus the rig last set up for — the view a move starts from. */
+  const lastFocus = useRef(null)
+  /** Set on entering the chase: the first frame puts the offset straight onto the shot. */
+  const seedChase = useRef(false)
+
+  /**
+   * A move between two views: every change of lock, whatever the two ends are.
+   *
+   * The destination is not computed here. Each mode keeps placing the camera
+   * exactly as it would if the move had already landed — the ground observer's
+   * aim spring, the chase camera's offset, a body's framing — and the move
+   * reads that pose and blends toward it along a van Wijk–Nuij path (see
+   * `gfx/zoomPath.js`). So the move ends on the mode's own frame by
+   * construction, springs and all, and the hand-back is not an event.
+   *
+   * The start rides the body it was looking at (`anchorOf`), for the same
+   * reason: a start point fixed in space would be left behind by a planet
+   * under time warp before the move had got going.
+   */
+  const trans = useMemo(
+    () => ({
+      active: false,
+      t: 0,
+      T: 1,
+      maxT: 9,
+      anchor: null,
+      anchorNow: new THREE.Vector3(),
+      camRel: new THREE.Vector3(),
+      tgtRel: new THREE.Vector3(),
+      startCam: new THREE.Vector3(),
+      startTarget: new THREE.Vector3(),
+      up0: new THREE.Vector3(0, 1, 0),
+      fov0: 45,
+      dir1: new THREE.Vector3(),
+      dist1: 0,
+      fov1: 45,
+      plan: {},
+      at: { f: 0, w: 0 },
+      destCam: new THREE.Vector3(),
+      destTarget: new THREE.Vector3(),
+      destUp: new THREE.Vector3(),
+      dir0: new THREE.Vector3(),
+      dirD: new THREE.Vector3(),
+      dir: new THREE.Vector3(),
+      look: new THREE.Vector3(),
+    }),
+    [],
+  )
+
+  /**
+   * Carry a sprung aim point with the ground it is aimed over.
+   *
+   * The aim springs live in the floating origin's frame, and two things move
+   * that frame's contents that have nothing to do with where the camera should
+   * look. The origin itself moves — during a move it rides the camera — and a
+   * spring left where it was is dragged by every metre of it. And the ground
+   * turns: pinned to Earth's centre, a pad at Kennedy travels 408 m/s, and a
+   * critically damped spring chasing a target at constant speed settles 2v/ω
+   * behind it — 95 m, measured, so the ground camera aimed at a point a
+   * hundred metres in front of the rocket, and a move into the shot saw its
+   * destination somewhere else. Both are feed-forward: the aim is shifted with
+   * the origin and carried with the site, so the spring is left to do only
+   * what it is for — smoothing the vehicle's own motion off the pad.
+   */
+  function carryAim(site, seeding) {
+    const R = site.body === 'moon' ? BODIES.moon.radius : BODIES.earth.radius
+    const body = site.body === 'moon' ? live.pos.moon : live.pos.earth
+    scratch.siteNow.copy(body).addScaledVector(scratch.siteDir, R).add(live.origin)
+    if (!seeding) {
+      scratch.aim.sub(live.originDelta)
+      scratch.aim.add(scratch.siteNow).sub(scratch.sitePrev)
+    }
+    scratch.sitePrev.copy(scratch.siteNow)
+  }
+
+  /** Take the view as it stands, before the new mode touches the lens. */
+  function beginTransition(prevFocus, to) {
+    const tr = trans
+    tr.startCam.copy(camera.position).add(live.origin)
+    tr.startTarget.copy(controls.target).add(live.origin)
+    // A degenerate start — camera on its own target — has no direction to leave along.
+    if (tr.startCam.distanceToSquared(tr.startTarget) < 1e-6) {
+      scratch.dir.set(0, 0, -1).applyQuaternion(camera.quaternion)
+      tr.startTarget.copy(tr.startCam).addScaledVector(scratch.dir, Math.max(live.nearest.distance, 10))
+    }
+    tr.anchor = anchorOf(prevFocus)
+    if (tr.anchor !== null && absoluteOf(tr.anchor, tr.anchorNow) !== null) {
+      tr.camRel.subVectors(tr.startCam, tr.anchorNow)
+      tr.tgtRel.subVectors(tr.startTarget, tr.anchorNow)
+    } else {
+      tr.anchor = null
+    }
+    tr.up0.copy(camera.up).normalize()
+    tr.fov0 = camera.fov
+    tr.t = 0
+    tr.T = 1
+    tr.maxT = TRANSIT.quick ? QUICK_MOVE : PILOT_MOVE
+    TRANSIT.quick = false
+    tr.active = true
+    TRANSIT.active = true
+    TRANSIT.progress = 0
+    TRANSIT.to = to
+  }
+
+  /**
+   * One frame of a move. The mode has just placed the camera where it wants it;
+   * this reads that as the destination and puts the camera where the path is.
+   */
+  function blend(delta) {
+    const tr = trans
+    tr.destCam.copy(camera.position).add(live.origin)
+    tr.destTarget.copy(controls.target).add(live.origin)
+    tr.destUp.copy(camera.up).normalize()
+    const fov1 = camera.fov
+    if (tr.anchor !== null && absoluteOf(tr.anchor, tr.anchorNow) !== null) {
+      tr.startCam.copy(tr.anchorNow).add(tr.camRel)
+      tr.startTarget.copy(tr.anchorNow).add(tr.tgtRel)
+    }
+    const d0 = Math.max(tr.startCam.distanceTo(tr.startTarget), 1e-3)
+    const d1 = Math.max(tr.destCam.distanceTo(tr.destTarget), 1e-3)
+    const k0 = 2 * Math.tan((tr.fov0 * Math.PI) / 360)
+    const k1 = 2 * Math.tan((fov1 * Math.PI) / 360)
+    planZoomPan(tr.plan, d0 * k0, d1 * k1, tr.startTarget.distanceTo(tr.destTarget))
+    // The length is fixed on the first frame; after that only the ends move.
+    if (tr.t === 0) tr.T = flightSeconds(tr.plan.S, 0.9, tr.maxT)
+    tr.t += Math.min(delta, 1 / 20)
+    const raw = Math.min(1, tr.t / tr.T)
+    const e = smoother(raw)
+    TRANSIT.progress = e
+    if (raw >= 1) {
+      // Land exactly on the mode's own frame, and give it the camera back.
+      tr.active = false
+      TRANSIT.active = false
+      TRANSIT.progress = 1
+      camera.fov = fov1
+      camera.updateProjectionMatrix()
+      return
+    }
+    zoomPanAt(tr.plan, e * tr.plan.S, tr.at)
+    const fov = tr.fov0 + (fov1 - tr.fov0) * e
+    const dist = tr.at.w / (2 * Math.tan((fov * Math.PI) / 360))
+    tr.look.copy(tr.startTarget).lerp(tr.destTarget, Math.min(1, Math.max(0, tr.at.f)))
+    tr.dir0.subVectors(tr.startCam, tr.startTarget).normalize()
+    tr.dirD.subVectors(tr.destCam, tr.destTarget).normalize()
+    slerpUnit(tr.dir, tr.dir0, tr.dirD, e)
+    camera.position.copy(tr.look).addScaledVector(tr.dir, dist).sub(live.origin)
+    controls.target.copy(tr.look).sub(live.origin)
+    slerpUnit(camera.up, tr.up0, tr.destUp, e)
+    if (Math.abs(camera.fov - fov) > 1e-4) {
+      camera.fov = fov
+      camera.updateProjectionMatrix()
+    }
+    camera.lookAt(controls.target)
+  }
 
   /**
    * How close and how far a locked camera may sit from the vehicle, for the
@@ -416,7 +590,31 @@ export function CameraRig() {
 
   useEffect(() => {
     if (!controls) return
-    const frame = FRAMING[focus]
+    const frame = FRAMING[focus] ?? cosmicFraming(focus)
+    const prev = lastFocus.current
+    lastFocus.current = focus
+
+    /**
+     * Every change of view is a move now, except the ones that are not views:
+     * the intro and the opening shot drive the camera themselves, free flight
+     * and a free orbit start from wherever the camera already is, and the very
+     * first lock has nothing to move from. The start is taken here, before
+     * anything below touches the lens.
+     */
+    const moving =
+      prev !== null &&
+      !opening.current &&
+      focus !== 'intro' &&
+      focus !== 'cinematic' &&
+      focus !== 'fly' &&
+      focus !== 'free'
+    if (moving) beginTransition(prev, focus)
+    else TRANSIT.quick = false
+    if (!moving && trans.active) {
+      trans.active = false
+      TRANSIT.active = false
+      TRANSIT.progress = 1
+    }
 
     // Chase drives the camera outright, so orbit input is handed back only when
     // leaving the mode.
@@ -431,20 +629,23 @@ export function CameraRig() {
     // is not already pinned to a body.
     controls.enablePan = focus === 'free'
 
-    // Leaving the pad, ground or intro shot: give the lens back before anything else uses it.
+    // Leaving the pad, ground or intro shot: give the lens back. A move out of
+    // one blends the lens back over the move rather than snapping it here.
     if (focus !== 'pad' && focus !== 'ground' && focus !== 'intro' && baseFov.current !== null) {
-      camera.fov = baseFov.current
-      camera.updateProjectionMatrix()
+      if (!moving) {
+        camera.fov = baseFov.current
+        camera.updateProjectionMatrix()
+      }
       baseFov.current = null
     }
+    trans.fov1 = BASE_FOV
 
     if (focus === 'pad' || focus === 'ground') {
-      if (baseFov.current === null) baseFov.current = camera.fov
+      if (baseFov.current === null) baseFov.current = BASE_FOV
       opening.current = false
-      flight.current = null
       // The aim is seeded on the first frame, from that frame's positions.
       seedAim.current = true
-      if (focus === 'ground') {
+      if (focus === 'ground' && !moving) {
         camera.fov = EYE_FOV
         camera.updateProjectionMatrix()
       }
@@ -461,56 +662,27 @@ export function CameraRig() {
      * the curtain's last page holds.
      */
     if (focus === 'intro') {
-      if (baseFov.current === null) baseFov.current = camera.fov
-      flight.current = null
+      if (baseFov.current === null) baseFov.current = BASE_FOV
       opening.current = false
       return
     }
 
     if (focus === 'chase') {
       /**
-       * Blend into the chase rather than snapping — in the *body frame*, from
-       * wherever the previous shot left the camera relative to the craft.
-       *
-       * Entering chase used to return here with no transition, and the frame
-       * loop then snapped outright whenever the gap exceeded twelve hull
-       * lengths — which a hand-off from a ground camera always does, since that
-       * camera stands several hull lengths away by construction. The blend is
-       * timed rather than sprung because the offset is being retargeted; a
-       * spring adds an overshoot the cut does not need.
-       *
-       * But a blend is a *flight of the camera*, and it is only the right
-       * answer when the two shots are near enough that a flight between them
-       * reads as a move. Measured, they are not: `COAST_TO_APOAPSIS` and
-       * `CIRCULARISE` frame the craft from Earth's lock at 5.2 radii — 33,150 km
-       * — so cutting to the chase meant flying the camera **33,791 km in 1.5 s**
-       * to end 412 m behind the vehicle. Rendered at 60x it is the single worst
-       * thing in the flight, and it is the shot the two burns above are cut to.
-       *
-       * So the gap decides. Within a few chase lengths it is a move and gets the
-       * blend; beyond that it is a different place entirely and a cut is the
-       * only honest transition — which is also what the director's own shots do
-       * everywhere else.
+       * Into the chase by the same move as everything else. It used to be a
+       * cut beyond eight chase lengths and a 1.5 s body-frame blend inside
+       * them, because the only alternative on offer was a straight-line flight
+       * — 33,791 km in 1.5 s from Earth's lock — and a cut was better than that.
+       * A zoom-pan path is better than both: it leaves Earth's frame by scale,
+       * not by speed. The offset is seeded straight onto the shot, because the
+       * move is what blends now.
        */
-      const hull = STAGE_LENGTH[Math.min(Math.max(ship.stage | 0, 0), STAGE_LENGTH.length - 1)]
-      const reach = ship.thrust > 0 ? hull * LIT_REACH : hull
-      const near = Math.hypot(CHASE_MULTIPLE.back * reach, CHASE_MULTIPLE.up * reach)
-      scratch.offset.subVectors(camera.position, live.pos.ship)
-      flight.current =
-        scratch.offset.length() > near * CHASE_CUT_FACTOR
-          ? { chaseSnap: true }
-          : {
-              chaseBlend: true,
-              elapsed: 0,
-              duration: CHASE_BLEND,
-              fromOffset: scratch.offset.clone(),
-            }
+      seedChase.current = true
       opening.current = false
       return
     }
 
     if (focus === 'cinematic') {
-      flight.current = null
       opening.current = false
       return
     }
@@ -524,7 +696,6 @@ export function CameraRig() {
       flyLook.current.yaw = scratch.flyEuler.y
       flyLook.current.pitch = THREE.MathUtils.clamp(scratch.flyEuler.x, -PITCH_LIMIT, PITCH_LIMIT)
       scratch.flyVel.set(0, 0, 0)
-      flight.current = null
       opening.current = false
       return
     }
@@ -536,7 +707,6 @@ export function CameraRig() {
     // A deliberate change of shot supersedes a reframe the vehicle asked for.
     reframe.current = 0
     if (focus === 'free') {
-      flight.current = null
       return
     }
 
@@ -550,7 +720,7 @@ export function CameraRig() {
       distance = pathFramingDistance(
         prediction.points,
         prediction.count,
-        camera.fov,
+        BASE_FOV,
         (BODIES[focus]?.radius ?? BODIES.earth.radius) * 3,
       )
     } else if (focus === 'node') {
@@ -560,45 +730,41 @@ export function CameraRig() {
       distance = Math.max(surface * 1.6, away * 0.9)
     }
 
-    // Keep the current viewing direction through the flight, so locking on
-    // feels like a dolly toward the body rather than a swing around it.
-    const dir = new THREE.Vector3().subVectors(camera.position, controls.target)
+    const here = focus === 'node' ? live.pos[plan.reference] : rebasedOf(focus, scratch.anchor)
+    const dir = trans.dir1.subVectors(camera.position, controls.target)
     if (dir.lengthSq() < 1e-8) dir.set(0.45, 0.28, 1)
     dir.normalize()
 
+    /**
+     * Which way to arrive. Re-framing the body already in view — the map, a
+     * burn on the same orbit — keeps the viewing direction, so it reads as a
+     * dolly rather than a swing. Arriving at a *different* world comes in on
+     * its lit three-quarter face, terminator in frame: it is the first look at
+     * that place, and a flat full disc or a night side is a poor one. Craft
+     * keep the direction too; what frames a spacecraft well is its
+     * surroundings, and those are what the camera was already looking at.
+     */
+    const sameBody = anchorOf(prev) === anchorOf(focus)
+    const world = !CRAFT_FOCI.has(focus) && focus !== 'node' && focus !== 'sun'
+    if (here && world && (!sameBody || opening.current)) {
+      // Beyond the planets there is no lit face: a place says where it is best seen from.
+      if (COSMIC[focus]?.view) dir.copy(COSMIC[focus].view)
+      else litQuarter(dir, here, focus)
+    }
+
     // The very first lock is the opening shot, and there is nothing to ease
     // from — the default camera is nowhere near the target, so animating it
-    // just makes the user watch a 1.2s swoop past the Sun. Snap instead, and
-    // pick the angle deliberately: offset from the sun line so the body opens
-    // on a lit three-quarter face with the terminator in view, rather than the
-    // flat fully-lit disc you get looking straight down the sun vector.
+    // just makes the user watch a swoop past the Sun. Snap instead.
     if (opening.current) {
       opening.current = false
-      const sunward = new THREE.Vector3().subVectors(live.pos.sun, live.pos[focus] ?? live.railPos[focus])
-      if (sunward.lengthSq() > 1e-8) {
-        sunward.normalize()
-        const right = new THREE.Vector3().crossVectors(WORLD_UP, sunward).normalize()
-        dir
-          .copy(sunward)
-          .multiplyScalar(0.62)
-          .addScaledVector(right, 0.72)
-          .addScaledVector(WORLD_UP, 0.3)
-          .normalize()
+      if (here) {
+        controls.target.copy(here)
+        camera.position.copy(here).addScaledVector(dir, frame.distance)
       }
-      controls.target.copy(live.pos[focus] ?? live.railPos[focus])
-      camera.position.copy(controls.target).addScaledVector(dir, frame.distance)
-      flight.current = null
       return
     }
 
-    flight.current = {
-      elapsed: 0,
-      duration: 1.2,
-      fromCamera: camera.position.clone(),
-      fromTarget: controls.target.clone(),
-      dir,
-      distance,
-    }
+    trans.dist1 = distance
   }, [focus, map, controls, camera])
 
   useFrame((_, delta) => {
@@ -630,6 +796,10 @@ export function CameraRig() {
     }
 
     if (!controls || focus === 'free') return
+
+    // During a move the lens is the move's; a mode that sets its own lens
+    // (ground, pad) overwrites this, and every other mode rests on the base.
+    if (trans.active) camera.fov = trans.fov1
 
     /**
      * The intro flight. `introStep` places the camera and the lens outright;
@@ -743,6 +913,7 @@ export function CameraRig() {
       scratch.padAim
         .copy(live.pos.ship)
         .addScaledVector(scratch.siteDir, currentHullLift(site.id) - hull * 0.5)
+      carryAim(site, seedAim.current)
       if (seedAim.current) {
         scratch.aim.copy(scratch.padAim)
         scratch.aimVel.set(0, 0, 0)
@@ -782,6 +953,7 @@ export function CameraRig() {
       camera.up.copy(scratch.eyeUp)
       camera.lookAt(scratch.aim)
       controls.target.copy(scratch.aim)
+      if (trans.active) blend(delta)
       return
     }
 
@@ -810,6 +982,7 @@ export function CameraRig() {
       scratch.padAim
         .copy(live.pos.ship)
         .addScaledVector(scratch.siteDir, currentHullLift(site.id))
+      carryAim(site, seedAim.current)
       if (seedAim.current) {
         scratch.aim.copy(scratch.padAim)
         scratch.aimVel.set(0, 0, 0)
@@ -837,6 +1010,7 @@ export function CameraRig() {
       camera.up.copy(scratch.siteDir)
       camera.lookAt(scratch.aim)
       controls.target.copy(scratch.aim)
+      if (trans.active) blend(delta)
       return
     }
 
@@ -879,25 +1053,20 @@ export function CameraRig() {
           .addScaledVector(scratch.up, CHASE_MULTIPLE.up * reach)
       }
 
-      const blend = flight.current
-      if (blend?.chaseSnap) {
-        // Straight to the shot. A cut has no duration to run, so this clears on
-        // the same frame it was asked for.
+      if (seedChase.current) {
+        // Straight onto the shot: the move into it does the blending.
         scratch.offset.copy(scratch.desired)
-        flight.current = null
-      } else if (blend?.chaseBlend) {
-        blend.elapsed += delta
-        const t = easeInOutCubic(Math.min(1, blend.elapsed / blend.duration))
-        scratch.offset.lerpVectors(blend.fromOffset, scratch.desired, t)
-        if (blend.elapsed >= blend.duration) flight.current = null
+        camera.up.copy(scratch.up)
+        seedChase.current = false
       } else {
         scratch.offset.lerp(scratch.desired, smooth(delta, 6))
+        camera.up.lerp(scratch.up, smooth(delta, 4))
       }
 
       camera.position.copy(live.pos.ship).add(scratch.offset)
-      camera.up.lerp(scratch.up, smooth(delta, 4))
       camera.lookAt(live.pos.ship)
       controls.target.copy(live.pos.ship)
+      if (trans.active) blend(delta)
       return
     }
 
@@ -914,17 +1083,18 @@ export function CameraRig() {
           ? scratch.nodeAim
           : live.pos[plan.reference]
         : // A planet on rails is not in `live.pos`, because it is not in the
-          // state vector. It is drawn from the same buffer it pulls with.
-          (RAIL_BY_ID[focus] ? live.railPos[focus] : live.pos[focus])
-    const f = flight.current
+          // state vector, and a star is in neither: `rebasedOf` knows all three.
+          rebasedOf(focus, scratch.to)
+    if (!target) return
 
-    if (f) {
-      f.elapsed += delta
-      const t = easeInOutCubic(Math.min(1, f.elapsed / f.duration))
-      scratch.to.copy(target).addScaledVector(f.dir, f.distance)
-      camera.position.lerpVectors(f.fromCamera, scratch.to, t)
-      controls.target.lerpVectors(f.fromTarget, target, t)
-      if (f.elapsed >= f.duration) flight.current = null
+    if (trans.active) {
+      // The frame the move is heading for: the body at the distance and from
+      // the direction the lock chose. The move reads it and blends toward it.
+      camera.position.copy(target).addScaledVector(trans.dir1, trans.dist1)
+      controls.target.copy(target)
+      camera.up.copy(WORLD_UP)
+      camera.lookAt(target)
+      blend(delta)
       return
     }
 

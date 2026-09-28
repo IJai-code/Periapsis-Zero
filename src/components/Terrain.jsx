@@ -7,7 +7,9 @@ import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { SPIN_AXIS } from '../sim/atmosphere.js'
 import { mission } from '../sim/mission.js'
 import { FLAT_RADIUS } from '../gfx/pads.js'
-import { makeGroundSampler } from '../gfx/siteSurround.js'
+import { buildSurround, makeGroundSampler } from '../gfx/siteSurround.js'
+import { groundViewpoint } from '../gfx/groundView.js'
+import { makeTerrainMaterial } from '../gfx/terrainMaterial.js'
 import { LaunchPad } from './LaunchPad.jsx'
 import { SiteSurround } from './SiteSurround.jsx'
 
@@ -158,6 +160,7 @@ export function Terrain() {
 
     const positions = new Float32Array(N * N * 3)
     const colours = new Float32Array(N * N * 3)
+    const wetness = new Float32Array(N * N)
     const palette = PALETTE[site.id] ?? PALETTE.ksc
     const sea = new THREE.Color(palette.sea)
     const low = new THREE.Color(palette.low)
@@ -210,6 +213,7 @@ export function Terrain() {
 
         if (wet && !graded) c.copy(sea)
         else c.copy(low).lerp(high, Math.min(1, Math.max(0, absolute) / Math.max(relief, 1)))
+        wetness[j * N + i] = wet && !graded ? 1 : 0
         colours[o] = c.r
         colours[o + 1] = c.g
         colours[o + 2] = c.b
@@ -243,6 +247,7 @@ export function Terrain() {
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3))
+    geometry.setAttribute('wet', new THREE.BufferAttribute(wetness, 1))
     geometry.setIndex(new THREE.BufferAttribute(index, 1))
     geometry.computeVertexNormals()
     geometry.computeBoundingSphere()
@@ -256,6 +261,46 @@ export function Terrain() {
     () => (mesh ? makeGroundSampler(mesh.attributes.position.array) : () => 0),
     [mesh],
   )
+  /** And whether the ground there is water — the plants' first question. */
+  const wetAt = useMemo(
+    () =>
+      mesh
+        ? (() => {
+            const at = makeGroundSampler(mesh.attributes.position.array, 512, mesh.attributes.wet.array)
+            return (x, z) => at(x, z) > 0.5
+          })()
+        : () => false,
+    [mesh],
+  )
+  /** The structures round the pad, built once on that ground: see gfx/siteSurround.js. */
+  const world = useMemo(() => {
+    if (!mesh) return null
+    try {
+      return buildSurround(site.id, groundAt)
+    } catch (err) {
+      console.warn('[siteSurround] build failed', err)
+      return null
+    }
+  }, [mesh, site.id, groundAt])
+  /**
+   * Where the observer stands, in the pad frame — the grass is densest round
+   * them, where a blade can be seen. Taken from the same function the ground
+   * camera places itself with.
+   */
+  const eye = useMemo(() => {
+    if (!mesh) return null
+    const e = new THREE.Vector3()
+    const up = new THREE.Vector3()
+    const pad = new THREE.Vector3()
+    const east = new THREE.Vector3()
+    const north = new THREE.Vector3()
+    groundViewpoint(e, up, site, live.sunDir, live.pos.earth)
+    siteDirection(pad, site, live.sim.t)
+    east.crossVectors(new THREE.Vector3(...SPIN_AXIS), pad).normalize()
+    north.crossVectors(pad, east).normalize()
+    const rel = e.sub(live.pos.earth).addScaledVector(pad, -R)
+    return { x: rel.dot(east), z: rel.dot(north) }
+  }, [mesh, site])
 
   const scratch = useMemo(
     () => ({
@@ -311,16 +356,21 @@ export function Terrain() {
 
   useEffect(() => () => mesh?.dispose(), [mesh])
 
+  /** The ground's cover and water: see gfx/terrainMaterial.js. */
+  const ground = useMemo(() => makeTerrainMaterial(site.id, FLAT_RADIUS), [site.id])
+  useEffect(() => () => ground.dispose(), [ground])
+  useFrame(({ clock }) => {
+    ground.userData.terrain.uWaveTime.value = clock.elapsedTime % 3600
+  })
+
   if (!mesh) return null
   return (
     <group ref={group} visible={false} scale={[1, 1, -1]}>
-      <mesh geometry={mesh} receiveShadow>
-        <meshStandardMaterial vertexColors roughness={0.95} metalness={0.0} />
-      </mesh>
+      <mesh geometry={mesh} material={ground} receiveShadow />
       {/* Same group, same frame, same datum: the pad cannot drift off the ground. */}
       <LaunchPad site={site} />
-      {/* The world around the pad — buildings, roads, crowds — on the same ground. */}
-      <SiteSurround site={site.id} groundAt={groundAt} />
+      {/* The world around the pad — buildings, roads, plants, crowds — on the same ground. */}
+      <SiteSurround site={site.id} world={world} groundAt={groundAt} wetAt={wetAt} eye={eye} />
     </group>
   )
 }

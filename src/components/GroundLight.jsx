@@ -18,6 +18,22 @@ import {
   shadowTexel,
 } from '../gfx/sunlight.js'
 import { padEnvelope } from '../gfx/padGeometry.js'
+import { GROUND_AIR } from '../gfx/groundLook.js'
+
+/*
+ * The sky's share of the light on the ground, as a fraction of the direct beam
+ * on a horizontal surface, and how it fades through twilight. A clear sky puts
+ * roughly a tenth to a seventh of the Sun's illuminance back onto the ground
+ * from every direction; the fraction climbs as the Sun sinks, because the
+ * direct beam falls faster than the scattered light does.
+ */
+const SKY_SHARE = 0.13
+/** Meteorological visibility at a coastal pad, m — Koschmieder's extinction is 3.912 / V. */
+const VISIBILITY = { ksc: 28e3, kourou: 22e3, baikonur: 60e3, vandenberg: 35e3 }
+const _skyV = new THREE.Vector3()
+const _sky = new THREE.Color()
+const _warm = new THREE.Color(0.95, 0.66, 0.46)
+const _blue = new THREE.Color(0.46, 0.64, 1.0)
 
 /**
  * The Sun as a parallel beam, near the ground, so the pad can cast a shadow.
@@ -72,7 +88,11 @@ export function GroundLight() {
     if (!l) return
     const on = onTheGround(camera, site)
     l.visible = on
-    if (!on) return
+    if (!on) {
+      GROUND_AIR.uSkyIrradiance.value = 0
+      GROUND_AIR.uHazeDensity.value = 0
+      return
+    }
     padScenePoint(pad, site)
 
     // Local vertical at the pad, and the Sun's height above the horizon on it.
@@ -111,7 +131,34 @@ export function GroundLight() {
 
     // The same falloff the point light it replaces would have delivered here.
     // Unchanged, and deliberately so: the box moved, the light did not.
-    l.intensity = illuminanceAt(pad.distanceTo(live.pos.sun))
+    const E = illuminanceAt(pad.distanceTo(live.pos.sun))
+    l.intensity = E
+
+    /*
+     * The sky and the air (see gfx/groundLook.js). Blue overhead with a high
+     * Sun, warming as it sinks; the ground's bounce is its albedo times all
+     * the light falling on it. On the Moon there is no sky and no air — only
+     * the regolith's bounce, which is what lights a shadowed LM leg.
+     */
+    const s = Math.max(sinElevation, 0)
+    const twilight = THREE.MathUtils.smoothstep(sinElevation, -0.1, 0.02)
+    _skyV.copy(up).transformDirection(camera.matrixWorldInverse)
+    GROUND_AIR.uSkyUpV.value.copy(_skyV)
+    if (site.body === 'moon') {
+      GROUND_AIR.uSkyColor.value.setRGB(0, 0, 0)
+      GROUND_AIR.uBounceColor.value.setRGB(1, 1, 1)
+      GROUND_AIR.uSkyIrradiance.value = 0.12 * E * s
+      GROUND_AIR.uHazeDensity.value = 0
+    } else {
+      const skyE = E * (0.02 * twilight + SKY_SHARE * Math.sqrt(s))
+      _sky.copy(_blue).lerp(_warm, 1 - THREE.MathUtils.smoothstep(s, 0.0, 0.35))
+      GROUND_AIR.uSkyColor.value.copy(_sky)
+      const bounce = skyE > 0 ? (0.22 * (E * s + skyE)) / skyE : 0
+      GROUND_AIR.uBounceColor.value.setRGB(0.36 * bounce, 0.34 * bounce, 0.24 * bounce)
+      GROUND_AIR.uSkyIrradiance.value = skyE
+      GROUND_AIR.uHazeColor.value.copy(_sky).multiplyScalar(skyE * 0.9 / Math.PI + 0.004)
+      GROUND_AIR.uHazeDensity.value = 3.912 / (VISIBILITY[site.id] ?? 30e3)
+    }
   }, -2)
 
   return (

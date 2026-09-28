@@ -1,7 +1,8 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { VIEW } from '../gfx/cosmicView.js'
 import { live } from '../sim/live.js'
-import { BODIES } from '../sim/constants.js'
+import { AU, BODIES } from '../sim/constants.js'
 import { mission } from '../sim/mission.js'
 import { activeSite } from '../sim/launchsite.js'
 import { SOLAR_INTENSITY, onTheGround } from '../gfx/sunlight.js'
@@ -19,6 +20,10 @@ export function Sun() {
 
   useFrame((state) => {
     group.current.position.copy(live.pos.sun)
+    // Past a few thousand AU the disc is far under a pixel and the corona's
+    // bloom seed would be a fixed-size glow at any distance; the Sun is then
+    // the star `DeepStars.jsx` draws, at the magnitude the distance gives it.
+    group.current.visible = VIEW.fromSun < 3000 * AU
     /*
      * Handing over to the ground beam. `GroundLight.jsx` lights the pad with a
      * parallel beam of the same illuminance so that it can cast a shadow, and

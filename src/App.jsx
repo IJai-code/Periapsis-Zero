@@ -6,7 +6,9 @@ import { Hud } from './ui/Hud.jsx'
 import { Landing } from './ui/Landing.jsx'
 import { useAssets } from './gfx/useAssets.js'
 import { releaseDirector, resumeDirector } from './sim/director.js'
-import { setUi } from './sim/store.js'
+import { setUi, useUi } from './sim/store.js'
+import { QUALITY, chooseDevice } from './sim/device.js'
+import { DevicePrompt } from './ui/DevicePrompt.jsx'
 import { requestedPreset, startPreset } from './sim/presets.js'
 import { MissionLibrary } from './ui/MissionLibrary.jsx'
 import { Guide, guideShouldOpen } from './ui/Guide.jsx'
@@ -26,6 +28,17 @@ const isFlight = () => window.location.hash === FLIGHT
 
 export default function App() {
   const assets = useAssets()
+  /**
+   * Nothing is built until the visitor has said what it runs on — see
+   * sim/device.js. The textures still synthesise behind the question, so
+   * answering it costs no time; only the canvas, whose antialiasing and pixel
+   * ratio the answer sets, waits for it.
+   */
+  const device = useUi((s) => s.device)
+  const choose = useCallback((id) => {
+    chooseDevice(id)
+    setUi({ device: id, panelOpen: window.innerWidth >= 1024 && id !== 'phone' })
+  }, [])
   const [flight, setFlight] = useState(isFlight)
   // The guide opens once per browser; the library opens when asked. Both live
   // here because both steer or span the same shared scene from either half.
@@ -128,6 +141,8 @@ export default function App() {
     setFlight(true)
   }, [])
 
+  if (!device) return <DevicePrompt onChoose={choose} />
+
   return (
     <div className="fixed inset-0 bg-black">
       <Canvas
@@ -154,7 +169,7 @@ export default function App() {
          * sorts inside the canvas and the HUD sits on top of all of it.
          */
         style={{ isolation: 'isolate' }}
-        dpr={flight ? [1, 2] : [1, 3]}
+        dpr={flight ? QUALITY.dpr : [1, Math.min(3, QUALITY.dpr[1] + 0.5)]}
         /**
          * One scene unit is one metre, so the camera has to span from a
          * spacecraft hull to an astronomical unit — fourteen decades. The
@@ -171,7 +186,7 @@ export default function App() {
          * distant, which for a space scene is the behaviour you want anyway.
          */
         gl={{
-          antialias: true,
+          antialias: QUALITY.antialias,
           logarithmicDepthBuffer: true,
           toneMapping: ACESFilmicToneMapping,
           toneMappingExposure: 1.0,

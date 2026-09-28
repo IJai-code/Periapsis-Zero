@@ -7,6 +7,17 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ### Fixed
 
+**The first night sky cost eleven seconds of 15 fps.** The sky cube's
+full-resolution march ran a 256-texel tile at 240 steps a frame — 50 ms each,
+216 of them — and did so in daylight on the ground, where the band is not
+visible at all. It now marches `skyTile` texels a frame by device (64–128),
+at 112–176 steps, and not at all while the sky hides it: the ground view went
+from ~75 ms a frame to ~22 in the measurement.
+
+**The telemetry strip was cut off on a phone.** Four figures in a row are ~390 px
+and a phone's column is 358; the strip takes no touches, so the last figure
+could not be scrolled to. It is two by two on a phone.
+
 **All sound is gone.** Once it was working it was described as terrifying,
 horrifying and extremely scary, and it went: the engine and pad voices, the
 staging, ignition, parachute and splashdown one-shots, the intro's generative
@@ -115,6 +126,74 @@ that is the shot both `COAST_TO_APOAPSIS` and `CIRCULARISE` are cut to. The gap
 decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
+
+**The sky beyond the planets.** Search for a star, a nebula, a galaxy or the edge
+of the observable universe and the camera flies there in one continuous zoom
+(README, *Beyond the planets*). Sixty-seven named stars at their parallax
+distances, each as bright as the inverse-square law makes it from wherever the
+camera is, drawn as a granulating, limb-darkened sphere once close enough to
+have a disc; the Milky Way as a volume model — disc, bar-bulge, four arms whose
+tangents land within 6° of the observed ones, dust giving 32 magnitudes toward
+Sgr A* against ~30 observed, the Local Bubble and fourteen local dark clouds —
+seen from inside as the sky (which replaces the painted panorama and its 4096 ×
+2048 generation at load) and from outside as a barred spiral; twenty-three
+galaxies scaled to their absolute magnitudes; eleven nebulae whose colours are
+their emission lines through the CIE observer; three globular clusters and two
+open ones; Sagittarius A* ray-traced through the Schwarzschild metric; the
+galaxy clusters out to Shapley, a statistical cosmic web, the microwave
+background with its measured dipole; the heliosphere and the Oort cloud. Two
+new gates: `verify-deep-sky` (33 checks — frames, every named star against
+Hipparcos, search) and `verify-galaxy` (19 — arm tangents, extinction, the
+closed-form luminosities, the black hole's photon orbits).
+
+**Search, instead of the camera-lock list.** One box finds planets, moons, craft,
+camera views, sites, missions and the deep sky, forgiving typos and matching
+word by word; `/` or ⌘K opens it, and so does *search* in the broadcast. On a
+phone its results take their own place in the left column — floated, they were
+clipped by the column and a tap on a result landed on the canvas.
+
+**The search answers when it does not have the thing.** Three hundred and
+thirty-eight names it recognises and has not built are written down with a line
+each (`sim/comingSoon.js`), so *Ceres*, *Voyager 1*, *Enceladus*, *Kepler-452b*
+and *Cassiopeia* are told what they are and that they are not in yet, rather
+than being answered with the nearest entry that shares some letters — and
+nonsense is told it is nonsense. They are consulted only where the catalogue has
+nothing solid, so none of them can shadow a real destination as the catalogue
+grows. Two matching rules were tightened to make that safe: a clipped-name match
+must now start where a word does and stay tight (*ceres* had been finding
+Her**c**ul**es** Clust**er**, *triton* the **I**nte**r**na**t**i**o**nal Space
+Statio**n**), and a substring that begins mid-word scores below one that begins a
+word (*taurus* had been Cen**taurus** A). A member of a named cluster no longer
+outranks the cluster, so *seven sisters* is the Pleiades rather than Alcyone.
+New gate: `verify-search` (20 checks — every catalogue name and alias still
+answers as a place, every planet survives any one deleted letter, and under 2%
+of random letter strings match anything).
+
+**The device question.** The first visit asks whether it is on a phone, a tablet
+or a computer and sets pixel ratio, antialiasing, detail, vegetation, shadow
+maps and the deep sky's march budgets to suit; *Display* changes it later.
+
+**Every planet, drawn as itself.** Mercury to Neptune, Pluto, Halley and the
+named moons with procedural surfaces that keep adding detail as the camera
+closes (no more magnified texels), their real poles and rotation (IAU elements),
+oblateness, ring systems that shadow and are shadowed, atmospheres, and moons in
+their planet's equatorial plane.
+
+**Camera moves are flights.** Every change of view is a zoom out, a pan and a zoom
+in (van Wijk & Nuij), re-planned every frame against moving endpoints; director
+cuts during a mission are capped at about three seconds.
+
+**The mission intro is one shot.** A log-scale flight from 25 AU that ends on the
+mission's own first frame — `verify-intro` now asserts the last frame equals
+the rig's resting pose to a millimetre, that the flight only ever closes on its
+destination, and that the lens never leaves it (45 checks).
+
+**Launch sites, built out.** Sky light and haze on the ground, textured terrain
+with water, the VAB, the LCC, the crawlerway, pad 39A, propellant spheres,
+fence, camera stands and the press site; vegetation by species (palms, pines,
+oaks, saw palmetto, grass) placed where the terrain draws scrub; the pad's
+hardstand now weathers — slab joints, stains, soot at the trench, grassed
+embankments — and the lawn inside the perimeter is mown in stripes.
 
 **The broadcast.** The flight as it was watched rather than flown
 (`src/ui/Broadcast.jsx`, `src/sim/broadcast.js`, `src/sim/radio.js`,

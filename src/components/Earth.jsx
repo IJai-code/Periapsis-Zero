@@ -8,6 +8,7 @@ import { ATMOSPHERE_RADIUS, makeVolumetricAtmosphere, stretchAtmosphere } from '
 import { measureSky } from '../gfx/skyGlow.js'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
+import { attachCloudDetail, attachEarthDetail } from '../gfx/surfaceDetail.js'
 
 const R = BODIES.earth.radius
 
@@ -57,21 +58,23 @@ export function Earth({ textures }) {
       emissiveIntensity: 2.4,
     })
     attachNightLights(m, sunDir)
+    // Below the photograph's 7.4 km pixel, detail is synthesised: see gfx/surfaceDetail.js.
+    attachEarthDetail(m)
     return m
   }, [textures, sunDir])
 
-  const cloudMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        map: textures['earth.clouds'],
-        transparent: true,
-        opacity: 0.92,
-        roughness: 0.95,
-        metalness: 0,
-        depthWrite: false,
-      }),
-    [textures],
-  )
+  const cloudMat = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      map: textures['earth.clouds'],
+      transparent: true,
+      opacity: 0.92,
+      roughness: 0.95,
+      metalness: 0,
+      depthWrite: false,
+    })
+    attachCloudDetail(m)
+    return m
+  }, [textures])
 
   const atmosphere = useMemo(() => makeVolumetricAtmosphere(), [])
 
@@ -118,6 +121,10 @@ export function Earth({ textures }) {
     // the Milky Way read to know what it hides.
     stretchAtmosphere(atmosphere)
     measureSky(atmosphere)
+
+    // The detail layers' clock: waves and cloud drift, seconds, kept small for float32.
+    if (surface.userData.detailTime) surface.userData.detailTime.value = live.sim.t % 1e6
+    if (cloudMat.userData.detailTime) cloudMat.userData.detailTime.value = live.sim.t % 1e6
 
     const rotations = live.sim.t / BODIES.earth.spin
     spin.current.rotation.y = rotations * Math.PI * 2

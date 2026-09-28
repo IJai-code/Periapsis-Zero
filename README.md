@@ -33,9 +33,9 @@ machine or a fresh clone with no network all still fly — against generated
 ground rather than photographed. The fetch cannot break the build for the same
 reason; if it fails, the run continues.
 
-One slot is never filled from the network: there is no public-domain Milky Way
-panorama among the sources, so the skybox is always the procedural one unless
-you supply `milkyway.jpg` yourself. See
+The sky is not a texture at all any more: the Milky Way is marched from a
+volume model on the GPU (see [Beyond the planets](#beyond-the-planets)), so
+there is no panorama slot to fill. See
 [public/textures/README.md](public/textures/README.md) for the file names.
 
 ## The mark
@@ -67,6 +67,136 @@ has always been, which is what keeps every measured mission figure a figure
 about the same physics. `verify-cosmos` holds the sky against observed facts —
 Halley's perihelion date and q, Pluto's 248-year period, the moons' measured
 orbits — and asserts the split.
+
+## Beyond the planets
+
+Search for Sirius, the Orion Nebula, Andromeda, the Milky Way or the edge of the
+observable universe and the camera flies there — one continuous zoom, out of the
+solar system, out of the Galaxy if it has to, and in. Everything past the
+planets is placed from published astrometry and drawn from a physical model
+rather than a picture; `verify-deep-sky` holds the placement to the catalogues
+and `verify-galaxy` holds the models to the measurements they claim.
+
+**Named stars in three dimensions** (`sim/cosmos.js`, `components/DeepStars.jsx`).
+Sixty-seven stars — the nearest (Proxima, Alpha Centauri A and B, Barnard's,
+Wolf 359, Sirius, Epsilon Eridani, TRAPPIST-1…), the brightest, the famous
+giants and supergiants, the Pleiades — at their ICRS positions and parallax
+distances. Each carries its absolute magnitude, so its brightness is the
+inverse-square law from wherever the camera is: from Earth that reproduces the
+catalogue magnitude to 1e-9 mag, from Alpha Centauri the Sun is a 0.5-magnitude
+star in Cassiopeia. `verify-deep-sky` matches every named star Hipparcos could
+see to a Hipparcos star of its own magnitude within an arcminute — the one
+exception, Eta Carinae, is not among the catalogue records the field keeps, and
+is held to its galactic coordinates instead. The field leaves those stars out,
+so none is drawn twice; past ~20 pc it fades, because a sky of directions is
+only right near the Sun. Positions and the camera are split into two float32s
+each (the double-single trick), so a star 1e17 m away is drawn to 1e-14 of its
+distance with the camera ten million kilometres from it. Close enough to have a
+disc, a star is a sphere: blackbody colour, limb darkening by temperature, and
+granulation whose cell size follows the pressure scale height — millions of
+granules on a dwarf, a handful of giant cells on Betelgeuse.
+
+**The Milky Way as a volume** (`gfx/glsl/galaxy.js`, `gfx/galaxyModel.js`,
+`components/Cosmos.jsx`). An exponential thin and thick disc, a boxy bar-bulge
+at 27° with its near end at positive longitude, four logarithmic arms of pitch
+12.5° and the Local Arm, young stars and H II knots on the arms, and dust with
+the R_V = 3.1 extinction law — integrated along each ray with the vertical
+layers averaged in closed form, so a disc thinner than a step is still counted
+exactly. Its numbers are measurements from inside: R0 = 8.178 kpc (GRAVITY
+2019), the Sun 20.8 pc above the plane, the arms placed only by where each
+crosses the Sun's azimuth in the maser parallaxes — which then puts every arm
+tangent within 6° of where it is observed (Norma 327° against 328°, Scutum 29°
+against 31°, Sagittarius 48° against 50°…), and the dust (scale length 2.3 kpc,
+Drimmel & Spergel) gives 32 magnitudes of A_V to Sgr A* against the ~30 observed
+and almost none at the poles. The Local Bubble is a dust-free cavity round the
+Sun, and fourteen local dark clouds — the Aquila and Cygnus Rifts, Ophiuchus,
+the Pipe, the Coalsack, Taurus, Orion A and B… — sit where the CO surveys put
+them, which is what gives the band its Great Rift. From inside, the sky is this
+model marched once from where the camera stands into a cube map, refined a
+tile a frame (never in daylight, when nobody can see it) and kept until the
+camera has moved a parsec; the band's grain is a per-pixel field of unresolved
+stars whose density follows its brightness. From outside, it is marched every
+frame the view changes, at a fraction of the screen's resolution, then refined
+to full resolution in strips once the view holds still — looking costs nothing.
+
+**Galaxies** — twenty-three: Andromeda with M32 and M110, Triangulum, both
+Magellanic Clouds, seven more Local Group dwarfs, M81 and M82, Centaurus A, the Whirlpool with its
+companion, the Pinwheels, the Sombrero, the Sculptor Galaxy, M87 with its jet —
+are the same model with their own photometry: scale lengths, bulges (Hernquist,
+which projects to de Vaucouleurs), bars, rings, arm counts and pitches,
+inclinations and position angles. Each galaxy's model light is integrated in
+closed form and scaled to its catalogued absolute magnitude, so they are as
+bright beside one another as they are; the display is an asinh stretch (Lupton
+et al. 2004), as astronomers' images are.
+
+**Nebulae and clusters** (`gfx/glsl/nebula.js`). Eleven nebulae in families —
+H II regions (Orion, the Eagle and its Pillars, the Lagoon, Carina with Eta
+Carinae's Homunculus, the Rosette, the North America), planetary nebulae (the
+Ring, the Helix with its cometary knots), supernova remnants (the Crab's
+synchrotron glow in its filament cage, the Veil), the Horsehead, the Pleiades'
+reflection nebula lit by the cluster's own named stars. Line colours come from
+the CIE observer at each line's wavelength (H-alpha, H-beta, [O III], [N II]);
+which filament bends where is seeded noise, and is said so. The globulars —
+Omega Centauri, M13, 47 Tucanae — are a Plummer glow at the cluster's
+integrated magnitude plus thousands of resolved giants and horizontal-branch
+stars; the Pleiades and the Hyades carry their fainter members.
+
+**Sagittarius A\*** is ray-traced (`gfx/blackHole.js`): every pixel integrates
+its own null geodesic of the Schwarzschild metric, so the shadow, the photon
+ring, the far side of the disc lifted over the top and the lensed sky behind
+are all paths photons take. `verify-galaxy` runs the shader's integrator in Node
+and checks that it captures exactly the rays inside the critical impact
+parameter 3√3/2 r_s and bends a distant ray by Einstein's 2 r_s/b to 3%. The
+disc is Shakura–Sunyaev with gravitational and Doppler shift (g⁴ beaming).
+Sgr A*'s real disc orientation is not known and it accretes far less than
+drawn; the frame says so.
+
+**The largest scales** (`components/DeepField.jsx`). The Virgo, Coma, Fornax,
+Norma, Perseus and Shapley clusters are where they are, populated; the
+filaments and walls between them are a statistical Voronoi foam, the geometry
+large-scale structure grows into. The microwave background is a shell at
+13.9 Gpc with its measured dipole (Planck 2018) and a statistical anisotropy.
+The Sun's own outskirts — the heliosphere, blunt into the interstellar wind at
+120 AU and drawn out downwind, and the Oort cloud — appear across the scales
+where they are the frame's subject.
+
+## Search
+
+The search box (top right; `/` or ⌘K, or *search* from the broadcast) takes you
+anywhere by name: planets, moons, the spacecraft, camera views, launch sites,
+missions, and everything above. It forgives typing — "sturn" finds Saturn,
+"betelguese" Betelgeuse, "nepchune" Neptune — and multi-word queries match word
+by word ("moons of jupiter"). A thing's own name outranks the same words as
+another's alias, so "pleiades" is the cluster before its sisters. On a phone it
+rides the left column, where its results list takes its own place in the column.
+
+It answers one of four ways, and the difference is the point:
+
+| | |
+| --- | --- |
+| **a place** | fly to it, however far — the list |
+| **coming soon** | a real thing the simulator has not built: Ceres, Voyager 1, Enceladus, Kepler-452b, the Tarantula Nebula |
+| **not a place** | real, and not somewhere to stand: a constellation, a Lagrange point, dark matter |
+| **try something else** | nothing recognised it |
+
+The 338 names in the second and third rows are `sim/comingSoon.js`, each with a
+line saying what it is. They are consulted only where the catalogue has nothing
+solid, so nothing in that file can shadow a real destination — "Andromeda" is
+the galaxy however well the constellation of that name scores — and a name the
+simulator gains later stops saying *coming soon* the moment it is added,
+without anything being deleted. `npm run verify:search` holds all of it,
+including that every catalogue name and alias still answers as a place, and
+that fewer than 2% of random letter strings match anything at all.
+
+## Phones, tablets, computers
+
+The first visit asks what it is running on and tunes itself (`sim/device.js`):
+pixel ratio, antialiasing, surface-noise octaves, sphere tessellation, star
+catalogue depth, vegetation count, shadow-map size — and for the sky beyond
+the planets, the volume resolution and step budget and the sky cube's size and
+tile. The layout follows the screen: on a phone the instruments fold into one
+column and the telemetry strip is two by two. The choice can be changed under
+*Display*.
 
 ## Mission profile
 
@@ -405,6 +535,7 @@ actually landed.
 | `esc` `del`     | deselect / delete the selected node                  |
 | click a plan row | open that burn and fly the camera to it             |
 | `m`             | the map: pull back until the whole orbit is in frame  |
+| `/` or `⌘K`     | search: go anywhere by name                          |
 
 Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing
@@ -3777,8 +3908,8 @@ invented crater relief underneath real maria; deriving them makes the two agree.
 Slopes are computed in metres per texel with the longitude derivative divided by
 cos(latitude), then exaggerated by a single documented `RELIEF` factor.
 
-The Milky Way stays procedural: no public-domain equirectangular panorama had a
-stable enough URL to hard-code.
+The Milky Way was a procedural panorama here until it became a volume model
+(see [Beyond the planets](#beyond-the-planets)); nothing about it is a texture now.
 
 ## HD texture swapping
 

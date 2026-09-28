@@ -128,6 +128,31 @@ export function blackbodyXYZ(out, T) {
   return out
 }
 
+/**
+ * Linear sRGB of a single spectral line at `nm`, peak channel 1: the CIE
+ * observer's response to that one wavelength, through the sRGB primaries.
+ * Monochromatic light is outside the sRGB gamut at every wavelength, so the
+ * negative channel is clamped — H-alpha comes out pure red, [O III] teal —
+ * which is the honest limit of a three-primary display, as it is for the
+ * coolest stars.
+ */
+export function lineRGB(out, nm) {
+  const X = xBar(nm)
+  const Y = yBar(nm)
+  const Z = zBar(nm)
+  let r = 3.2406 * X - 1.5372 * Y - 0.4986 * Z
+  let g = -0.9689 * X + 1.8758 * Y + 0.0415 * Z
+  let b = 0.0557 * X - 0.204 * Y + 1.057 * Z
+  r = r > 0 ? r : 0
+  g = g > 0 ? g : 0
+  b = b > 0 ? b : 0
+  const peak = Math.max(r, g, b) || 1
+  out[0] = r / peak
+  out[1] = g / peak
+  out[2] = b / peak
+  return out
+}
+
 const _xyz = new Float64Array(3)
 
 /**

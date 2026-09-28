@@ -153,20 +153,28 @@ export function FlightStrip() {
     return () => clearInterval(id)
   }, [])
 
+  /*
+   * One row where there is room for one; two by two on a phone. A phone's
+   * column is 358 px and the row is ~390, and the strip takes no touches — it
+   * is a readout, not a control — so it could not be scrolled to its last
+   * figure either: measured, the load factor was cut off at the screen edge.
+   */
   return (
     <div
       ref={root}
-      className="panel pointer-events-none flex w-fit max-w-[calc(100vw-2rem)] items-stretch overflow-x-auto"
+      className="panel pointer-events-none grid w-full max-w-[calc(100vw-2rem)] grid-cols-2 items-stretch sm:flex sm:w-fit"
     >
       {(SHIP.lunar ? LUNAR_FIELDS : FIELDS).map((f, i) => (
         <div
           key={f.key}
           /*
-           * The separator is a real left border on every cell but the first,
-           * rather than a stack of sibling divs — one rule per boundary, and no
+           * The separator is a real border on the cell that needs it, rather
+           * than a stack of sibling divs — one rule per boundary, and no
            * trailing hairline to trim off the end.
            */
-          className={`px-3.5 py-2 sm:px-4 ${i > 0 ? 'border-l border-hud/15' : ''}`}
+          className={`border-hud/15 px-3.5 py-2 sm:px-4 ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t sm:border-t-0' : ''} ${
+            i > 0 ? 'sm:border-l' : ''
+          }`}
         >
           <div className="rule text-[8px] whitespace-nowrap">{f.label}</div>
           <div

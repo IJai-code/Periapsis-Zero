@@ -6,7 +6,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { generateEarth } from '../src/gfx/earth.js'
 import { generateMoon } from '../src/gfx/moon.js'
-import { generateSky } from '../src/gfx/sky.js'
 import { encodePNG, preview } from './png.mjs'
 
 const OUT = process.argv[2] ?? 'texture-preview'
@@ -21,7 +20,6 @@ const time = (label, fn) => {
 
 console.log('generating…')
 const sets = {
-  sky: time('sky', () => generateSky()),
   earth: time('earth', () => generateEarth()),
   moon: time('moon', () => generateMoon()),
 }

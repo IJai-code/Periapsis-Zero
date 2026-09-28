@@ -13,7 +13,8 @@ import {
 } from './ship.js'
 import { computeLagrange } from './lagrange.js'
 import { soiRadius } from './soi.js'
-import { RAIL_IDS, RAIL_INDEX, railHelio } from './rails.js'
+import { RAIL_IDS, RAIL_INDEX, moonClock, moonOffsetNow, moonParentSlot, railHelio } from './rails.js'
+import { COSMIC } from './cosmic.js'
 import { GAMMA_AIR, density, radiativeFlux, speedOfSound } from './atmosphere.js'
 
 /** Sutton-Graves constant in SI, and the capsule's heat-shield curvature. */
@@ -189,6 +190,7 @@ const _rel = new Vector3()
 const _axis = new Vector3()
 const _perp = new Vector3()
 const _newOrigin = new Vector3()
+const _moon = new Float64Array(3)
 
 /**
  * @param {string|null} originBody  body to pin the origin to
@@ -218,6 +220,11 @@ export function refreshDerived(originBody = null, originOffset = null) {
       abs.sun.y + railHelio[o + 1],
       abs.sun.z + railHelio[o + 2],
     )
+  } else if (originBody !== null && COSMIC[originBody] !== undefined) {
+    // A star, a galaxy: fixed in the barycentric frame, and as far from the
+    // Sun as 1e22 m — the one case where the origin *must* follow, because a
+    // float32 there is good to a hundred million kilometres.
+    _newOrigin.copy(COSMIC[originBody].abs)
   } else if (originOffset) _newOrigin.copy(live.origin).add(originOffset)
   else _newOrigin.copy(live.origin)
 
@@ -238,6 +245,19 @@ export function refreshDerived(originBody = null, originOffset = null) {
       abs.sun.y + railHelio[o + 1] - live.origin.y,
       abs.sun.z + railHelio[o + 2] - live.origin.z,
     )
+  }
+  /*
+   * Moons are drawn on this frame's clock, not the force model's hourly one:
+   * they pull on nothing, and held for an hour Io hops 8.5° round Jupiter.
+   * Written after every planet, so each moon reads its parent's final slot.
+   */
+  moonClock[0] = sim.t
+  for (let k = 0; k < RAIL_IDS.length; k++) {
+    const ps = moonParentSlot(k)
+    if (ps < 0) continue
+    if (!moonOffsetNow(k, _moon, 0)) continue
+    const parent = live.railPos[RAIL_IDS[ps]]
+    live.railPos[RAIL_IDS[k]].set(parent.x + _moon[0], parent.y + _moon[1], parent.z + _moon[2])
   }
 
   live.sunDir.copy(pos.sun).sub(pos.earth).normalize()

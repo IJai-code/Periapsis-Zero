@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FocusMenu } from './FocusMenu.jsx'
+import { SearchBar } from './SearchBar.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
 import { Geophysics } from './Geophysics.jsx'
@@ -158,7 +158,7 @@ export function Hud() {
   return (
     <>
     <LagrangeMarkers />
-    <div className="pointer-events-none fixed inset-0 z-10 select-none">
+    <div className="pointer-events-none fixed inset-0 z-10 select-none" style={{ animation: 'pz-fade 700ms ease both' }}>
       {/*
         The bottom clearance is 9rem on a phone and 7rem above it, and the
         difference is the control bar's own height: its buttons are 36 px for a
@@ -207,9 +207,18 @@ export function Hud() {
         <div className="pointer-events-auto">
           <FlightStrip />
         </div>
+        {/*
+          On a narrow screen the search rides the left column, under the strip,
+          because the right-hand corner it takes on a wide one is where the
+          brand row already is.
+        */}
+        {narrow && (
+          <div className="pointer-events-auto w-[min(22rem,calc(100vw-2rem))]">
+            <SearchBar compact />
+          </div>
+        )}
         {open && (
           <div className="pointer-events-auto flex flex-col gap-3">
-            <FocusMenu />
             {/* Setting the flight up, not flying it: out of the way on the map. */}
             {!map && <Presets />}
             {/* Earth's pads; a lunar vessel's site is its own, fixed. */}
@@ -229,8 +238,18 @@ export function Hud() {
         )}
       </div>
 
+      {/*
+        Go anywhere by name — the search replaces the camera-lock list, and sits
+        where a search sits: top right, above the instruments, always there.
+      */}
+      {!narrow && (
+        <div className="pointer-events-auto absolute top-4 right-4 z-20 w-[22rem]">
+          <SearchBar />
+        </div>
+      )}
+
       {open && !narrow && (
-        <div className="pointer-events-auto absolute top-4 right-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <div className="pointer-events-auto absolute top-[4.25rem] right-4 max-h-[calc(100vh-11rem)] overflow-y-auto">
           <div className="flex flex-col gap-3">{instruments}</div>
         </div>
       )}

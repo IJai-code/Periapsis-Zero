@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
+import { BODIES } from '../sim/constants.js'
+import { RAILS } from '../sim/rails.js'
+import { makePose, restingPose } from './shotPoses.js'
 
 /**
  * The mission intros: one continuous flight through the real solar system,
@@ -9,13 +12,12 @@ import { live } from '../sim/live.js'
  *
  * Nothing here is a recording. The camera flies the scene the simulator is
  * already rendering — true at any resolution, free of compression, and it
- * arrives where the mission begins. The path is a chain of quadratic Béziers
- * through five anchors built from the live ephemeris at the moment the intro
- * starts (the sim is paused through the intro, so the anchors hold), eased at
- * both ends so the flight begins from stillness and settles onto the mission's
- * frame.
+ * arrives where the mission begins: one scale journey toward the point the
+ * mission's first shot looks at, keyed from the live ephemeris at the moment
+ * the intro starts (the sim is paused through the intro, so the keys hold),
+ * and ending *on* that first shot. See "The flight" below for its shape.
  *
- * The anchors are kept in **absolute** scene coordinates (live.abs), not in
+ * The keys are kept in **absolute** scene coordinates (live.abs), not in
  * the floating origin's rebased frame: the origin moves under the camera as
  * the flight crosses the system, and a path in rebased coordinates would tear
  * every time it did. `introStep` subtracts `live.origin` on the way out, which
@@ -38,7 +40,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Apollo 8', line: 'The first flight to leave the Earth' },
       { s: 0.94, eyebrow: 'T-60 seconds', line: 'The last minute, standing on the ground' },
     ],
-    arc: { swing: 1.1, settle: 900, tilt: 0.32 },
+    arc: { swing: 1.1, tilt: 0.32 },
     specs: [
       ['Flight', 'First crewed Saturn V'],
       ['Vehicle', 'Saturn V SA-503'],
@@ -54,7 +56,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Apollo 11', line: 'To meet Columbia in lunar orbit' },
       { s: 0.94, eyebrow: 'Liftoff', line: 'The first launch from another world' },
     ],
-    arc: { swing: 0.9, settle: 600, tilt: 0.5, viaMoon: true },
+    arc: { swing: 0.9, tilt: 0.5 },
     specs: [
       ['Craft', 'Eagle · ascent stage'],
       ['Aloft', '21 h 36 m after touchdown'],
@@ -70,7 +72,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Eagle', line: 'The last half hour was flown by hand' },
       { s: 0.94, eyebrow: 'Braking gate', line: 'A mile and a bit, and half an hour to go' },
     ],
-    arc: { swing: 0.85, settle: 320, tilt: 0.55, viaMoon: true },
+    arc: { swing: 0.85, tilt: 0.55 },
     specs: [
       ['Range', '1.7 km at hand-over'],
       ['Closing', 'Walking pace'],
@@ -86,7 +88,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Apollo 8', line: 'Ten revolutions, and a Christmas reading' },
       { s: 0.94, eyebrow: 'Lunar orbit', line: 'The Moon, as nobody had seen it' },
     ],
-    arc: { swing: 1.0, settle: 2400, tilt: 0.42, viaMoon: true },
+    arc: { swing: 1.0, tilt: 0.42 },
     specs: [
       ['Arrival', '24 December 1968'],
       ['Revolution', 'Ten'],
@@ -102,7 +104,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Near-rectilinear', line: 'An orbit that is never the same twice' },
       { s: 0.94, eyebrow: 'The Gateway', line: 'A station in an orbit that never repeats' },
     ],
-    arc: { swing: 1.35, settle: 3200, tilt: 0.42, viaMoon: true },
+    arc: { swing: 1.35, tilt: 0.42 },
     specs: [
       ['Orbit', 'Near-rectilinear halo'],
       ['Period', '≈ 6.5 days'],
@@ -118,7 +120,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'The raise', line: 'Two burns, 10.5 m/s, and time enough' },
       { s: 0.94, eyebrow: 'SLC-6', line: 'A Pacific range, and a window made by waiting' },
     ],
-    arc: { swing: 1.1, settle: 900, tilt: 0.32 },
+    arc: { swing: 1.1, tilt: 0.32 },
     specs: [
       ['Pad', 'Vandenberg SLC-6'],
       ['Wait', '104.4 h to the window'],
@@ -134,7 +136,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Trans-lunar injection', line: 'The moment the mission leaves the Earth' },
       { s: 0.94, eyebrow: 'Ignition', line: 'The third stage, lit on screen' },
     ],
-    arc: { swing: 1.05, settle: 700, tilt: 0.36 },
+    arc: { swing: 1.05, tilt: 0.36 },
     specs: [
       ['Stage', 'S-IVB · restarted'],
       ['Coast', 'Three days to the Moon'],
@@ -150,7 +152,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Apollo 8', line: 'The burn for home' },
       { s: 0.94, eyebrow: 'Christmas Day', line: '1968 · lit on time, on the far side' },
     ],
-    arc: { swing: 0.95, settle: 1800, tilt: 0.48, viaMoon: true },
+    arc: { swing: 0.95, tilt: 0.48 },
     specs: [
       ['Lit', '25 December 1968'],
       ['Contact', 'None · far side'],
@@ -166,7 +168,7 @@ export const DOSSIERS = {
       { s: 0.86, eyebrow: 'Re-entry', line: 'Plasma, drogues, canopies, the Pacific' },
       { s: 0.94, eyebrow: 'The Pacific', line: 'Drogues, canopies, and the ship waiting' },
     ],
-    arc: { swing: 1.0, settle: 500, tilt: 0.38 },
+    arc: { swing: 1.0, tilt: 0.38 },
     specs: [
       ['Speed', '11.0 km/s at entry'],
       ['Shield', 'The heat shield, and nothing else'],
@@ -177,14 +179,14 @@ export const DOSSIERS = {
 }
 
 /* ---------------------------------------------------------------- *
- * The flight: anchors in, camera out
+ * The flight: one continuous zoom, from a star to a frame
  * ---------------------------------------------------------------- */
 
 /** The running intro. The UI reads it; the rig calls `introStep`. */
 export const INTRO = {
   active: false,
   t: 0,
-  duration: 42,
+  duration: 40,
   s: 0,
   beat: -1,
   presetId: null,
@@ -193,125 +195,207 @@ export const INTRO = {
    * The rig parks OrbitControls' target here so the hand-off out of the intro
    * flies from a coherent state. Built once in `introStart`. */
   look: null,
+  dossier: null,
 }
 
-// Scratch, built once: the frame path allocates nothing.
-const anchor = (n) => Array.from({ length: n }, () => new THREE.Vector3())
-const PATH = anchor(5)
-const CTRL = anchor(4) // one Bézier control point per segment
-const LOOK = anchor(5)
+/*
+ * The shape of the flight, and why it is this shape.
+ *
+ * The first version was four Béziers through five points, a quarter of the
+ * clock each — half an AU in the first quarter and the last few kilometres in
+ * the fourth — with the gaze sliding in a straight line from Earth's centre to
+ * the pad. Watched, it did two things wrong. The camera dropped the last
+ * 1,500 km in under a second, and for the seconds before that it stared at
+ * whatever the line from the planet's centre happened to cross: open Pacific,
+ * then a lurch across to Florida. And it ended 900 m straight over the pad and
+ * then *cut* to the observer on the ground, because the flight's last frame and
+ * the mission's first were not the same frame.
+ *
+ * So the flight is now a single scale journey toward one point — the thing
+ * the mission's first shot looks at — and every part of it is smooth:
+ *
+ *   - **Distance** falls log-linearly: every second of the flight the view
+ *     closes by about the same *factor*, which is what reads as steady motion
+ *     across fourteen decades, easing out to rest on the last frame.
+ *   - **The gaze** never leaves the destination. From 25 AU it is also nearly
+ *     the direction of the Sun — which is the opening shot, a star among stars
+ *     — and as the camera closes, the world the destination is on grows round
+ *     it, then the ground, then the vehicle.
+ *   - **The direction** the camera comes in from swings through four keys: the
+ *     sunward side for the opening, the world's lit three-quarter face as it
+ *     fills the frame, straight down over the site for the descent, and finally
+ *     the mission's own camera — eye level beside the pad, behind the hull —
+ *     so the last frame of the flight *is* the first frame of the mission and
+ *     the hand-over is not an event at all.
+ *
+ * `restingPose` (gfx/shotPoses.js) says where that first frame is; the rig
+ * uses the same function, so the two cannot disagree.
+ */
+
+const AU_M = 1.495978707e11
+/** Where the flight opens: far enough that the Sun is a star, near enough to find it. */
+const OPEN_DISTANCE = 25 * AU_M
+/** Lens at the opening: wide on the star field. */
+const OPEN_FOV = 52
+/** How far off the Sun line the opening stands, rad, so the Sun is passed rather than flown through. */
+const SUN_OFFSET = 0.42
+
 const V = new THREE.Vector3()
 const V2 = new THREE.Vector3()
-const PERP = new THREE.Vector3()
 const UP = new THREE.Vector3(0, 1, 0)
-const FAR = 1.495978707e11 // one AU, the scale the flight opens on
+const F = new THREE.Vector3() // the destination: what the first shot looks at (absolute)
+const FC = new THREE.Vector3() // the first shot's camera (absolute)
+const FU = new THREE.Vector3() // its up
+const KEY_U = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]
+const KEY_S = [0, 0.46, 0.8, 1]
+const UP_OPEN = new THREE.Vector3(0, 1, 0)
+const _u = new THREE.Vector3()
+const _up = new THREE.Vector3()
+const _perp2 = new THREE.Vector3()
+const POSE = makePose()
+const FLIGHT = { lnD0: 0, lnD1: 0, fov1: 45, power: 1.04 }
 
-/**
- * The path is four quadratic Béziers, not a spline through all five anchors.
- * A Catmull-Rom through points four decades apart overshoots near the short
- * segments — the tangent borrowed from the AU-long leg flings the curve
- * through the planet it is approaching. A quadratic Bézier cannot leave the
- * hull of its own three points, so the curve bends and the camera can never
- * be thrown inside a body. The bend is a per-segment bulge, perpendicular to
- * the chord.
- */
-function bezier(out, p0, c, p1, u) {
-  const m = 1 - u
-  out.set(
-    m * m * p0.x + 2 * m * u * c.x + u * u * p1.x,
-    m * m * p0.y + 2 * m * u * c.y + u * u * p1.y,
-    m * m * p0.z + 2 * m * u * c.z + u * u * p1.z,
-  )
-  return out
+/** Smootherstep. */
+const smoother = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * x * (x * (x * 6 - 15) + 10))
+
+/** Spherical interpolation between unit vectors (writes out). */
+function slerpDir(out, a, b, t) {
+  const d = Math.min(1, Math.max(-1, a.dot(b)))
+  if (d > 0.9999) return out.copy(a).lerp(b, t).normalize()
+  const th = Math.acos(d)
+  const sn = Math.sin(th)
+  const wa = Math.sin((1 - t) * th) / sn
+  const wb = Math.sin(t * th) / sn
+  return out.set(a.x * wa + b.x * wb, a.y * wa + b.y * wb, a.z * wa + b.z * wb)
 }
 
-/** Segment i at u, into out. The four segments share one evaluator. */
-function pathAt(out, u) {
-  const n = PATH.length - 1
-  const x = Math.min(0.999999, Math.max(0, u)) * n
-  const i = Math.min(n - 1, Math.floor(x))
-  return bezier(out, PATH[i], CTRL[i], PATH[i + 1], x - i)
-}
-
-/** The look target: straight segments are right for gaze — it should not drift. */
-function lookAt(out, u) {
-  const n = LOOK.length - 1
-  const x = Math.min(0.999999, Math.max(0, u)) * n
-  const i = Math.min(n - 1, Math.floor(x))
-  const t = x - i
-  out.copy(LOOK[i]).addScaledVector(V.copy(LOOK[i + 1]).sub(LOOK[i]), t)
-  return out
-}
-
-/** Fill the control points from the anchors: midpoints, pushed off the chord. */
-function shapePath(bulges) {
-  for (let i = 0; i < CTRL.length; i++) {
-    const p0 = PATH[i]
-    const p1 = PATH[i + 1]
-    const c = CTRL[i]
-    c.copy(p0).add(p1).multiplyScalar(0.5)
-    PERP.copy(p1).sub(p0)
-    const len = PERP.length() || 1
-    PERP.normalize().cross(UP).normalize()
-    c.addScaledVector(PERP, len * bulges[i])
+/** The direction from the destination to the camera at path fraction s. */
+function directionAt(out, s) {
+  for (let i = 0; i < KEY_S.length - 1; i++) {
+    if (s <= KEY_S[i + 1] || i === KEY_S.length - 2) {
+      const k = (s - KEY_S[i]) / (KEY_S[i + 1] - KEY_S[i])
+      return slerpDir(out, KEY_U[i], KEY_U[i + 1], smoother(Math.min(1, Math.max(0, k))))
+    }
   }
+  return out.copy(KEY_U[KEY_U.length - 1])
+}
+
+/** Distance from the destination at path fraction s: log-linear, easing out. */
+function distanceAt(s) {
+  const w = 1 - Math.pow(1 - Math.min(1, Math.max(0, s)), FLIGHT.power)
+  return Math.exp(FLIGHT.lnD0 + (FLIGHT.lnD1 - FLIGHT.lnD0) * w)
+}
+
+/** The camera, absolute, at path fraction s. */
+export function introCameraAt(out, s) {
+  directionAt(_u, s)
+  return out.copy(F).addScaledVector(_u, distanceAt(s))
+}
+
+/** The bodies a path must stay out of, absolute: [centre, clearance, isHost]. */
+function obstacles(host) {
+  const list = [
+    [live.abs.sun, BODIES.sun.radius * 1.6, false],
+    [live.abs.earth, BODIES.earth.radius * 1.004, host === live.abs.earth],
+    [live.abs.moon, BODIES.moon.radius * 1.004, host === live.abs.moon],
+  ]
+  for (const p of RAILS) {
+    const q = new THREE.Vector3().copy(live.railPos[p.id]).add(live.origin)
+    list.push([q, p.radius * 1.2, false])
+  }
+  return list
 }
 
 /**
- * Begin an intro for `presetId`. Anchors are taken from the live ephemeris
- * once — the sim is paused through the flight, so the sky holds still while
- * the camera crosses it.
+ * Closest approach of the planned path to anything, as a multiple of that
+ * thing's clearance. The host is exempt for the descent — landing beside the
+ * pad is the point — and nowhere else.
+ */
+function worstClearance(obs) {
+  let worst = Infinity
+  for (let i = 0; i <= 600; i++) {
+    const s = i / 600
+    introCameraAt(V2, s)
+    for (const [c, clear, isHost] of obs) {
+      if (isHost && s > 0.85) continue
+      const r = V2.distanceTo(c) / clear
+      if (r < worst) worst = r
+    }
+  }
+  return worst
+}
+
+/**
+ * Begin an intro for `presetId`, landing on `finalFocus`'s first frame. The sky
+ * holds still through the flight — the sim is paused — so every key is taken
+ * now, from the live ephemeris.
  */
 export function introStart(presetId, finalFocus = 'earth') {
   const d = DOSSIERS[presetId] ?? DOSSIERS['apollo8-launch']
-  const arc = d.arc
-  const sun = V.copy(live.abs.sun)
-  const earth = new THREE.Vector3().copy(live.abs.earth)
-  const moon = new THREE.Vector3().copy(live.abs.moon)
-  const ship = new THREE.Vector3().copy(live.abs.ship)
+  const arc = d.arc ?? {}
 
-  // The flight opens half an AU out, off the ecliptic, looking back at the
-  // Sun — the film's first shot: a star, alone in frame.
-  const out = earth.clone().sub(sun).normalize()
-  const off = new THREE.Vector3().crossVectors(out, UP).normalize()
-  PATH[0].copy(sun).addScaledVector(out, FAR * 0.55).addScaledVector(off, FAR * 0.1).addScaledVector(UP, FAR * arc.tilt * 0.22)
+  // The frame the mission opens on, from the function the rig itself uses.
+  if (!restingPose(finalFocus, POSE)) restingPose('earth', POSE)
+  F.copy(POSE.look).add(live.origin)
+  FC.copy(POSE.cam).add(live.origin)
+  FU.copy(POSE.up)
+  FLIGHT.fov1 = POSE.fov
+  const dF = Math.max(FC.distanceTo(F), 1)
+  FLIGHT.lnD0 = Math.log(OPEN_DISTANCE)
+  FLIGHT.lnD1 = Math.log(dF)
 
-  // Then the swing past the Moon's distance, so the Earth grows from a
-  // marble and the Moon slides through frame on the way in.
-  const toEarth = earth.clone().sub(sun).normalize()
-  PATH[1]
-    .copy(earth)
-    .addScaledVector(toEarth, -FAR * 0.06)
-    .addScaledVector(off, FAR * 0.035)
-    .addScaledVector(UP, FAR * arc.tilt * 0.05)
-  if (arc.viaMoon) {
-    PATH[1].copy(moon).addScaledVector(moon.clone().sub(earth).normalize(), BODIES_R * 6)
+  // The world the destination belongs to.
+  const toEarth = V.copy(live.abs.earth).distanceTo(F)
+  const toMoon = V.copy(live.abs.moon).distanceTo(F)
+  const host = toMoon < toEarth ? live.abs.moon : live.abs.earth
+
+  // Key 3: the first shot's own direction.
+  KEY_U[3].subVectors(FC, F).normalize()
+
+  // Key 2: straight down over the destination for a surface shot — the
+  // descent — or the shot's own direction for one in space.
+  const hostR = host === live.abs.moon ? BODIES.moon.radius : BODIES.earth.radius
+  const fromHost = V.copy(F).sub(host).length()
+  const onSurface = fromHost > hostR * 0.5 && fromHost < hostR * 1.02
+  if (onSurface) {
+    KEY_U[2].subVectors(F, host).normalize()
+    KEY_U[2].lerp(KEY_U[3], 0.22).normalize()
+  } else {
+    KEY_U[2].copy(KEY_U[3])
   }
 
-  // Then the world the ship is actually at — a few of its own radii out, and
-  // the approach: the last kilometres, decelerating into the settle.
-  //
-  // Both are built around the vehicle's *host* world: the Earth from a pad,
-  // the Moon from Tranquility or a lunar orbit. And the settle direction is
-  // that world's outward radial — the Earth's radial at a near-side lunar
-  // site points into the Moon, so settling along it buried Eagle's intro
-  // 600 m underground. `verify-intro` flies both hemispheres so it stays out.
-  const host = ship.distanceTo(moon) < ship.distanceTo(earth) ? moon : earth
-  const hostR = host === moon ? MOON_R : BODIES_R
-  const down = ship.clone().sub(host).normalize()
-  PATH[2].copy(host).addScaledVector(down, hostR * 7).addScaledVector(off, hostR * 4)
+  // Key 0: sunward, off the Sun line by SUN_OFFSET and tilted by the arc.
+  const sun = V2.copy(live.abs.sun).sub(F).normalize()
+  _perp2.crossVectors(sun, UP_OPEN)
+  if (_perp2.lengthSq() < 1e-8) _perp2.set(1, 0, 0)
+  _perp2.normalize()
 
-  PATH[3].copy(ship).addScaledVector(down, arc.settle * 6).addScaledVector(off, arc.settle * 3)
-  PATH[4].copy(ship).addScaledVector(down, arc.settle).addScaledVector(off, arc.settle * 0.35)
-
-  LOOK[0].copy(sun)
-  LOOK[1].copy(earth)
-  LOOK[2].copy(earth)
-  LOOK[3].copy(ship)
-  LOOK[4].copy(ship)
-
-  // The curve: wide swings out in the system, a tight hand on the approach.
-  shapePath([0.16, 0.1, 0.06, 0.03])
+  // Key 1: the host's lit three-quarter face, which is the world filling the frame.
+  const buildKeys = (twist) => {
+    KEY_U[0]
+      .copy(sun)
+      .applyAxisAngle(_perp2, SUN_OFFSET * (arc.swing ?? 1))
+      .addScaledVector(UP_OPEN, (arc.tilt ?? 0.35) * 0.35)
+      .normalize()
+    V.subVectors(live.abs.sun, host).normalize()
+    _up.crossVectors(UP_OPEN, V).normalize()
+    KEY_U[1].copy(V).multiplyScalar(0.62).addScaledVector(_up, 0.72).addScaledVector(UP_OPEN, 0.3).normalize()
+    if (twist !== 0) KEY_U[1].applyAxisAngle(V, twist)
+  }
+  const obs = obstacles(host)
+  let best = -Infinity
+  let bestTwist = 0
+  // Twist the middle key round the Sun line until nothing is in the way.
+  for (const twist of [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.6, -2.6, Math.PI]) {
+    buildKeys(twist)
+    const c = worstClearance(obs)
+    if (c > best) {
+      best = c
+      bestTwist = twist
+    }
+    if (c > 1.05) break
+  }
+  buildKeys(bestTwist)
 
   INTRO.active = true
   INTRO.t = 0
@@ -321,38 +405,33 @@ export function introStart(presetId, finalFocus = 'earth') {
   INTRO.finalFocus = finalFocus
   INTRO.dossier = d
   if (!INTRO.look) INTRO.look = new THREE.Vector3()
-  INTRO.look.subVectors(LOOK[0], live.origin)
+  INTRO.look.subVectors(F, live.origin)
   return d
 }
-
-/** The Earth's radius, as the approach scale. Read once, lazily. */
-const BODIES_R = 6.371e6
-/** And the Moon's, for the flights whose host is the Moon. */
-const MOON_R = 1.7374e6
 
 /**
  * Advance the flight by `delta` seconds and place the camera. Returns the
  * beat index when it changes (−1 between beats, −2 when done), so the UI
- * turns pages on events rather than polling. Allocation-free: every vector
- * touched here was built above.
+ * turns pages on events rather than polling. Allocation-free.
  */
 export function introStep(camera, delta) {
   if (!INTRO.active) return -2
   INTRO.t += delta
   const raw = Math.min(1, INTRO.t / INTRO.duration)
-  // Slow out of stillness, fast through the middle, slow into the settle.
-  const u = raw * raw * (3 - 2 * raw)
+  // Out of stillness, steady through the middle, settling onto the first frame.
+  const s = raw * raw * (3 - 2 * raw)
   INTRO.s = raw
 
-  pathAt(V, u)
+  introCameraAt(V, s)
   camera.position.subVectors(V, live.origin)
-  lookAt(V2, u)
-  INTRO.look.subVectors(V2, live.origin)
-  camera.up.copy(UP)
+  INTRO.look.subVectors(F, live.origin)
+  // The horizon comes level as the shot does: world up far out, the shot's up at the end.
+  _up.copy(UP).lerp(FU, smoother((s - 0.7) / 0.3)).normalize()
+  camera.up.copy(_up)
   camera.lookAt(INTRO.look)
 
-  // The lens breathes: wide on the star field, tightening on the approach.
-  const fov = 52 - 12 * u * u
+  // The lens: wide on the stars, then the first shot's own.
+  const fov = OPEN_FOV + (FLIGHT.fov1 - OPEN_FOV) * smoother((s - 0.55) / 0.45)
   if (Math.abs(camera.fov - fov) > 0.01) {
     camera.fov = fov
     camera.updateProjectionMatrix()
@@ -378,3 +457,6 @@ export function introStep(camera, delta) {
 export function introEnd() {
   INTRO.active = false
 }
+
+/** The flight's destination and first frame, absolute — for the gate. */
+export const introTarget = () => ({ look: F.clone(), cam: FC.clone(), up: FU.clone(), fov: FLIGHT.fov1 })

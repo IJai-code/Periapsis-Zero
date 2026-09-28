@@ -1,16 +1,19 @@
 import { generateEarth } from './earth.js'
 import { generateMoon } from './moon.js'
-import { generateSky } from './sky.js'
 
 /**
  * All texture synthesis runs here so the main thread stays free to paint the
  * loading screen. Buffers come back as transferables — nothing is copied.
  */
 
+/*
+ * The sky is no longer a texture: the Milky Way is marched from a volume model
+ * on the GPU (components/Cosmos.jsx), so the 4096x2048 painted panorama that
+ * was generated here first is gone, and with it an eighth of the load.
+ */
 const STAGES = [
-  { key: 'sky', weight: 0.12, run: generateSky },
-  { key: 'earth', weight: 0.5, run: generateEarth },
-  { key: 'moon', weight: 0.38, run: generateMoon },
+  { key: 'earth', weight: 0.57, run: generateEarth },
+  { key: 'moon', weight: 0.43, run: generateMoon },
 ]
 
 self.onmessage = () => {

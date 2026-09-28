@@ -1,9 +1,43 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { MAGNITUDE_LIMIT, decodeStars } from '../gfx/stars.js'
+import { MAGNITUDE_LIMIT, decodeStars, equatorialToScene, magnitudeFlux } from '../gfx/stars.js'
 import { daySky } from '../gfx/skyGlow.js'
 import { scalarUniform } from '../gfx/scalarUniform.js'
+import { NAMED_STARS, VARIABLE, icrsUnit } from '../sim/cosmos.js'
+import { VIEW } from '../gfx/cosmicView.js'
+
+/**
+ * Take the named stars out of the field: `DeepStars.jsx` draws them in three
+ * dimensions, and a star drawn by both would be twice as bright from Earth and
+ * in two places from anywhere else. Each is matched to the field the way
+ * `verify-deep-sky` matches it — within an arcminute, at its own magnitude —
+ * and its flux zeroed. The records are sorted brightest first, so each search
+ * stops at the first star fainter than it could be.
+ */
+function withoutNamed(field) {
+  const u = [0, 0, 0]
+  const s = [0, 0, 0]
+  const cosTol = Math.cos((1 / 60) * (Math.PI / 180))
+  for (const star of NAMED_STARS) {
+    icrsUnit(u, star.ra, star.dec)
+    equatorialToScene(s, u[0], u[1], u[2])
+    const tol = VARIABLE.has(star.id) ? 1.6 : 0.3
+    const faintest = magnitudeFlux(star.v + tol)
+    const brightest = magnitudeFlux(star.v - tol)
+    for (let i = 0; i < field.count; i++) {
+      const f = field.flux[i]
+      if (f < faintest) break
+      if (f > brightest) continue
+      const d = field.position[i * 3] * s[0] + field.position[i * 3 + 1] * s[1] + field.position[i * 3 + 2] * s[2]
+      if (d > cosTol) {
+        field.flux[i] = 0
+        break
+      }
+    }
+  }
+  return field
+}
 
 /**
  * The real sky: 115,000 Hipparcos stars, where they are and what colour they are.
@@ -50,7 +84,7 @@ import { scalarUniform } from '../gfx/scalarUniform.js'
  *
  * At infinity, and by construction rather than by keeping up. The obvious way to
  * pin a sky is to copy the camera's position onto it every frame, which is what
- * `Skybox.jsx` did and what this did first — and measured in the running app,
+ * the old painted skybox did and what this did first — and measured in the running app,
  * the shell ends up **500 units from a camera that is not moving**, every frame,
  * against a shell radius of 400. The camera sits outside its own sky. Whatever
  * the ordering that produces it, a sky that depends on being told where the
@@ -95,13 +129,14 @@ const VERT = /* glsl */ `
   uniform float uRadius;
   uniform float uStevens;
   uniform float uLimitFlux;
+  uniform float uCatalogue;
 
   void main() {
     // Gone below the faintest magnitude the sky over the camera lets through,
     // and brought in over the magnitude above it — see gfx/skyGlow.js. From
     // space the limit is past the catalogue's end and this is 1 for every star.
     float seen = smoothstep(uLimitFlux, uLimitFlux * 2.512, flux);
-    vColour = color * pow(flux, uStevens) * seen;
+    vColour = color * pow(flux, uStevens) * seen * uCatalogue;
     /*
      * Rotation only: no model matrix, no view translation. The attribute is the
      * catalogue's unit direction and stays that way — scaling it into place on
@@ -112,7 +147,7 @@ const VERT = /* glsl */ `
     vec4 mv = vec4(mat3(viewMatrix) * position * uRadius, 1.0);
     gl_Position = projectionMatrix * mv;
     // A star the sky has hidden is not rasterised at all.
-    gl_PointSize = seen > 0.0 ? uPointScale : 0.0;
+    gl_PointSize = seen > 0.0 && uCatalogue > 0.0 && flux > 0.0 ? uPointScale : 0.0;
   }
 `
 
@@ -140,7 +175,7 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
       try {
         const manifest = await fetch(`${base}stars/manifest.json`).then((r) => r.json())
         const buffer = await fetch(`${base}stars/${manifest.file}`).then((r) => r.arrayBuffer())
-        if (alive) setField(decodeStars(buffer, limit))
+        if (alive) setField(withoutNamed(decodeStars(buffer, limit)))
       } catch {
         /* No catalogue: the painted backdrop is still there, as it was before. */
       }
@@ -171,6 +206,8 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
           uRadius: { value: RADIUS },
           uStevens: { value: STEVENS },
           uLimitFlux: scalarUniform(daySky.limitFlux),
+          // How much of the catalogue sky still holds where the camera is: see Cosmos.jsx.
+          uCatalogue: scalarUniform(1),
         },
         vertexColors: true,
         /*
@@ -192,7 +229,8 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
          * in front of them.
          *
          * Marking it opaque moves it into the opaque queue, where renderOrder
-         * -999 puts it immediately after `Skybox.jsx`'s -1000 and before
+         * -999 puts it immediately after the Milky Way's sky and volumes
+         * (`Cosmos.jsx`, -1001 and -1000) and before
          * everything real. Additive blending survives the change: three only
          * drops blending when it is `NormalBlending` *and* the material is
          * opaque, and this is neither. The fragment shader carries the point
@@ -217,6 +255,7 @@ export function Starfield({ limit = MAGNITUDE_LIMIT }) {
   useFrame(({ gl }) => {
     material.uniforms.uPointScale.value = PSF_PIXELS * gl.getPixelRatio()
     material.uniforms.uLimitFlux.value = daySky.limitFlux
+    material.uniforms.uCatalogue.value = VIEW.catalogueSky
   }, -2)
 
   useEffect(() => () => geometry?.dispose(), [geometry])

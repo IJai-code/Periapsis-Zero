@@ -1,38 +1,39 @@
 /**
- * verify-intro — the mission intro flight is a safe flight.
+ * verify-intro — the mission intro flight is a safe flight, and a seamless one.
  *
- * `gfx/introFlights.js` flies the camera half an AU down to a hull in one
- * 42-second shot. It cannot be watched from a Node process, but its geometry
- * can be walked: `introStep` is a pure function of the clock, so this drives
- * the whole flight for every mission's dossier and asserts what the shot
- * promises:
+ * `gfx/introFlights.js` flies the camera from 25 AU down onto the mission's
+ * first shot in one continuous zoom. It cannot be watched from a Node process,
+ * but its geometry can be walked: `introStep` is a pure function of the clock,
+ * so this drives the whole flight for every mission's dossier and asserts what
+ * the shot promises:
  *
  *   1. The path never enters anything drawn — the Sun, the Earth, the Moon,
- *      the vehicle, or any planet on rails. A quadratic Bézier cannot leave
- *      the hull of its own three points, which is why the path is built from
- *      them; this checks the claim rather than the argument. Swept over the
- *      Moon's phases and over every world the vehicle actually hands over at,
- *      because the anchors are taken from the live ephemeris wherever the
- *      mission happens to be. This is the sweep that caught the settle
- *      direction burying Eagle's intro inside a near-side Moon.
- *   2. The flight is invariant under floating-origin moves. The anchors are
- *      kept in absolute coordinates and `introStep` subtracts `live.origin` on
- *      the way out; run the same flight with the origin walking around and the
+ *      the vehicle, or any planet on rails. Swept over the Moon's phases and
+ *      over every world the vehicle actually hands over at, because the keys
+ *      are taken from the live ephemeris wherever the mission happens to be.
+ *   2. The flight is invariant under floating-origin moves. The keys are kept
+ *      in absolute coordinates and `introStep` subtracts `live.origin` on the
+ *      way out; run the same flight with the origin walking around and the
  *      absolute camera position must not change by more than a rounding error.
- *   3. The shot opens where the film opens — a star among stars, half an AU
- *      out — and settles where the mission begins: `arc.settle` off the hull,
- *      with the lens tightened from 52 degrees to 40.
- *   4. Every dossier page turns: five beats, in order, and the flight hands
- *      back `-2` when it is done.
- *   5. The lunar arcs actually pass the Moon. `viaMoon` is a promise that the
- *      Moon slides through frame on the way in, not a label.
+ *   3. The shot opens where the film opens — a star among stars, tens of AU
+ *      out with the Sun in frame — and its last frame *is* the mission's first:
+ *      the camera, the look point, the up vector and the lens all equal what
+ *      `restingPose` gives the rig for that shot, so the hand-over is not an
+ *      event. This is the check the old flight failed by design: it ended
+ *      900 m over the pad and then cut to the ground.
+ *   4. Every dossier page turns: its beats, in order.
+ *   5. It is one zoom: the distance to the destination only ever falls, and
+ *      the lens never leaves the destination — the first version stared at
+ *      whatever the line from Earth's centre crossed (open ocean) and then
+ *      lurched to the pad.
  */
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { live } from '../src/sim/live.js'
 import { BODIES, CRAFT } from '../src/sim/constants.js'
 import { RAILS, RAIL_RADIUS, railHelio, updateRails } from '../src/sim/rails.js'
-import { DOSSIERS, INTRO, introEnd, introStart, introStep } from '../src/gfx/introFlights.js'
+import { DOSSIERS, INTRO, introEnd, introStart, introStep, introTarget } from '../src/gfx/introFlights.js'
+import { makePose, restingPose } from '../src/gfx/shotPoses.js'
 
 const AU = 1.495978707e11
 
@@ -102,11 +103,13 @@ for (let k = 0; k < RAILS.length; k++) {
 const STEPS = 1200
 
 /** Walk one whole flight, sampling absolute camera positions per step. */
-function fly(presetId, wanderOrigin) {
+function fly(presetId, wanderOrigin, focus = 'earth') {
   const cam = makeCamera()
-  introStart(presetId, 'earth')
+  introStart(presetId, focus)
   const samples = []
   const beats = []
+  const looks = []
+  const fwd = []
   for (let i = 0; i <= STEPS; i++) {
     if (wanderOrigin) {
       // The floating origin walks: the Sun, then Earth, then the vehicle —
@@ -119,12 +122,16 @@ function fly(presetId, wanderOrigin) {
         base.z,
       )
     }
+    // After the last frame the camera belongs to the rig, not the flight.
+    if (!INTRO.active) break
     const changed = introStep(cam, INTRO.duration / STEPS)
     if (changed >= 0) beats.push(changed)
     samples.push(absolute(cam))
+    looks.push(SCRATCH.copy(INTRO.look).add(live.origin).clone())
+    fwd.push(cam.getWorldDirection(new THREE.Vector3()))
   }
   introEnd()
-  return { cam, samples, beats }
+  return { cam, samples, beats, looks, fwd }
 }
 
 /** The Moon swung to another quarter of its orbit, for the sweep below. */
@@ -218,55 +225,44 @@ for (const id of ids) {
 }
 
 /* ---------------------------------------------------------------- *
- * 3. The shot's two ends
+ * 3. The shot's two ends — and the last frame is the mission's first
  * ---------------------------------------------------------------- */
 
-for (const id of ids) {
-  check(`[${id}] opens among the stars, settles at the hull`, () => {
-    const arc = DOSSIERS[id].arc
-    for (const where of HEMISPHERES) {
-      withShipAt(where, () => {
-        const cam = makeCamera()
-        introStart(id, 'earth')
-        introStep(cam, 0.001)
-        const openR = absolute(cam).distanceTo(live.abs.sun)
-        assert.ok(openR > 0.4 * AU, `[${id}/${where}] opens ${openR.toFixed(3)} AU from the Sun`)
+/** The first shots a mission can open on, each checked where the gate can pose it. */
+const FINAL_FOCI = ['earth', 'ground', 'pad', 'ship', 'moon']
+const pose = makePose()
 
-        // Walk to the settle and measure the last frame against the hull.
-        for (let i = 0; i < STEPS; i++) introStep(cam, INTRO.duration / STEPS)
-        const end = absolute(cam)
-        const toShip = end.distanceTo(live.abs.ship)
-        // The final anchor is `settle` out along the host world's radial and
-        // `settle * 0.35` across it. Those directions are not perpendicular,
-        // so the distance is settle times a factor between 0.65 and 1.35 —
-        // pinned to exactly that range, and no tighter.
-        const lo = arc.settle * 0.65 - 1
-        const hi = arc.settle * 1.35 + 1
-        assert.ok(
-          toShip >= lo && toShip <= hi,
-          `[${id}/${where}] settles ${Math.round(toShip)} m from the hull, ` +
-            `expected ${Math.round(lo)}–${Math.round(hi)} m`,
-        )
-        // And it settles *above* the world it sits on: further from the host's
-        // centre than the hull is, by at least the settle's own scale. This is
-        // the assertion that keeps the settle direction honest — the first
-        // version of the flight buried Eagle's intro 600 m inside a near-side
-        // Moon, which a hull-distance check alone would not catch.
-        const hostC =
-          live.abs.ship.distanceTo(live.abs.moon) < live.abs.ship.distanceTo(live.abs.earth)
-            ? live.abs.moon
-            : live.abs.earth
-        const lift = end.distanceTo(hostC) - live.abs.ship.distanceTo(hostC)
-        assert.ok(
-          lift > arc.settle * 0.6 - 1,
-          `[${id}/${where}] settles ${Math.round(lift)} m *below* the host world's horizon`,
-        )
-        assert.ok(
-          Math.abs(cam.fov - 40) < 0.5,
-          `[${id}/${where}] lens ends at ${cam.fov.toFixed(1)} degrees, expected 40`,
-        )
-        introEnd()
-      })
+for (const id of ids) {
+  check(`[${id}] opens among the stars, lands exactly on the mission's first frame`, () => {
+    for (const focus of FINAL_FOCI) {
+      const cam = makeCamera()
+      introStart(id, focus)
+      introStep(cam, 0.001)
+      const start = absolute(cam)
+      const target = introTarget()
+      const openR = start.distanceTo(target.look)
+      assert.ok(openR > 20 * AU, `[${id}/${focus}] opens ${(openR / AU).toFixed(2)} AU from its destination`)
+      // The Sun is in the opening frame: within the half-width of a 52-degree lens.
+      const toSun = SCRATCH.copy(live.abs.sun).sub(start).normalize()
+      const sunOff = (Math.acos(Math.min(1, toSun.dot(cam.getWorldDirection(new THREE.Vector3())))) * 180) / Math.PI
+      assert.ok(sunOff < 26, `[${id}/${focus}] the Sun opens ${sunOff.toFixed(1)} degrees off axis, outside the frame`)
+
+      for (let i = 0; i < STEPS && INTRO.active; i++) introStep(cam, INTRO.duration / STEPS)
+      assert.equal(INTRO.active, false, `[${id}/${focus}] the flight did not end on its clock`)
+
+      // The rig's own first frame, from the same function the rig calls.
+      assert.ok(restingPose(focus, pose), `[${id}] no resting pose for ${focus}`)
+      const wantCam = pose.cam.clone().add(live.origin)
+      const wantLook = pose.look.clone().add(live.origin)
+      const endCam = absolute(cam)
+      const miss = endCam.distanceTo(wantCam)
+      // Float64 at ~1.5e11 m resolves 3e-5 m; a millimetre is rounding, not a cut.
+      assert.ok(miss < 1e-3, `[${id}/${focus}] last frame is ${miss.toExponential(2)} m from the mission's first`)
+      const lookMiss = SCRATCH.copy(INTRO.look).add(live.origin).distanceTo(wantLook)
+      assert.ok(lookMiss < 1e-3, `[${id}/${focus}] last look point is ${lookMiss.toExponential(2)} m off`)
+      assert.ok(cam.up.angleTo(pose.up) < 1e-6, `[${id}/${focus}] horizon ends ${cam.up.angleTo(pose.up)} rad off the shot's`)
+      assert.ok(Math.abs(cam.fov - pose.fov) < 0.01, `[${id}/${focus}] lens ends at ${cam.fov.toFixed(2)} degrees, the shot wants ${pose.fov.toFixed(2)}`)
+      introEnd()
     }
   })
 }
@@ -287,33 +283,26 @@ for (const id of ids) {
 }
 
 /* ---------------------------------------------------------------- *
- * 5. The lunar arcs pass the Moon
+ * 5. One zoom: always closing, always looking at where it is going
  * ---------------------------------------------------------------- */
 
 for (const id of ids) {
-  const arc = DOSSIERS[id].arc
-  check(
-    `[${id}] ${arc.viaMoon ? 'passes the Moon on the way in' : 'keeps to the Earth line'}`,
-    () => {
-      const { samples } = fly(id, false)
-      const moon = live.abs.moon
-      let closest = Infinity
-      for (const c of samples) {
-        const d = c.distanceTo(moon)
-        if (d < closest) closest = d
+  check(`[${id}] closes on its destination the whole way, and never looks away from it`, () => {
+    for (const focus of ['earth', 'ground', 'ship']) {
+      const { samples, looks, fwd } = fly(id, false, focus)
+      let prev = Infinity
+      let worstGaze = 0
+      for (let i = 0; i < samples.length; i++) {
+        const d = samples[i].distanceTo(looks[i])
+        // Rounding only: a step that holds still is not a zoom back out.
+        assert.ok(d <= prev * (1 + 1e-12) + 1e-6, `[${id}/${focus}] step ${i} backs out from ${prev.toFixed(0)} to ${d.toFixed(0)} m`)
+        prev = d
+        const want = SCRATCH.copy(looks[i]).sub(samples[i]).normalize()
+        worstGaze = Math.max(worstGaze, fwd[i].angleTo(want))
       }
-      if (arc.viaMoon) {
-        assert.ok(
-          closest < 1e8,
-          `[${id}] claims the Moon slides through frame but never comes closer than ` +
-            `${(closest / 1000).toFixed(0)} km`,
-        )
-      }
-      // Either way the Moon is never entered — asserted above, but the arc's
-      // whole shape depends on this and it costs one line to say so.
-      assert.ok(closest > BODIES.moon.radius * 1.05, `[${id}] enters the Moon at ${Math.round(closest)} m`)
-    },
-  )
+      assert.ok(worstGaze < 1e-6, `[${id}/${focus}] the lens strays ${((worstGaze * 180) / Math.PI).toFixed(4)} degrees off the destination`)
+    }
+  })
 }
 
 console.log(`\nverify-intro: ${n} checks passed`)

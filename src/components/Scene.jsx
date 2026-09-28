@@ -1,6 +1,6 @@
 import { OrbitControls } from '@react-three/drei'
 import { Driver } from './Driver.jsx'
-import { Skybox } from './Skybox.jsx'
+import { Cosmos } from './Cosmos.jsx'
 import { Starfield } from './Starfield.jsx'
 import { Sun } from './Sun.jsx'
 import { GroundLight } from './GroundLight.jsx'
@@ -20,7 +20,7 @@ import { LunarSurface } from './LunarSurface.jsx'
 import { CameraRig } from './CameraRig.jsx'
 import { Effects } from './Effects.jsx'
 import { useUi } from '../sim/store.js'
-import { useActiveTextures } from '../gfx/hdTextures.js'
+import { COSMIC } from '../sim/cosmic.js'
 import { CRAFT, DAY, SHIP, YEAR } from '../sim/constants.js'
 
 const LUNAR_MONTH = 27.321661 * DAY
@@ -83,15 +83,22 @@ export function Scene({ textures }) {
    */
   const broadcast = useUi((s) => s.broadcast)
   const presenting = intro || tour || broadcast
-  const bare = cinematic || ground || lunarChase || presenting
-  const active = useActiveTextures(textures)
+  /**
+   * Nor anywhere beyond the planets. A predicted orbit, an apsis tag and a
+   * trail are a spacecraft's instruments, and from a star or another galaxy
+   * the whole of the solar system is under a pixel — the chrome drawn there is
+   * a stray dot on the Milky Way.
+   */
+  const deep = useUi((s) => COSMIC[s.focus] !== undefined)
+  const bare = cinematic || ground || lunarChase || presenting || deep
 
   return (
     <>
       <Driver />
-      <Skybox map={active['sky.sky']} />
-      {/* The Milky Way underneath is painted, because its band is unresolved
-          starlight no catalogue lists. Every individual star is Hipparcos. */}
+      {/* The Milky Way is a volume — the sky from inside it, a galaxy from
+          outside — with its neighbours and the named stars in three
+          dimensions. Every other star is Hipparcos, at infinity. */}
+      <Cosmos />
       <Starfield />
 
       {/* Starlight fill only. Everything you can actually see is lit by the
@@ -111,7 +118,7 @@ export function Scene({ textures }) {
       {CRAFT.target && <Craft id="target" />}
       <ShipControls />
 
-      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase && !presenting} />
+      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase && !presenting && !deep} />
       {FLEET_TRAILS.map((t) => (
         <Trail
           key={t.body}
@@ -123,7 +130,7 @@ export function Scene({ textures }) {
           head={t.head}
           tail={t.tail}
           width={1.1}
-          visible={trails && !ground && !lunarChase && !presenting}
+          visible={trails && !ground && !lunarChase && !presenting && !deep}
         />
       ))}
       <Trail
@@ -135,12 +142,12 @@ export function Scene({ textures }) {
         head="#cfc8bd"
         tail="#33302b"
         width={1.4}
-        visible={trails && !ground && !lunarChase && !presenting}
+        visible={trails && !ground && !lunarChase && !presenting && !deep}
       />
 
       {!bare && <Trajectory />}
       {!bare && <Osculating />}
-      {!cinematic && !presenting && <MapOverlay />}
+      {!cinematic && !presenting && !deep && <MapOverlay />}
       {!bare && <Markers />}
       {!cinematic && <Planets />}
       {!cinematic && <Terrain />}

@@ -24,6 +24,10 @@ import * as nodeApi from '../sim/nodes.js'
 import * as predictApi from '../sim/predict.js'
 import { INDEX } from '../sim/system.js'
 import { director, updateDirector } from '../sim/director.js'
+import { TRANSIT } from '../gfx/transit.js'
+import { makePose, restingPose } from '../gfx/shotPoses.js'
+import { INTRO, introTarget } from '../gfx/introFlights.js'
+import { COSMIC } from '../sim/cosmic.js'
 
 /**
  * Steps the integrator once per frame, before anything reads a position.
@@ -167,6 +171,8 @@ export function Driver() {
          */
         nodes: nodeApi,
         predict: predictApi,
+        /** The shots' settled frames and the intro's, for checking hand-offs. */
+        poses: { makePose, restingPose, INTRO, introTarget, TRANSIT },
         INDEX,
         PHASE_IDS,
       }
@@ -353,7 +359,10 @@ export function Driver() {
       lastShotRequest.current = director.request
     } else if (director.request !== null && director.request !== lastShotRequest.current) {
       lastShotRequest.current = director.request
-      if (uiStore.get().focus !== director.request) setUi({ focus: director.request })
+      if (uiStore.get().focus !== director.request) {
+        TRANSIT.quick = true
+        setUi({ focus: director.request })
+      }
     } else if (director.request === null) {
       lastShotRequest.current = null
     }
@@ -399,7 +408,17 @@ export function Driver() {
      * origin — and changes only which motion the camera shares.
      */
     const flying = focus === 'fly'
-    const originBody = flying
+    /*
+     * A move between two views rides the camera itself: the destination can be
+     * 4.3e12 m away when the move starts, and pinning the origin there would
+     * hand the shaders a float32 camera position good to half a megametre. The
+     * rig places the camera from absolute coordinates every frame of a move,
+     * so an origin that moves with it every frame costs nothing.
+     */
+    const transiting = TRANSIT.active
+    const originBody = transiting
+      ? null
+      : flying
       ? (live.nearest.id ?? 'earth')
       : focus === 'intro'
         ? /*
@@ -426,8 +445,11 @@ export function Driver() {
              * chase; even 250 km out a float32 still holds 2 cm.
              */
             'ship'
-          : (ORIGIN_BODY[focus] ?? null)
-    refreshDerived(originBody, originBody ? null : (controls?.target ?? null))
+          : (ORIGIN_BODY[focus] ?? (COSMIC[focus] !== undefined ? focus : null))
+    refreshDerived(
+      originBody,
+      originBody ? null : transiting ? three.camera.position : (controls?.target ?? null),
+    )
 
     /**
      * Shifting the origin without shifting the camera by the same vector would

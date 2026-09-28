@@ -1,4 +1,14 @@
 import { setUi, useUi } from '../sim/store.js'
+import { DEVICE_COPY, DEVICE_IDS, chooseDevice } from '../sim/device.js'
+
+/**
+ * Re-answer the first question. The scene was built for the old answer — its
+ * pixel ratio, its antialiasing, its forest — so a different one reloads the
+ * page rather than pretending to retrofit a WebGL context.
+ */
+function retune(id) {
+  if (chooseDevice(id, { built: true })) window.location.reload()
+}
 
 const OPTIONS = [
   { key: 'trajectory', label: 'Trajectory + nodes' },
@@ -34,7 +44,7 @@ export function Toggles() {
 
   return (
     <div className="panel w-48 rounded-sm p-3.5">
-      <div className="rule mb-2.5 border-b border-white/10 pb-2">Render</div>
+      <div className="rule mb-2.5 border-b border-white/10 pb-2">Display</div>
 
       <div className="space-y-0.5">
         {OPTIONS.map((o) => {
@@ -53,6 +63,26 @@ export function Toggles() {
             </button>
           )
         })}
+      </div>
+      <div className="mt-2.5 border-t border-white/10 pt-2.5">
+        <div className="rule mb-1.5">Tuned for</div>
+        <div className="grid grid-cols-3 gap-1">
+          {DEVICE_IDS.map((id) => (
+            <button
+              key={id}
+              onClick={() => retune(id)}
+              aria-pressed={state.device === id}
+              title={DEVICE_COPY[id].note}
+              className={`min-h-9 border px-1 py-1.5 text-[9px] tracking-[0.12em] uppercase transition-colors duration-300 outline-none lg:min-h-0 ${
+                state.device === id
+                  ? 'border-ember/70 text-ember'
+                  : 'border-white/10 text-white/40 hover:border-ember/50 hover:text-ember focus-visible:border-ember'
+              }`}
+            >
+              {id === 'desktop' ? 'Computer' : id === 'tablet' ? 'Tablet' : 'Phone'}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

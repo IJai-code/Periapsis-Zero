@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { INTRO, introEnd, introStart, DOSSIERS } from '../gfx/introFlights.js'
-import { filmDownload, filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
+import { filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
 
 /**
  * The mission intro, watched rather than read.
@@ -23,7 +23,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // 'curtain' | 'flying' | 'arrived'
   const [stage, setStage] = useState('curtain')
   const [beat, setBeat] = useState(-1)
-  const [film, setFilm] = useState(null)
+  const [, setFilm] = useState(null)
   const raf = useRef(0)
   const started = useRef(false)
   const dossier = DOSSIERS[preset?.id] ?? null
@@ -85,9 +85,10 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     return () => cancelAnimationFrame(raf.current)
   }, [stage])
 
-  // Arrived: hold the last page a beat, then hand the mission the screen — and
-  // the film comes off the recorder and onto the library's shelf, where its
-  // card keeps it.
+  // Arrived: the flight's last frame *is* the mission's first (see
+  // gfx/introFlights.js), so there is nothing to wait for — the bars draw back
+  // off the picture, the page fades, and the mission has the screen. The film
+  // comes off the recorder and onto the library's shelf, where its card keeps it.
   useEffect(() => {
     if (stage !== 'arrived') return
     stopFilm().then((blob) => {
@@ -95,7 +96,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       setFilm(blob)
       filmSave(preset.id, blob)
     })
-    const t = setTimeout(() => onBegin?.(), 2600)
+    const t = setTimeout(() => onBegin?.(), 1250)
     return () => clearTimeout(t)
   }, [stage, onBegin, preset])
 
@@ -119,17 +120,18 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
           stage === 'curtain' ? 'opacity-100' : 'opacity-0'
         }`}
       />
-      {/* Letterbox: the one wordless signal that says film. */}
+      {/* Letterbox: the one wordless signal that says film — and on arrival
+          it draws back off the picture rather than vanishing with it. */}
       <div
         aria-hidden
-        className={`absolute inset-x-0 top-0 bg-black transition-all duration-1000 ${
-          stage === 'curtain' ? 'h-[38vh]' : 'h-[7vh]'
+        className={`absolute inset-x-0 top-0 bg-black transition-[height] duration-[1200ms] ease-in-out ${
+          stage === 'curtain' ? 'h-[38vh]' : stage === 'arrived' ? 'h-0' : 'h-[7vh]'
         }`}
       />
       <div
         aria-hidden
-        className={`absolute inset-x-0 bottom-0 bg-black transition-all duration-1000 ${
-          stage === 'curtain' ? 'h-[38vh]' : 'h-[7vh]'
+        className={`absolute inset-x-0 bottom-0 bg-black transition-[height] duration-[1200ms] ease-in-out ${
+          stage === 'curtain' ? 'h-[38vh]' : stage === 'arrived' ? 'h-0' : 'h-[7vh]'
         }`}
       />
 
@@ -172,7 +174,10 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       )}
 
       {stage !== 'curtain' && (
-        <>
+        <div
+          className="transition-opacity duration-700"
+          style={{ opacity: stage === 'arrived' ? 0 : 1 }}
+        >
           {/* The dossier's page, lower third between the bars. */}
           <div className="absolute inset-x-0 bottom-[11vh] flex justify-center px-8">
             <div
@@ -204,28 +209,12 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             </div>
             <button
               onClick={skip}
-              className="border border-hud/20 px-3 py-1.5 font-mono text-[9px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+              className="min-h-9 border border-hud/20 px-3 py-1.5 font-mono text-[9px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember lg:min-h-0"
             >
               Skip
             </button>
-            {stage === 'arrived' && film && (
-              <button
-                onClick={() => filmDownload(film, preset.id)}
-                className="border border-hud/20 px-3 py-1.5 font-mono text-[9px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
-              >
-                Save the film ↓
-              </button>
-            )}
-            {stage === 'arrived' && (
-              <button
-                onClick={() => onBegin?.()}
-                className="border border-ember/70 px-3.5 py-1.5 font-mono text-[9px] tracking-[0.22em] text-ember uppercase"
-              >
-                Fly ▸
-              </button>
-            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import { useActiveTextures } from '../gfx/hdTextures.js'
 import { moonClock, moonTurn } from '../sim/moonFrame.js'
 import { lunarPhotometry } from '../gfx/lunarPhotometry.js'
 import { lunarGround } from '../gfx/moonTerrain.js'
+import { attachMoonDetail } from '../gfx/surfaceDetail.js'
 
 /** The rotation the group is turned by, written in place every frame. */
 const _turn = new THREE.Matrix4()
@@ -84,8 +85,11 @@ export function Moon({ textures }) {
       metalness: 0,
     })
     attachBloodMoon(m, eclipse)
-    // Regolith, not paint — see gfx/lunarPhotometry.js — and cut for the ground.
-    return lunarPhotometry(cutForGround(m))
+    // Regolith, not paint — see gfx/lunarPhotometry.js — and cut for the ground,
+    // with the crater population below the map's 2.7 km pixel synthesised in.
+    const lit = lunarPhotometry(cutForGround(m))
+    attachMoonDetail(lit)
+    return lit
   }, [textures, eclipse])
 
   // Swapping maps leaves the material — and therefore the blood-moon uniforms

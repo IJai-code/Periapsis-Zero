@@ -5,6 +5,8 @@ import { ARM_SWING, buildPad } from '../gfx/padGeometry.js'
 import { armRetraction } from '../sim/countdown.js'
 import { mission } from '../sim/mission.js'
 import { PadEffects } from './PadEffects.jsx'
+import { attachGroundLook } from '../gfx/groundLook.js'
+import { attachPadConcrete } from '../gfx/padConcrete.js'
 
 /**
  * The ground structures at a launch site, built rather than loaded.
@@ -62,8 +64,22 @@ export function LaunchPad({ site }) {
    * PRE_LAUNCH in mission.js. On the landing page and in any flight that never
    * counted, it sits before `armsAway` and the arms stay mated.
    */
-  const armSteel = useMemo(() => new THREE.MeshStandardMaterial(MATERIALS.steel(built.pad)), [built])
+  const armSteel = useMemo(() => attachGroundLook(new THREE.MeshStandardMaterial(MATERIALS.steel(built.pad))), [built])
   useEffect(() => () => armSteel.dispose(), [armSteel])
+  /** One material per surface, each lit by the sky as well as the Sun: see gfx/groundLook.js. */
+  const surfaces = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.keys(MATERIALS).map((k) => {
+          const m = attachGroundLook(new THREE.MeshStandardMaterial(MATERIALS[k](built.pad)))
+          // The hardstand weathers: slab joints, stains, soot, grassed banks.
+          if (k === 'concrete') attachPadConcrete(m, { trenchAxis: built.pad.trenchAxis, trench: built.pad.trench })
+          return [k, m]
+        }),
+      ),
+    [built],
+  )
+  useEffect(() => () => Object.values(surfaces).forEach((m) => m.dispose()), [surfaces])
   const arms = useRef([])
   useFrame(() => {
     const angle = armRetraction(mission.t) * ARM_SWING
@@ -77,9 +93,7 @@ export function LaunchPad({ site }) {
   return (
     <group>
       {built.meshes.map((m) => (
-        <mesh key={m.key} geometry={m.geometry} castShadow receiveShadow>
-          <meshStandardMaterial {...MATERIALS[m.key](built.pad)} />
-        </mesh>
+        <mesh key={m.key} geometry={m.geometry} material={surfaces[m.key]} castShadow receiveShadow />
       ))}
       {built.arms.map((a, i) => (
         <group key={i} ref={(el) => (arms.current[i] = el)} position={a.hinge}>

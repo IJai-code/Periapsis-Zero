@@ -22,6 +22,8 @@
  * is absent entirely. The date is on the HUD; the limits are stated here.
  */
 import { AU, G } from './constants.js'
+import { PARENT_POLES } from '../gfx/bodyLooks.js'
+import { poleDirection } from '../gfx/bodyFrame.js'
 
 const DEG = Math.PI / 180
 /** Julian century, seconds. The rates are per century. */
@@ -216,7 +218,9 @@ export const RAILS = [
     mass: 8.9319e22,
     radius: 1821.6e3,
     colour: '#d9c98a',
-    moon: { a: 421.7e6, period: 1.769138 * 86400, phase: 1.0 },
+    // 2.6 rather than the 1.0 it had: at 1.0 the epoch put Io inside
+    // Jupiter's shadow, and the first look at it was a black disc.
+    moon: { a: 421.7e6, period: 1.769138 * 86400, phase: 2.6 },
   },
   {
     id: 'europa',
@@ -318,15 +322,24 @@ RAILS.forEach((p, k) => {
 })
 
 /**
- * The moons, flat: [parentSlot, radius, angular rate, phase] per entry,
- * parentSlot −1 where there is no parent. Same reasoning as RAIL_ELEMENTS —
- * the frame path reads typed arrays only, so nothing here boxes a number.
- * The offset is applied after the planets are placed, in the ecliptic fold
- * (x, z, −y) the rest of the table uses.
+ * The moons, flat: [parentSlot, radius, angular rate, phase, u(3), v(3)] per
+ * entry, parentSlot −1 where there is no parent. Same reasoning as
+ * RAIL_ELEMENTS — the frame path reads typed arrays only, so nothing here boxes
+ * a number.
+ *
+ * `u` and `v` span the plane the moon circles in, in scene coordinates, and it
+ * is the parent's *equator*, not the ecliptic. These moons all orbit within a
+ * degree or so of their planet's equatorial plane, and for most of them that is
+ * a few degrees from the ecliptic and nothing to see — but Titan's is Saturn's,
+ * 27° over, and with Saturn's rings drawn where they are a Titan circling in
+ * the ecliptic visibly left the ring plane. `v = pole × u`, so increasing phase
+ * runs prograde about the pole. The parent's pole comes from the same IAU
+ * table its orientation is drawn from (`gfx/bodyLooks.js`).
  */
-const MOON_EL = new Float64Array(RAIL_COUNT * 4)
+const MOON_STRIDE = 10
+const MOON_EL = new Float64Array(RAIL_COUNT * MOON_STRIDE)
 RAILS.forEach((p, k) => {
-  const o = k * 4
+  const o = k * MOON_STRIDE
   if (!p.parent) {
     MOON_EL[o] = -1
     return
@@ -335,7 +348,59 @@ RAILS.forEach((p, k) => {
   MOON_EL[o + 1] = p.moon.a
   MOON_EL[o + 2] = (Math.PI * 2) / p.moon.period
   MOON_EL[o + 3] = p.moon.phase
+  const pole = PARENT_POLES[p.parent]
+  const n = pole ? poleDirection(new Float64Array(3), pole[0], pole[1]) : Float64Array.of(0, 1, 0)
+  // u: the equator's ascending node on the ecliptic (n × ecliptic north), or
+  // any perpendicular should the pole be the ecliptic's own.
+  let ux = n[2]
+  let uz = -n[0]
+  let uy = 0
+  let ul = Math.hypot(ux, uy, uz)
+  if (ul < 1e-9) {
+    ux = 1
+    uy = 0
+    uz = 0
+    ul = 1
+  }
+  ux /= ul
+  uy /= ul
+  uz /= ul
+  MOON_EL[o + 4] = ux
+  MOON_EL[o + 5] = uy
+  MOON_EL[o + 6] = uz
+  MOON_EL[o + 7] = n[1] * uz - n[2] * uy
+  MOON_EL[o + 8] = n[2] * ux - n[0] * uz
+  MOON_EL[o + 9] = n[0] * uy - n[1] * ux
 })
+
+/**
+ * The time `moonOffsetNow` places moons at, seconds from J2000 — a typed slot
+ * rather than an argument, because a double handed to a function the optimiser
+ * has not inlined is a double boxed, and this runs every frame.
+ */
+export const moonClock = new Float64Array(1)
+
+/**
+ * One moon's offset from its parent at `moonClock[0]`, into `out` at `oo`. The
+ * display calls this every frame so a moon does not hop round its planet on
+ * the force model's hourly refresh — at that cadence Io jumps 8.5° at a time.
+ * Moons pull on nothing, so drawing them on their own clock changes no figure.
+ */
+export function moonOffsetNow(k, out, oo) {
+  const mo = k * MOON_STRIDE
+  if (MOON_EL[mo] < 0) return false
+  const a = MOON_EL[mo + 1]
+  const th = MOON_EL[mo + 3] + moonClock[0] * MOON_EL[mo + 2]
+  const c = a * Math.cos(th)
+  const s = a * Math.sin(th)
+  out[oo] = c * MOON_EL[mo + 4] + s * MOON_EL[mo + 7]
+  out[oo + 1] = c * MOON_EL[mo + 5] + s * MOON_EL[mo + 8]
+  out[oo + 2] = c * MOON_EL[mo + 6] + s * MOON_EL[mo + 9]
+  return true
+}
+
+/** The parent slot of rail body k, or −1. */
+export const moonParentSlot = (k) => MOON_EL[k * MOON_STRIDE]
 
 const TWO_PI = Math.PI * 2
 
@@ -404,21 +469,22 @@ export function updateRails(t, into = railHelio) {
     into[oh + 2] = -ey
   }
 
-  // Second pass: the moons ride their planets. Each is a circular offset in
-  // the ecliptic, folded like the rest — (x, z, −y) — so a moon lands in the
-  // same sky the planets were folded into. The parent's slot is written
+  // Second pass: the moons ride their planets, each a circular offset in its
+  // parent's equatorial plane (see MOON_EL). The parent's slot is written
   // before any moon reads it: planets sort first in the table.
   for (let k = 0; k < RAIL_COUNT; k++) {
-    const mo = k * 4
-    const ps = MOON_EL[mo]
+    const ps = MOON_EL[k * MOON_STRIDE]
     if (ps < 0) continue
-    const a = MOON_EL[mo + 1]
-    const th = MOON_EL[mo + 3] + t * MOON_EL[mo + 2]
+    const mo = k * MOON_STRIDE
     const oh = k * 3
     const po = ps * 3
-    into[oh] = into[po] + a * Math.cos(th)
-    into[oh + 1] = into[po + 1]
-    into[oh + 2] = into[po + 2] - a * Math.sin(th)
+    const a = MOON_EL[mo + 1]
+    const th = MOON_EL[mo + 3] + t * MOON_EL[mo + 2]
+    const c = a * Math.cos(th)
+    const sn = a * Math.sin(th)
+    into[oh] = into[po] + c * MOON_EL[mo + 4] + sn * MOON_EL[mo + 7]
+    into[oh + 1] = into[po + 1] + c * MOON_EL[mo + 5] + sn * MOON_EL[mo + 8]
+    into[oh + 2] = into[po + 2] + c * MOON_EL[mo + 6] + sn * MOON_EL[mo + 9]
   }
 }
 

@@ -20,11 +20,6 @@ import { useUi } from '../sim/store.js'
  * almost always *specular* rather than roughness — bright where the surface is
  * shiny — which is the exact inverse of what a roughnessMap wants. Rather than
  * making that the user's problem, the alternate is inverted on load.
- *
- * `sky.sky` is the one slot the bundled fetcher does not fill: there is no
- * public-domain Milky Way panorama among its sources, so the skybox stays
- * procedural unless someone supplies `milkyway.jpg` themselves. The entry is
- * kept because the slot works, not because anything ships it.
  */
 export const HD_MANIFEST = [
   { slot: 'earth.day', file: 'earth_day.jpg' },
@@ -34,7 +29,6 @@ export const HD_MANIFEST = [
   { slot: 'earth.clouds', file: 'earth_clouds.png' },
   { slot: 'moon.color', file: 'moon_color.jpg' },
   { slot: 'moon.normal', file: 'moon_normal.jpg' },
-  { slot: 'sky.sky', file: 'milkyway.jpg' },
 ]
 
 let cache = null // slot -> Texture, once loaded

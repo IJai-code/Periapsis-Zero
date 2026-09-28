@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { WARP, WARP_LEVELS } from './warp.js'
 import { activeSite } from './launchsite.js'
+import { DEVICE, storedDevice } from './device.js'
 
 /* Re-exported so UI modules keep one import for store state and the ladder. */
 export { WARP, WARP_LEVELS }
@@ -36,9 +37,15 @@ function createStore(initial) {
  * them deliberately.
  */
 const WIDE_ENOUGH_FOR_PANELS =
-  typeof window === 'undefined' || window.innerWidth >= 1024
+  typeof window === 'undefined' || (window.innerWidth >= 1024 && DEVICE !== 'phone')
 
 export const uiStore = createStore({
+  /**
+   * What the visitor said this is running on — 'phone', 'tablet', 'desktop' —
+   * or null until they have been asked. See sim/device.js: the scene is not
+   * built until this is set, because the answer decides how it is built.
+   */
+  device: storedDevice(),
   /** Which pad the next flight leaves from. Mirrors sim/launchsite.js. */
   site: activeSite().id,
   /**

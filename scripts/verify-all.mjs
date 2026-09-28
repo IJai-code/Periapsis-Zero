@@ -56,6 +56,14 @@
  * heating gates use, and the loop's timing. `verify-audio` is gone with the
  * sound it verified: the product makes none.
  *
+ * `verify-deep-sky` and `verify-galaxy` sit beside `verify-cosmos`, the rest of
+ * the sky: the first holds every named star, nebula and galaxy to the
+ * catalogues and the frames they are placed in, the second the physics the
+ * volume renderer is built from — arm tangents, extinction, the black hole's
+ * photon orbits. `verify-search` covers the one part of the simulator with no
+ * physics to be held against: what the search bar answers, including when the
+ * honest answer is that it has never heard of the thing.
+ *
  * What is deliberately *not* here is as informative as what is, and only two
  * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
  * asserts nothing, so registering it would add a green line that can never turn
@@ -103,7 +111,10 @@ const GATES = [
   ['verify-pad-geometry', false],
   ['verify-surround', false],
   ['verify-cosmos', false],
+  ['verify-deep-sky', false],
+  ['verify-galaxy', false],
   ['verify-intro', false],
+  ['verify-search', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],
