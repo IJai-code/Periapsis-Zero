@@ -58,7 +58,7 @@ export function LaunchSite() {
               key={site.id}
               onClick={() => choose(site.id)}
               aria-pressed={on}
-              className={`w-full rounded-[2px] px-1.5 py-1 text-left transition-colors ${
+              className={`control w-full rounded-[2px] px-1.5 py-1 text-left transition-colors ${
                 on ? 'bg-hud/12' : 'hover:bg-white/5'
               }`}
             >

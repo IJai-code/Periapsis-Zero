@@ -231,7 +231,7 @@ function LaunchButton() {
   return (
     <button
       onClick={beginCountdown}
-      className="mt-1 w-full rounded-[2px] border border-hud/40 bg-hud/10 py-1.5 text-[11px] tracking-[0.22em] text-hud uppercase transition-colors hover:bg-hud/20"
+      className="control mt-1 w-full rounded-[2px] border border-hud/40 bg-hud/10 py-1.5 text-[11px] tracking-[0.22em] text-hud uppercase transition-colors hover:bg-hud/20"
     >
       Start countdown
     </button>
@@ -505,7 +505,7 @@ function TliButton() {
   return (
     <button
       onClick={commitTLI}
-      className="mt-1.5 w-full rounded-[2px] border border-amber-400/40 bg-amber-400/10 py-1.5 text-[11px] tracking-[0.22em] text-amber-200 uppercase transition-colors hover:bg-amber-400/20"
+      className="control mt-1.5 w-full rounded-[2px] border border-amber-400/40 bg-amber-400/10 py-1.5 text-[11px] tracking-[0.22em] text-amber-200 uppercase transition-colors hover:bg-amber-400/20"
     >
       Commit TLI
     </button>
@@ -551,7 +551,7 @@ function Row({ label, id, wide }) {
       <span className="shrink-0 text-[10px] text-white/35">{label}</span>
       <span
         data-ship={id}
-        className={`tabular-nums text-right ${wide ? 'text-[13px] text-hud' : 'text-[11px] text-white/85'}`}
+        className={`readout tabular-nums text-right ${wide ? 'text-[13px] text-hud' : 'text-[11px] text-white/85'}`}
       >
         —
       </span>

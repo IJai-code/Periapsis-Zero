@@ -181,14 +181,14 @@ export function Hud() {
             <button
               onClick={() => setUi({ broadcast: true, map: false })}
               title="Watch as a broadcast (b)"
-              className="grid h-9 min-w-[3.75rem] place-items-center border border-hud/22 px-2 text-[9px] tracking-[0.2em] text-hud/50 uppercase transition-colors duration-300 outline-none hover:border-ember/70 hover:text-ember focus-visible:border-ember focus-visible:text-ember lg:h-7"
+              className="control grid h-9 min-w-[3.75rem] place-items-center border border-hud/22 px-2 text-[9px] tracking-[0.2em] text-hud/50 uppercase transition-colors duration-300 outline-none hover:border-ember/70 hover:text-ember focus-visible:border-ember focus-visible:text-ember lg:h-7"
             >
               feed · b
             </button>
             <button
               onClick={toggleMap}
               title="Flight plan (m)"
-              className={`grid h-9 min-w-[3.75rem] place-items-center border px-2 text-[9px] tracking-[0.2em] uppercase transition-colors duration-300 outline-none focus-visible:border-ember focus-visible:text-ember lg:h-7 ${
+              className={`control grid h-9 min-w-[3.75rem] place-items-center border px-2 text-[9px] tracking-[0.2em] uppercase transition-colors duration-300 outline-none focus-visible:border-ember focus-visible:text-ember lg:h-7 ${
                 map
                   ? 'border-ember bg-ember/18 text-ember'
                   : 'border-hud/22 text-hud/50 hover:border-ember/70 hover:text-ember'
@@ -310,7 +310,7 @@ export function Hud() {
         <TimeControls />
         <button
           onClick={() => setUi((s) => ({ panelOpen: !s.panelOpen }))}
-          className="min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
+          className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
         >
           {open ? 'hide panels' : 'show panels'} · h
         </button>

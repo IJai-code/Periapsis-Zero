@@ -103,7 +103,7 @@ function Axis({ node, axis, inputRef }) {
       <span className="w-14 shrink-0 text-[10px] text-white/45">{axis.label}</span>
       <button
         onClick={() => bump(-1)}
-        className="h-5 w-5 rounded-[2px] text-[11px] text-white/40 transition-colors hover:bg-white/8 hover:text-white/80"
+        className="control h-5 w-5 rounded-[2px] text-[11px] text-white/40 transition-colors hover:bg-white/8 hover:text-white/80"
         title="−1 m/s"
       >
         −
@@ -118,7 +118,7 @@ function Axis({ node, axis, inputRef }) {
       />
       <button
         onClick={() => bump(1)}
-        className="h-5 w-5 rounded-[2px] text-[11px] text-white/40 transition-colors hover:bg-white/8 hover:text-white/80"
+        className="control h-5 w-5 rounded-[2px] text-[11px] text-white/40 transition-colors hover:bg-white/8 hover:text-white/80"
         title="+1 m/s"
       >
         +
@@ -176,7 +176,7 @@ export function NodePanel() {
         {pending.length > 0 && (
           <button
             onClick={clearNodes}
-            className="text-[9px] tracking-[0.14em] text-white/25 uppercase transition-colors hover:text-rose-300/80"
+            className="control text-[9px] tracking-[0.14em] text-white/25 uppercase transition-colors hover:text-rose-300/80"
           >
             clear all
           </button>
@@ -212,7 +212,7 @@ export function NodePanel() {
               >
                 <button
                   onClick={() => open(node)}
-                  className="flex w-full items-center gap-2 px-1.5 py-1 text-left"
+                  className="control flex w-full items-center gap-2 px-1.5 py-1 text-left"
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] ${
@@ -260,13 +260,13 @@ export function NodePanel() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => selectNode(null)}
-                          className="text-[9px] tracking-[0.14em] text-white/30 uppercase transition-colors hover:text-white/70"
+                          className="control text-[9px] tracking-[0.14em] text-white/30 uppercase transition-colors hover:text-white/70"
                         >
                           close
                         </button>
                         <button
                           onClick={() => removeNode(node.id)}
-                          className="text-[9px] tracking-[0.14em] text-rose-300/50 uppercase transition-colors hover:text-rose-300/90"
+                          className="control text-[9px] tracking-[0.14em] text-rose-300/50 uppercase transition-colors hover:text-rose-300/90"
                         >
                           delete
                         </button>

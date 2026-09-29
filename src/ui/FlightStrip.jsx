@@ -180,7 +180,7 @@ export function FlightStrip() {
           <div
             data-strip={f.key}
             style={{ minWidth: f.width }}
-            className="mt-1 font-mono text-[12px] leading-none text-[#f0e7da]/90 tabular-nums"
+            className="readout mt-1 font-mono text-[12px] leading-none text-[#f0e7da]/90 tabular-nums"
           >
             —
           </div>

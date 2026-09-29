@@ -33,7 +33,7 @@ export function GoForLaunch() {
       // No argument: the event is not an options object, and this is the same
       // count the rail's button starts.
       onClick={() => beginCountdown()}
-      className="panel pointer-events-auto flex items-center gap-3 px-5 py-2.5 font-mono text-[10.5px] tracking-[0.24em] text-ember uppercase outline-none transition-colors duration-300 hover:bg-ember/15 focus-visible:bg-ember/15"
+      className="control panel pointer-events-auto flex items-center gap-3 px-5 py-2.5 font-mono text-[10.5px] tracking-[0.24em] text-ember uppercase outline-none transition-colors duration-300 hover:bg-ember/15 focus-visible:bg-ember/15"
     >
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ember shadow-[0_0_8px_1px_currentColor]" />
       {SHIP.lunar ? 'Start the count for liftoff' : 'Start the countdown'} ▸

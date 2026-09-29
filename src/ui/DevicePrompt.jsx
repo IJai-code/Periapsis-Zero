@@ -113,7 +113,7 @@ export function DevicePrompt({ onChoose }) {
                 key={id}
                 ref={i === 0 ? first : undefined}
                 onClick={() => onChoose(id)}
-                className={`group relative flex min-h-[4.5rem] items-center gap-4 border px-5 py-4 text-left transition-colors duration-300 outline-none sm:min-h-0 sm:flex-col sm:items-center sm:gap-3 sm:px-4 sm:py-6 sm:text-center ${
+                className={`control group relative flex min-h-[4.5rem] items-center gap-4 border px-5 py-4 text-left transition-colors duration-300 outline-none sm:min-h-0 sm:flex-col sm:items-center sm:gap-3 sm:px-4 sm:py-6 sm:text-center ${
                   detected
                     ? 'border-ember/70 bg-ember/8 text-ember hover:bg-ember/14 focus-visible:bg-ember/16'
                     : 'border-hud/18 text-hud/75 hover:border-ember/60 hover:text-ember focus-visible:border-ember focus-visible:text-ember'

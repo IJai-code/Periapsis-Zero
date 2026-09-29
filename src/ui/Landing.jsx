@@ -228,7 +228,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                  * carries it and the fill arrives on hover — the control is
                  * quiet until you reach for it.
                  */
-                className={`group relative w-full overflow-hidden border px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] uppercase transition-colors duration-300 outline-none focus-visible:ring-1 focus-visible:ring-ember/80 focus-visible:ring-offset-4 focus-visible:ring-offset-obsidian sm:w-auto ${
+                className={`control group relative w-full overflow-hidden border px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] uppercase transition-colors duration-300 outline-none focus-visible:ring-1 focus-visible:ring-ember/80 focus-visible:ring-offset-4 focus-visible:ring-offset-obsidian sm:w-auto ${
                   ready
                     ? 'border-hud/45 text-[#f0e7da] hover:border-ember hover:bg-ember hover:text-obsidian'
                     : 'cursor-progress border-white/10 bg-transparent text-white/40'

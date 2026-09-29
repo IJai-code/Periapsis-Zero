@@ -12,7 +12,7 @@ export function TimeControls() {
       <button
         onClick={() => setUi((s) => ({ paused: !s.paused }))}
         title="Pause / resume  (space)"
-        className={`grid h-9 w-9 shrink-0 place-items-center border transition-colors duration-300 outline-none focus-visible:border-ember sm:h-8 sm:w-8 ${
+        className={`control grid h-9 w-9 shrink-0 place-items-center border transition-colors duration-300 outline-none focus-visible:border-ember sm:h-8 sm:w-8 ${
           paused
             ? 'border-ember bg-ember/18 text-ember'
             : 'border-hud/22 text-hud/80 hover:border-ember hover:text-ember'
@@ -40,9 +40,9 @@ export function TimeControls() {
           <button
             onClick={() => setUi({ warp: i })}
             title={level.label}
-            className={`h-9 min-w-9 shrink-0 border px-1.5 text-[10px] tabular-nums transition-colors duration-300 outline-none focus-visible:border-ember sm:h-8 sm:min-w-8 ${
+            className={`control h-9 min-w-9 shrink-0 border px-1.5 text-[10px] tabular-nums transition-colors duration-300 outline-none focus-visible:border-ember sm:h-8 sm:min-w-8 ${
               i === warp
-                ? 'border-ember bg-ember/18 text-ember'
+                ? 'lit border-ember bg-ember/18 text-ember'
                 : i < warp
                   ? 'border-transparent text-hud/55 hover:border-ember/50 hover:text-ember'
                   : 'border-transparent text-[#e8e0d5]/25 hover:border-ember/50 hover:text-ember'
@@ -69,7 +69,7 @@ export function TimeControls() {
           resetMission()
         }}
         title="Return to epoch J2000.0"
-        className="h-9 shrink-0 border border-transparent px-2.5 text-[10px] tracking-wider text-hud/45 uppercase transition-colors duration-300 outline-none hover:border-ember/50 hover:text-ember focus-visible:border-ember sm:h-8"
+        className="control h-9 shrink-0 border border-transparent px-2.5 text-[10px] tracking-wider text-hud/45 uppercase transition-colors duration-300 outline-none hover:border-ember/50 hover:text-ember focus-visible:border-ember sm:h-8"
       >
         Reset
       </button>

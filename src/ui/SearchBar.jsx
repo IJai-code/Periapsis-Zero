@@ -269,9 +269,9 @@ export function SearchBar({ compact = false }) {
               onMouseEnter={() => setActive(i)}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => choose(e)}
-              className={`flex w-full items-center gap-3 px-3 text-left transition-colors duration-150 outline-none ${
+              className={`control flex w-full items-center gap-3 px-3 text-left transition-colors duration-150 outline-none ${
                 compact ? 'min-h-12 py-2' : 'min-h-10 py-1.5 lg:min-h-0'
-              } ${on ? 'bg-hud/12 text-ember' : 'text-white/75'}`}
+              } ${on ? 'lit bg-hud/12 text-ember' : 'text-white/75'}`}
             >
               <span className={on ? 'text-ember' : 'text-hud/55'}>
                 <Glyph kind={e.kind} />
@@ -328,7 +328,7 @@ export function SearchBar({ compact = false }) {
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setQuery('')}
             aria-label="Clear"
-            className="grid h-7 w-7 place-items-center text-white/40 hover:text-ember"
+            className="control grid h-7 w-7 place-items-center text-white/40 hover:text-ember"
           >
             ×
           </button>

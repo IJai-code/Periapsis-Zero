@@ -184,7 +184,7 @@ export function MissionLibrary({ open, onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="mt-1 shrink-0 border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+            className="control mt-1 shrink-0 border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
           >
             Close
           </button>
@@ -199,7 +199,7 @@ export function MissionLibrary({ open, onClose }) {
                 key={t}
                 onClick={() => setTag(t)}
                 aria-pressed={on}
-                className={`border px-3.5 py-1.5 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors duration-300 ${
+                className={`control border px-3.5 py-1.5 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors duration-300 ${
                   on
                     ? 'border-ember/70 text-ember'
                     : 'border-hud/18 text-hud/55 hover:border-hud/40 hover:text-hud/85'
@@ -283,7 +283,7 @@ export function MissionLibrary({ open, onClose }) {
                       e.stopPropagation()
                       filmDownload(films[p.id].entry, p.id)
                     }}
-                    className="mt-3 w-fit border border-hud/20 px-2.5 py-1 font-mono text-[9px] tracking-[0.2em] text-hud/65 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+                    className="control mt-3 w-fit border border-hud/20 px-2.5 py-1 font-mono text-[9px] tracking-[0.2em] text-hud/65 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
                   >
                     Your film ↓
                   </button>

@@ -56,7 +56,7 @@ export function Toggles() {
               key={o.key}
               onClick={() => setUi({ [o.key]: !on })}
               aria-pressed={on}
-              className="flex min-h-9 w-full items-center gap-2.5 px-1 py-2 text-left outline-none transition-colors duration-300 hover:bg-hud/[0.06] focus-visible:bg-hud/[0.08] lg:min-h-0 lg:py-1"
+              className="control flex min-h-9 w-full items-center gap-2.5 px-1 py-2 text-left outline-none transition-colors duration-300 hover:bg-hud/[0.06] focus-visible:bg-hud/[0.08] lg:min-h-0 lg:py-1"
             >
               <Switch on={on} />
               <span className={`text-[11px] ${on ? 'text-white/85' : 'text-white/35'}`}>
@@ -75,9 +75,9 @@ export function Toggles() {
               onClick={() => retune(id)}
               aria-pressed={state.device === id}
               title={DEVICE_COPY[id].note}
-              className={`min-h-9 border px-1 py-1.5 text-[9px] tracking-[0.12em] uppercase transition-colors duration-300 outline-none lg:min-h-0 ${
+              className={`control min-h-9 border px-1 py-1.5 text-[9px] tracking-[0.12em] uppercase transition-colors duration-300 outline-none lg:min-h-0 ${
                 state.device === id
-                  ? 'border-ember/70 text-ember'
+                  ? 'lit border-ember/70 text-ember'
                   : 'border-white/10 text-white/40 hover:border-ember/50 hover:text-ember focus-visible:border-ember'
               }`}
             >

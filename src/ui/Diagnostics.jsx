@@ -124,7 +124,7 @@ export function Diagnostics() {
       )}
       <button
         onClick={copy}
-        className="mt-2 min-h-8 w-full border border-white/10 px-2 py-1 text-[9px] tracking-[0.14em] text-white/40 uppercase transition-colors duration-300 outline-none hover:border-ember/50 hover:text-ember focus-visible:border-ember lg:min-h-0"
+        className="control mt-2 min-h-8 w-full border border-white/10 px-2 py-1 text-[9px] tracking-[0.14em] text-white/40 uppercase transition-colors duration-300 outline-none hover:border-ember/50 hover:text-ember focus-visible:border-ember lg:min-h-0"
       >
         {copied ? 'Copied' : 'Copy for a bug report'}
       </button>

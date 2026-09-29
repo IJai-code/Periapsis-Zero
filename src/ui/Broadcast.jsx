@@ -314,14 +314,14 @@ export function BroadcastHud() {
           <div className="flex shrink-0 items-center gap-1">
             <button
               onClick={searchFromFeed}
-              className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
+              className="control min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
             >
               search · /
             </button>
             <span className="h-3 w-px bg-hud/20" />
             <button
               onClick={() => setUi({ broadcast: false })}
-              className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
+              className="control min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
             >
               instruments · b
             </button>
@@ -329,7 +329,7 @@ export function BroadcastHud() {
             <button
               onClick={() => setUi((s) => ({ captions: !s.captions }))}
               aria-pressed={captions}
-              className="min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
+              className="control min-h-9 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-hud/60 uppercase outline-none transition-colors hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-1.5"
             >
               captions {captions ? 'on' : 'off'}
             </button>

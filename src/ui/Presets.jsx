@@ -45,7 +45,7 @@ export function Presets() {
       </div>
       <button
         onClick={() => setLibrary(true)}
-        className="mt-2 w-full border-t border-white/8 pt-2 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
+        className="control mt-2 w-full border-t border-white/8 pt-2 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
       >
         Open the mission library →
       </button>

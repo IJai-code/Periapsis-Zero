@@ -161,7 +161,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             )}
             <button
               onClick={begin}
-              className="mt-9 border border-ember/70 px-7 py-3 font-mono text-[11px] tracking-[0.26em] text-ember uppercase transition-colors duration-300 hover:bg-ember/12"
+              className="control mt-9 border border-ember/70 px-7 py-3 font-mono text-[11px] tracking-[0.26em] text-ember uppercase transition-colors duration-300 hover:bg-ember/12"
             >
               Begin the approach ▸
             </button>
@@ -209,7 +209,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             </div>
             <button
               onClick={skip}
-              className="min-h-9 border border-hud/20 px-3 py-1.5 font-mono text-[9px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember lg:min-h-0"
+              className="control min-h-9 border border-hud/20 px-3 py-1.5 font-mono text-[9px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember lg:min-h-0"
             >
               Skip
             </button>

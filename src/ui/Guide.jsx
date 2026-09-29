@@ -176,8 +176,8 @@ export function Guide({ open, onClose, onLibrary }) {
                 aria-selected={i === step}
                 aria-label={st.eyebrow}
                 onClick={() => setStep(i)}
-                className={`h-px w-8 transition-colors duration-500 ${
-                  i === step ? 'bg-ember' : i < step ? 'bg-hud/50' : 'bg-hud/20 hover:bg-hud/40'
+                className={`control h-px w-8 transition-colors duration-500 ${
+                  i === step ? 'lit bg-ember' : i < step ? 'bg-hud/50' : 'bg-hud/20 hover:bg-hud/40'
                 }`}
               />
             ))}
@@ -188,7 +188,7 @@ export function Guide({ open, onClose, onLibrary }) {
         </div>
         <button
           onClick={close}
-          className="border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+          className="control border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
         >
           Skip tour
         </button>
@@ -210,7 +210,7 @@ export function Guide({ open, onClose, onLibrary }) {
               <>
                 <button
                   onClick={toLibrary}
-                  className="border border-ember/70 px-4 py-2 font-mono text-[10px] tracking-[0.22em] text-ember uppercase transition-colors duration-300 hover:bg-ember/12"
+                  className="control border border-ember/70 px-4 py-2 font-mono text-[10px] tracking-[0.22em] text-ember uppercase transition-colors duration-300 hover:bg-ember/12"
                 >
                   Open the mission library
                 </button>
@@ -226,14 +226,14 @@ export function Guide({ open, onClose, onLibrary }) {
               <>
                 <button
                   onClick={next}
-                  className="border border-hud/25 px-4 py-2 font-mono text-[10px] tracking-[0.22em] text-hud/85 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+                  className="control border border-hud/25 px-4 py-2 font-mono text-[10px] tracking-[0.22em] text-hud/85 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
                 >
                   Next →
                 </button>
                 <button
                   onClick={back}
                   disabled={step === 0}
-                  className="px-3 py-2 font-mono text-[10px] tracking-[0.22em] text-hud/55 uppercase transition-colors duration-300 hover:text-hud/85 disabled:opacity-35"
+                  className="control px-3 py-2 font-mono text-[10px] tracking-[0.22em] text-hud/55 uppercase transition-colors duration-300 hover:text-hud/85 disabled:opacity-35"
                 >
                   ← Back
                 </button>

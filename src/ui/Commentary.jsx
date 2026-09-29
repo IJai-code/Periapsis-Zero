@@ -93,7 +93,7 @@ export function Commentary() {
           type="button"
           onClick={dismiss}
           aria-label="Dismiss commentary"
-          className="-my-1 -mr-1 px-2 py-1 font-mono text-[11px] leading-none text-hud/35 outline-none transition-colors hover:text-ember focus-visible:text-ember"
+          className="control -my-1 -mr-1 px-2 py-1 font-mono text-[11px] leading-none text-hud/35 outline-none transition-colors hover:text-ember focus-visible:text-ember"
         >
           ×
         </button>
