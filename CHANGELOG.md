@@ -41,6 +41,21 @@ whole frame at the pad went from 71 ms to 23. An earlier cut of this reduced
 crown blobs by count instead, and the new `verify-flora` gate caught a live oak
 losing a fifth of its height when it swapped — which is why it re-tessellates.
 
+**The planet's globe was drawn underneath the launch site's ground, in full.**
+Seventy kilometres of real relief stands round each pad, and from inside it the
+globe is behind that relief in every direction — measured with the clock frozen
+so the comparison was exact, hiding it changed 0.000% of the pixels in the
+ground, tracking and chase views while costing 8 ms of a 33 ms frame. The depth
+test could not save it: the logarithmic depth buffer writes `gl_FragDepth`,
+which switches off early-Z, so every hidden fragment ran the whole surface
+shader — night lights, surface detail and all — before being thrown away.
+`gfx/siteGround.js` now skips it on the one condition that makes it safe, that
+the horizon from where the camera stands still falls inside the patch, which at
+Kennedy holds to about ninety metres up. The frame at the pad went from 33 ms to
+27.4. `verify-site-ground` sweeps every height and offset a camera can take and
+checks the property itself, because the failure to avoid is a hole in the world
+rather than a slow frame.
+
 **The Display panel says what the machine is.** A performance report arrives as
 "it was laggy", which is a symptom with a dozen causes that want different
 fixes. It now reads back the graphics hardware, the screen and its density, and

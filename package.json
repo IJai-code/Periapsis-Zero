@@ -20,6 +20,7 @@
     "verify:intro": "node scripts/verify-intro.mjs",
     "verify:search": "node scripts/verify-search.mjs",
     "verify:flora": "node scripts/verify-flora.mjs",
+    "verify:site-ground": "node scripts/verify-site-ground.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
     "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",

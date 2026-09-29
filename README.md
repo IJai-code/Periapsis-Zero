@@ -224,11 +224,30 @@ buffers when the canvas changes *size*, and a change of pixel ratio is not a
 change of size, so lowering the ratio shrank the canvas and left every buffer
 the scene is actually drawn into exactly as large as it was.
 
-Known and not yet fixed: `logarithmicDepthBuffer` is what lets one camera span
-fourteen decades, and it costs half the frame. It writes `gl_FragDepth`, which
-disables early-Z rejection, so hidden pixels still run the full shader —
-measured at the pad, 20 fps with it and 30 without. Fixing it properly means
-splitting the render into a near and a far frustum with their own depth ranges.
+**The planet's globe was being drawn underneath the ground.** Seventy kilometres
+of real relief is built round each pad, and from inside it the globe is behind
+that relief in every direction — measured with the clock frozen so the
+comparison was exact, hiding it changed 0.000% of the pixels in the ground, the
+tracking and the chase views, and saved 8 ms of a 33 ms frame. It is not culled
+by the depth test because there is no early-Z to cull it (see below); it has to
+be told. `gfx/siteGround.js` tells it, on the one condition that makes it safe:
+the horizon from height *h* on a sphere of radius *R* is √(2*Rh*), and while the
+camera's distance from the site plus its own horizon still falls inside the
+patch, nothing of the globe can reach the eye. That is about ninety metres up at
+Kennedy, after which the patch's far edge comes into view and the globe is drawn
+again. `verify-site-ground` sweeps every height and offset and checks the
+property directly rather than the arithmetic that implements it.
+
+Known and not yet fixed, and the largest thing left: `logarithmicDepthBuffer` is
+what lets one camera span fourteen decades, and it costs half the frame. It
+writes `gl_FragDepth`, which disables early-Z rejection on every GPU, so a
+hidden fragment runs its whole shader before anything throws it away. Measured
+at the pad on a Retina display with everything above already fixed: **60 fps
+without it, 30 with**. Recovering that means splitting the render into a near
+frustum and a far one, each with a depth range it can afford, and assigning
+every object to the right one — the ground scene, the vehicle, the planets, the
+sky and the cosmos. It is a real change to how the frame is put together, not a
+setting, and it wants doing on its own.
 
 ## Phones, tablets, computers
 

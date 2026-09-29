@@ -8,6 +8,7 @@ import { ATMOSPHERE_RADIUS, makeVolumetricAtmosphere, stretchAtmosphere } from '
 import { measureSky } from '../gfx/skyGlow.js'
 import { useUi } from '../sim/store.js'
 import { useActiveTextures } from '../gfx/hdTextures.js'
+import { groundHidesGlobe } from '../gfx/siteGround.js'
 import { attachCloudDetail, attachEarthDetail } from '../gfx/surfaceDetail.js'
 
 const R = BODIES.earth.radius
@@ -125,6 +126,17 @@ export function Earth({ textures }) {
     // The detail layers' clock: waves and cloud drift, seconds, kept small for float32.
     if (surface.userData.detailTime) surface.userData.detailTime.value = live.sim.t % 1e6
     if (cloudMat.userData.detailTime) cloudMat.userData.detailTime.value = live.sim.t % 1e6
+
+    /*
+     * Seventy kilometres of real ground is drawn round a launch site, and from
+     * inside it the globe is behind that ground in every direction. It cannot
+     * be left to the depth test to notice: the logarithmic depth buffer writes
+     * `gl_FragDepth`, which turns off early-Z, so every hidden fragment still
+     * runs the surface shader in full and is discarded afterwards — 8 ms of a
+     * 33 ms frame at Kennedy, for pixels that were measured as changing
+     * nothing at all. See `gfx/siteGround.js` for when this is safe.
+     */
+    spin.current.visible = !groundHidesGlobe(state.camera.position, group.current.position, R)
 
     const rotations = live.sim.t / BODIES.earth.spin
     spin.current.rotation.y = rotations * Math.PI * 2

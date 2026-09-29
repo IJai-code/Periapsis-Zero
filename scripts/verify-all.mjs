@@ -66,6 +66,9 @@
  * the launch sites' scrub to the bargain it makes: the full build of every
  * plant identical to the vertex, the coarse one a real saving that keeps the
  * plant's outline, and never swapped while the plant is still large on screen.
+ * `verify-site-ground` holds the one rule that lets the planet's globe be
+ * skipped from inside a launch site's own ground: never while the horizon from
+ * where the camera stands still runs past the patch's edge.
  *
  * What is deliberately *not* here is as informative as what is, and only two
  * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
@@ -119,6 +122,7 @@ const GATES = [
   ['verify-intro', false],
   ['verify-search', false],
   ['verify-flora', false],
+  ['verify-site-ground', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

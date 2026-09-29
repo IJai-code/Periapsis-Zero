@@ -7,6 +7,7 @@ import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { SPIN_AXIS } from '../sim/atmosphere.js'
 import { mission } from '../sim/mission.js'
 import { FLAT_RADIUS } from '../gfx/pads.js'
+import { siteGround } from '../gfx/siteGround.js'
 import { buildSurround, makeGroundSampler } from '../gfx/siteSurround.js'
 import { groundViewpoint } from '../gfx/groundView.js'
 import { makeTerrainMaterial } from '../gfx/terrainMaterial.js'
@@ -117,6 +118,8 @@ export function Terrain() {
     }
   }, [site.id])
 
+  /* How far the patch reaches from the pad, filled in as it is built. */
+  const reach = useRef(0)
   const mesh = useMemo(() => {
     if (!field) return null
     const { entry, heights } = field
@@ -157,6 +160,27 @@ export function Terrain() {
       return heights[yi * n + xi]
     }
     const datum = sample(padX, padY)
+
+    /*
+     * How far this patch reaches from the pad, to the nearest of its four
+     * edges — which is not half its width, because the pad sits wherever in
+     * the tile its coordinates put it. `gfx/siteGround.js` uses this to decide
+     * when the planet's globe is completely behind the ground and need not be
+     * drawn at all.
+     */
+    const degToM = (Math.PI / 180) * R
+    const lonW = xToLon(entry.tileX, entry.zoom)
+    const lonE = xToLon(entry.tileX + entry.tileSpan, entry.zoom)
+    const latN = yToLat(entry.tileY, entry.zoom)
+    const latS = yToLat(entry.tileY + entry.tileSpan, entry.zoom)
+    const wide = (lonE - lonW) * degToM * Math.cos((site.latitude * Math.PI) / 180)
+    const tall = (latN - latS) * degToM
+    const fx = padX / (n - 1)
+    const fy = padY / (n - 1)
+    reach.current = Math.max(
+      0,
+      Math.min(fx * wide, (1 - fx) * wide, fy * tall, (1 - fy) * tall),
+    )
 
     const positions = new Float32Array(N * N * 3)
     const colours = new Float32Array(N * N * 3)
@@ -352,6 +376,10 @@ export function Terrain() {
     g.quaternion.setFromRotationMatrix(basis)
     // 70 km of ground is worth drawing only from close to it.
     g.visible = camera.position.distanceTo(g.position) < VISIBLE_RANGE
+    // And where this ground is, for whatever would otherwise draw underneath it.
+    siteGround.drawn = g.visible
+    siteGround.centre.copy(g.position)
+    siteGround.reach = reach.current
   }, -2)
 
   useEffect(() => () => mesh?.dispose(), [mesh])
