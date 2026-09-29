@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { takePhotograph } from '../components/Photograph.jsx'
 import { SearchBar } from './SearchBar.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
@@ -113,6 +114,8 @@ function useNarrow() {
 
 export function Hud() {
   const open = useUi((s) => s.panelOpen)
+  // A photograph is of the scene, not of the instruments over it.
+  const photo = useUi((s) => s.photo)
   const map = useUi((s) => s.map)
   const broadcast = useUi((s) => s.broadcast)
   const narrow = useNarrow()
@@ -132,6 +135,7 @@ export function Hud() {
       if (e.key.toLowerCase() === 'm') return toggleMap()
       // The feed and the instruments are two ways of looking at one flight.
       if (e.key.toLowerCase() === 'b') return setUi((s) => ({ broadcast: !s.broadcast, map: false }))
+      if (e.key.toLowerCase() === 'p') return takePhotograph()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -143,6 +147,13 @@ export function Hud() {
     above stays live in both, so the number keys cut between cameras here too.
   */
   if (broadcast) return <BroadcastHud />
+
+  /*
+   * While the shutter is open there is no interface: the panels are what a
+   * person would otherwise have to crop out, and cropping is the reason most
+   * screenshots of a simulator look like screenshots of a browser.
+   */
+  if (photo) return null
 
   /* Above the instruments on purpose: telemetry is ambient, the manoeuvre
      panel is whatever the pilot is doing right now. */
@@ -308,12 +319,22 @@ export function Hud() {
         <GoForLaunch />
         <Commentary />
         <TimeControls />
-        <button
-          onClick={() => setUi((s) => ({ panelOpen: !s.panelOpen }))}
-          className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
-        >
-          {open ? 'hide panels' : 'show panels'} · h
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setUi((s) => ({ panelOpen: !s.panelOpen }))}
+            className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
+          >
+            {open ? 'hide panels' : 'show panels'} · h
+          </button>
+          <span className="h-4 w-px bg-hud/15" aria-hidden />
+          <button
+            onClick={takePhotograph}
+            title="A plate of the scene at four times the pixels, captioned with where and when"
+            className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
+          >
+            photograph · p
+          </button>
+        </div>
       </div>
     </div>
     </>

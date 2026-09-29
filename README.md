@@ -238,6 +238,26 @@ Kennedy, after which the patch's far edge comes into view and the globe is drawn
 again. `verify-site-ground` sweeps every height and offset and checks the
 property directly rather than the arithmetic that implements it.
 
+## Photographs
+
+`P`, or *photograph* under the control bar. The panels step out of the way, the
+frame is re-rendered with its long edge at 3,840 pixels — four times a 1080p
+window — and the file that lands says what it is a picture of: the flight, the
+mission time, the date, the height and the body it is over, read from the same
+state the instrument strip reads so the plate and the panel cannot disagree.
+
+Three things have to be true at the shutter, and each is a step in
+`components/Photograph.jsx`. The drawing buffer is not preserved, because
+preserving it would cost memory on every frame of a simulator that has other
+uses for it — so the read happens inside the same task as the render, which is
+what the frame priority buys. The sky is progressive, marched into a cube one
+tile at a time, so a frame grabbed the instant the resolution changes is a
+frame of half-drawn sky, and it waits for the tiles to settle. And the
+resolution governor would read a deliberately expensive frame as a machine in
+trouble and start giving pixels away, so it stands down while the shutter is
+open. Nothing is added to the ordinary frame: the cost is one render, once,
+when it is asked for.
+
 ## What a visitor waits for
 
 Thirteen and a half megabytes of imagery, and every visitor used to wait for all

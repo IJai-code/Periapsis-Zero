@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
 import { Scene } from './components/Scene.jsx'
 import { Resolution } from './components/Resolution.jsx'
+import { Photograph } from './components/Photograph.jsx'
 import { Hud } from './ui/Hud.jsx'
 import { Landing } from './ui/Landing.jsx'
 import { useAssets } from './gfx/useAssets.js'
@@ -196,6 +197,7 @@ export default function App() {
         camera={{ position: [3.16e7, 5.95e6, 7.78e6], fov: 45, near: 0.1, far: 1e13 }}
       >
         <Resolution />
+        <Photograph />
         <Suspense fallback={null}>{assets.ready && <Scene textures={assets.textures} />}</Suspense>
       </Canvas>
 

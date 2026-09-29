@@ -69,6 +69,9 @@ export function Resolution() {
   const setDpr = useThree((s) => s.setDpr)
   const dpr = useThree((s) => s.viewport.dpr)
   const full = useUi((s) => s.fullRes)
+  // A photograph raises the ratio on purpose; judging the machine on those
+  // frames would read a deliberate expense as a machine in trouble.
+  const photo = useUi((s) => s.photo)
   const s = useRef({ n: 0, sum: 0, last: 0, settle: 0, window: FIRST_WINDOW, ceiling: Infinity, hold: 0, panic: 0 })
 
   // Pinned by hand: give the machine the whole range and stop judging it.
@@ -84,7 +87,10 @@ export function Resolution() {
     const now = performance.now()
     const dt = c.last ? now - c.last : 0
     c.last = now
-    if (full) return
+    if (full || photo) {
+      c.last = 0
+      return
+    }
     // Ignore the frames either side of a change: the first of them pays for
     // reallocating every render target, which is not the new steady state.
     if (c.settle > 0) {

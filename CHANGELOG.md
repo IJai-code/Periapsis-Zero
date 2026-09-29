@@ -202,6 +202,18 @@ decides now: eight chase lengths or less is a move, beyond that a cut.
 
 ### Added
 
+**Photographs.** `P`, or *photograph* beside the panel toggle. The interface
+steps out of the picture, the frame is re-rendered with its long edge at 3,840
+pixels, and the file carries a caption naming the flight, the mission time, the
+date, and the height above whichever body it is over — read from the state the
+instrument strip reads, so the plate cannot drift from the panel. A browser
+screenshot gets you the window, at the window's resolution, with the
+instruments printed over the picture; this gets you the picture. It costs
+nothing per frame: one render, once, when it is asked for, with the resolution
+governor standing down so it does not mistake a deliberate expense for a
+machine in trouble. New gate `verify-plate` holds the caption, which is the
+part of this simulator most likely to be read by someone who never opens it.
+
 **The sky beyond the planets.** Search for a star, a nebula, a galaxy or the edge
 of the observable universe and the camera flies there in one continuous zoom
 (README, *Beyond the planets*). Sixty-seven named stars at their parallax

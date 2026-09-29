@@ -145,6 +145,12 @@ export const uiStore = createStore({
    * may be more than one late arrival, and each has to be noticed.
    */
   hdRevision: 0,
+  /**
+   * A photograph being taken: 'arming' while the resolution is raised and the
+   * sky settles, 'capture' on the one frame that is read back, null otherwise.
+   * The panels watch it so they can get out of the picture.
+   */
+  photo: null,
   hdLoaded: 0,
   hdTotal: 0,
 })
