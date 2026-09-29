@@ -20,6 +20,15 @@ import { useUi } from '../sim/store.js'
  * almost always *specular* rather than roughness — bright where the surface is
  * shiny — which is the exact inverse of what a roughnessMap wants. Rather than
  * making that the user's problem, the alternate is inverted on load.
+ *
+ * `defer` says a slot is not wanted for the first frame. The Moon's two maps
+ * are 9.5 MB of the 14 MB this site downloads, and every visitor was waiting
+ * for them before anything could be flown — including the ones who never leave
+ * Earth. They are fetched once the first frame is up instead, and because HD
+ * imagery is layered over a procedural baseline rather than replacing it, the
+ * Moon is drawn from its generated maps in the meantime and rebound the moment
+ * the real ones land. On a 5 Mbps connection that is the difference between
+ * waiting twenty-two seconds and waiting seven.
  */
 export const HD_MANIFEST = [
   { slot: 'earth.day', file: 'earth_day.jpg' },
@@ -27,8 +36,8 @@ export const HD_MANIFEST = [
   { slot: 'earth.rough', file: 'earth_roughness.jpg', alt: 'earth_specular.jpg', invertAlt: true },
   { slot: 'earth.night', file: 'earth_night.jpg' },
   { slot: 'earth.clouds', file: 'earth_clouds.png' },
-  { slot: 'moon.color', file: 'moon_color.jpg' },
-  { slot: 'moon.normal', file: 'moon_normal.jpg' },
+  { slot: 'moon.color', file: 'moon_color.jpg', defer: true },
+  { slot: 'moon.normal', file: 'moon_normal.jpg', defer: true },
 ]
 
 let cache = null // slot -> Texture, once loaded
@@ -79,10 +88,15 @@ function invertToRoughness(texture, slot) {
 /**
  * Fetch every manifest entry that is actually installed.
  *
+ * Resolves once everything wanted for the first frame is in. Slots marked
+ * `defer` keep loading behind it and call `onLate` when they land, which is
+ * what tells the scene to rebind them.
+ *
  * @param {(loaded: number, total: number) => void} onProgress
+ * @param {(found: number) => void} onLate
  * @returns {Promise<{ textures: Record<string, THREE.Texture>, found: number, missing: string[] }>}
  */
-export function loadHdTextures(onProgress = () => {}) {
+export function loadHdTextures(onProgress = () => {}, onLate = () => {}) {
   if (cache) {
     const found = Object.keys(cache).length
     onProgress(found, found)
@@ -111,7 +125,10 @@ export function loadHdTextures(onProgress = () => {}) {
       (e) => e.file,
     )
 
-    onProgress(0, available.length)
+    const now = available.filter((e) => !e.defer)
+    const later = available.filter((e) => e.defer)
+
+    onProgress(0, now.length)
     if (available.length === 0) {
       inFlight = null
       return { textures: {}, found: 0, missing }
@@ -120,19 +137,34 @@ export function loadHdTextures(onProgress = () => {}) {
     const loader = new THREE.TextureLoader()
     const textures = {}
     let done = 0
+    const fetchInto = async (entry) => {
+      let texture = configureTexture(await loader.loadAsync(entry.url), entry.slot)
+      if (entry.usedAlt && entry.invertAlt) texture = invertToRoughness(texture, entry.slot)
+      textures[entry.slot] = texture
+      return texture
+    }
 
     await Promise.all(
-      available.map(async (entry) => {
-        let texture = configureTexture(await loader.loadAsync(entry.url), entry.slot)
-        if (entry.usedAlt && entry.invertAlt) texture = invertToRoughness(texture, entry.slot)
-        textures[entry.slot] = texture
-        onProgress(++done, available.length)
+      now.map(async (entry) => {
+        await fetchInto(entry)
+        onProgress(++done, now.length)
       }),
     )
 
     cache = textures
     inFlight = null
-    return { textures, found: available.length, missing }
+
+    /*
+     * The rest, behind the first frame. Nothing awaits this: the slots it fills
+     * already hold their procedural versions, and `useActiveTextures` rebinds
+     * when `onLate` reports. A failure here is not a failure of the page —
+     * whatever does not arrive simply stays procedural.
+     */
+    if (later.length) {
+      Promise.allSettled(later.map(fetchInto)).then(() => onLate(Object.keys(textures).length))
+    }
+
+    return { textures, found: now.length, missing, deferred: later.length }
   })()
 
   return inFlight
@@ -149,8 +181,12 @@ export function useActiveTextures(procedural) {
   // `hdStatus` is the re-render trigger, not a preference: the cache appears
   // asynchronously and materials have to be rebound when it does.
   const ready = useUi((s) => s.hdStatus === 'ready')
+  // And the revision, which moves when deferred imagery lands after the first
+  // frame. Without it the memo would keep handing out the set it first saw.
+  const revision = useUi((s) => s.hdRevision)
   return useMemo(
     () => (ready && cache ? { ...procedural, ...cache } : procedural),
-    [ready, procedural],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ready, revision, procedural],
   )
 }

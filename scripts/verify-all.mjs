@@ -68,7 +68,9 @@
  * plant's outline, and never swapped while the plant is still large on screen.
  * `verify-site-ground` holds the one rule that lets the planet's globe be
  * skipped from inside a launch site's own ground: never while the horizon from
- * where the camera stands still runs past the patch's edge.
+ * where the camera stands still runs past the patch's edge. `verify-assets`
+ * measures the one number a visitor on a slow connection actually feels: how
+ * many megabytes of imagery stand between opening the page and flying.
  *
  * What is deliberately *not* here is as informative as what is, and only two
  * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
@@ -123,6 +125,7 @@ const GATES = [
   ['verify-search', false],
   ['verify-flora', false],
   ['verify-site-ground', false],
+  ['verify-assets', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

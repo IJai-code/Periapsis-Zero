@@ -138,6 +138,13 @@ export const uiStore = createStore({
    * store is what crosses the <Canvas> boundary.
    */
   hdStatus: 'idle', // 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
+  /**
+   * Bumped whenever the imagery set changes after it first went ready — the
+   * Moon's maps are fetched behind the first frame, and this is what tells
+   * `useActiveTextures` to hand them out. A counter rather than a flag: there
+   * may be more than one late arrival, and each has to be noticed.
+   */
+  hdRevision: 0,
   hdLoaded: 0,
   hdTotal: 0,
 })

@@ -56,11 +56,31 @@ Kennedy holds to about ninety metres up. The frame at the pad went from 33 ms to
 checks the property itself, because the failure to avoid is a hole in the world
 rather than a slow frame.
 
-**The Display panel says what the machine is.** A performance report arrives as
-"it was laggy", which is a symptom with a dozen causes that want different
-fixes. It now reads back the graphics hardware, the screen and its density, and
-the frame rate being achieved — and says plainly when a browser is drawing
-without a graphics card at all, which no setting in here can rescue.
+**A visitor waited for the Moon before they could leave the pad.** The imagery is
+13.42 MB and all of it blocked the first frame; the Moon's colour and normal maps
+are 9.47 MB of that, downloaded before anything could be flown by people who
+never leave Earth. They are deferred now — fetched behind the first frame, with
+the Moon drawn from its procedural maps until they land and rebound when they
+do, which the layered imagery design already supported. **3.96 MB now stands
+between opening the page and flying.** On a connection throttled to 1.5 Mbps the
+Earth set finished at 26 seconds with the Moon's still arriving; before, that
+was the point where the wait started. New gate `verify-assets` holds the blocking
+set under 6 MB, checks the largest single file is never one a visitor waits for,
+and checks every deferred slot has a generated stand-in. Fixing it turned up a
+StrictMode trap worth recording: the loading effect runs twice, the second run
+receives the first run's in-flight promise instead of registering its own
+callback, so the only late-arrival callback belonged to the cancelled run — and
+guarding it with `cancelled`, which is the reflex, discarded the one
+notification there was and left the Moon procedural for the session.
+
+**The Display panel says what the machine is, and will copy it out.** A
+performance report arrives as "it was laggy", which is a symptom with a dozen
+causes that want different fixes. It now reads back the graphics hardware, the
+screen and its density, the ratio the renderer settled on and the frame rate
+being achieved — and says plainly when a browser is drawing without a graphics
+card at all, which no setting in here can rescue. *Copy for a bug report* puts
+all of it on the clipboard. Nothing is sent anywhere: the person who saw the
+problem can read the four lines before deciding where they go.
 
 **The first night sky cost eleven seconds of 15 fps.** The sky cube's
 full-resolution march ran a 256-texel tile at 240 steps a frame — 50 ms each,

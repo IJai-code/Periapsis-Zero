@@ -238,16 +238,51 @@ Kennedy, after which the patch's far edge comes into view and the globe is drawn
 again. `verify-site-ground` sweeps every height and offset and checks the
 property directly rather than the arithmetic that implements it.
 
-Known and not yet fixed, and the largest thing left: `logarithmicDepthBuffer` is
-what lets one camera span fourteen decades, and it costs half the frame. It
-writes `gl_FragDepth`, which disables early-Z rejection on every GPU, so a
-hidden fragment runs its whole shader before anything throws it away. Measured
-at the pad on a Retina display with everything above already fixed: **60 fps
-without it, 30 with**. Recovering that means splitting the render into a near
-frustum and a far one, each with a depth range it can afford, and assigning
-every object to the right one — the ground scene, the vehicle, the planets, the
-sky and the cosmos. It is a real change to how the frame is put together, not a
-setting, and it wants doing on its own.
+## What a visitor waits for
+
+Thirteen and a half megabytes of imagery, and every visitor used to wait for all
+of it before anything could be flown — including the ones who never leave Earth.
+The Moon's colour and normal maps are 9.5 MB of that total. They are now marked
+`defer` in the manifest: `loadHdTextures` resolves once the rest are in and
+fetches them behind the first frame, which works because HD imagery is layered
+over a procedural baseline rather than replacing it, so the Moon is drawn from
+its generated maps in the meantime and rebound the moment the real ones land.
+**3.96 MB now stands between opening the page and flying, against 13.42 before**
+— measured on a throttled connection at 1.5 Mbps, the Earth set finished at 26
+seconds while the Moon's was still arriving. `verify-assets` measures that
+number against the files on disk, and checks that every deferred slot has a
+generated version to stand in for it.
+
+One thing the rebind needed: under React's StrictMode the loading effect runs
+twice, and the second run is handed the first run's in-flight promise rather
+than registering its own callback — so the only late-arrival callback that
+exists belongs to the run that was cancelled. Guarding it with the usual
+`cancelled` flag threw away the one notification there was, and the Moon kept
+its stand-in for the whole session.
+
+## The logarithmic depth buffer, and why it is still here
+
+It is the largest cost left and the least tractable. `logarithmicDepthBuffer` is
+what lets one camera span fourteen decades, and it writes `gl_FragDepth`, which
+disables early-Z rejection on every GPU: a hidden fragment runs its whole shader
+before anything throws it away. Measured at the pad on a Retina display with
+everything above already fixed: **60 fps without it, 30 with**.
+
+The obvious fix — a near frustum and a far one, each with a depth range it can
+afford — does not work here, and it is worth writing down why. A plain 24-bit
+depth buffer resolves about z²/(n·2²⁴): with the near plane at 0.1 m, where it
+has to be for grass at your feet, that is 0.6 m of depth error at 1 km and
+**733 m at 35 km**, which is the far edge of the terrain patch. So a single near
+frustum cannot hold the ground scene; it would need three ranges, and the
+terrain is one mesh spanning two of them, so it would have to be cut into
+concentric rings as well. The alternative is a reversed-Z float depth buffer,
+which three.js does not support natively and which would mean patching every
+projection matrix, the depth function, the shadow pass and the composer.
+
+Either way it is a change to how the frame is assembled, with the failure mode
+being objects that vanish or fight for depth across a simulator that spans from
+a hull panel to the cosmic microwave background. It wants its own pass, with its
+own gates, not a corner of someone else's.
 
 ## Phones, tablets, computers
 

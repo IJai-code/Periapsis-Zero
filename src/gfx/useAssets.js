@@ -43,9 +43,24 @@ export function useAssets() {
     let cancelled = false
 
     setUi({ hdStatus: 'loading', hdLoaded: 0, hdTotal: 0 })
-    const imagery = loadHdTextures((loaded, total) => {
-      if (!cancelled) setUi({ hdLoaded: loaded, hdTotal: total })
-    })
+    const imagery = loadHdTextures(
+      (loaded, total) => {
+        if (!cancelled) setUi({ hdLoaded: loaded, hdTotal: total })
+      },
+      /*
+       * The Moon's maps, arriving behind the first frame: bump the revision so
+       * the materials holding procedural stand-ins pick the real ones up.
+       *
+       * Deliberately not guarded by `cancelled`. Under StrictMode the effect
+       * runs twice, and the second run gets the first run's in-flight promise
+       * back rather than registering its own callback — so the only callback
+       * that exists belongs to the run that was cancelled. Guarding it would
+       * throw away the one notification there is, and the Moon would keep its
+       * procedural stand-in for the whole session. Bumping after unmount is
+       * harmless here: this is a module-level store, not component state.
+       */
+      () => setUi((s) => ({ hdRevision: s.hdRevision + 1 })),
+    )
       .then((r) => {
         if (!cancelled) setUi({ hdStatus: r.found > 0 ? 'ready' : 'unavailable' })
         return r

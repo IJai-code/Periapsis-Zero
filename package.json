@@ -21,6 +21,7 @@
     "verify:search": "node scripts/verify-search.mjs",
     "verify:flora": "node scripts/verify-flora.mjs",
     "verify:site-ground": "node scripts/verify-site-ground.mjs",
+    "verify:assets": "node scripts/verify-assets.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
     "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",

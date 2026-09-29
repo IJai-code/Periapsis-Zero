@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEVICE, QUALITY } from '../sim/device.js'
 
 /**
  * What this machine actually is, and what it is actually managing.
@@ -28,6 +29,14 @@ function gpuName() {
   } catch {
     return 'unavailable'
   }
+}
+
+/** What the renderer settled on, which is half of any performance question. */
+const QUALITY_LABEL = () => {
+  const c = document.querySelector('canvas')
+  const g = c && (c.getContext('webgl2') || c.getContext('webgl'))
+  const ratio = g && c.clientWidth ? (g.drawingBufferWidth / c.clientWidth).toFixed(2) : '?'
+  return `${ratio}x pixels, tuned for ${DEVICE}, up to ${QUALITY.dpr[1]}x`
 }
 
 /** Software rasterisers, which no amount of tuning will rescue. */
@@ -69,6 +78,33 @@ export function Diagnostics() {
     ['Drawing', fps == null ? 'measuring…' : `${fps} frames a second`],
   ]
 
+  /*
+   * Copying, rather than sending.
+   *
+   * Nothing here leaves the machine on its own. A report of "it was laggy" is
+   * a symptom with a dozen causes, and the fastest way to tell them apart is
+   * for the person who saw it to paste these four lines — which they can read
+   * before they do, and which go wherever they choose to put them.
+   */
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    const text = [
+      'Periapsis Zero — this machine',
+      ...rows.map(([k, v]) => `${k}: ${v}`),
+      `Rendering at: ${QUALITY_LABEL()}`,
+      `Browser: ${navigator.userAgent}`,
+    ].join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // No clipboard permission, or an insecure origin: put it where it can be
+      // selected by hand instead of failing silently.
+      window.prompt('Copy this and send it on:', text)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className="mt-2.5 border-t border-white/10 pt-2.5">
       <div className="rule mb-1.5">This machine</div>
@@ -86,6 +122,12 @@ export function Diagnostics() {
           hardware acceleration in the browser’s settings is the fix.
         </p>
       )}
+      <button
+        onClick={copy}
+        className="mt-2 min-h-8 w-full border border-white/10 px-2 py-1 text-[9px] tracking-[0.14em] text-white/40 uppercase transition-colors duration-300 outline-none hover:border-ember/50 hover:text-ember focus-visible:border-ember lg:min-h-0"
+      >
+        {copied ? 'Copied' : 'Copy for a bug report'}
+      </button>
     </div>
   )
 }
