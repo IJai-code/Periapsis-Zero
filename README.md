@@ -188,6 +188,48 @@ without anything being deleted. `npm run verify:search` holds all of it,
 including that every catalogue name and alias still answers as a place, and
 that fewer than 2% of random letter strings match anything at all.
 
+## What it costs to draw
+
+The ground at a launch site is the most expensive thing here, and it was
+expensive in two ways that had nothing to do with how much detail is in it.
+
+**The scrub was drawn whole, everywhere, always.** Each species was one
+instanced mesh spanning five kilometres, and a mesh like that is frustum-culled
+as a single object — which is to say never. Measured standing at Kennedy's pad:
+36,540 plants, 8.6 million triangles a frame, of which 25,247 were behind the
+camera and 10,266 of the rest covered fewer than twelve pixels. Each species is
+now cut into tiles of about 60,000 triangles, so the renderer skips the ones you
+are not facing, and a tile draws a coarser build of its plant once one of that
+build's own facets would cover less than four pixels. The coarse build changes
+tessellation only — a crown keeps every blob, in the same place at the same
+size, each a twenty-face solid instead of an eighty-face one, scaled by
+√(11.666/9.574) so that by Cauchy's theorem its mean outline is unchanged.
+Plants cost 34 ms a frame before, 9.8 ms tiled, 3.7 ms tiled and coarsened;
+`verify-flora` holds the full build identical to the vertex.
+
+**Nothing was choosing the pixel ratio.** `device.js` offers `dpr: [1, 2]` and
+nothing ever picked within it, so a Retina Mac or a Windows laptop at 200%
+scaling asked for four times the pixel area and got it. The scene is
+fragment-bound, so on this machine that is 55 ms a frame against 127 — eight
+frames a second on an Apple M4, and two or three on anything slower.
+`components/Resolution.jsx` now watches real frame times and moves the ratio
+within the range: down when frames are being missed, back up when they are not,
+and below 1 only for a machine still missing them at 1. A machine with the
+headroom sits at the top and never sees it act. *Full resolution* under Display
+pins it. The scene is identical either way — every plant, every building, every
+octave of noise — this is only how many pixels they are drawn into.
+
+A bug hid the second fix for a while: the post-processing composer sizes its
+buffers when the canvas changes *size*, and a change of pixel ratio is not a
+change of size, so lowering the ratio shrank the canvas and left every buffer
+the scene is actually drawn into exactly as large as it was.
+
+Known and not yet fixed: `logarithmicDepthBuffer` is what lets one camera span
+fourteen decades, and it costs half the frame. It writes `gl_FragDepth`, which
+disables early-Z rejection, so hidden pixels still run the full shader —
+measured at the pad, 20 fps with it and 30 without. Fixing it properly means
+splitting the render into a near and a far frustum with their own depth ranges.
+
 ## Phones, tablets, computers
 
 The first visit asks what it is running on and tunes itself (`sim/device.js`):

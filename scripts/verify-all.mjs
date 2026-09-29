@@ -62,7 +62,10 @@
  * volume renderer is built from — arm tangents, extinction, the black hole's
  * photon orbits. `verify-search` covers the one part of the simulator with no
  * physics to be held against: what the search bar answers, including when the
- * honest answer is that it has never heard of the thing.
+ * honest answer is that it has never heard of the thing. `verify-flora` holds
+ * the launch sites' scrub to the bargain it makes: the full build of every
+ * plant identical to the vertex, the coarse one a real saving that keeps the
+ * plant's outline, and never swapped while the plant is still large on screen.
  *
  * What is deliberately *not* here is as informative as what is, and only two
  * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
@@ -115,6 +118,7 @@ const GATES = [
   ['verify-galaxy', false],
   ['verify-intro', false],
   ['verify-search', false],
+  ['verify-flora', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

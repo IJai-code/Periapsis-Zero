@@ -7,6 +7,46 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ### Fixed
 
+**A launch site ran at eight frames a second on a Retina display, and nobody
+was choosing the pixel ratio.** `device.js` has offered `dpr: [1, 2]` since the
+device question went in and nothing ever picked within it, so every Retina Mac
+and every Windows laptop at 200% scaling asked for four times the pixel area.
+The ground scene is fragment-bound: measured on an Apple M4 at Kennedy's pad,
+55 ms a frame at one device pixel per CSS pixel and 127 ms at two. A visitor
+reported being unable to click the buttons, which is what two or three frames a
+second looks like on a machine slower than this one. `components/Resolution.jsx`
+now moves the ratio from the frame times themselves — down within three frames
+when a machine is in real trouble, back up when it stops being — and the same
+pad now reaches 60 fps within five seconds of loading. Nothing leaves the scene
+to achieve it; *Full resolution* under Display pins the ratio for anyone who
+would rather have the pixels. Two further faults fell out of fixing it: the
+post-processing composer sizes its buffers on canvas *size* changes only, so
+lowering the ratio had been shrinking the canvas while every buffer the scene is
+drawn into stayed as large as it was; and the first thresholds tried sat inside
+the gap that vsync quantisation leaves between 16.7 ms and 33.3 ms, parking a
+machine at 30 fps that could hold 60 two steps lower down.
+
+**The scrub round a pad was drawn whole, everywhere, always.** Each species was
+one instanced mesh spanning five kilometres, and three frustum-culls such a mesh
+as a single object — so of 36,540 plants at Kennedy, 8.6 million triangles a
+frame, 25,247 were being transformed behind the camera's back and 10,266 of the
+rest covered fewer than twelve pixels. Each species is now cut into tiles of
+about 60,000 triangles, which the renderer culls for nothing, and a tile drops
+to a coarser build of its plant once one of that build's own facets would cover
+under four pixels. The coarse build re-tessellates and never removes: a crown
+keeps every blob at the same place and size, scaled so its mean silhouette is
+unchanged by Cauchy's theorem, and the full build is identical to the vertex.
+Plants cost 34 ms a frame before, 9.8 ms tiled, 3.7 ms tiled and coarsened; the
+whole frame at the pad went from 71 ms to 23. An earlier cut of this reduced
+crown blobs by count instead, and the new `verify-flora` gate caught a live oak
+losing a fifth of its height when it swapped — which is why it re-tessellates.
+
+**The Display panel says what the machine is.** A performance report arrives as
+"it was laggy", which is a symptom with a dozen causes that want different
+fixes. It now reads back the graphics hardware, the screen and its density, and
+the frame rate being achieved — and says plainly when a browser is drawing
+without a graphics card at all, which no setting in here can rescue.
+
 **The first night sky cost eleven seconds of 15 fps.** The sky cube's
 full-resolution march ran a 256-texel tile at 240 steps a frame — 50 ms each,
 216 of them — and did so in daylight on the ground, where the band is not

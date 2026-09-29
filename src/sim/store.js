@@ -92,6 +92,13 @@ export const uiStore = createStore({
   osculating: true,
   labels: true,
   bloom: true,
+  /**
+   * Pin the device-pixel ratio to the top of the tier's range instead of
+   * letting `components/Resolution.jsx` choose it from the frame rate. Off by
+   * default: the chooser only ever gives up pixels on a machine that is
+   * already missing frames, and gives them back when it stops.
+   */
+  fullRes: false,
   clouds: true,
   atmosphere: true,
   panelOpen: WIDE_ENOUGH_FOR_PANELS,

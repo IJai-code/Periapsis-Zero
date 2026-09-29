@@ -56,9 +56,74 @@ function placed(geo, x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
   return geo.applyMatrix4(m)
 }
 
+/**
+ * How finely a plant is built, 1 being every part of it.
+ *
+ * A cabbage palm is 386 triangles and there are 5,760 of them round Kennedy;
+ * a slash pine is 654 and there are 4,320. Drawn whole, the plants alone are
+ * 8.6 million triangles a frame — and measured from the pad, nine in ten of
+ * the ones on screen cover fewer than twelve pixels, where a frond is smaller
+ * than a pixel and cannot be seen whether it is drawn or not.
+ *
+ * So each species can be built at a lower detail — but only by *tessellating*
+ * it more coarsely, never by leaving out anything that decides its outline. A
+ * crown keeps every blob it had, in the same place and at the same size, and
+ * each blob is a twenty-triangle solid instead of an eighty-triangle one; a
+ * trunk keeps its height and taper on four sides instead of seven; a frond
+ * keeps the span of its fan on three blades instead of five. What does come off
+ * is loose decoration that no silhouette depends on: a palm's dead skirt, a
+ * pine's bare lower branches, the boots on a trunk.
+ *
+ * This is the difference between a tree that is cheaper and a tree that is
+ * smaller. An earlier cut of this dropped crown blobs by count, and
+ * `verify-flora` caught a live oak losing a fifth of its height when it
+ * swapped, which would have shown as a pop as the camera walked toward it.
+ * `detail = 1` reproduces the full plant exactly, down to the random sequence,
+ * so nothing near the camera is ever anything but what it always was.
+ * There are two, not more: a crown blob is an icosahedron, which is either
+ * subdivided or not — eighty triangles or twenty — and that one cliff is most
+ * of the saving. A rung between them saved eight per cent on a pine and cost a
+ * third geometry to build and keep, so there is no rung between them.
+ *
+ * `gfx/flora.js` only builds them; `components/SiteSurround.jsx` decides which
+ * one a plant gets, by how large it is on screen.
+ */
+export const DETAIL = [1, 0.18]
+
+/** Count a part down with detail, never below what keeps the shape. */
+const parts_ = (n, d, min) => Math.max(min, Math.round(n * d))
+
+/**
+ * The mean triangle edge of a build, in metres — how coarse it looks close up,
+ * and so the only honest thing to measure a swap against.
+ *
+ * Plant height is not that thing. A shrub is two metres and an oak is ten, so
+ * one threshold in pixels of plant puts the shrub's swap at fifty metres and
+ * the oak's at a hundred and fifty, when what actually gives a coarse build
+ * away is the size of its facets — and the shrub's are the larger of the two at
+ * those distances. `SiteSurround` swaps on this instead.
+ */
+export function facetSize(g) {
+  const p = g.attributes.position
+  let area = 0
+  for (let i = 0; i + 2 < p.count; i += 3) {
+    const ax = p.getX(i)
+    const ay = p.getY(i)
+    const az = p.getZ(i)
+    const ux = p.getX(i + 1) - ax
+    const uy = p.getY(i + 1) - ay
+    const uz = p.getZ(i + 1) - az
+    const vx = p.getX(i + 2) - ax
+    const vy = p.getY(i + 2) - ay
+    const vz = p.getZ(i + 2) - az
+    area += 0.5 * Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
+  }
+  const n = Math.max(1, p.count / 3)
+  return Math.sqrt((2 * area) / n)
+}
+
 /** A frond: a fan of blades, radiating from its base, drooping at the tip. */
-function frond(length, width, droop, colour) {
-  const blades = 5
+function frond(length, width, droop, colour, blades = 5) {
   const pos = []
   for (let b = 0; b < blades; b++) {
     const a = ((b / (blades - 1)) - 0.5) * 1.3
@@ -75,13 +140,33 @@ function frond(length, width, droop, colour) {
   return finish(g, colour, 0, 1, 1)
 }
 
-/** A lump of foliage: an icosahedron flattened and roughened, so a crown is not a ball. */
-function lump(r, flat, colour, rand) {
-  const g = new THREE.IcosahedronGeometry(r, 1)
+/**
+ * A lump of foliage: an icosahedron flattened and roughened, so a crown is not
+ * a ball.
+ *
+ * The roughening draws the same number of randoms whatever the subdivision —
+ * `LUMP_DRAWS`, the full build's vertex count — so a plant's blobs sit in
+ * exactly the same places, at the same sizes, at every detail level, and the
+ * full build is the one that always was. Without that, a coarser lump would
+ * consume fewer draws, every lump after it in the crown would move, and a tree
+ * would change shape as the camera walked toward it.
+ */
+const LUMP_DRAWS = 240
+/**
+ * An icosahedron's faces cut inside the sphere its vertices sit on, and the
+ * subdivided one's do so much less — so the same radius draws a visibly
+ * smaller blob once subdivision comes off, and a crown would shrink as the
+ * camera walked away from it. By Cauchy's theorem the mean outline of a convex
+ * solid is its surface area over four, so matching surface area matches the
+ * average silhouette from every direction: sqrt(11.666 / 9.574).
+ */
+const COARSE_FIT = 1.1038
+function lump(r, flat, colour, rand, sub = 1) {
+  const g = new THREE.IcosahedronGeometry(sub < 1 ? r * COARSE_FIT : r, sub)
   const p = g.attributes.position
-  for (let i = 0; i < p.count; i++) {
+  for (let i = 0; i < LUMP_DRAWS; i++) {
     const k = 0.78 + rand() * 0.42
-    p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * flat, p.getZ(i) * k)
+    if (i < p.count) p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * flat, p.getZ(i) * k)
   }
   g.computeVertexNormals()
   return g
@@ -92,23 +177,23 @@ function lump(r, flat, colour, rand) {
  * ------------------------------------------------------------------ */
 
 /** Cabbage palm, Sabal palmetto: Florida's state tree, 6–15 m, a rough ball of fans. */
-export function palm() {
+export function palm(d = 1) {
   const rand = mulberry32(11)
   const h = 9
   const parts = []
-  const trunk = new THREE.CylinderGeometry(0.17, 0.24, h, 7, 4, true)
+  const trunk = new THREE.CylinderGeometry(0.17, 0.24, h, parts_(7, d, 4), parts_(4, d, 1), true)
   placed(trunk, 0, h / 2, 0)
   parts.push(finish(trunk, '#6d6353', 0, 0.6, h))
   // Old frond bases — the "boots" that make a cabbage palm's trunk look woven.
-  for (let i = 0; i < 5; i++) {
-    const boot = new THREE.CylinderGeometry(0.3, 0.22, 0.6, 7, 1, true)
+  for (let i = 0; i < parts_(5, d, 0); i++) {
+    const boot = new THREE.CylinderGeometry(0.3, 0.22, 0.6, parts_(7, d, 4), 1, true)
     placed(boot, 0, h - 1.4 - i * 0.55, 0)
     parts.push(finish(boot, '#5e5243', 0.5, 0.6, h))
   }
   for (let i = 0; i < 20; i++) {
     const yaw = (i / 20) * Math.PI * 2 + rand() * 0.4
     const pitch = -0.25 + rand() * 1.2
-    const f = frond(1.9 + rand() * 0.6, 1.2, 0.5 + rand() * 0.6, rand() < 0.15 ? '#8a7a4c' : rand() < 0.5 ? '#3f5a2a' : '#4b6630')
+    const f = frond(1.9 + rand() * 0.6, 1.2, 0.5 + rand() * 0.6, rand() < 0.15 ? '#8a7a4c' : rand() < 0.5 ? '#3f5a2a' : '#4b6630', parts_(5, d, 3))
     f.applyMatrix4(new THREE.Matrix4().makeRotationX(-pitch))
     f.applyMatrix4(new THREE.Matrix4().makeRotationY(yaw))
     f.translate(0, h, 0)
@@ -117,10 +202,11 @@ export function palm() {
     parts.push(f)
   }
   // Dead fronds hanging in a skirt below the crown.
-  for (let i = 0; i < 6; i++) {
-    const f = frond(1.5, 0.8, 0.2, '#7d6a48')
+  const skirt = parts_(6, d, 0)
+  for (let i = 0; i < skirt; i++) {
+    const f = frond(1.5, 0.8, 0.2, '#7d6a48', parts_(5, d, 3))
     f.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI * 0.62))
-    f.applyMatrix4(new THREE.Matrix4().makeRotationY((i / 6) * Math.PI * 2))
+    f.applyMatrix4(new THREE.Matrix4().makeRotationY((i / skirt) * Math.PI * 2))
     f.translate(0, h - 0.3, 0)
     f.attributes.sway.array.fill(0.95)
     parts.push(f)
@@ -129,23 +215,23 @@ export function palm() {
 }
 
 /** Slash pine: a tall bare trunk and a flat-topped crown of clumps high up. */
-export function pine() {
+export function pine(d = 1) {
   const rand = mulberry32(23)
   const h = 18
   const parts = []
-  const trunk = new THREE.CylinderGeometry(0.14, 0.32, h, 7, 5, true)
+  const trunk = new THREE.CylinderGeometry(0.14, 0.32, h, parts_(7, d, 4), parts_(5, d, 1), true)
   placed(trunk, 0, h / 2, 0)
   parts.push(finish(trunk, '#6b5341', 0, 0.8, h))
   for (let i = 0; i < 7; i++) {
     const a = rand() * Math.PI * 2
     const r = rand() * 1.8
     const y = h - 3.4 + rand() * 3.6
-    const l = lump(1.4 + rand() * 0.9, 0.55, null, rand)
+    const l = lump(1.4 + rand() * 0.9, 0.55, null, rand, d < 0.5 ? 0 : 1)
     placed(l, Math.cos(a) * r, y, Math.sin(a) * r)
     parts.push(finish(l, rand() < 0.5 ? '#2f4424' : '#38502a', 0.85, 1, h))
   }
   // A couple of dead lower branches.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < parts_(3, d, 0); i++) {
     const b = new THREE.CylinderGeometry(0.03, 0.06, 2.2, 4, 1, true)
     placed(b, 0.9, h * (0.45 + i * 0.1), 0, 0, (i * 2.1), Math.PI / 2.6)
     parts.push(finish(b, '#5a4838', 0.4, 0.6, h))
@@ -154,22 +240,23 @@ export function pine() {
 }
 
 /** Live oak: a short trunk, broad limbs, a wide dark dome of leaves. */
-export function oak() {
+export function oak(d = 1) {
   const rand = mulberry32(37)
   const parts = []
-  const trunk = new THREE.CylinderGeometry(0.35, 0.55, 3.2, 8, 2, true)
+  const trunk = new THREE.CylinderGeometry(0.35, 0.55, 3.2, parts_(8, d, 4), parts_(2, d, 1), true)
   placed(trunk, 0, 1.6, 0)
   parts.push(finish(trunk, '#5b4a3a', 0, 0.3, 10))
-  for (let i = 0; i < 4; i++) {
-    const limb = new THREE.CylinderGeometry(0.12, 0.25, 4.5, 6, 1, true)
-    const a = (i / 4) * Math.PI * 2 + 0.4
+  const limbs = 4
+  for (let i = 0; i < limbs; i++) {
+    const limb = new THREE.CylinderGeometry(0.12, 0.25, 4.5, parts_(6, d, 3), 1, true)
+    const a = (i / limbs) * Math.PI * 2 + 0.4
     placed(limb, Math.cos(a) * 1.4, 4.2, Math.sin(a) * 1.4, Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9)
     parts.push(finish(limb, '#56463a', 0.3, 0.6, 10))
   }
   for (let i = 0; i < 9; i++) {
     const a = rand() * Math.PI * 2
     const r = 1.5 + rand() * 3.6
-    const l = lump(2.4 + rand() * 1.4, 0.62, null, rand)
+    const l = lump(2.4 + rand() * 1.4, 0.62, null, rand, d < 0.5 ? 0 : 1)
     placed(l, Math.cos(a) * r, 5.4 + rand() * 2.2, Math.sin(a) * r)
     parts.push(finish(l, rand() < 0.5 ? '#2c3d22' : '#34472a', 0.7, 1, 10))
   }
@@ -177,13 +264,13 @@ export function oak() {
 }
 
 /** Saw palmetto: knee-to-chest-high fans straight off the ground, in clumps. */
-export function palmetto() {
+export function palmetto(d = 1) {
   const rand = mulberry32(53)
   const parts = []
   for (let i = 0; i < 9; i++) {
     const yaw = rand() * Math.PI * 2
     const pitch = 0.35 + rand() * 0.8
-    const f = frond(0.9 + rand() * 0.5, 0.9, 0.15 + rand() * 0.2, rand() < 0.2 ? '#7b7a4a' : rand() < 0.6 ? '#5a6a38' : '#4e6034')
+    const f = frond(0.9 + rand() * 0.5, 0.9, 0.15 + rand() * 0.2, rand() < 0.2 ? '#7b7a4a' : rand() < 0.6 ? '#5a6a38' : '#4e6034', parts_(5, d, 3))
     f.applyMatrix4(new THREE.Matrix4().makeRotationX(-pitch))
     f.applyMatrix4(new THREE.Matrix4().makeRotationY(yaw))
     f.translate((rand() - 0.5) * 0.6, 0.15, (rand() - 0.5) * 0.6)
@@ -193,7 +280,7 @@ export function palmetto() {
 }
 
 /** A tussock of grass: a dozen blades, some bent. */
-export function tuft() {
+export function tuft(d = 1) {
   const rand = mulberry32(71)
   const pos = []
   for (let i = 0; i < 12; i++) {
@@ -224,24 +311,24 @@ export function tuft() {
 }
 
 /** Rainforest emergent: forty metres of buttressed trunk under a broad crown. */
-export function jungleTree() {
+export function jungleTree(d = 1) {
   const rand = mulberry32(89)
   const h = 30
   const parts = []
-  const trunk = new THREE.CylinderGeometry(0.4, 0.9, h, 8, 4, true)
+  const trunk = new THREE.CylinderGeometry(0.4, 0.9, h, parts_(8, d, 4), parts_(4, d, 1), true)
   placed(trunk, 0, h / 2, 0)
   parts.push(finish(trunk, '#6e6458', 0, 0.7, h))
   for (let i = 0; i < 10; i++) {
     const a = rand() * Math.PI * 2
     const r = rand() * 6
-    const l = lump(3.2 + rand() * 2.2, 0.5, null, rand)
+    const l = lump(3.2 + rand() * 2.2, 0.5, null, rand, d < 0.5 ? 0 : 1)
     placed(l, Math.cos(a) * r, h - 2 + rand() * 4, Math.sin(a) * r)
     parts.push(finish(l, rand() < 0.4 ? '#23401e' : rand() < 0.7 ? '#2e4d23' : '#3b5a2a', 0.85, 1, h))
   }
   // The understorey mass round the trunk.
   for (let i = 0; i < 5; i++) {
     const a = rand() * Math.PI * 2
-    const l = lump(3 + rand() * 1.5, 0.8, null, rand)
+    const l = lump(3 + rand() * 1.5, 0.8, null, rand, d < 0.5 ? 0 : 1)
     placed(l, Math.cos(a) * 3, 6 + rand() * 8, Math.sin(a) * 3)
     parts.push(finish(l, '#284622', 0.3, 0.6, h))
   }
@@ -249,14 +336,14 @@ export function jungleTree() {
 }
 
 /** Lombardy poplar: the column of green lining every Soviet road. */
-export function poplar() {
+export function poplar(d = 1) {
   const rand = mulberry32(97)
   const parts = []
-  const trunk = new THREE.CylinderGeometry(0.15, 0.3, 4, 6, 1, true)
+  const trunk = new THREE.CylinderGeometry(0.15, 0.3, 4, parts_(6, d, 3), 1, true)
   placed(trunk, 0, 2, 0)
   parts.push(finish(trunk, '#6a6052', 0, 0.2, 18))
   for (let i = 0; i < 6; i++) {
-    const l = lump(1.6 + rand() * 0.4, 1.9, null, rand)
+    const l = lump(1.6 + rand() * 0.4, 1.9, null, rand, d < 0.5 ? 0 : 1)
     placed(l, (rand() - 0.5) * 0.8, 5 + i * 2.1, (rand() - 0.5) * 0.8)
     parts.push(finish(l, rand() < 0.5 ? '#3d5530' : '#46603a', 0.4, 1, 18))
   }
@@ -264,12 +351,12 @@ export function poplar() {
 }
 
 /** A low rounded shrub: coastal sage, saxaul, coyote brush. */
-export function shrub() {
+export function shrub(d = 1) {
   const rand = mulberry32(101)
   const parts = []
   for (let i = 0; i < 4; i++) {
     const a = rand() * Math.PI * 2
-    const l = lump(0.8 + rand() * 0.5, 0.7, null, rand)
+    const l = lump(0.8 + rand() * 0.5, 0.7, null, rand, d < 0.5 ? 0 : 1)
     placed(l, Math.cos(a) * 0.5, 0.7 + rand() * 0.4, Math.sin(a) * 0.5)
     parts.push(finish(l, rand() < 0.5 ? '#4f5a36' : '#5c6440', 0.2, 1, 2))
   }

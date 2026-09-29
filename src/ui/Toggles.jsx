@@ -1,5 +1,6 @@
 import { setUi, useUi } from '../sim/store.js'
 import { DEVICE_COPY, DEVICE_IDS, chooseDevice } from '../sim/device.js'
+import { Diagnostics } from './Diagnostics.jsx'
 
 /**
  * Re-answer the first question. The scene was built for the old answer — its
@@ -19,6 +20,7 @@ const OPTIONS = [
   { key: 'atmosphere', label: 'Atmosphere' },
   { key: 'labels', label: 'Labels' },
   { key: 'bloom', label: 'Bloom / vignette' },
+  { key: 'fullRes', label: 'Full resolution' },
   { key: 'broadcast', label: 'Broadcast feed' },
   { key: 'geophysics', label: 'Terra interior' },
 ]
@@ -84,6 +86,7 @@ export function Toggles() {
           ))}
         </div>
       </div>
+      <Diagnostics />
     </div>
   )
 }

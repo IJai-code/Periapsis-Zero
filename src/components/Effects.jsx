@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { useUi } from '../sim/store.js'
@@ -44,7 +44,21 @@ function useFeedLook() {
 export function Effects({ enabled }) {
   const look = useFeedLook()
   const dpr = useThree((s) => s.viewport.dpr)
+  const size = useThree((s) => s.size)
+  const composer = useRef(null)
   const film = useMemo(() => new FilmLookEffect(), [])
+  /*
+   * The composer sizes its buffers when the canvas changes size, and a change
+   * of device-pixel ratio is not a change of size — the CSS pixels are the
+   * same. So when `Resolution` lowers the ratio the canvas shrank and every
+   * render target the scene is actually drawn into stayed exactly as large as
+   * it was, which is to say the whole point of lowering it was lost. Measured
+   * at Kennedy on a Retina display: the ratio walked from 2 down to 1 and the
+   * frame stayed at 124 ms, because the pass behind it was still 2560 x 1600.
+   */
+  useEffect(() => {
+    composer.current?.setSize(size.width, size.height)
+  }, [dpr, size])
   useEffect(() => {
     film.setLook(look ?? 'clean', dpr)
   }, [film, look, dpr])
@@ -53,7 +67,7 @@ export function Effects({ enabled }) {
   const filmed = look !== null && look !== 'clean'
   if (!enabled && !filmed) return null
   return (
-    <EffectComposer disableNormalPass multisampling={0}>
+    <EffectComposer ref={composer} disableNormalPass multisampling={0}>
       {enabled ? <Bloom mipmapBlur intensity={1.15} luminanceThreshold={0.55} luminanceSmoothing={0.32} radius={0.72} /> : null}
       {enabled ? <Vignette offset={0.28} darkness={0.62} /> : null}
       <primitive object={film} dispose={null} />

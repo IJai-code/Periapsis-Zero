@@ -19,6 +19,7 @@
     "verify:galaxy": "node scripts/verify-galaxy.mjs",
     "verify:intro": "node scripts/verify-intro.mjs",
     "verify:search": "node scripts/verify-search.mjs",
+    "verify:flora": "node scripts/verify-flora.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
     "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",
