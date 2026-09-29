@@ -24,6 +24,20 @@ export const TRANSIT = {
    * held to a few seconds, where a pilot's search may take its time.
    */
   quick: false,
+  /**
+   * Arrive rather than travel, once.
+   *
+   * A move between two views is a flight, and across the Galaxy that flight is
+   * most of a minute — which is the right answer when a person chose the
+   * destination and is watching the scale go by, and the wrong one when they
+   * clicked a link somebody sent them. A link is a promise about where you
+   * will be, not an invitation to a journey, so the rig treats a move marked
+   * this way the way it treats its very first lock: it is simply there.
+   *
+   * Set immediately before the focus changes, and cleared by the rig when it
+   * reads it, so it can never leak into the next move.
+   */
+  arrive: false,
 }
 
 /** Longest a director's move may take, s; and a pilot's. */

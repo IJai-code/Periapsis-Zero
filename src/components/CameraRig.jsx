@@ -375,7 +375,18 @@ export function CameraRig() {
     tr.fov0 = camera.fov
     tr.t = 0
     tr.T = 1
-    tr.maxT = TRANSIT.quick ? QUICK_MOVE : PILOT_MOVE
+    /*
+     * A move asked to arrive is still *planned* — the destination is whatever
+     * the mode puts the camera at, which only the path knows how to read — but
+     * it is given no time to take, so the first frame of it is also the last.
+     * Skipping the plan outright leaves the camera where it was: the move is
+     * what computes where it is going.
+     */
+    // A hair rather than zero: the length divides the elapsed time, and on a
+    // frame where no time has passed zero over zero is not a number, which
+    // would put the camera at NaN and the screen at black.
+    tr.maxT = TRANSIT.arrive ? 1e-6 : TRANSIT.quick ? QUICK_MOVE : PILOT_MOVE
+    TRANSIT.arrive = false
     TRANSIT.quick = false
     tr.active = true
     TRANSIT.active = true

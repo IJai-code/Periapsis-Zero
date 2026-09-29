@@ -267,6 +267,15 @@ centre of the Galaxy. All 148 places the camera can be sent round-trip through
 an address, which `verify-share` checks by writing every one of them and
 reading it back.
 
+A link arrives rather than travels. Choosing a destination in the search flies
+you there along a zoom-pan path, which across the Galaxy is most of a minute of
+real flying and is the point when you chose it; a link is a promise about where
+you will be, not an invitation to a journey, so the rig treats it the way it
+treats its very first lock. The move is still *planned* — the destination is
+whatever the camera mode settles on, and only the path knows how to read that —
+and simply given no time to take. Skipping the plan outright leaves the camera
+where it was, which is the first thing tried and the reason this is written down.
+
 It deliberately does not carry the mission clock. The state of a flight is the
 output of an integration from the start, so an arbitrary instant cannot be
 restored by writing a number in a URL, and a link that silently landed

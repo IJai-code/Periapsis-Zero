@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { takePhotograph } from '../components/Photograph.jsx'
 import { requestedFocus, viewHref, viewName } from '../sim/shareView.js'
+import { TRANSIT } from '../gfx/transit.js'
 import { SearchBar } from './SearchBar.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
@@ -131,7 +132,12 @@ export function Hud() {
    */
   useEffect(() => {
     const wanted = requestedFocus()
-    if (wanted) setUi({ focus: wanted })
+    if (!wanted) return
+    // Arrive, do not travel. The camera's move from wherever the flight starts
+    // to, say, the centre of the Galaxy is most of a minute of real flying —
+    // worth watching when you chose it, and not what a link promised.
+    TRANSIT.arrive = true
+    setUi({ focus: wanted })
   }, [])
 
   /*

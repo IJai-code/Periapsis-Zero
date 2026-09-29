@@ -221,7 +221,10 @@ could always reach them; there was no way to tell anyone about one except by
 describing the route. It does not carry the mission clock, because the state of
 a flight is the output of an integration from the start and a link that
 silently landed somewhere else would teach people not to trust the next one.
-New gate `verify-share` writes an address for every place and reads it back,
+A link arrives rather than travels: choosing a place in the search flies you
+there, which across the Galaxy is most of a minute and is the point when you
+chose it, but a link is a promise about where you will be. New gate
+`verify-share` writes an address for every place and reads it back,
 and checks that a name this build does not know is refused rather than obeyed.
 
 **The sky beyond the planets.** Search for a star, a nebula, a galaxy or the edge
