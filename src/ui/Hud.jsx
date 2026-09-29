@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { takePhotograph } from '../components/Photograph.jsx'
+import { requestedFocus, viewHref, viewName } from '../sim/shareView.js'
 import { SearchBar } from './SearchBar.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
@@ -19,7 +20,7 @@ import { Commentary } from './Commentary.jsx'
 import { Mark } from './Mark.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
 import { BroadcastHud } from './Broadcast.jsx'
-import { setUi, useUi, WARP_LEVELS } from '../sim/store.js'
+import { setUi, useUi, WARP_LEVELS, uiStore } from '../sim/store.js'
 import { live } from '../sim/live.js'
 import { SHIP } from '../sim/constants.js'
 import { prediction } from '../sim/predict.js'
@@ -116,9 +117,39 @@ export function Hud() {
   const open = useUi((s) => s.panelOpen)
   // A photograph is of the scene, not of the instruments over it.
   const photo = useUi((s) => s.photo)
+  const focus = useUi((s) => s.focus)
+  const [shared, setShared] = useState(false)
   const map = useUi((s) => s.map)
   const broadcast = useUi((s) => s.broadcast)
   const narrow = useNarrow()
+
+  /*
+   * A link someone was sent. Applied here rather than in the store's defaults
+   * because the places beyond the planets register themselves into the
+   * catalogue when `sim/cosmos.js` loads, and a name cannot be checked against
+   * a list that has not been built yet.
+   */
+  useEffect(() => {
+    const wanted = requestedFocus()
+    if (wanted) setUi({ focus: wanted })
+  }, [])
+
+  /*
+   * Reads the focus from the store rather than the render that created it: the
+   * key handler below is registered once, with no dependencies, so a value
+   * closed over here would be whatever the camera was on when the HUD mounted
+   * and the link would be to the wrong place for the rest of the session.
+   */
+  const copyLink = async () => {
+    const href = viewHref(uiStore.get().focus)
+    try {
+      await navigator.clipboard.writeText(href)
+    } catch {
+      window.prompt('Copy this link:', href)
+    }
+    setShared(true)
+    setTimeout(() => setShared(false), 2000)
+  }
 
   useEffect(() => {
     const onKey = (e) => {
@@ -136,6 +167,7 @@ export function Hud() {
       // The feed and the instruments are two ways of looking at one flight.
       if (e.key.toLowerCase() === 'b') return setUi((s) => ({ broadcast: !s.broadcast, map: false }))
       if (e.key.toLowerCase() === 'p') return takePhotograph()
+      if (e.key.toLowerCase() === 'l') return copyLink()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -333,6 +365,16 @@ export function Hud() {
             className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
           >
             photograph · p
+          </button>
+          <span className="h-4 w-px bg-hud/15" aria-hidden />
+          <button
+            onClick={copyLink}
+            title="An address that opens this flight looking at the same thing"
+            className={`control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2 ${
+              shared ? 'text-ember' : 'text-hud/35'
+            }`}
+          >
+            {shared ? `copied${viewName(focus) ? ` · ${viewName(focus)}` : ''}` : 'link · l'}
           </button>
         </div>
       </div>

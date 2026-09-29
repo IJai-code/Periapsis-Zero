@@ -72,7 +72,10 @@
  * measures the one number a visitor on a slow connection actually feels: how
  * many megabytes of imagery stand between opening the page and flying.
  * `verify-plate` holds the caption a photograph carries, which is the part of
- * this simulator most likely to be read by someone who never opens it.
+ * this simulator most likely to be read by someone who never opens it, and
+ * `verify-share` the round trip of a link to a place: all 148 of them write an
+ * address that names them back, and a name this build does not know is refused
+ * rather than obeyed.
  *
  * What is deliberately *not* here is as informative as what is, and only two
  * scripts are left out. `verify-loi-sweep` is an *instrument*: it prints and
@@ -129,6 +132,7 @@ const GATES = [
   ['verify-site-ground', false],
   ['verify-assets', false],
   ['verify-plate', false],
+  ['verify-share', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

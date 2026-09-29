@@ -258,6 +258,24 @@ trouble and start giving pixels away, so it stands down while the shutter is
 open. Nothing is added to the ordinary frame: the cost is one render, once,
 when it is asked for.
 
+## Links to places
+
+`L`, or *link*. The address it copies carries the flight already in it —
+preset, vessel, pad — and one more parameter for where the camera is looking,
+so `?focus=sagittarius-a` opens this flight pointed at the black hole at the
+centre of the Galaxy. All 148 places the camera can be sent round-trip through
+an address, which `verify-share` checks by writing every one of them and
+reading it back.
+
+It deliberately does not carry the mission clock. The state of a flight is the
+output of an integration from the start, so an arbitrary instant cannot be
+restored by writing a number in a URL, and a link that silently landed
+somewhere else would be worse than one that is honest about starting the flight
+where the preset starts it. A name this build does not know is refused with a
+warning rather than obeyed, on the same rule `sim/requested.js` sets out: an
+address is something a person was sent or typed, and a blank page is a worse
+answer to that than the default.
+
 ## What a visitor waits for
 
 Thirteen and a half megabytes of imagery, and every visitor used to wait for all

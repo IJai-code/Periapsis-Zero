@@ -214,6 +214,16 @@ governor standing down so it does not mistake a deliberate expense for a
 machine in trouble. New gate `verify-plate` holds the caption, which is the
 part of this simulator most likely to be read by someone who never opens it.
 
+**Links to places.** `L` copies an address that opens this flight looking at
+the same thing — `?focus=sagittarius-a` for the black hole at the centre of the
+Galaxy, and the same for all 148 places the camera can be sent. The search
+could always reach them; there was no way to tell anyone about one except by
+describing the route. It does not carry the mission clock, because the state of
+a flight is the output of an integration from the start and a link that
+silently landed somewhere else would teach people not to trust the next one.
+New gate `verify-share` writes an address for every place and reads it back,
+and checks that a name this build does not know is refused rather than obeyed.
+
 **The sky beyond the planets.** Search for a star, a nebula, a galaxy or the edge
 of the observable universe and the camera flies there in one continuous zoom
 (README, *Beyond the planets*). Sixty-seven named stars at their parallax
