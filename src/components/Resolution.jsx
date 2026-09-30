@@ -9,6 +9,7 @@ import {
   nextDetailStep,
   setDetailStep,
 } from '../gfx/detailBudget.js'
+import { pushFrameTime, resetFrameTimes } from '../gfx/frameStats.js'
 
 /**
  * As many pixels as the machine can actually draw.
@@ -91,7 +92,9 @@ export function Resolution() {
       s.current.last = 0
       s.current.n = 0
       s.current.sum = 0
-
+      // The ring, too: a sleeping tab's gap is not a slow frame, and the
+      // summary should describe the machine *now*.
+      resetFrameTimes()
     }
     document.addEventListener('visibilitychange', visibility)
     visibility()
@@ -130,6 +133,10 @@ export function Resolution() {
       c.last = 0
       return
     }
+    // The shared sample. One ring, fed from the delta this effect already
+    // computed — Diagnostics reads its p50/p95 from here instead of running
+    // its own rAF loop beside the render loop.
+    if (dt > 0) pushFrameTime(dt)
     // Ignore the frames either side of a change: the first of them pays for
     // reallocating every render target, which is not the new steady state.
     if (c.settle > 0) {

@@ -302,15 +302,46 @@ Two surfaces. `LogProgress` rides under the flight strip: what you have done,
 and the moment this flight is about to give you next — worked out from the
 sequencer's phase order, not the list's, because a lunar flight that is offered
 "liftoff" has been misread. A milestone earned announces itself there once and
-then goes quiet. `Logbook` (control bar) is the drawer: the whole record, each
-item in flight order with the mission clock it was reached at, and the plates,
-films and pads beside it. The front door greets a returning visitor with the
-one-line version — computed from what was actually done, so a first visit is
-never told "welcome back".
+then goes quiet; a personal record does the same, with its number.
 
-`verify-logbook` pins the semantics (recorded once, storage-locked still works,
-the record survives the process), the structural claim that the milestone
-tracks run in the machine's own order, and the wiring of all four call sites.
+`Logbook` (control bar) is the drawer: the whole record, each item in flight
+order with the mission clock it was reached at — and now three more sections.
+**Personal bests** are the records the sim measures at the moment they are
+final: the gentleness of a touchdown (vertical speed at splashdown, lower is
+better), the peak load an entry rode, the closest a crossing came to the Moon.
+Each has one call site at the phase boundary where its number is finished, so
+a running minimum lives in the mission object and only the result crosses into
+the record. **The plate gallery** is the last eight photographs, kept in their
+own IndexedDB database (`gfx/plateShelf.js`) — a plate still downloads the
+moment it is taken, but a copy stays here, newest first, each one downloadable
+or removable. Every shelf path degrades to an empty shelf: private mode, a
+full quota, no database — the download still happens and nothing reports an
+error. Films and pads complete the kept things. The front door greets a
+returning visitor with the one-line version — computed from what was actually
+done, so a first visit is never told "welcome back".
+
+`verify-logbook` pins the semantics (recorded once, storage-locked still
+works, the record survives the process; a record's label and unit carry
+forward when a barer call re-writes it), the structural claim that the
+milestone tracks run in the machine's own order, and the wiring of every call
+site. `verify-plate-shelf` holds the shelf against a minimal in-memory
+IndexedDB: depth trimming to eight, newest-first order, delete, and the
+no-storage degradation.
+
+## Frame times, measured once
+
+Diagnostics used to run its own `requestAnimationFrame` loop beside the render
+loop and the resolution governor — two opinions of the same frames, and one
+more callback the frame budget paid for whether the panel was open or not.
+Now the governor, which already computes every frame's delta to steer the
+pixel ratio, pushes the same number into a fixed 512-sample ring
+(`gfx/frameStats.js`): two typed-array writes, nothing allocated, wrap-around,
+reset when the tab wakes. The panel reads a p50/p95 summary of it once a
+second and the copy-for-a-bug-report text carries both — the p50/p95 pairing
+the performance audit asked for, describing the machine *now*.
+`verify-frame-stats` holds the arithmetic: percentiles of a known
+distribution, a 45-second sleeping-tab gap excluded rather than averaged in,
+the cut as a dial, wrap at exactly 512, and the absence of any second loop.
 
 ## Photographs
 

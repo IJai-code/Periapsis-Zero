@@ -3,8 +3,9 @@ import { addAfterEffect, useFrame, useThree } from '@react-three/fiber'
 import { captureFilmFrame } from '../gfx/filmRecorder.js'
 import { boundedRatio, PHOTO_PIXELS } from '../gfx/renderBudget.js'
 import { setUi, useUi } from '../sim/store.js'
-import { captionPhotograph } from '../gfx/photoCaption.js'
+import { captionPhotograph, captionLines } from '../gfx/photoCaption.js'
 import { recordPhotograph } from '../sim/logbook.js'
+import { plateSave } from '../gfx/plateShelf.js'
 
 /**
  * A plate of what is on screen, at the size a plate should be.
@@ -85,6 +86,12 @@ export function Photograph() {
       // A plate taken is a plate kept — the logbook counts it once, at the
       // only moment a photograph actually happens.
       recordPhotograph()
+      // And a copy stays on the shelf, so the logbook's gallery has it
+      // tomorrow. The caption lines are read at the same instant the file's
+      // own caption is composed from; the download still happens regardless
+      // of whether the shelf could keep anything.
+      const { title, facts } = captionLines()
+      plateSave(url, title, facts)
     }
   }), [stage, gl, setDpr])
 

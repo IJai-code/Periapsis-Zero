@@ -29,6 +29,8 @@
     "verify:share": "node scripts/verify-share.mjs",
     "verify:logbook": "node scripts/verify-logbook.mjs",
     "verify:detail-budget": "node scripts/verify-detail-budget.mjs",
+    "verify:frame-stats": "node scripts/verify-frame-stats.mjs",
+    "verify:plate-shelf": "node scripts/verify-plate-shelf.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
     "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",

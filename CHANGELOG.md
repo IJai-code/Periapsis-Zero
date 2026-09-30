@@ -5,6 +5,29 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Personal bests, the plate gallery, and one sampler — 30 September 2026
+
+The logbook grew the two things engagement actually asks for. **Personal
+bests** (`recordBest` in `sim/logbook.js`): the records the sim already
+measures at the moment they are final — touchdown vertical speed (lower is
+better), entry peak load (higher), the closest a trans-lunar crossing came to
+the Moon — each with one call site at the phase boundary where its number is
+finished, a running minimum held in the mission object and only the result
+crossing into the record. A record's label, unit and clock carry forward when
+a barer call re-writes it (the gate caught the clobber); equal or worse values
+are refused, so no chatter. The progress strip announces a new record with its
+number; the drawer holds the bests cards. **The plate gallery**: the last
+eight photographs in their own IndexedDB database (`gfx/plateShelf.js`),
+newest first, each downloadable or removable — a plate still downloads at the
+shutter, a copy now stays too, and every path degrades to an empty shelf in
+private mode. `verify-plate-shelf` runs the shelf against a minimal in-memory
+IndexedDB (the fake's first draft fired tx.oncomplete before the request
+succeeded — real IDB guarantees the reverse); `verify-frame-stats` pins the
+new shared sampler: the resolution governor pushes every delta it already
+computes into a 512-sample ring, Diagnostics reads p50/p95 from it and its
+own second rAF loop is gone — two opinions of the same frames, and one more
+callback the frame budget paid for, retired. 64/64 gates.
+
 ### The detail budget, and the first deploy of all of it — 30 September 2026
 
 The resolution governor's last unsolved case — a machine still missing frames

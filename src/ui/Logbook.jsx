@@ -8,11 +8,14 @@ import {
   platesTaken,
   filmsKept,
   padsFlown,
+  bestsHeld,
+  formatBest,
   subscribeLogbook,
 } from '../sim/logbook.js'
 import { currentPhase, PHASE_IDS } from '../sim/mission.js'
 import { PRESETS, presetHref } from '../sim/presets.js'
 import { metLabel } from '../gfx/photoCaption.js'
+import { PLATE_SHELF_SIZE, plateAll, plateDelete, plateDownload } from '../gfx/plateShelf.js'
 
 /**
  * The logbook's two surfaces.
@@ -55,6 +58,26 @@ function useLogbook() {
   return useSyncExternalStore(subscribeLogbook, logbookSnapshot, logbookSnapshot)
 }
 
+/**
+ * The shelf, read while the drawer is open. Data URLs, not object URLs —
+ * nothing to revoke, the browser holds the bytes — so the cleanup is only
+ * the timer.
+ */
+function usePlateShelf(open) {
+  const [plates, setPlates] = useState([])
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    plateAll().then((shelf) => {
+      if (alive) setPlates(shelf.items)
+    })
+    return () => {
+      alive = false
+    }
+  }, [open])
+  return [plates, setPlates]
+}
+
 /** "T+00:02:31", or an em dash for a moment the record does not date. */
 const stamp = (t) => (Number.isFinite(t) ? metLabel(t) : '—')
 
@@ -79,17 +102,25 @@ function upcomingMilestone(reachedPhases) {
  * The progress strip, under the flight strip.
  *
  * Left: the count — milestones, plates, films. Right: the next moment this
- * flight is aiming at.
+ * flight is aiming at — except when something has just been earned, which is
+ * announced here once and then goes quiet. Both kinds of news arrive through
+ * the same store change: milestones by count, records by value, so no
+ * imperative caller anywhere has to remember to toast.
  */
 export function LogProgress() {
   const rec = useLogbook()
   const [justNow, setJustNow] = useState(null)
+  const timer = useRef(null)
+
+  const say = (text) => {
+    setJustNow(text)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setJustNow(null), 4200)
+  }
+  useEffect(() => () => clearTimeout(timer.current), [])
 
   /*
-   * The strip is also where the toast lives — a moment earned is announced
-   * once, here, where the eye already is. The announcement comes from the
-   * change itself: whenever the milestone count grows, show the newest label
-   * for four seconds. No imperative caller, nothing to forget to unmount.
+   * Milestones: the count grows, the newest label speaks.
    */
   const count = Object.keys(rec.milestones).length
   const lastRef = useRef(count)
@@ -101,11 +132,26 @@ export function LogProgress() {
     lastRef.current = count
     const reached = milestonesReached()
     const label = reached[reached.length - 1]?.label
-    if (!label) return
-    setJustNow(label)
-    const id = setTimeout(() => setJustNow(null), 4000)
-    return () => clearTimeout(id)
+    if (label) say(`${label} — logged`)
   }, [count])
+
+  /*
+   * Records: a value changes, the best speaks with its number. The previous
+   * bests live in a ref so the diff is between store emissions, not renders.
+   */
+  const bestsRef = useRef(null)
+  useEffect(() => {
+    const bests = rec.bests ?? {}
+    const prev = bestsRef.current
+    bestsRef.current = bests
+    if (!prev) return
+    for (const [id, b] of Object.entries(bests)) {
+      const was = prev[id]
+      if (was && was.v === b.v) continue
+      say(`${b.label} · ${formatBest(b)} — ${was ? 'new best' : 'record'}`)
+      return // one announcement per emission; the rest wait their turn
+    }
+  }, [rec])
 
   const reachedPhases = new Set(Object.keys(rec.milestones))
   const upcoming = justNow ? null : upcomingMilestone(reachedPhases)
@@ -132,7 +178,7 @@ export function LogProgress() {
           <div className="min-w-0 px-3.5 py-2 sm:px-4" role="status">
             <span className="rule text-[8px] whitespace-nowrap">Just now</span>
             <div className="mt-1 font-mono text-[12px] leading-none whitespace-nowrap text-ember">
-              {justNow} — logged
+              {justNow}
             </div>
           </div>
         ) : upcoming ? (
@@ -155,6 +201,7 @@ export function LogProgress() {
  */
 export function Logbook({ open, onClose }) {
   const rec = useLogbook()
+  const [plates, setPlates] = usePlateShelf(open)
   useEffect(() => {
     if (!open) return
     const onKey = (e) => {
@@ -173,7 +220,8 @@ export function Logbook({ open, onClose }) {
   const reachedPhases = new Set(reached.map((m) => m.phase))
   const films = filmsKept()
   const pads = padsFlown()
-  const plates = platesTaken()
+  const plateCount = platesTaken()
+  const bests = bestsHeld()
   const presetName = (id) => PRESETS.find((p) => p.id === id)?.title ?? id
 
   return createPortal(
@@ -241,13 +289,39 @@ export function Logbook({ open, onClose }) {
           </div>
         </section>
 
-        {/* Plates, films, pads: the other three kinds of kept thing. */}
+        {/* Personal bests: the sim measured them, the browser keeps them. */}
+        {bests.length > 0 && (
+          <section aria-label="Personal bests" className="mt-8">
+            <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
+              Personal bests · this browser
+            </div>
+            <div className="mt-3 grid gap-px bg-hud/12 sm:grid-cols-3">
+              {bests.map((b) => (
+                <div key={b.id} className="bg-[#0a0b0d] p-5">
+                  <div className="rule text-[8px]">{b.label}</div>
+                  <div className="mt-2 font-display text-3xl font-light text-[#f0e7da] tabular-nums">
+                    {formatBest(b)}
+                  </div>
+                  <p className="mt-1.5 text-[10.5px] leading-snug text-[#e8e0d5]/50">
+                    {b.note}
+                    {Number.isFinite(b.missionT) && (
+                      <span className="ml-2 font-mono text-[9.5px] text-hud/45">{metLabel(b.missionT)}</span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Plates, films, pads: the other kinds of kept thing. */}
         <div className="mt-8 grid gap-px bg-hud/12 sm:grid-cols-3">
           <div className="bg-[#0a0b0d] p-5">
             <div className="rule text-[8px]">Plates taken</div>
-            <div className="mt-2 font-display text-4xl font-light text-[#f0e7da]">{plates}</div>
+            <div className="mt-2 font-display text-4xl font-light text-[#f0e7da]">{plateCount}</div>
             <p className="mt-2 text-[11px] leading-snug text-[#e8e0d5]/50">
-              Press P anywhere to add one — captioned, and yours to keep.
+              Press P anywhere to add one — captioned, and yours to keep. The last {PLATE_SHELF_SIZE} live
+              in the gallery below.
             </p>
           </div>
           <div className="bg-[#0a0b0d] p-5">
@@ -286,6 +360,53 @@ export function Logbook({ open, onClose }) {
             </ul>
           </div>
         </div>
+
+        {/* The plate gallery: the shelf's own copies, newest first. */}
+        {plates.length > 0 && (
+          <section aria-label="Plate gallery" className="mt-8">
+            <div className="flex items-baseline justify-between">
+              <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
+                Plate gallery · {plates.length} kept here
+              </div>
+              <div className="font-mono text-[9px] tracking-wider text-hud/35">newest first</div>
+            </div>
+            <div className="mt-3 grid gap-px bg-hud/12 sm:grid-cols-2">
+              {plates.map((p) => (
+                <figure key={p.id} className="group relative bg-[#0a0b0d]">
+                  <img
+                    src={p.dataUrl}
+                    alt={p.title || 'A plate of the simulation'}
+                    loading="lazy"
+                    className="block w-full cursor-zoom-in"
+                    onClick={() => window.open(p.dataUrl, '_blank')}
+                  />
+                  <figcaption className="flex items-start justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-sans text-[12px] text-[#efe7db]/88">{p.title}</div>
+                      <div className="mt-0.5 truncate font-mono text-[9.5px] tracking-wider text-hud/45">{p.facts}</div>
+                    </div>
+                    <div className="flex shrink-0 gap-1.5">
+                      <button
+                        onClick={() => plateDownload(p)}
+                        title="Download this plate"
+                        className="control border border-hud/20 px-2 py-1 font-mono text-[9px] tracking-[0.16em] text-hud/60 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        onClick={() => plateDelete(p.id).then((shelf) => setPlates(shelf.items))}
+                        title="Remove this plate from the shelf"
+                        className="control border border-hud/20 px-2 py-1 font-mono text-[9px] tracking-[0.16em] text-hud/60 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
 
         <footer className="mt-8 border-t border-hud/12 pt-4 font-mono text-[10px] leading-relaxed tracking-wider text-hud/35">
           The logbook lives in this browser only · Esc closes · Every flight here is

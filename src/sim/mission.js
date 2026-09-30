@@ -55,7 +55,7 @@ import {
   targetCsi,
 } from './lunarMission.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
-import { recordMilestone, recordPad } from './logbook.js'
+import { recordBest, recordMilestone, recordPad } from './logbook.js'
 import { EARTH_FIELD, fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
@@ -655,6 +655,9 @@ export const mission = {
     interfaceSpeed: 0, // m/s at the 122 km interface
     interfaceTime: 0, // mission time there
     peakG: 0,
+    /** The flight's own peak, held past the reset the warnings read — the
+     * personal record is taken from it at splashdown. */
+    bestG: 0,
     peakQ: 0, // Pa
     peakHeatFlux: 0, // W/m^2, convective
     peakRadFlux: 0, // W/m^2, radiative
@@ -1451,6 +1454,11 @@ function trackEntryPeaks() {
     en.peakG = live.decelG
     en.peakGAltitude = live.elements.altitude
   }
+  /*
+   * The entry's hardest moment, as a personal best — recorded once, at the
+   * splashdown boundary, from the peak the flight actually rode.
+   */
+  if (live.decelG > en.bestG) en.bestG = live.decelG
   if (live.dynamicPressure > en.peakQ) en.peakQ = live.dynamicPressure
   // Three separate peaks, because they do not coincide: convective goes as
   // sqrt(rho) v^3 and radiative as roughly rho^1.2 f(v), so radiation peaks
@@ -2638,10 +2646,15 @@ const PHASES = [
       ship.throttle = 0
       mission.tli.burnDuration = mission.t - mission.tli.burnStart
       mission.tli.burnEnd = mission.t
+      // The crossing's closest pass, reset per flight and held as a running
+      // minimum here — one number, read once when the approach ends.
+      mission.lunarMin = Infinity
     },
     control() {
       aimPrograde()
       updateTLI()
+      const r = live.lunarRange
+      if (Number.isFinite(r) && r < mission.lunarMin) mission.lunarMin = r
       const togo = PROFILE.mccDelay - (mission.t - mission.tli.burnEnd)
       mission.warpRequest = togo > 7200 ? WARP.h6 : togo > 1800 ? WARP.h1 : WARP.m1
     },
@@ -2795,6 +2808,20 @@ const PHASES = [
       ship.throttle = 0
       mission.warpRequest = WARP.x1 // real time from here to cutoff
       mission.loi.pointingError = Math.PI
+      /*
+       * The coast's answer is now final: the closest the crossing came to the
+       * Moon, held as a running minimum through TRANS_LUNAR and recorded once,
+       * here, where the approach ends and the capture begins. One write per
+       * flight, only when it beats the browser's best.
+       */
+      if (Number.isFinite(mission.lunarMin)) {
+        recordBest('lunar-closest', mission.lunarMin / 1000, {
+          label: 'Closest lunar approach',
+          note: 'how near the coast passed the Moon',
+          unit: 'km',
+          missionT: mission.t,
+        })
+      }
     },
     control() {
       aimLunarRetrograde()
@@ -3246,6 +3273,25 @@ const PHASES = [
       // The descent rate is what matters, and it is the vertical component:
       // horizontal motion at splashdown is the ocean moving with the planet.
       mission.entry.splashdownVertical = Math.abs(live.elements.vertical)
+      // The landing is the flight's last manoeuvre and the one a pilot owns
+      // end to end — its gentleness is the natural personal record.
+      recordBest('touchdown-vertical', mission.entry.splashdownVertical, {
+        label: 'Touchdown',
+        note: 'vertical speed at splashdown',
+        unit: 'm/s',
+        missionT: mission.t,
+      })
+      // And the entry's hardest moment, from the same peak tracker the
+      // flight-control warnings read.
+      if (mission.entry.bestG > 0) {
+        recordBest('entry-peak-g', mission.entry.bestG, {
+          label: 'Entry load',
+          note: 'peak deceleration through the fire',
+          unit: 'g',
+          lowerIsBetter: false,
+          missionT: mission.t,
+        })
+      }
     },
     control: aimEntryAttitude,
     done: () => false,
@@ -4176,6 +4222,9 @@ export function resetMission() {
   mission.capture.progress = 0
   mission.capture.error = ''
   mission.entry.peakG = 0
+  // The browser-wide personal bests ride the same lifecycle as the peaks.
+  mission.lunarMin = Infinity
+  mission.entry.bestG = 0
   mission.entry.peakQ = 0
   mission.entry.peakHeatFlux = 0
   mission.entry.peakRadFlux = 0

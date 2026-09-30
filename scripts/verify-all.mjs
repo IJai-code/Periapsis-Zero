@@ -138,6 +138,8 @@ const GATES = [
   ['verify-share', false],
   ['verify-logbook', false],
   ['verify-detail-budget', false],
+  ['verify-frame-stats', false],
+  ['verify-plate-shelf', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

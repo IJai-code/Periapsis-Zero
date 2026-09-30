@@ -76,9 +76,10 @@ export const SITES = [
 
 /**
  * The shape on disk: `{ v, milestones: {phaseId: t}, plates: n, films:
- * {presetId: t}, pads: [siteId] }`. Milestones are keyed by phase and record
- * the mission time they were reached at; films by preset, same; pads is an
- * array of ids in first-flown order.
+ * {presetId: t}, pads: [siteId], bests: {id: {v, at, missionT}} }`.
+ * Milestones are keyed by phase and record the mission time they were reached
+ * at; films by preset, same; pads is an array of ids in first-flown order;
+ * bests hold personal records keyed by id.
  */
 let record = null
 
@@ -96,6 +97,7 @@ function load() {
   if (!Number.isFinite(record.plates)) record.plates = 0
   if (!record.films || typeof record.films !== 'object') record.films = {}
   if (!Array.isArray(record.pads)) record.pads = []
+  if (!record.bests || typeof record.bests !== 'object') record.bests = {}
   return record
 }
 
@@ -184,6 +186,67 @@ export function recordPad(siteId) {
   return true
 }
 
+/**
+ * A personal best, set or beaten.
+ *
+ * The records worth keeping are the ones the sim already measures at the
+ * moment they are final: the vertical speed the chutes left at splashdown,
+ * the peak load an entry rode, the closest the coast came to the Moon. One
+ * call site each, at the phase entries where the number is *finished* — never
+ * per frame, so a running minimum lives in the mission object and only the
+ * result crosses here.
+ *
+ * Returns 'first' when the record is new, 'beaten' when it improved, false
+ * when nothing changed — the caller (the strip's toast) speaks only when
+ * there is something to say.
+ */
+export function recordBest(id, value, { lowerIsBetter, label, note, unit, missionT } = {}) {
+  if (!id || !Number.isFinite(value)) return false
+  const rec = load()
+  const prev = rec.bests[id]
+  const lower = lowerIsBetter ?? prev?.lower ?? true
+  const better = !prev || (lower ? value < prev.v : value > prev.v)
+  if (!better) return false
+  /*
+   * Context carries forward. A record's label, unit and clock were written
+   * by the call site that knows what it means; a later, barer call for the
+   * same id — the gate's, or a future call site's shorthand — updates the
+   * value without erasing what the record says about itself. A record that
+   * silently forgot its own unit would be a record that lies by omission.
+   */
+  rec.bests[id] = {
+    v: value,
+    at: Date.now(),
+    missionT: Number.isFinite(missionT) ? missionT : (prev?.missionT ?? null),
+    label: label ?? prev?.label ?? id,
+    note: note ?? prev?.note ?? '',
+    unit: unit ?? prev?.unit ?? '',
+    lower,
+  }
+  save()
+  emit()
+  return prev ? 'beaten' : 'first'
+}
+
+/** Every personal best, as an array sorted by when each was last set. */
+export function bestsHeld() {
+  const rec = load()
+  return Object.entries(rec.bests)
+    .sort((a, b) => b[1].at - a[1].at)
+    .map(([id, b]) => ({ id, ...b }))
+}
+
+/**
+ * A best in the units a person reads: one decimal under ten, otherwise a
+ * rounded figure with its unit. Pure, so the gate can hold the formatting.
+ */
+export function formatBest(b) {
+  if (!b || !Number.isFinite(b.v)) return '—'
+  const abs = Math.abs(b.v)
+  const num = b.unit === 'km' ? Math.round(abs).toLocaleString('en-GB') : abs < 10 ? abs.toFixed(2) : abs.toFixed(1)
+  return b.unit ? `${num} ${b.unit}` : num
+}
+
 /* ---------------------------------------------------------------- *
  * The readers
  * ---------------------------------------------------------------- */
@@ -227,7 +290,12 @@ export const platesTaken = () => load().plates
 /** Has anything at all been done here? The landing page asks exactly this. */
 export function hasFlown() {
   const rec = load()
-  return rec.plates > 0 || rec.pads.length > 0 || Object.keys(rec.milestones).length > 0
+  return (
+    rec.plates > 0 ||
+    rec.pads.length > 0 ||
+    Object.keys(rec.milestones).length > 0 ||
+    Object.keys(rec.bests).length > 0
+  )
 }
 
 /**

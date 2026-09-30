@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DEVICE, QUALITY } from '../sim/device.js'
 import { DETAIL_STEPS, MAX_DETAIL_STEP, detailStep, subscribeDetail } from '../gfx/detailBudget.js'
+import { summarizeFrameTimes } from '../gfx/frameStats.js'
 
 /**
  * What this machine actually is, and what it is actually managing.
@@ -45,9 +46,7 @@ const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|microsoft basic/i
 
 export function Diagnostics() {
   const [gpu] = useState(gpuName)
-  const [fps, setFps] = useState(null)
-  const [tail, setTail] = useState(null)
-  const frames = useRef([])
+  const [summary, setSummary] = useState(null)
   /*
    * The detail budget's state belongs in this report. "It was laggy" is a
    * symptom with a dozen causes; "the governor had already spent both relief
@@ -58,30 +57,18 @@ export function Diagnostics() {
   const [detail, setDetail] = useState(detailStep())
   useEffect(() => subscribeDetail(() => setDetail(detailStep())), [])
 
+  /*
+   * Read the shared ring once a second. No second rAF loop: the governor's
+   * frame callback already measures every delta this panel reports, and a
+   * panel that measures the same frames with its own loop is a second
+   * opinion nobody asked for — plus one more callback the frame budget pays
+   * for whether or not the panel is open.
+   */
   useEffect(() => {
-    let raf = 0
-    let last = 0
-    const tick = (t) => {
-      if (last && !document.hidden) {
-        const f = frames.current
-        f.push(t - last)
-        if (f.length > 180) f.shift()
-      }
-      last = t
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
     const id = setInterval(() => {
-      const f = frames.current.filter((x) => x < 2000).sort((a, b) => a - b)
-      if (f.length > 20) {
-        setFps(Math.round(1000 / f[f.length >> 1]))
-        setTail(f[Math.floor((f.length - 1) * 0.95)].toFixed(1))
-      }
+      if (!document.hidden) setSummary(summarizeFrameTimes())
     }, 1000)
-    return () => {
-      cancelAnimationFrame(raf)
-      clearInterval(id)
-    }
+    return () => clearInterval(id)
   }, [])
 
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio
@@ -89,8 +76,8 @@ export function Diagnostics() {
   const rows = [
     ['Graphics', gpu],
     ['Screen', `${window.screen?.width ?? '?'} x ${window.screen?.height ?? '?'} at ${dpr}x`],
-    ['Drawing', fps == null ? 'measuring…' : `${fps} frames a second`],
-    ['95th %', tail == null ? 'measuring…' : `${tail} ms per frame`],
+    ['Drawing', summary ? `${summary.fps} frames a second (median)` : 'measuring…'],
+    ['Frame times', summary ? `p50 ${summary.p50.toFixed(1)} ms · p95 ${summary.p95.toFixed(1)} ms` : 'measuring…'],
     ['Buffer', (() => { const c = document.querySelector('canvas'); return c ? `${c.width} × ${c.height}` : 'unavailable' })()],
     ['Detail', detail === 0 ? 'full tessellation' : `relief ${detail}/${MAX_DETAIL_STEP} · surfaces capped at ${DETAIL_STEPS[detail]} segments`],
   ]

@@ -163,6 +163,81 @@ lb.recordMilestone('TLI_BURN', 600)
 if (hits === 1) pass('subscribers hear a change, exactly once, until they leave')
 else fail(`subscription hits = ${hits}, want 1`)
 
+/* 7b. Personal bests: first, beaten, refused, and formatted. */
+forget()
+if (lb.recordBest('touchdown-vertical', 6.5, { label: 'Touchdown', unit: 'm/s', missionT: 111 }) === 'first')
+  pass('a first record says so')
+else fail('first record not reported')
+if (lb.recordBest('touchdown-vertical', 3.2) === 'beaten') pass('a better record says beaten')
+else fail('better record not reported')
+if (lb.recordBest('touchdown-vertical', 9.9) === false) pass('a worse attempt is refused and changes nothing')
+else fail('worse attempt overwrote the record')
+if (lb.recordBest('touchdown-vertical', 3.20001) === false) pass('an equal value is refused (no chatter)')
+else fail('equal value re-recorded')
+if (lb.recordBest('entry-peak-g', 4.8, { lowerIsBetter: false, unit: 'g' }) === 'first')
+  pass('higher-is-better records work')
+else fail('higher-is-better record failed')
+if (lb.recordBest('entry-peak-g', 5.1, { lowerIsBetter: false }) === 'beaten')
+  pass('a higher value beats a higher-is-better record')
+else fail('higher-is-better comparison wrong')
+if (lb.recordBest('bogus', NaN) === false && lb.recordBest('', 1) === false)
+  pass('non-finite and unnamed records are refused')
+else fail('garbage record accepted')
+{
+  const held = lb.bestsHeld()
+  // Membership, not order: these writes land inside one millisecond, and a
+  // tie broken by insertion order is not a promise worth making.
+  if (held.length === 2 && held.some((b) => b.id === 'touchdown-vertical') && held.some((b) => b.id === 'entry-peak-g'))
+    pass(`both records held (${held.map((b) => b.id).join(', ')})`)
+  else fail(`bests list wrong: ${JSON.stringify(held.map((b) => b.id))}`)
+  const td = held.find((b) => b.id === 'touchdown-vertical')
+  if (td?.v === 3.2 && td?.missionT === 111 && td?.label === 'Touchdown')
+    pass('a record keeps its value, mission clock and label')
+  else fail(`record fields wrong: ${JSON.stringify(td)}`)
+  if (lb.formatBest(td) === '3.20 m/s') pass(`formatBest: two decimals under ten (${lb.formatBest(td)})`)
+  else fail(`formatBest wrong: ${lb.formatBest(td)}`)
+  const g = held.find((b) => b.id === 'entry-peak-g')
+  if (lb.formatBest(g) === '5.10 g') pass(`formatBest: two decimals under ten, unit carried (${lb.formatBest(g)})`)
+  else fail(`formatBest g wrong: ${lb.formatBest(g)}`)
+  if (lb.formatBest({ v: 382911, unit: 'km' }) === '382,911 km')
+    pass('formatBest: kilometres round and group')
+  else fail('formatBest km wrong')
+  if (lb.hasFlown()) pass('a record alone counts as having flown')
+  else fail('records invisible to hasFlown')
+}
+
+/* 7c. Records survive the process, like milestones do. */
+{
+  const child = spawnSync(
+    process.execPath,
+    ['-e', `
+      const store = new Map();
+      globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k,v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
+      const m = await import(process.argv[1]);
+      m.recordBest('touchdown-vertical', 4.4, { label: 'Touchdown', unit: 'm/s', missionT: 555 });
+      process.stdout.write(JSON.stringify([...store.entries()]));
+    `, join(ROOT, 'src/sim/logbook.js')],
+    { cwd: ROOT, encoding: 'utf8' },
+  )
+  const handed = child.status === 0 ? child.stdout.trim() : null
+  const child2 = handed && spawnSync(
+    process.execPath,
+    ['-e', `
+      const seeded = new Map(JSON.parse(process.argv[2]));
+      globalThis.localStorage = { getItem: k => seeded.get(k) ?? null, setItem: (k,v) => seeded.set(k, String(v)), removeItem: k => seeded.delete(k) };
+      const m = await import(process.argv[1]);
+      const b = m.bestsHeld().find(x => x.id === 'touchdown-vertical');
+      console.log(JSON.stringify({ v: b?.v, t: b?.missionT }));
+    `, join(ROOT, 'src/sim/logbook.js'), handed],
+    { cwd: ROOT, encoding: 'utf8' },
+  )
+  let ok = child.status === 0 && child2?.status === 0
+  let out = {}
+  try { out = JSON.parse(child2?.stdout.trim() ?? '{}') } catch { ok = false }
+  if (ok && out.v === 4.4 && out.t === 555) pass('a record written in one process is read in the next')
+  else fail(`record persistence wrong: ${child.stderr || child2?.stderr || JSON.stringify(out)}`)
+}
+
 /* 8. The structural claim: milestones are in the machine's own order. */
 forget()
 const mission = await import(join(ROOT, 'src/sim/mission.js')).catch(() => null)
@@ -198,10 +273,15 @@ if (!PHASE_IDS) {
 const wiring = [
   ['src/sim/mission.js', 'recordMilestone(PHASES[next].id', 'the phase transition feeds the log'],
   ['src/sim/mission.js', 'recordPad(activeSite().id', 'resetMission names the pad'],
+  ['src/sim/mission.js', "recordBest('touchdown-vertical'", 'splashdown gentleness is a record'],
+  ['src/sim/mission.js', "recordBest('entry-peak-g'", 'the entry peak is a record'],
+  ['src/sim/mission.js', "recordBest('lunar-closest'", 'the crossing answer is a record'],
   ['src/components/Photograph.jsx', 'recordPhotograph()', 'a captured plate is counted'],
+  ['src/components/Photograph.jsx', 'plateSave(', 'a captured plate is shelved'],
   ['src/ui/MissionIntro.jsx', 'recordFilm(preset.id)', 'a kept film is counted'],
   ['src/ui/Hud.jsx', '<Logbook open={logbook}', 'the drawer is reachable from the HUD'],
   ['src/ui/Landing.jsx', 'logbookLine()', 'the front door greets the returning visitor'],
+  ['src/ui/Logbook.jsx', 'plateAll()', 'the gallery reads the shelf'],
 ]
 for (const [file, needle, why] of wiring) {
   const text = readFileSync(join(ROOT, file), 'utf8')
