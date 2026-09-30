@@ -5,6 +5,17 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Celestial exploration — 29 September 2026
+
+- Reusable Moon/planet sphere ladders spend geometry on visible curvature,
+  retaining full lunar terrain-edge precision and refining nearby planets.
+- Added three footprint-filtered lunar crater decades and fine synthetic
+  fractured/frosted relief for Europa, Ganymede, Callisto and Pluto.
+- Observatory cards report live physical scale/light-travel geometry and link
+  to neighbouring moons; measured imagery and synthetic detail are identified.
+- `verify-sphere-detail` asserts mesh selection, screen-space silhouette error,
+  monotonic refinement and >250× geometry savings for an unresolved lunar disc.
+
 ### Performance audit — 29 September 2026
 
 - Recording is opt-in, capped by area in portrait and landscape, sampled at

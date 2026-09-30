@@ -153,9 +153,14 @@ export function attachMoonDetail(material) {
         vec2 mk3 = craters(mP, 1600.0, 0.62, mFp);
         vec2 mk4 = craters(mP, 4000.0, 0.62, mFp);
         vec2 mk5 = craters(mP, 10000.0, 0.62, mFp);
-        float mRough = fbmAA(mP + 2.3, 900.0, int(uOct), mFp, 0.55);
-        float mH = mk1.x + mk2.x + mk3.x + mk4.x + mk5.x + mRough * 60.0;
-        diffuseColor.rgb *= 1.0 + (mk1.y + mk2.y + mk3.y + mk4.y + mk5.y) * 0.18 + mRough * 0.05;`,
+        // Extra crater decades are evaluated only once pixels resolve them.
+        // Statistical relief, not additional measured LRO topography.
+        vec2 mk6 = craters(mP, 25000.0, 0.64, mFp);
+        vec2 mk7 = craters(mP, 62500.0, 0.66, mFp);
+        vec2 mk8 = craters(mP, 156250.0, 0.68, mFp);
+        float mRough = fbmAA(mP + 2.3, 900.0, int(uOct) + 2, mFp, 0.55);
+        float mH = mk1.x + mk2.x + mk3.x + mk4.x + mk5.x + mk6.x + mk7.x + mk8.x + mRough * 60.0;
+        diffuseColor.rgb *= 1.0 + (mk1.y + mk2.y + mk3.y + mk4.y + mk5.y + mk6.y + mk7.y + mk8.y) * 0.18 + mRough * 0.05;`,
       )
       .replace(
         '#include <normal_fragment_maps>',

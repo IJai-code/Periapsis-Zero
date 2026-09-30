@@ -18,6 +18,7 @@
     "verify:deep-sky": "node scripts/verify-deep-sky.mjs",
     "verify:galaxy": "node scripts/verify-galaxy.mjs",
     "verify:intro": "node scripts/verify-intro.mjs",
+    "verify:sphere-detail": "node scripts/verify-sphere-detail.mjs",
     "verify:render-budget": "node scripts/verify-render-budget.mjs",
     "verify:search": "node scripts/verify-search.mjs",
     "verify:flora": "node scripts/verify-flora.mjs",

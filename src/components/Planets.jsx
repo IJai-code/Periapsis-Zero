@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { VIEW } from '../gfx/cosmicView.js'
+import { projectedRadius, sphereLevel, SPHERE_SEGMENTS } from '../gfx/sphereDetail.js'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { AdditiveBlending, DoubleSide, Vector3 } from 'three'
@@ -241,16 +242,16 @@ export function Planets() {
   }
 
   const bodies = useMemo(() => {
-    const seg = QUALITY.segments
-    const sphere = new THREE.SphereGeometry(1, seg, Math.round(seg / 2))
+    const spheres = SPHERE_SEGMENTS.slice(0, 4).map((seg) => new THREE.SphereGeometry(1, seg, seg / 2))
+    const sphere = spheres[0]
     const list = RAILS.map((p) => buildBody(p, sphere)).filter(Boolean)
-    for (const b of list) b.poleW = new Vector3(0, 1, 0)
-    return { sphere, list, byId: Object.fromEntries(list.map((b) => [b.id, b])) }
+    for (const b of list) { b.poleW = new Vector3(0, 1, 0); b.level = -1 }
+    return { sphere, spheres, list, byId: Object.fromEntries(list.map((b) => [b.id, b])) }
   }, [])
 
   useEffect(
     () => () => {
-      bodies.sphere.dispose()
+      bodies.spheres.forEach((g) => g.dispose())
       for (const b of bodies.list) {
         if (b.ownsGeometry) b.geometry.dispose()
         b.surface.dispose()
@@ -267,7 +268,7 @@ export function Planets() {
    * `g.children[2]`, which broke the day a ring or a tail changed the child
    * order — the beacon silently started scaling a planet's ring instead.
    */
-  useFrame(({ camera }) => {
+  useFrame(({ camera, gl }) => {
     let seen = daySky.limitMagnitude - BRIGHTEST_PLANET
     seen = seen > 0 ? (seen < 1 ? seen : 1) : 0
     /*
@@ -289,6 +290,15 @@ export function Planets() {
       const { g, orient, beacon, pick, tail } = entry
       g.position.copy(live.railPos[p.id])
       const d = camera.position.distanceTo(g.position)
+      if (!b.ownsGeometry && entry.surface) {
+        const pixels = projectedRadius(b.radius, d, gl.domElement.height, camera.fov)
+        const level = sphereLevel(pixels, b.level, bodies.spheres.length - 1)
+        if (level !== b.level) {
+          entry.surface.geometry = bodies.spheres[level]
+          if (entry.air) entry.air.geometry = bodies.spheres[level]
+          b.level = level
+        }
+      }
 
       // Orientation: the IAU pole and meridian, or locked to the parent.
       const look = b.look
@@ -366,7 +376,7 @@ export function Planets() {
     return (
       <group key={p.id} ref={reg(p.id, 'g')}>
         <group ref={reg(p.id, 'orient')}>
-          <mesh geometry={b.geometry} material={b.surface} scale={b.scale} onBeforeRender={before} />
+          <mesh ref={reg(p.id, 'surface')} geometry={b.geometry} material={b.surface} scale={b.scale} onBeforeRender={before} dispose={null} />
           {b.ring && (
             <mesh
               geometry={b.ring.geometry}
@@ -377,8 +387,10 @@ export function Planets() {
           )}
           {b.air && (
             <mesh
+              ref={reg(p.id, 'air')}
               geometry={bodies.sphere}
               material={b.air}
+              dispose={null}
               scale={[b.scale[0] * b.airScale, b.scale[1] * b.airScale, b.scale[2] * b.airScale]}
               renderOrder={2}
             />

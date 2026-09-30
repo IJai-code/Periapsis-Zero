@@ -238,6 +238,21 @@ Kennedy, after which the patch's far edge comes into view and the globe is drawn
 again. `verify-site-ground` sweeps every height and offset and checks the
 property directly rather than the arithmetic that implements it.
 
+## Observatory and close-world detail
+
+Focused worlds now carry a live **Observatory** card: diameter, camera range,
+angular disc, and light-travel times, with one-click parent/moon navigation.
+Geometry is current simulation time, not a retarded-light image. The card labels
+synthetic surface detail distinctly from NASA imagery and measured terrain.
+
+Moon and planet meshes share reusable screen-space LOD ladders: coarse for tiny
+discs, fine when curvature is visible. The Moon retains its full 512×256 mesh
+where local terrain meets it; resolved planets can refine to 256×128 rather than
+the old fixed 160×80. Surface shaders stay identical across the mesh ladder.
+Three extra footprint-filtered crater decades extend lunar relief below the
+maps, and Europa, Ganymede, Callisto and Pluto add fine ice/frost relief only
+when pixels resolve it. These layers are synthetic, not new topographic data.
+
 ## Rendering safety
 
 The scene starts at no more than 1× CSS resolution and 4 million pixels, then

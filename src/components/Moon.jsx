@@ -9,6 +9,7 @@ import { moonClock, moonTurn } from '../sim/moonFrame.js'
 import { lunarPhotometry } from '../gfx/lunarPhotometry.js'
 import { lunarGround } from '../gfx/moonTerrain.js'
 import { attachMoonDetail } from '../gfx/surfaceDetail.js'
+import { projectedRadius, sphereLevel, SPHERE_SEGMENTS } from '../gfx/sphereDetail.js'
 
 /** The rotation the group is turned by, written in place every frame. */
 const _turn = new THREE.Matrix4()
@@ -50,6 +51,10 @@ function cutForGround(material) {
 
 export function Moon({ textures }) {
   const group = useRef()
+  const mesh = useRef()
+  const level = useRef(-1)
+  const geometries = useMemo(() => SPHERE_SEGMENTS.map((seg) => new THREE.SphereGeometry(R, seg, seg / 2)), [])
+  useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries])
   const active = useActiveTextures(textures)
 
   /**
@@ -101,8 +106,12 @@ export function Moon({ textures }) {
     material.needsUpdate = true
   }, [active, material])
 
-  useFrame(() => {
+  useFrame(({ camera, gl }) => {
     group.current.position.copy(live.pos.moon)
+    const pixels = projectedRadius(R, camera.position.distanceTo(live.pos.moon), gl.domElement.height, camera.fov)
+    // While local terrain is cut into the globe, keep its original edge precision.
+    const next = lunarGround.hole.value > 0.5 ? 4 : sphereLevel(pixels, level.current)
+    if (mesh.current && next !== level.current) { mesh.current.geometry = geometries[next]; level.current = next }
     /*
      * Turned by the Moon's own frame (sim/moonFrame.js): uniform rotation, once
      * per sidereal month, facing the *mean* Earth. It used to be pointed at
@@ -124,10 +133,10 @@ export function Moon({ textures }) {
           NASA imagery and the generated maps — on its +x, and 90°E on its -z.
           A quarter-turn about the pole carries those onto the group's +z and
           +x, which are the prime meridian and 90°E. */}
-      <mesh material={material} rotation={[0, -Math.PI / 2, 0]}>
+      <mesh ref={mesh} geometry={geometries[0]} material={material} rotation={[0, -Math.PI / 2, 0]} dispose={null}>
         {/* 512 x 256: a facet's middle sits 32 m inside the true sphere, where
             128 x 80 left it 520 m in — the height the terrain's edge meets it at. */}
-        <sphereGeometry args={[R, 512, 256]} />
+
       </mesh>
     </group>
   )

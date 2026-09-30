@@ -212,6 +212,14 @@ function surfaceFrag(recipe, ringProfile, flags) {
     vec3 albedo;
     float h;
     surface(p, fp, albedo, h);
+    #ifdef ICE_DETAIL
+    // Fractured/frosted relief below the regional recipe, anti-aliased by
+    // footprint. This is synthetic ice texture, not mapped geology.
+    float frost = fbmAA(p + 19.7, 2400.0, int(uOct) + 2, fp, 0.55);
+    float cracks = crease(p + 7.1, 1800.0, 0.035, fp);
+    albedo *= 1.0 + frost * 0.08 - cracks * 0.08;
+    h += frost * 12.0 - cracks * 18.0;
+    #endif
     vec3 N = normalize(vNormalV);
     if (!gl_FrontFacing) N = -N;
     N = bump(vPosV, N, h);
@@ -283,6 +291,7 @@ export function makeSurfaceMaterial(look, { hasParent = false } = {}) {
     look.ring ? '#define HAS_RING' : '',
     hasParent ? '#define HAS_PARENT' : '',
     recipe === 'phobos' ? '#define PHOBOS' : '',
+    ['europa', 'ganymede', 'callisto', 'pluto'].includes(recipe) ? '#define ICE_DETAIL' : '',
   ].join('\n')
   const ringProfile = look.ring ? RING_PROFILES[look.ring.profile] : null
   return new THREE.ShaderMaterial({
