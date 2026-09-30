@@ -5,6 +5,17 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Mission chapters — 29 September 2026
+
+Six more cinematic starting points bring the archive to 15: Artemis launch,
+Apollo 8 parking orbit and captured lunar survey, Apollo 11 coelliptic initiation
+and final docking, and Apollo 8 main canopies. Each has an original five-beat
+dossier. `verify-presets` flies every actual vessel/site in a fresh process;
+all 15 reached their advertised phase in 0.1–0.9 s on this machine. The intro
+geometry gate now exercises 75 checks. Fixed mismatched polar-window specs and
+labelled the LC-39B reconstruction separately from Apollo 8's historical 39A.
+Library film controls now work by touch/keyboard as well as hover.
+
 ### Performance audit — 29 September 2026
 
 - Recording is opt-in, capped by area in portrait and landscape, sampled at

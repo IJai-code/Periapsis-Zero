@@ -211,6 +211,48 @@ export const PRESETS = [
     until: 'SM_SEP',
     warp: WARP.x1,
   },
+  {
+    id: 'artemis-launch', vessel: 'artemis', site: 'ksc',
+    title: 'Artemis · from the pad',
+    blurb: 'SLS and Orion, a simulated daylight launch from Kennedy.',
+    fromPad: true, launchHour: 5, focus: 'ground', warp: WARP.x1,
+    group: 'From the pad', handover: 'T-60 s, SLS on the ground',
+  },
+  {
+    id: 'apollo8-parking', vessel: 'apollo8', site: 'ksc',
+    title: 'Apollo 8 · the first orbit',
+    blurb: 'Circularisation complete; Earth beneath the ship before the lunar window.',
+    until: 'TLI_ALIGN', focus: 'ship', warp: WARP.x10,
+    group: 'In orbit', handover: 'Parking orbit, before TLI',
+  },
+  {
+    id: 'apollo8-moon-survey', vessel: 'apollo8', site: 'ksc',
+    title: 'Apollo 8 · above the far side',
+    blurb: 'Capture complete: a lunar revolution with Earth waiting beyond the limb.',
+    until: 'LUNAR_ORBIT', focus: 'moon', warp: WARP.m1,
+    group: 'To the Moon', handover: 'First captured lunar revolution',
+  },
+  {
+    id: 'apollo11-csi', vessel: 'apollo11', site: 'tranquility',
+    title: 'Apollo 11 · the rendezvous begins',
+    blurb: 'Eagle reaches the coelliptic sequence; Columbia is still an orbit away.',
+    launchHour: 305.29 - 60 / 3600, until: 'LM_CSI', focus: 'chase', warp: WARP.x1,
+    group: 'To the Moon', handover: 'Coelliptic sequence initiation',
+  },
+  {
+    id: 'apollo11-final-docking', vessel: 'apollo11', site: 'tranquility',
+    title: 'Apollo 11 · the last thirty metres',
+    blurb: 'Station-keeping ends; Eagle closes on Columbia’s docking port.',
+    launchHour: 305.29 - 60 / 3600, until: 'LM_DOCKING', focus: 'chase', warp: WARP.x1,
+    group: 'To the Moon', handover: 'Final approach, about 30 m out',
+  },
+  {
+    id: 'apollo8-canopies', vessel: 'apollo8', site: 'ksc',
+    title: 'Apollo 8 · under the canopies',
+    blurb: 'The fire is behind you: parachutes, the Pacific, and the last descent.',
+    until: 'MAIN_CHUTES', focus: 'chase', warp: WARP.x1,
+    group: 'Coming home', handover: 'Main parachute deployment',
+  },
 ]
 
 /**
@@ -309,6 +351,7 @@ export function startPreset(preset) {
   const arrived = preset.fromPad
     ? standOnPad(preset.launchHour ?? 0)
     : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
+  if (!arrived) throw new Error(`Mission ${preset.id} did not reach its advertised starting point`)
   updateDirector()
   started = {
     preset,

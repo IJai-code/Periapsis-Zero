@@ -17,6 +17,7 @@
     "verify:cosmos": "node scripts/verify-cosmos.mjs",
     "verify:deep-sky": "node scripts/verify-deep-sky.mjs",
     "verify:galaxy": "node scripts/verify-galaxy.mjs",
+    "verify:presets": "node scripts/verify-presets.mjs",
     "verify:intro": "node scripts/verify-intro.mjs",
     "verify:render-budget": "node scripts/verify-render-budget.mjs",
     "verify:search": "node scripts/verify-search.mjs",

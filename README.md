@@ -763,6 +763,17 @@ Recording adds work; it is not free because it runs outside physics. Hidden
 tabs stop rendering and do not produce unseen film frames. WebM duration and
 seeking remain browser-dependent; no audio track is recorded.
 
+### Additional mission chapters
+
+The archive now has 15 hand-over scenarios: six additions are Artemis daylight
+launch, Apollo 8 parking orbit, the first captured lunar revolution, Apollo 11
+coelliptic initiation, final docking approach, and Apollo 8 main-canopy descent.
+These are chapters of the existing physically sequenced vehicles, not claims of
+six new independent historical flight models. Each gets its own five-beat
+cinematic dossier and the same continuous scale journey. `verify-presets` flies
+all 15 in separate processes, checks their actual phase and exact intro endpoint,
+and rejects a start that never reaches its advertised moment.
+
 ### The shot a preset lands on
 
 A preset that names no `focus` used to keep the store's own default — `earth` —

@@ -34,7 +34,7 @@ import { makePose, restingPose } from './shotPoses.js'
 export const DOSSIERS = {
   'apollo8-launch': {
     beats: [
-      { s: 0.1, eyebrow: 'Kennedy Space Center', line: 'Launch Complex 39B · December 1968' },
+      { s: 0.1, eyebrow: 'Kennedy Space Center', line: 'Simulated LC-39B · Apollo 8 hardware' },
       { s: 0.38, eyebrow: 'Saturn V', line: '110 metres of vehicle, 2,970 tonnes at liftoff' },
       { s: 0.62, eyebrow: 'Three crew', line: 'Borman · Lovell · Anders' },
       { s: 0.86, eyebrow: 'Apollo 8', line: 'The first flight to leave the Earth' },
@@ -45,7 +45,7 @@ export const DOSSIERS = {
       ['Flight', 'First crewed Saturn V'],
       ['Vehicle', 'Saturn V SA-503'],
       ['Window', '21 December 1968'],
-      ['Pad', 'Kennedy LC-39B'],
+      ['Pad model', 'LC-39B · historical flight used 39A'],
     ],
   },
   'apollo11-liftoff': {
@@ -123,8 +123,8 @@ export const DOSSIERS = {
     arc: { swing: 1.1, tilt: 0.32 },
     specs: [
       ['Pad', 'Vandenberg SLC-6'],
-      ['Wait', '104.4 h to the window'],
-      ['Life', '204.8 h in orbit'],
+      ['Launch epoch', 'J2000 + 144 hours'],
+      ['Wait', '282.3 h to the window'],
       ['Raise', 'Two burns · 10.5 m/s'],
     ],
   },
@@ -177,6 +177,29 @@ export const DOSSIERS = {
     ],
   },
 }
+
+/** New archive chapters use the same continuous approach and exact hand-off. */
+const chapter = (id, arc, specs, pages) => {
+  DOSSIERS[id] = { arc, specs, beats: pages.map(([eyebrow, line], i) => ({ s: [0.1, 0.38, 0.62, 0.86, 0.94][i], eyebrow, line })) }
+}
+chapter('artemis-launch', { swing: 1.15, tilt: 0.38 },
+  [['Vehicle', 'SLS Block 1'], ['Payload', 'Orion'], ['Scenario', 'Daylight simulation'], ['Pad', 'Kennedy LC-39B']],
+  [['A new generation', 'SLS and Orion, standing beside the tower'], ['Two boosters', 'Solid motors beside a hydrogen core'], ['Beyond low orbit', 'A vehicle built for the Moon'], ['Simulated daylight', 'The hardware is modern; this sky is the model’s'], ['T-60 seconds', 'The last minute before release']])
+chapter('apollo8-parking', { swing: 1.0, tilt: 0.35 },
+  [['Moment', 'Circularisation complete'], ['World', 'Earth'], ['Next', 'Lunar window'], ['Pace', '10× at hand-over']],
+  [['The first orbit', 'Launch and staging are already behind the ship'], ['Falling around Earth', 'Orbital speed, not altitude, keeps it aloft'], ['The third stage waits', 'One restart separates Earth orbit from the Moon'], ['A moving destination', 'The window belongs to where the Moon will be'], ['On orbit', 'The flight computer keeps the real state']])
+chapter('apollo8-moon-survey', { swing: 0.9, tilt: 0.5 },
+  [['Moment', 'Capture complete'], ['World', 'Moon'], ['Surface', 'LRO + synthetic detail'], ['Dwell', 'One simulated revolution']],
+  [['Another world', 'The Moon is now the dominant attractor'], ['Capture complete', 'The service engine has traded speed for an orbit'], ['The far side', 'No horizon here leads straight back to Earth'], ['Lunar relief', 'Basins in the maps; smaller craters beneath them'], ['One revolution', 'Watch the orbit before the burn for home']])
+chapter('apollo11-csi', { swing: 0.8, tilt: 0.55 },
+  [['Burn', 'Coelliptic initiation'], ['Craft', 'Eagle'], ['Target', 'Columbia'], ['Reference', 'Apollo 11 ascent sequence']],
+  [['Above Tranquility', 'The descent stage stays where the crew left it'], ['Columbia', 'Collins waits in a higher lunar orbit'], ['Coelliptic initiation', 'The first deliberate reshape after insertion'], ['Relative motion', 'To catch a spacecraft, change the orbit first'], ['The rendezvous begins', 'Small burns, long arcs, one docking port']])
+chapter('apollo11-final-docking', { swing: 0.85, tilt: 0.5 },
+  [['Moment', 'Final approach'], ['Range', 'About 30 metres'], ['Craft', 'Eagle + Columbia'], ['Pace', 'Real time at hand-over']],
+  [['Two spacecraft', 'Two trajectories have become one rendezvous'], ['Station-keeping', 'The target no longer sweeps across the window'], ['Thirty metres', 'Distance measured between craft, not map markers'], ['The last approach', 'A fraction of a metre a second'], ['Contact ahead', 'Probe, drogue, and the way home']])
+chapter('apollo8-canopies', { swing: 1.0, tilt: 0.3 },
+  [['Moment', 'Main deployment'], ['World', 'Earth'], ['Sequence', 'After the drogues'], ['End', 'Ocean splashdown']],
+  [['Back in the air', 'The lunar voyage has become a descent'], ['The heat shield', 'Orbital energy has gone into the atmosphere'], ['Drogues first', 'Stabilised before the main canopies'], ['Under parachutes', 'The last kilometres belong to gravity and drag'], ['The Pacific', 'An ocean, not a runway']])
 
 /* ---------------------------------------------------------------- *
  * The flight: one continuous zoom, from a star to a frame
@@ -244,6 +267,9 @@ const V = new THREE.Vector3()
 const V2 = new THREE.Vector3()
 const UP = new THREE.Vector3(0, 1, 0)
 const F = new THREE.Vector3() // the destination: what the first shot looks at (absolute)
+const HOST = new THREE.Vector3()
+const HOST_RADIAL = new THREE.Vector3()
+let hostFloor = 0
 const FC = new THREE.Vector3() // the first shot's camera (absolute)
 const FU = new THREE.Vector3() // its up
 const KEY_U = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]
@@ -289,7 +315,14 @@ function distanceAt(s) {
 /** The camera, absolute, at path fraction s. */
 export function introCameraAt(out, s) {
   directionAt(_u, s)
-  return out.copy(F).addScaledVector(_u, distanceAt(s))
+  out.copy(F).addScaledVector(_u, distanceAt(s))
+  // The direction swings toward an eye-level endpoint. During that swing a
+  // chord can dip below the host even if every anchor is outside it. Enforce
+  // the radial envelope analytically, retaining the exact resting endpoint.
+  HOST_RADIAL.subVectors(out, HOST)
+  const radius = HOST_RADIAL.length()
+  if (radius < hostFloor && radius > 0) out.copy(HOST).addScaledVector(HOST_RADIAL, hostFloor / radius)
+  return out
 }
 
 /** The bodies a path must stay out of, absolute: [centre, clearance, isHost]. */
@@ -348,6 +381,9 @@ export function introStart(presetId, finalFocus = 'earth') {
   const toEarth = V.copy(live.abs.earth).distanceTo(F)
   const toMoon = V.copy(live.abs.moon).distanceTo(F)
   const host = toMoon < toEarth ? live.abs.moon : live.abs.earth
+  HOST.copy(host)
+  const bodyR = host === live.abs.moon ? BODIES.moon.radius : BODIES.earth.radius
+  hostFloor = bodyR + Math.max(0.1, Math.min(100, FC.distanceTo(host) - bodyR))
 
   // Key 3: the first shot's own direction.
   KEY_U[3].subVectors(FC, F).normalize()

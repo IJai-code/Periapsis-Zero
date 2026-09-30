@@ -56,6 +56,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // Enter/Space advances, Esc leaves. The film's controls, not a form's.
   useEffect(() => {
     const onKey = (e) => {
+      if (e.key !== 'Escape' && /^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(e.target?.tagName ?? '')) return
       if (e.key === 'Escape') {
         e.preventDefault()
         skip()
@@ -169,6 +170,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             >
               Begin the approach ▸
             </button>
+            <button onClick={skip} className="control mx-auto mt-3 block px-4 py-2 text-[11px] text-hud/55 hover:text-ember">Enter mission without camera flight</button>
             {filmSupported() && (
               <label className="mt-5 flex items-center justify-center gap-2 text-[11px] text-hud/60">
                 <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />

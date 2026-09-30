@@ -24,7 +24,7 @@ export function Presets() {
   return (
     <div className="panel w-48 rounded-sm p-3.5">
       <div className="rule mb-2.5 border-b border-white/10 pb-2">Missions</div>
-      <div className="space-y-0.5">
+      <div className="max-h-[45vh] space-y-0.5 overflow-y-auto">
         {PRESETS.map((preset) => {
           const on = preset.id === active
           return (

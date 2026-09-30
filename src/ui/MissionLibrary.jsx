@@ -97,7 +97,7 @@ function Motif({ tag }) {
 export function MissionLibrary({ open, onClose }) {
   const [tag, setTag] = useState('All')
   const gridRef = useRef(null)
-  const shown = tag === 'All' ? PRESETS : PRESETS.filter((p) => PLAN[p.id]?.tag === tag)
+  const shown = tag === 'All' ? PRESETS : PRESETS.filter((p) => (p.group ?? PLAN[p.id]?.tag) === tag)
 
   /**
    * The shelf: films the flights have left here.
@@ -219,7 +219,7 @@ export function MissionLibrary({ open, onClose }) {
             door's mission rows for why nothing here moves. */}
         <div ref={gridRef} className="mt-6 grid gap-px bg-hud/12 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((p, i) => {
-            const plan = PLAN[p.id] ?? { tag: 'In orbit', hand: 'As sequenced' }
+            const plan = p.group ? { tag: p.group, hand: p.handover } : PLAN[p.id] ?? { tag: 'In orbit', hand: 'As sequenced' }
             const craft = VESSELS[p.vessel]?.name ?? p.vessel
             const pad = ALL_SITES[p.site]?.name ?? p.site
             return (
@@ -246,6 +246,7 @@ export function MissionLibrary({ open, onClose }) {
                       muted
                       loop
                       playsInline
+                      controls
                       preload="none"
                       onPointerEnter={(e) => e.currentTarget.play().catch(() => {})}
                       onPointerLeave={(e) => e.currentTarget.pause()}
