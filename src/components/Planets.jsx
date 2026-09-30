@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { VIEW } from '../gfx/cosmicView.js'
 import { projectedRadius, sphereLevel, SPHERE_SEGMENTS } from '../gfx/sphereDetail.js'
+import { DETAIL_STEPS, cappedLevel, detailStep } from '../gfx/detailBudget.js'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { AdditiveBlending, DoubleSide, Vector3 } from 'three'
@@ -292,11 +293,20 @@ export function Planets() {
       const d = camera.position.distanceTo(g.position)
       if (!b.ownsGeometry && entry.surface) {
         const pixels = projectedRadius(b.radius, d, gl.domElement.height, camera.fov)
-        const level = sphereLevel(pixels, b.level, bodies.spheres.length - 1)
-        if (level !== b.level) {
+        /*
+         * The cap, read as a plain number. It changes only when the resolution
+         * governor spends or refunds it (see gfx/detailBudget.js) — a few
+         * times a minute at most — and when it does, the `cap !== b.cap`
+         * branch below forces every body through a re-selection that same
+         * frame, so a withdrawn rung is withdrawn everywhere at once.
+         */
+        const cap = DETAIL_STEPS[detailStep()]
+        const level = cappedLevel(pixels, cap !== b.cap ? -1 : b.level, cap)
+        if (level !== b.level || cap !== b.cap) {
           entry.surface.geometry = bodies.spheres[level]
           if (entry.air) entry.air.geometry = bodies.spheres[level]
           b.level = level
+          b.cap = cap
         }
       }
 

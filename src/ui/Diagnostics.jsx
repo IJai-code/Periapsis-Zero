@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEVICE, QUALITY } from '../sim/device.js'
+import { DETAIL_STEPS, MAX_DETAIL_STEP, detailStep, subscribeDetail } from '../gfx/detailBudget.js'
 
 /**
  * What this machine actually is, and what it is actually managing.
@@ -47,6 +48,15 @@ export function Diagnostics() {
   const [fps, setFps] = useState(null)
   const [tail, setTail] = useState(null)
   const frames = useRef([])
+  /*
+   * The detail budget's state belongs in this report. "It was laggy" is a
+   * symptom with a dozen causes; "the governor had already spent both relief
+   * rungs and the machine was still short" is a diagnosis, and it is the
+   * difference between telling someone to close a tab and finding a real
+   * regression.
+   */
+  const [detail, setDetail] = useState(detailStep())
+  useEffect(() => subscribeDetail(() => setDetail(detailStep())), [])
 
   useEffect(() => {
     let raf = 0
@@ -82,6 +92,7 @@ export function Diagnostics() {
     ['Drawing', fps == null ? 'measuring…' : `${fps} frames a second`],
     ['95th %', tail == null ? 'measuring…' : `${tail} ms per frame`],
     ['Buffer', (() => { const c = document.querySelector('canvas'); return c ? `${c.width} × ${c.height}` : 'unavailable' })()],
+    ['Detail', detail === 0 ? 'full tessellation' : `relief ${detail}/${MAX_DETAIL_STEP} · surfaces capped at ${DETAIL_STEPS[detail]} segments`],
   ]
 
   /*

@@ -5,6 +5,24 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The detail budget, and the first deploy of all of it — 30 September 2026
+
+The resolution governor's last unsolved case — a machine still missing frames
+at the pixel floor — has a lever now. `gfx/detailBudget.js` lets the governor
+spend tessellation: one step of distress caps every body's LOD ladder at 256
+segments, a second at 128, each sub-pixel silhouette error by the ladder's own
+target, the Moon's near field exempt, the spend refunded only once pixels are
+back at their ceiling and frames are comfortable. Diagnostics reports the
+spend so a lag report is a diagnosis. `verify-detail-budget` (26 checks) holds
+the policy and caught nothing after the gate's own first draft did — its
+hysteresis and binding-edge assertions were sharpened to what the cap actually
+guarantees. Separately: `verify-presets` now exits each child as soon as its
+claims are proven, because the halo preset's background capture search outlives
+a two-core runner's 30 s child timeout — the first CI run of that gate died on
+it, and a slow machine must change how long the suite takes, not whether it
+passes. All five development branches are merged to `main` and pushed; CI runs
+the full suite and publishes every push to periapsiszero.dev.
+
 ### The logbook and a sharper mark — 29 September 2026
 
 The sim gained a memory. `sim/logbook.js` records milestones from the mission

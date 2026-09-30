@@ -10,6 +10,7 @@ import { lunarPhotometry } from '../gfx/lunarPhotometry.js'
 import { lunarGround } from '../gfx/moonTerrain.js'
 import { attachMoonDetail } from '../gfx/surfaceDetail.js'
 import { projectedRadius, sphereLevel, SPHERE_SEGMENTS } from '../gfx/sphereDetail.js'
+import { cappedLevel, DETAIL_STEPS, detailStep } from '../gfx/detailBudget.js'
 
 /** The rotation the group is turned by, written in place every frame. */
 const _turn = new THREE.Matrix4()
@@ -111,7 +112,18 @@ export function Moon({ textures }) {
     // Terrain edges must never jump between globe radii as the mesh coarsens.
     // Elsewhere refine to at least the old mesh's positional accuracy once
     // nearby: curvature-only LOD would otherwise change landmark depth.
-    const next = camera.position.distanceTo(live.pos.moon) < R * 10 ? 4 : sphereLevel(pixels)
+    //
+    // The detail budget caps the far-field choice — see gfx/detailBudget.js —
+    // but never the *near* choice: a cap at 128 segments is a sub-pixel
+    // silhouette saving for a body filling the sky, and it would also drag
+    // the terrain map, which is chosen by level, down with it. The emergency
+    // spend is for the sky full of bodies, not the one in front of the pilot.
+    // Hysteresis still guards the far field; the current level is read back
+    // from the mesh the geometry ladder itself picks, so the ladder stays the
+    // single source of truth about what is drawn.
+    const near = camera.position.distanceTo(live.pos.moon) < R * 10
+    const current = mesh.current ? geometries.indexOf(mesh.current.geometry) : -1
+    const next = near ? 4 : cappedLevel(pixels, current, DETAIL_STEPS[detailStep()])
     if (mesh.current && mesh.current.geometry !== geometries[next]) mesh.current.geometry = geometries[next]
     /*
      * Turned by the Moon's own frame (sim/moonFrame.js): uniform rotation, once

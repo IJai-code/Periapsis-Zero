@@ -3,6 +3,12 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { QUALITY } from '../sim/device.js'
 import { setUi, useUi } from '../sim/store.js'
 import { boundedRatio } from '../gfx/renderBudget.js'
+import {
+  MAX_DETAIL_STEP,
+  detailStep as detailCap,
+  nextDetailStep,
+  setDetailStep,
+} from '../gfx/detailBudget.js'
 
 /**
  * As many pixels as the machine can actually draw.
@@ -101,10 +107,13 @@ export function Resolution() {
   const s = useRef({ n: 0, sum: 0, last: 0, settle: 0, window: FIRST_WINDOW, ceiling: Infinity, hold: 0, panic: 0 })
 
   // Pinned by hand: give the machine the whole range and stop judging it.
+  // The pilot has taken the dial, so any distress cap the governor had spent
+  // is refunded — it is the governor's lever, not a setting.
   useEffect(() => {
     if (!full) return
     s.current.ceiling = Infinity
     s.current.hold = 0
+    setDetailStep(0)
     setDpr(maxDpr)
   }, [full, maxDpr, setDpr])
 
@@ -145,9 +154,21 @@ export function Resolution() {
     // A machine in real trouble should not have to wait out a whole window of
     // two-frames-a-second to be rescued.
     if (dt > PANIC_MS) {
-      if (++c.panic >= 3 && dpr > min) {
-        down()
-        return
+      if (++c.panic >= 3) {
+        c.panic = 0
+        if (dpr > min) {
+          down()
+          return
+        }
+        // Already at the pixel floor: the last lever is tessellation, spent
+        // immediately rather than after another window of two frames a second.
+        if (detailCap() < MAX_DETAIL_STEP) {
+          setDetailStep(detailCap() + 1)
+          c.settle = 3
+          c.n = 0
+          c.sum = 0
+          return
+        }
       }
     } else {
       c.panic = 0
@@ -163,11 +184,47 @@ export function Resolution() {
     c.window = WINDOW
 
     if (mean > SLOW_MS) {
-      if (dpr > min) down()
+      if (dpr > min) {
+        down()
+      } else {
+        /*
+         * Pixels are spent. The last lever is tessellation — one rung a
+         * window, each decision followed by its measurement, and a rung is
+         * sub-pixel silhouette error by the ladder's own construction. The
+         * ceiling is recorded so the refund knows what it is refunding to.
+         */
+        const next = nextDetailStep(detailCap(), mean, {
+          atFloor: true,
+          atCeiling: false,
+          slowMs: SLOW_MS,
+          fastMs: FAST_MS,
+        })
+        if (next !== detailCap()) {
+          setDetailStep(next)
+          c.settle = 3
+          c.n = 0
+          c.sum = 0
+        }
+      }
     } else if (mean < FAST_MS) {
       if (dpr < Math.min(max, c.ceiling)) {
         c.settle = 3
         setDpr(Math.min(max, c.ceiling, dpr + STEP))
+      } else if (detailCap() > 0) {
+        /*
+         * Back at the pixel ceiling and comfortable: refund one rung. The
+         * refund is paid only out of comfort — a machine that stabilised at
+         * the floor keeps its cap until it genuinely has room, so the lever
+         * never oscillates against itself.
+         */
+        const next = nextDetailStep(detailCap(), mean, {
+          atFloor: false,
+          atCeiling: true,
+          slowMs: SLOW_MS,
+          fastMs: FAST_MS,
+        })
+        setDetailStep(next)
+        c.settle = 3
       } else if (c.hold > 0) {
         c.hold--
       } else if (c.ceiling < max) {

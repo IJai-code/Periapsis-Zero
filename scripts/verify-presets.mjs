@@ -11,6 +11,7 @@ if (!childId) {
       env: { ...process.env, PERIAPSIS_VESSEL: p.vessel, PERIAPSIS_SITE: p.site },
       encoding: 'utf8', timeout: 30000,
     })
+    assert.equal(run.signal, null, `${p.id}: killed by ${run.signal} — the child outlived the 30 s timeout`)
     assert.equal(run.status, 0, `${p.id}: ${run.stdout}\n${run.stderr}`)
     console.log(run.stdout.trim())
   }
@@ -50,4 +51,15 @@ if (!childId) {
   assert.ok(camera.position.clone().add(live.origin).distanceTo(target.cam) < 0.001)
   assert.ok(Math.abs(camera.fov - target.fov) < 0.01)
   console.log(`  ✓ ${p.id}: ${run.phase}, ${run.focus}, ${run.ms.toFixed(0)} ms; intro lands on actual hand-over`)
+  /*
+   * Out as soon as the claims above are proven. The halo preset arms its
+   * capture search in a worker, and that search runs tens of seconds on a
+   * two-core runner — the first CI execution of this gate died in its 30 s
+   * child timeout waiting on a result nothing here asserts. The capture
+   * itself has its own gates (verify-capture, verify-nrho-*); this one is
+   * about arrival, phase and intro geometry, and it is finished when they
+   * hold. A slow machine must change how long the suite takes, not whether
+   * it passes.
+   */
+  process.exit(0)
 }

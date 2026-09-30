@@ -190,6 +190,22 @@ that fewer than 2% of random letter strings match anything at all.
 
 ## What it costs to draw
 
+The resolution governor moves device pixels while a machine misses frames, and
+stops at a floor because below it the picture goes soft. A machine still short
+at the floor used to have nowhere left to go. It does now: `gfx/detailBudget.js`
+is the last lever, **tessellation**, and the governor spends it only at the
+pixel floor — one rung of distress caps every body's surface at 256 segments,
+a second at 128. Each rung is sub-pixel silhouette error by the LOD ladder's
+own construction, so the picture does not change in any way a person can see;
+what changes is vertex work a fragment-bound frame does not need. The Moon's
+near field is exempt (the emergency spend is for the sky full of bodies, not
+the one in front of the pilot), the cap refunds itself only once pixels are
+back at their ceiling and the frames are comfortable, and the Diagnostics row
+says what was spent, so a lag report carries a diagnosis. `verify-detail-budget`
+holds the policy: escalate only at the floor, relieve only at the ceiling, and
+the cap never costs more than the ladder's own sub-pixel error at the size
+where it takes over.
+
 The ground at a launch site is the most expensive thing here, and it was
 expensive in two ways that had nothing to do with how much detail is in it.
 
