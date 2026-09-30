@@ -129,6 +129,7 @@ const GATES = [
   ['verify-intro', false],
   ['verify-presets', false],
   ['verify-render-budget', false],
+  ['verify-sphere-detail', false],
   ['verify-search', false],
   ['verify-flora', false],
   ['verify-site-ground', false],

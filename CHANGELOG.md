@@ -5,6 +5,17 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Integrated validation — 29 September 2026
+
+The combined local `dev/integrated` version passes the production build and
+60/60 gates. Integration also invalidates cached sky targets after context
+restoration or buffer resize, skips unresolved ice creases before computing
+noise, and handles encoder stop exceptions. Hidden-tab suspension is owned by
+the Canvas prop so an App re-render cannot restart it. Actual preset tests
+caught an underground Kennedy approach; the path now enforces host clearance.
+Browser DOM confirmed the new docking curtain and direct mission hand-off;
+visual FPS/driver stability are still unmeasured because Preview was hidden.
+
 ### Mission chapters — 29 September 2026
 
 Six more cinematic starting points bring the archive to 15: Artemis launch,
@@ -15,6 +26,17 @@ all 15 reached their advertised phase in 0.1–0.9 s on this machine. The intro
 geometry gate now exercises 75 checks. Fixed mismatched polar-window specs and
 labelled the LC-39B reconstruction separately from Apollo 8's historical 39A.
 Library film controls now work by touch/keyboard as well as hover.
+
+### Celestial exploration — 29 September 2026
+
+- Reusable Moon/planet sphere ladders spend geometry on visible curvature,
+  retaining full lunar terrain-edge precision and refining nearby planets.
+- Added three footprint-filtered lunar crater decades and fine synthetic
+  fractured/frosted relief for Europa, Ganymede, Callisto and Pluto.
+- Observatory cards report live physical scale/light-travel geometry and link
+  to neighbouring moons; measured imagery and synthetic detail are identified.
+- `verify-sphere-detail` asserts mesh selection, screen-space silhouette error,
+  monotonic refinement and >250× geometry savings for an unresolved lunar disc.
 
 ### Performance audit — 29 September 2026
 

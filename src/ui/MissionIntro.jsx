@@ -230,6 +230,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
           </div>
         </div>
       )}
+      {stage !== 'curtain' && filmStatus && <div role="status" className="absolute top-4 left-6 text-[11px] text-ember">{filmStatus}</div>}
     </div>
   )
 }

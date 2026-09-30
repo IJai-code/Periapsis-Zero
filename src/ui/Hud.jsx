@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Observatory } from './Observatory.jsx'
 import { takePhotograph } from '../components/Photograph.jsx'
 import { requestedFocus, viewHref, viewName } from '../sim/shareView.js'
 import { TRANSIT } from '../gfx/transit.js'
@@ -342,6 +343,7 @@ export function Hud() {
         the sim rather than on a tile; dimmed to furniture, and it fades the
         moment the map wants the room.
       */}
+      <Observatory />
       {!map && <Mark size={20} className="absolute right-4 bottom-4 opacity-50" />}
 
       {/*

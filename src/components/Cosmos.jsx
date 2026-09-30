@@ -440,7 +440,8 @@ function buildCosmos(gl) {
     const movingScale = Math.min(QUALITY.volumeScale, Math.sqrt(400_000 / (_size.x * _size.y)))
     const w = Math.max(4, Math.floor(_size.x * movingScale))
     const h = Math.max(4, Math.floor(_size.y * movingScale))
-    if (volRT.width !== w || volRT.height !== h) volRT.setSize(w, h)
+    let resized = false
+    if (volRT.width !== w || volRT.height !== h) { volRT.setSize(w, h); resized = true }
     // Full resolution, capped near 2.4 megapixels — a retina panel's every
     // pixel is not worth a quarter of a second of marching.
     const cap = Math.min(1, Math.sqrt(2.4e6 / (_size.x * _size.y)))
@@ -507,7 +508,7 @@ function buildCosmos(gl) {
       const k = vol.key
       const m = camera.matrixWorld.elements
       const pr = camera.projectionMatrix.elements
-      let changed = false
+      let changed = resized
       for (let i = 0; i < 16; i++) {
         if (i < 12 && Math.abs(m[i] - k[i]) > 1e-9) changed = true
         if (Math.abs(pr[i] - k[16 + i]) > 1e-9 * (1 + Math.abs(pr[i]))) changed = true
@@ -611,6 +612,19 @@ function buildCosmos(gl) {
     sky,
     quad,
     bh,
+    invalidate() {
+      // Context restoration recreates blank render targets; cached sky/volume
+      // completion flags must not make those blank targets permanent.
+      cube.at.set(1e9, 0, 0)
+      cube.lastLo.set(1e9, 0, 0)
+      cube.next = 0
+      cube.done = false
+      cube.mix = 0
+      vol.key.fill(Infinity)
+      vol.next = 0
+      vol.done = false
+      vol.mix = 0
+    },
     dispose() {
       hi.dispose()
       lo.dispose()
@@ -638,7 +652,14 @@ function buildCosmos(gl) {
 export function Cosmos() {
   const gl = useThree((s) => s.gl)
   const cosmos = useMemo(() => buildCosmos(gl), [gl])
-  useEffect(() => () => cosmos.dispose(), [cosmos])
+  useEffect(() => {
+    const restored = () => cosmos.invalidate()
+    gl.domElement.addEventListener('webglcontextrestored', restored)
+    return () => {
+      gl.domElement.removeEventListener('webglcontextrestored', restored)
+      cosmos.dispose()
+    }
+  }, [cosmos, gl])
   return (
     <>
       <primitive object={cosmos.sky} />

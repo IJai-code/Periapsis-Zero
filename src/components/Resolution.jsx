@@ -79,19 +79,18 @@ export function Resolution() {
     }
   }, [gl])
   const setDpr = useThree((s) => s.setDpr)
-  const setFrameloop = useThree((s) => s.setFrameloop)
 
   useEffect(() => {
     const visibility = () => {
       s.current.last = 0
       s.current.n = 0
       s.current.sum = 0
-      setFrameloop(document.hidden ? 'never' : 'always')
+
     }
     document.addEventListener('visibilitychange', visibility)
     visibility()
     return () => document.removeEventListener('visibilitychange', visibility)
-  }, [setFrameloop])
+  }, [])
   const dpr = useThree((s) => s.viewport.dpr)
   const size = useThree((s) => s.size)
   const maxDpr = boundedRatio(size.width, size.height, Math.min(window.devicePixelRatio || 1, QUALITY.dpr[1]))

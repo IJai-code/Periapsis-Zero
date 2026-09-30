@@ -37,7 +37,11 @@ No audio restoration or physics simplification is part of this work.
 
 ## Verification and limitations
 
-`npm run build` and all 58 gates passed after the performance changes. There
+`npm run build` and all 58 gates passed after the performance changes. The
+combined celestial-detail/mission version passes 60/60 gates, including 15 real
+preset starts and 75 intro geometry checks. The actual-state gate caught a
+Kennedy intro dipping inside Earth; a radial envelope now keeps the approach
+outside its host while preserving the exact resting endpoint. There
 is no configured TypeScript/lint check in this JS/JSX project. The new recorder
 gate uses API doubles to assert pacing, bounds, stop, fallback, start failure,
 encoder failure and size-limit cleanup. It does **not** prove a real browser
@@ -47,7 +51,9 @@ and origin invariance, not perceptual film quality or real GPU cost.
 The owned preview server runs on loopback port 5173. The shared Preview reported
 `document.visibilityState === 'hidden'`, no animation frames, a 300×150
 uninitialized Canvas, and screenshot capture returned an empty image. No rAF
-shim was used to manufacture FPS evidence. Consequently no before/after GPU
+shim was used to manufacture FPS evidence. DOM checks did confirm the final-
+docking curtain, unchecked recording control, and direct hand-off into the
+broadcast UI without console errors. Consequently no before/after GPU
 FPS, heap-growth soak or all-device crash reproduction is claimed. The reported
 computer crashes are not diagnosed as an OS/driver fault from source review.
 

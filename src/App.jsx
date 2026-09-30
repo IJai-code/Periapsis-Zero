@@ -31,6 +31,12 @@ const isFlight = () => window.location.hash === FLIGHT
 
 export default function App() {
   const assets = useAssets()
+  const [visible, setVisible] = useState(() => !document.hidden)
+  useEffect(() => {
+    const update = () => setVisible(!document.hidden)
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
   /**
    * Nothing is built until the visitor has said what it runs on — see
    * sim/device.js. The textures still synthesise behind the question, so
@@ -150,6 +156,7 @@ export default function App() {
   return (
     <div className="fixed inset-0 bg-black">
       <Canvas
+        frameloop={visible ? 'always' : 'never'}
         /**
          * Uncapped device pixel ratio on the front door, where the frame is a
          * still-ish planet and the budget is spare, and capped at 2 in flight

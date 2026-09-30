@@ -25,6 +25,7 @@ const canvases = []
 let draws = 0
 let recorder
 let failStart = false
+let failStop = false
 let fallback = false
 const context = new Proxy({}, { get: (_, key) => key === 'drawImage' ? () => draws++ : () => {} })
 globalThis.document = {
@@ -46,7 +47,7 @@ globalThis.MediaRecorder = class {
   static isTypeSupported(type) { return type.includes('vp8') }
   constructor(stream) { this.stream = stream; this.state = 'inactive'; recorder = this }
   start(timeslice) { assert.equal(timeslice, 1000); if (failStart) throw Error('encoder unavailable'); this.state = 'recording' }
-  stop() { this.state = 'inactive'; this.ondataavailable({ data: new Blob(['frame']) }); this.onstop() }
+  stop() { if (failStop) throw Error('stop unavailable'); this.state = 'inactive'; this.ondataavailable({ data: new Blob(['frame']) }); this.onstop() }
 }
 const { INTRO } = await import('../src/gfx/introFlights.js')
 const { startFilm, captureFilmFrame, stopFilm, filmRunning } = await import('../src/gfx/filmRecorder.js')
@@ -93,6 +94,13 @@ check('encoder errors release resources', () => {
 startFilm({ width: 1920, height: 1080 }, preset)
 recorder.ondataavailable({ data: { size: 30 * 1024 * 1024 } })
 check('oversized recordings are stopped and released', () => {
+  assert.equal(filmRunning(), false)
+  assert.ok(tracks.every((t) => t.stopped))
+})
+startFilm({ width: 1920, height: 1080 }, preset)
+failStop = true
+assert.equal(await stopFilm(), null)
+check('stop exceptions still release capture resources', () => {
   assert.equal(filmRunning(), false)
   assert.ok(tracks.every((t) => t.stopped))
 })

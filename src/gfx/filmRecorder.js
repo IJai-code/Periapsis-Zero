@@ -139,7 +139,7 @@ export function startFilm(glCanvas, preset) {
   }
   const chunks = []
   const r = { recorder, stream, canvas, ctx, chunks, gl: glCanvas, preset, requestFrame,
-    last: -Infinity, bytes: 0, failed: false, finish: null }
+    last: -Infinity, bytes: 0, failed: false, finish: null, cleaned: false }
   recorder.ondataavailable = (e) => {
     if (!e.data?.size || r.failed) return
     r.bytes += e.data.size
@@ -148,6 +148,8 @@ export function startFilm(glCanvas, preset) {
   }
   recorder.onerror = () => { r.failed = true; stopFilm() }
   recorder.onstop = () => {
+    if (r.cleaned) return
+    r.cleaned = true
     if (rec === r) rec = null
     stream.getTracks().forEach((t) => t.stop())
     canvas.remove()
@@ -191,8 +193,10 @@ export function stopFilm() {
   rec = null
   return new Promise((resolve) => {
     r.finish = resolve
-    if (r.recorder.state !== 'inactive') r.recorder.stop()
-    else r.recorder.onstop()
+    try {
+      if (r.recorder.state !== 'inactive') r.recorder.stop()
+      else r.recorder.onstop()
+    } catch { r.failed = true; r.recorder.onstop() }
   })
 }
 

@@ -23,6 +23,7 @@ const OPTIONS = [
   { key: 'fullRes', label: 'Full resolution' },
   { key: 'broadcast', label: 'Broadcast feed' },
   { key: 'geophysics', label: 'Terra interior' },
+  { key: 'observatory', label: 'Observatory card' },
 ]
 
 function Switch({ on }) {

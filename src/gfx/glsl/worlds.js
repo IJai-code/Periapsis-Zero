@@ -85,10 +85,12 @@ vec2 craters(vec3 p, float freq, float density, float fp) {
 
 /** A crease: thin where the noise crosses zero, drawn wider but fainter once it is under a pixel. */
 float crease(vec3 q, float freq, float width, float fp) {
+  float fade = octaveFade(freq * 0.25, fp);
+  if (fade <= 0.0) return 0.0;
   float n = abs(snoise(q * freq));
   float px = fp * freq * 2.5;
   float w = max(width, px);
-  return (1.0 - smoothstep(0.0, w, n)) * (width / w) * octaveFade(freq * 0.25, fp);
+  return (1.0 - smoothstep(0.0, w, n)) * (width / w) * fade;
 }
 
 vec3 dirDeg(float latDeg, float lonDeg) {

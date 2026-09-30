@@ -104,6 +104,7 @@ export const uiStore = createStore({
   panelOpen: WIDE_ENOUGH_FOR_PANELS,
   /** The planet's interior, and the two rates it puts on the craft's orbit. */
   geophysics: true,
+  observatory: true,
   assist: true, // RCS stability hold
   lagrange: true,
   /**
