@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { INTRO, introEnd, introStart, DOSSIERS } from '../gfx/introFlights.js'
 import { filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
+import { recordFilm } from '../sim/logbook.js'
 
 /**
  * The mission intro, watched rather than read.
@@ -99,6 +100,9 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     stopFilm().then((blob) => {
       if (!blob) return
       filmSave(preset.id, blob)
+      // The film is on the shelf, so the logbook keeps the fact. One line,
+      // here at the only call site a film is saved from.
+      recordFilm(preset.id)
     })
     const t = setTimeout(() => onBegin?.(), 1250)
     return () => clearTimeout(t)

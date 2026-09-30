@@ -4,6 +4,7 @@ import { captureFilmFrame } from '../gfx/filmRecorder.js'
 import { boundedRatio, PHOTO_PIXELS } from '../gfx/renderBudget.js'
 import { setUi, useUi } from '../sim/store.js'
 import { captionPhotograph } from '../gfx/photoCaption.js'
+import { recordPhotograph } from '../sim/logbook.js'
 
 /**
  * A plate of what is on screen, at the size a plate should be.
@@ -79,7 +80,12 @@ export function Photograph() {
     if (h.dpr != null) setDpr(h.dpr)
     h.dpr = null
     setUi({ photo: null })
-    if (url) captionPhotograph(url)
+    if (url) {
+      captionPhotograph(url)
+      // A plate taken is a plate kept — the logbook counts it once, at the
+      // only moment a photograph actually happens.
+      recordPhotograph()
+    }
   }), [stage, gl, setDpr])
 
   useFrame(() => {

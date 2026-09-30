@@ -136,6 +136,7 @@ const GATES = [
   ['verify-assets', false],
   ['verify-plate', false],
   ['verify-share', false],
+  ['verify-logbook', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

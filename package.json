@@ -27,6 +27,7 @@
     "verify:assets": "node scripts/verify-assets.mjs",
     "verify:plate": "node scripts/verify-plate.mjs",
     "verify:share": "node scripts/verify-share.mjs",
+    "verify:logbook": "node scripts/verify-logbook.mjs",
     "hulls:measure": "node scripts/measure-hulls.mjs",
     "moon:measure": "node scripts/measure-moon.mjs",
     "models:extract": "node scripts/extract-archives.mjs",

@@ -55,6 +55,7 @@ import {
   targetCsi,
 } from './lunarMission.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
+import { recordMilestone, recordPad } from './logbook.js'
 import { EARTH_FIELD, fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
@@ -3850,7 +3851,18 @@ function setPhase(next, resuming = false) {
   if (next !== mission.index) PHASES[mission.index].exit?.()
   mission.index = next
   mission.phaseT = 0
-  if (!resuming) PHASES[next].enter?.()
+  if (!resuming) {
+    PHASES[next].enter?.()
+    /*
+     * The logbook watches here, and only here. A phase *entry* is the event a
+     * flight log records — liftoff is the frame the hold releases, lunar orbit
+     * the frame the capture burn ends — and `setPhase` is the one place every
+     * entry passes through, so a milestone can never be recorded twice or
+     * missed by a route `done()` did not foresee. One Map lookup per phase
+     * change, which is a few times an hour; nothing here runs per frame.
+     */
+    recordMilestone(PHASES[next].id, mission.t)
+  }
 }
 
 export const currentPhase = () => PHASES[mission.index]
@@ -4128,6 +4140,9 @@ export function resetMission() {
    * and stored without the `| 0`, the field itself becomes a double one.
    */
   mission.bodyOffset = (INDEX[mission.site.body ?? 'earth'] * 6) | 0
+  // The logbook keeps the pads a browser has flown from. First flight only:
+  // the record is of places reached, not of visits counted.
+  recordPad(activeSite().id)
   mission.index = SHIP.lunar ? INDEX_OF.LUNAR_PRE_LAUNCH : 0
   mission.resumeIndex = 0
   // The lunar count is always the watched minute; see beginCountdown.

@@ -99,11 +99,18 @@ const EMBER_HEX = hex(EMBER)
  * disagree — every coordinate the mark has is computed once here.
  *
  * The composition is arithmetic, not taste: the orbit is an ellipse with the
- * planet at its focus, offset by 0.115 S, semi-axes 0.375 S and 0.235 S — so
- * its lower vertex lands at cy + 0.12 S against a planet of radius 0.13 S.
- * Closest approach touches the limb: the periapsis marker sits on the planet's
- * edge because that is where periapsis *is*. A contact achieved by the numbers
- * holds at 16 px and at 512 without either being tuned for the other.
+ * planet at its focus, offset by 0.115 S, semi-axes 0.375 S and 0.26 S — so
+ * its lower vertex lands at cy + 0.145 S against a planet of radius 0.155 S,
+ * and the periapsis marker sits one hundredth of the frame inside the limb.
+ * Closest approach touches the planet's edge because that is where periapsis
+ * *is*. A contact achieved by the numbers holds at 16 px and at 512 without
+ * either being tuned for the other.
+ *
+ * The planet is sized for the *smallest* surface first: at the 0.13 S it wore
+ * for its first year, the tab icon drew a four-pixel world and the mark read
+ * as a smudge with a line through it. 0.155 S is a five-pixel world at 16 —
+ * still a minority of the frame, still orbit-dominated, but a body rather
+ * than a blemish — and it scales up unchanged.
  */
 function geom(width, height) {
   const S = Math.min(width, height)
@@ -113,23 +120,39 @@ function geom(width, height) {
     S,
     cx,
     cy,
-    pr: 0.13 * S,
+    pr: 0.155 * S,
     // The orbit: the planet sits at the focus, so the ellipse is lifted away
-    // from periapsis by c = 0.115 S.
+    // from periapsis by c = 0.115 S. Its lower vertex (ey + eb) lands exactly
+    // on periY below — keep the three numbers agreeing if any of them move.
     ex: 0.5 * S,
     ey: 0.5 * S - 0.115 * S,
     ea: 0.375 * S,
-    eb: 0.235 * S,
+    eb: 0.26 * S,
     periX: cx,
-    periY: cy + 0.12 * S,
-    periR: 0.03 * S,
-    strokeNear: Math.max(1, 0.028 * S),
+    periY: cy + 0.145 * S,
+    periR: 0.034 * S,
+    strokeNear: Math.max(1.25, 0.028 * S),
     strokeFar: Math.max(1, 0.02 * S),
     tick: 0.085 * S,
     tipY: cy + 0.205 * S,
-    tickStroke: Math.max(1, 0.032 * S),
+    // The same floor the near stroke carries: an annotation that vanishes at
+    // the size it is most needed at is decoration, not an annotation.
+    tickStroke: Math.max(1.25, 0.032 * S),
   }
 }
+
+/**
+ * Below this size, the stars do not exist.
+ *
+ * The star table is radii at the 512 reference; at 64 px the largest star is
+ * a third of a pixel, and the renderer's coverage rule turns that into six
+ * faint single-pixel smudges scattered over the ground — noise, and at 16 px
+ * noise is most of what the icon has room to say. A sub-half-pixel mark is
+ * not a small star, it is dirt on the lens; the field stays empty unless the
+ * frame is large enough for a star to actually be a dot. The React mark in
+ * `ui/Mark.jsx` applies the same rule to the same geometry.
+ */
+const STARS_MIN = 128
 
 /**
  * The stars: six, in the corners the ellipse leaves empty. Fractions of the
@@ -235,9 +258,11 @@ function drawMark(width, height) {
   // ground, not a hole punched in the page.
   glow(cx - 0.06 * S, cy - 0.06 * S, 0.38 * S, HUD, 0.085)
 
-  for (const [fx, fy, fr, fa] of STARS) {
-    glow(fx * S, fy * S, (fr * S) / 512, HUD, fa * 0.5)
-    dot(fx * S, fy * S, (fr * S) / 512, HUD, fa)
+  if (S >= STARS_MIN) {
+    for (const [fx, fy, fr, fa] of STARS) {
+      glow(fx * S, fy * S, (fr * S) / 512, HUD, fa * 0.5)
+      dot(fx * S, fy * S, (fr * S) / 512, HUD, fa)
+    }
   }
 
   /** The ellipse, sampled. from..to are radians; y grows downward. */
@@ -346,10 +371,13 @@ function svgMark(size) {
   const tint = hex(mix(HUD, [255, 255, 255], 0.22))
   const mid = hex(mix(HUD, OBSIDIAN, 0.35))
   const night = hex(mix(HUD, OBSIDIAN, 0.86))
-  const stars = STARS.map(
-    ([fx, fy, fr, fa]) =>
-      `  <circle cx="${f(fx * size)}" cy="${f(fy * size)}" r="${f((fr * size) / 512)}" fill="${HUD_HEX}" opacity="${f(fa)}"/>`,
-  ).join('\n')
+  const stars =
+    size >= STARS_MIN
+      ? STARS.map(
+          ([fx, fy, fr, fa]) =>
+            `  <circle cx="${f(fx * size)}" cy="${f(fy * size)}" r="${f((fr * size) / 512)}" fill="${HUD_HEX}" opacity="${f(fa)}"/>`,
+        ).join('\n')
+      : ''
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Periapsis Zero">`,
     '  <defs>',

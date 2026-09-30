@@ -5,6 +5,28 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The logbook and a sharper mark — 29 September 2026
+
+The sim gained a memory. `sim/logbook.js` records milestones from the mission
+sequencer's own phase transition — 19 moments from liftoff to docking, each
+once per browser — plus plates taken, films kept and pads flown from, in
+`localStorage` with every write user-visible and nothing on the frame path. The
+HUD's progress strip shows the count and the moment the current flight is about
+to give you next (derived from `PHASE_IDS` order, so an Eagle flight is never
+offered "liftoff"); earned moments announce themselves once; the logbook drawer
+holds the full record; the front door greets returning visitors with one line
+computed from what was actually done. `verify-logbook` (31 checks) pins the
+semantics, the process-level persistence, the phase-order invariant across all
+three flight tracks, the four call sites, and the 16 px icon's legibility —
+that gate caught a reader that hid undated milestones and a "next" ordering
+that mis-advertised past the Apollo 8 return, both fixed. The tab icon is
+redrawn within the same mission-patch concept: planet up 0.13→0.155 S so the
+world is five pixels at 16 rather than four, the periapsis marker seated on the
+limb with the orbit vertex, stroke floors of 1.25 px on the near arc and chevron,
+and the six stars suppressed below 128 px where their sub-pixel radii were
+smudge — verified by decoding the PNGs, not by looking away. mark.svg keeps its
+field; brand.js and the boot splash follow the same geometry.
+
 ### Integrated validation — 29 September 2026
 
 The combined local `dev/integrated` version passes the production build and

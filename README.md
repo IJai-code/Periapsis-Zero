@@ -271,6 +271,31 @@ Photography is capped at 8,294,400 pixels. A lost GPU context is reported with
 a recovery/reload screen. These bounds reduce risk; they cannot guarantee 60 fps
 or prevent an OS/driver crash on every device. See [the audit](docs/performance-audit.md).
 
+## The flight logbook
+
+The product used to keep nothing: a flight was watched, a plate was downloaded,
+a film was recorded, and the browser forgot all of it. The logbook is the
+remembering. Milestones — liftoff, TLI, lunar orbit, the burn for home,
+splashdown, Eagle's docking — are recorded from the mission sequencer's own
+transition point, so a moment is kept exactly once, when it actually happens;
+plates, films and pads are kept from their single call sites. It lives in
+`localStorage` (`sim/logbook.js`), it is not view state, and every write is
+user-visible: nothing runs per frame.
+
+Two surfaces. `LogProgress` rides under the flight strip: what you have done,
+and the moment this flight is about to give you next — worked out from the
+sequencer's phase order, not the list's, because a lunar flight that is offered
+"liftoff" has been misread. A milestone earned announces itself there once and
+then goes quiet. `Logbook` (control bar) is the drawer: the whole record, each
+item in flight order with the mission clock it was reached at, and the plates,
+films and pads beside it. The front door greets a returning visitor with the
+one-line version — computed from what was actually done, so a first visit is
+never told "welcome back".
+
+`verify-logbook` pins the semantics (recorded once, storage-locked still works,
+the record survives the process), the structural claim that the milestone
+tracks run in the machine's own order, and the wiring of all four call sites.
+
 ## Photographs
 
 `P`, or *photograph* under the control bar. The panels step out of the way, the

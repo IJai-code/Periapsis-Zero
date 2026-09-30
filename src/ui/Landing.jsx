@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PRESETS } from '../sim/presets.js'
+import { hasFlown, logbookLine } from '../sim/logbook.js'
 import { Mark } from './Mark.jsx'
 
 /**
@@ -120,6 +121,14 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
   }, [])
 
   const pct = Math.round((progress ?? 0) * 100)
+
+  /*
+   * Read once, at mount: the logbook is a record of a past, not a view, and
+   * the front door is mounted before a flight can change it.
+   */
+  const [welcome] = useState(() =>
+    hasFlown() ? `Your logbook: ${logbookLine()}` : null,
+  )
 
   return (
     <div
@@ -271,6 +280,18 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
                 The flights
               </div>
+              {/*
+                The returning-visitor line. The logbook answers "have you been
+                here before" from what was actually done — milestones reached,
+                plates taken, films kept — rather than from a visit counter, so
+                it never says "welcome back" to someone who only ever read the
+                page. Nothing here yet, and the line is simply not printed.
+              */}
+              {welcome && (
+                <div className="mt-3 font-mono text-[10px] tracking-wider text-ember/75">
+                  {welcome}
+                </div>
+              )}
               <div className="mt-3 border-t border-hud/12">
                 <button
                   onClick={onLibrary}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Observatory } from './Observatory.jsx'
 import { takePhotograph } from '../components/Photograph.jsx'
 import { requestedFocus, viewHref, viewName } from '../sim/shareView.js'
@@ -18,6 +18,7 @@ import { CaptureStatus } from './CaptureStatus.jsx'
 import { BurnPanel } from './BurnPanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
 import { FlightStrip } from './FlightStrip.jsx'
+import { LogProgress, Logbook } from './Logbook.jsx'
 import { Commentary } from './Commentary.jsx'
 import { Mark } from './Mark.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
@@ -124,6 +125,18 @@ export function Hud() {
   const map = useUi((s) => s.map)
   const broadcast = useUi((s) => s.broadcast)
   const narrow = useNarrow()
+  // The logbook drawer: opened from the control bar, Esc or its own Close.
+  const [logbook, setLogbook] = useState(false)
+  /*
+   * Mirrored for the key handler, which is registered once on purpose — the
+   * comment below explains why — so it cannot read this state directly. With
+   * the drawer up, the flight's own keys do nothing: a shortcut that fires
+   * behind a modal is a control that works invisibly.
+   */
+  const logbookRef = useRef(false)
+  useEffect(() => {
+    logbookRef.current = logbook
+  }, [logbook])
 
   /*
    * A link someone was sent. Applied here rather than in the store's defaults
@@ -161,6 +174,7 @@ export function Hud() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.target instanceof HTMLInputElement) return
+      if (logbookRef.current) return
       if (FOCUS_KEYS[e.key]) return setUi({ focus: FOCUS_KEYS[e.key] })
       if (e.code === 'Space') {
         e.preventDefault()
@@ -256,6 +270,10 @@ export function Hud() {
         */}
         <div className="pointer-events-auto">
           <FlightStrip />
+        </div>
+        {/* What you have done here, and what this flight is about to give you. */}
+        <div className="pointer-events-auto">
+          <LogProgress />
         </div>
         {/*
           On a narrow screen the search rides the left column, under the strip,
@@ -384,8 +402,17 @@ export function Hud() {
           >
             {shared ? `copied${viewName(focus) ? ` · ${viewName(focus)}` : ''}` : 'link · l'}
           </button>
+          <span className="h-4 w-px bg-hud/15" aria-hidden />
+          <button
+            onClick={() => setLogbook(true)}
+            title="Your flight logbook — milestones reached, plates taken, films kept"
+            className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
+          >
+            logbook
+          </button>
         </div>
       </div>
+      <Logbook open={logbook} onClose={() => setLogbook(false)} />
     </div>
     </>
   )
