@@ -44,11 +44,25 @@ export function solveHaloCaptureInWorker(sim, member, options = {}, onProgress =
   const onCell = onProgress ? (done, total) => onProgress(done / total) : null
 
   if (typeof Worker === 'undefined') {
-    try {
-      return Promise.resolve(solveHaloCapture(snapshot, member ?? nrhoGatewayMember(), { ...options, onCell }))
-    } catch (error) {
-      return Promise.reject(error)
-    }
+    /*
+     * Solve out of line, not in the caller's synchronous continuation. The
+     * first draft resolved *with the search run inside the promise executor*,
+     * which blocks the calling thread for the whole search — tens of seconds
+     * on a two-core runner, where it exceeded the presets gate's child
+     * timeout. The executor runs synchronously; only the settling was ever
+     * deferred. A macrotask hands the thread back first, so the caller's own
+     * continuation — the gate's assertions, a page's first frame — runs
+     * before the search begins, exactly as it would behind a real worker.
+     */
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          resolve(solveHaloCapture(snapshot, member ?? nrhoGatewayMember(), { ...options, onCell }))
+        } catch (error) {
+          reject(error)
+        }
+      }, 0)
+    })
   }
   const sent = {}
   for (const key of SENDABLE) if (options[key] !== undefined) sent[key] = options[key]
