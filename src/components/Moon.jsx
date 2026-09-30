@@ -92,6 +92,8 @@ export function Moon({ textures }) {
     return lit
   }, [textures, eclipse])
 
+  useEffect(() => () => material.dispose(), [material])
+
   // Swapping maps leaves the material — and therefore the blood-moon uniforms
   // wired into it by attachBloodMoon — completely intact.
   useEffect(() => {

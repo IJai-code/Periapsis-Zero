@@ -20,8 +20,8 @@ import { DEVICE, QUALITY } from '../sim/device.js'
 /** The renderer's own name for the hardware, read once. */
 function gpuName() {
   try {
-    const c = document.createElement('canvas')
-    const gl = c.getContext('webgl2') ?? c.getContext('webgl')
+    const c = document.querySelector('canvas')
+    const gl = c?.getContext('webgl2') ?? c?.getContext('webgl')
     if (!gl) return 'no WebGL'
     const ext = gl.getExtension('WEBGL_debug_renderer_info')
     const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null
@@ -45,13 +45,14 @@ const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|microsoft basic/i
 export function Diagnostics() {
   const [gpu] = useState(gpuName)
   const [fps, setFps] = useState(null)
+  const [tail, setTail] = useState(null)
   const frames = useRef([])
 
   useEffect(() => {
     let raf = 0
     let last = 0
     const tick = (t) => {
-      if (last) {
+      if (last && !document.hidden) {
         const f = frames.current
         f.push(t - last)
         if (f.length > 180) f.shift()
@@ -62,7 +63,10 @@ export function Diagnostics() {
     raf = requestAnimationFrame(tick)
     const id = setInterval(() => {
       const f = frames.current.filter((x) => x < 2000).sort((a, b) => a - b)
-      if (f.length > 20) setFps(Math.round(1000 / f[f.length >> 1]))
+      if (f.length > 20) {
+        setFps(Math.round(1000 / f[f.length >> 1]))
+        setTail(f[Math.floor((f.length - 1) * 0.95)].toFixed(1))
+      }
     }, 1000)
     return () => {
       cancelAnimationFrame(raf)
@@ -76,6 +80,8 @@ export function Diagnostics() {
     ['Graphics', gpu],
     ['Screen', `${window.screen?.width ?? '?'} x ${window.screen?.height ?? '?'} at ${dpr}x`],
     ['Drawing', fps == null ? 'measuring…' : `${fps} frames a second`],
+    ['95th %', tail == null ? 'measuring…' : `${tail} ms per frame`],
+    ['Buffer', (() => { const c = document.querySelector('canvas'); return c ? `${c.width} × ${c.height}` : 'unavailable' })()],
   ]
 
   /*

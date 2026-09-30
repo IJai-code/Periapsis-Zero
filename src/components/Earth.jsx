@@ -79,6 +79,8 @@ export function Earth({ textures }) {
 
   const atmosphere = useMemo(() => makeVolumetricAtmosphere(), [])
 
+  useEffect(() => () => { surface.dispose(); cloudMat.dispose(); atmosphere.dispose() }, [surface, cloudMat, atmosphere])
+
   // Dev-only handle, so scattering can be tuned live rather than by reload.
   // In an effect rather than the render body: writing to window during render
   // is a side effect, however harmless it looks.

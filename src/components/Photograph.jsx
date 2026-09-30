@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { addAfterEffect, useFrame, useThree } from '@react-three/fiber'
+import { captureFilmFrame } from '../gfx/filmRecorder.js'
+import { boundedRatio, PHOTO_PIXELS } from '../gfx/renderBudget.js'
 import { setUi, useUi } from '../sim/store.js'
 import { captionPhotograph } from '../gfx/photoCaption.js'
 
@@ -46,7 +48,7 @@ function captureRatio(gl, width, height) {
   const byDriver = (gl.capabilities.maxTextureSize * 0.5) / longEdge
   // Never below what is already on screen: a photograph may not be worse than
   // the view it was taken of.
-  return Math.max(gl.getPixelRatio(), Math.min(wanted, byDriver, 8))
+  return boundedRatio(width, height, Math.max(gl.getPixelRatio(), Math.min(wanted, byDriver, 8)), PHOTO_PIXELS, gl.capabilities.maxTextureSize * 0.5)
 }
 
 export function Photograph() {
@@ -64,6 +66,22 @@ export function Photograph() {
     setDpr(captureRatio(gl, size.width, size.height))
   }, [stage, gl, size.width, size.height, setDpr])
 
+  // After-effects do not take render-loop ownership. A positive useFrame
+  // priority would stop R3F's default render when bloom is switched off.
+  useEffect(() => addAfterEffect(() => {
+    captureFilmFrame()
+    const h = held.current
+    if (stage !== 'capture') return
+    let url = null
+    try { url = gl.domElement.toDataURL('image/png') } catch (err) {
+      console.error('[periapsis] the photograph could not be read back', err)
+    }
+    if (h.dpr != null) setDpr(h.dpr)
+    h.dpr = null
+    setUi({ photo: null })
+    if (url) captionPhotograph(url)
+  }), [stage, gl, setDpr])
+
   useFrame(() => {
     const h = held.current
     if (stage === 'arming') {
@@ -71,20 +89,7 @@ export function Photograph() {
       setUi({ photo: 'capture' })
       return
     }
-    if (stage !== 'capture') return
-
-    // Same task as the render, or there is nothing left in the buffer to read.
-    let url = null
-    try {
-      url = gl.domElement.toDataURL('image/png')
-    } catch (err) {
-      console.error('[periapsis] the photograph could not be read back', err)
-    }
-    if (h.dpr != null) setDpr(h.dpr)
-    h.dpr = null
-    setUi({ photo: null })
-    if (url) captionPhotograph(url)
-  }, 2)
+  })
 
   return null
 }

@@ -41,7 +41,7 @@ const CUBE_MOVE = 0.001
 /** Low-resolution cube marched every frame while the camera is travelling. */
 const CUBE_LO = 128
 /** Tiles per cube-face side for the full-resolution march: one `skyTile`-texel tile a frame (see sim/device.js). */
-const TILES = Math.ceil(QUALITY.skyCube / (QUALITY.skyTile ?? 128))
+// Computed when built, after the user selects a tier (not at module load).
 
 const _v = new THREE.Vector3()
 const _s = new THREE.Vector3()
@@ -201,6 +201,7 @@ function buildCosmos(gl) {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
   }
+  const TILES = Math.ceil(QUALITY.skyCube / (QUALITY.skyTile ?? 64))
   const hi = new THREE.WebGLCubeRenderTarget(QUALITY.skyCube, cubeOpts)
   const lo = new THREE.WebGLCubeRenderTarget(CUBE_LO, cubeOpts)
   const camHi = new THREE.CubeCamera(1, 1e30, hi)
@@ -436,8 +437,9 @@ function buildCosmos(gl) {
     /* Everything marched this frame, or not at all if nothing has moved. */
     const dpr = renderer.getPixelRatio()
     renderer.getDrawingBufferSize(_size)
-    const w = Math.max(4, Math.floor(_size.x * QUALITY.volumeScale))
-    const h = Math.max(4, Math.floor(_size.y * QUALITY.volumeScale))
+    const movingScale = Math.min(QUALITY.volumeScale, Math.sqrt(400_000 / (_size.x * _size.y)))
+    const w = Math.max(4, Math.floor(_size.x * movingScale))
+    const h = Math.max(4, Math.floor(_size.y * movingScale))
     if (volRT.width !== w || volRT.height !== h) volRT.setSize(w, h)
     // Full resolution, capped near 2.4 megapixels — a retina panel's every
     // pixel is not worth a quarter of a second of marching.
@@ -450,6 +452,9 @@ function buildCosmos(gl) {
       vol.next = 0
       vol.mix = 0
     }
+    // Same final detail, smaller slices: never queue a 300k-pixel raymarch
+    // just because an 8K panel happens to be attached.
+    vol.strips = Math.max(8, Math.ceil((W * H) / 65536))
     const pxAngle = ((camera.fov * Math.PI) / 180 / (_size.y / dpr)) * 1.0
 
     let near = Infinity

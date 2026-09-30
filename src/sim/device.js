@@ -78,7 +78,7 @@ export const TIERS = {
     volumeSteps: 40,
     skyCube: 768,
     skySteps: 144,
-    skyTile: 96,
+    skyTile: 48,
   },
   desktop: {
     dpr: [1, 2],
@@ -96,7 +96,7 @@ export const TIERS = {
     volumeSteps: 56,
     skyCube: 1024,
     skySteps: 176,
-    skyTile: 128,
+    skyTile: 64,
   },
 }
 

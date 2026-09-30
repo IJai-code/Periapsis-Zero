@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { QUALITY } from '../sim/device.js'
-import { useUi } from '../sim/store.js'
+import { setUi, useUi } from '../sim/store.js'
+import { boundedRatio } from '../gfx/renderBudget.js'
 
 /**
  * As many pixels as the machine can actually draw.
@@ -66,8 +67,34 @@ const HOLD = 5
 const HOLD_MAX = 40
 
 export function Resolution() {
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    const lost = (e) => { e.preventDefault(); setUi({ graphicsLost: true }) }
+    const restored = () => setUi({ graphicsLost: false })
+    gl.domElement.addEventListener('webglcontextlost', lost)
+    gl.domElement.addEventListener('webglcontextrestored', restored)
+    return () => {
+      gl.domElement.removeEventListener('webglcontextlost', lost)
+      gl.domElement.removeEventListener('webglcontextrestored', restored)
+    }
+  }, [gl])
   const setDpr = useThree((s) => s.setDpr)
+  const setFrameloop = useThree((s) => s.setFrameloop)
+
+  useEffect(() => {
+    const visibility = () => {
+      s.current.last = 0
+      s.current.n = 0
+      s.current.sum = 0
+      setFrameloop(document.hidden ? 'never' : 'always')
+    }
+    document.addEventListener('visibilitychange', visibility)
+    visibility()
+    return () => document.removeEventListener('visibilitychange', visibility)
+  }, [setFrameloop])
   const dpr = useThree((s) => s.viewport.dpr)
+  const size = useThree((s) => s.size)
+  const maxDpr = boundedRatio(size.width, size.height, Math.min(window.devicePixelRatio || 1, QUALITY.dpr[1]))
   const full = useUi((s) => s.fullRes)
   // A photograph raises the ratio on purpose; judging the machine on those
   // frames would read a deliberate expense as a machine in trouble.
@@ -79,15 +106,19 @@ export function Resolution() {
     if (!full) return
     s.current.ceiling = Infinity
     s.current.hold = 0
-    setDpr(QUALITY.dpr[1])
-  }, [full, setDpr])
+    setDpr(maxDpr)
+  }, [full, maxDpr, setDpr])
+
+  useEffect(() => {
+    if (!photo && dpr > maxDpr) setDpr(maxDpr)
+  }, [dpr, maxDpr, photo, setDpr])
 
   useFrame(() => {
     const c = s.current
     const now = performance.now()
     const dt = c.last ? now - c.last : 0
     c.last = now
-    if (full || photo) {
+    if (document.hidden || full || photo) {
       c.last = 0
       return
     }
@@ -97,10 +128,11 @@ export function Resolution() {
       c.settle--
       return
     }
-    if (dt <= 0 || dt > STALL_MS) return
+    if (dt <= 0) return
 
-    const [tierMin, max] = QUALITY.dpr
-    const min = Math.min(tierMin, FLOOR)
+    const tierMin = QUALITY.dpr[0]
+    const max = maxDpr
+    const min = Math.min(tierMin, FLOOR, max)
     const down = () => {
       c.ceiling = Math.max(min, dpr - STEP)
       c.hold = Math.min(HOLD_MAX, Math.max(HOLD, c.hold * 2))
@@ -122,7 +154,8 @@ export function Resolution() {
       c.panic = 0
     }
 
-    c.sum += dt
+    // Long frames still trigger panic above; cap only their statistical weight.
+    c.sum += Math.min(dt, STALL_MS)
     c.n++
     if (c.n < c.window) return
     const mean = c.sum / c.n

@@ -165,6 +165,9 @@ const FRAG = /* glsl */ `
   }
 
   void main() {
+    // Outside the closed shell both faces cover each pixel. The integral
+    // already spans the complete column: do not march/add it a second time.
+    if (!gl_FrontFacing && length(uCamToPlanet) > ${ATMOSPHERE_RADIUS.toFixed(12)}) discard;
     // Direction only, so this is scale-invariant and can be taken in scene units.
     vec3 rd = normalize(vWorldPos - cameraPosition);
     vec3 ro = uCamToPlanet;
@@ -281,6 +284,7 @@ export function makeVolumetricAtmosphere({ viewSamples = VIEW_SAMPLES, lightSamp
     // occlude the planet it wraps. DoubleSide so a fragment still exists once
     // the camera descends inside the atmosphere.
     side: THREE.DoubleSide,
+    forceSinglePass: true,
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,

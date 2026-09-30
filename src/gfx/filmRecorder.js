@@ -9,13 +9,11 @@
  * records *that* — the titles are DOM in the product and pixels in the film,
  * because a film's subtitles belong to the film.
  *
- * Two details carry it. The frame is drawn from a `requestAnimationFrame` of
- * its own, outside the simulator's frame loop — recording is a spectator and
- * costs the physics nothing — and it reads the WebGL canvas with `drawImage`
- * after the loop has rendered, which is the one place the drawing buffer is
- * guaranteed to still hold the frame without `preserveDrawingBuffer`. And the
- * output is whatever the browser records best: VP9 if it will, VP8 if it must,
- * MP4 on the engines that only do that.
+ * Capture is explicitly requested, pixel-bounded and paced at 24 fps. R3F's
+ * after-effect calls `captureFilmFrame` in the same task as the completed render,
+ * before the browser can discard its non-preserved drawing buffer. Encoding
+ * has a real cost; no recorder runs for viewers who only want the intro.
+ * Background tabs pause with the renderer rather than promising unseen frames.
  *
  * Finished films go to IndexedDB (`filmSave` / `filmLoad` / `filmAll`) so the
  * mission library can show them on their cards after the flight is over — the
@@ -23,6 +21,7 @@
  */
 
 import { DOSSIERS, INTRO } from './introFlights.js'
+import { FILM_FPS, FILM_MAX_BYTES, filmSize } from './renderBudget.js'
 
 /** The browser's best-supported flavour, or null where there is none. */
 const MIME =
@@ -30,8 +29,8 @@ const MIME =
     ? null
     : (
         [
-          'video/webm;codecs=vp9',
           'video/webm;codecs=vp8',
+          'video/webm;codecs=vp9',
           'video/webm',
           'video/mp4;codecs=avc1',
           'video/mp4',
@@ -107,9 +106,7 @@ let rec = null
  */
 export function startFilm(glCanvas, preset) {
   if (!MIME || rec || !glCanvas || !preset) return false
-  const scale = Math.min(1, 1280 / (glCanvas.width || 1280))
-  const w = Math.max(2, Math.round((glCanvas.width || 1280) * scale)) & ~1
-  const h = Math.max(2, Math.round((glCanvas.height || 720) * scale)) & ~1
+  const { width: w, height: h } = filmSize(glCanvas.width || 1280, glCanvas.height || 720)
 
   const canvas = document.createElement('canvas')
   canvas.width = w
@@ -118,66 +115,73 @@ export function startFilm(glCanvas, preset) {
   document.body.appendChild(canvas)
   const ctx = canvas.getContext('2d')
 
+  if (!ctx) { canvas.remove(); return false }
   let recorder
+  let stream
   let requestFrame = null
   try {
-    /*
-     * Frame pacing belongs to the film, not to the compositor: the stream is
-     * opened at zero frames a second and every composited tick calls
-     * `requestFrame` itself. A `captureStream(30)` is paced by the browser's
-     * frame production, which throttles a backgrounded tab into a stuttering
-     * film of a flight that is still flying — and the recorder is exactly the
-     * kind of thing people start and then switch away from.
-     */
-    let stream = canvas.captureStream(0)
+    stream = canvas.captureStream(0)
     const track = stream.getVideoTracks()[0]
     if (track && typeof track.requestFrame === 'function') {
       requestFrame = () => track.requestFrame()
     } else {
-      stream = canvas.captureStream(30)
+      stream.getTracks().forEach((t) => t.stop())
+      stream = canvas.captureStream(FILM_FPS)
     }
     recorder = new MediaRecorder(stream, {
       mimeType: MIME,
       videoBitsPerSecond: 3_500_000,
     })
   } catch {
+    stream?.getTracks().forEach((t) => t.stop())
     canvas.remove()
     return false
   }
   const chunks = []
+  const r = { recorder, stream, canvas, ctx, chunks, gl: glCanvas, preset, requestFrame,
+    last: -Infinity, bytes: 0, failed: false, finish: null }
   recorder.ondataavailable = (e) => {
-    if (e.data && e.data.size) chunks.push(e.data)
+    if (!e.data?.size || r.failed) return
+    r.bytes += e.data.size
+    if (r.bytes > FILM_MAX_BYTES) { r.failed = true; stopFilm(); return }
+    chunks.push(e.data)
   }
-  recorder.start()
-
-  const t0 = performance.now()
-  const tick = () => {
-    const r = rec
-    if (!r) return
-    const t = (performance.now() - r.t0) / 1000
-    ctx.fillStyle = '#000'
-    ctx.fillRect(0, 0, w, h)
-    if (t < TITLE) {
-      drawTitle(ctx, w, h, r.preset)
-    } else {
-      if (r.gl.width) ctx.drawImage(r.gl, 0, 0, w, h)
-      drawFilm(ctx, w, h, r.preset)
-    }
-    if (r.requestFrame) r.requestFrame()
-    r.raf = requestAnimationFrame(tick)
+  recorder.onerror = () => { r.failed = true; stopFilm() }
+  recorder.onstop = () => {
+    if (rec === r) rec = null
+    stream.getTracks().forEach((t) => t.stop())
+    canvas.remove()
+    const blob = !r.failed && chunks.length ? new Blob(chunks, { type: MIME }) : null
+    chunks.length = 0
+    r.finish?.(blob)
   }
-
-  rec = {
-    recorder,
-    canvas,
-    chunks,
-    gl: glCanvas,
-    t0,
-    preset,
-    requestFrame,
-    raf: requestAnimationFrame(tick),
+  rec = r
+  try { recorder.start(1000) } catch {
+    r.failed = true
+    recorder.onstop()
+    return false
   }
   return true
+}
+
+/** Called after the scene/composer render, not in a second rAF chain. */
+export function captureFilmFrame(now = performance.now()) {
+  const r = rec
+  if (!r || document.hidden || now - r.last < 1000 / FILM_FPS) return
+  r.last = now
+  const { ctx, canvas, preset } = r
+  const w = canvas.width
+  const h = canvas.height
+  try {
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, w, h)
+    if (INTRO.t < TITLE) drawTitle(ctx, w, h, preset)
+    else {
+      if (r.gl.width) ctx.drawImage(r.gl, 0, 0, w, h)
+      drawFilm(ctx, w, h, preset)
+    }
+    r.requestFrame?.()
+  } catch { r.failed = true; stopFilm() }
 }
 
 /** Stop the film and hand it over — a Blob, or null if there is nothing in it. */
@@ -185,15 +189,10 @@ export function stopFilm() {
   const r = rec
   if (!r) return Promise.resolve(null)
   rec = null
-  cancelAnimationFrame(r.raf)
   return new Promise((resolve) => {
-    r.recorder.onstop = () => {
-      r.canvas.remove()
-      const blob = r.chunks.length ? new Blob(r.chunks, { type: MIME }) : null
-      resolve(blob)
-    }
+    r.finish = resolve
     if (r.recorder.state !== 'inactive') r.recorder.stop()
-    else r.recorder.onstop?.()
+    else r.recorder.onstop()
   })
 }
 
@@ -218,14 +217,10 @@ function withStore(mode, fn) {
     open.onsuccess = () => {
       const tx = open.result.transaction(STORE, mode)
       const req = fn(tx.objectStore(STORE))
-      req.onsuccess = () => {
-        resolve(req.result)
-        open.result.close()
-      }
-      req.onerror = () => {
-        reject(req.error)
-        open.result.close()
-      }
+      let result
+      req.onsuccess = () => { result = req.result }
+      tx.oncomplete = () => { open.result.close(); resolve(result) }
+      tx.onabort = tx.onerror = () => { open.result.close(); reject(tx.error ?? req.error) }
     }
   })
 }

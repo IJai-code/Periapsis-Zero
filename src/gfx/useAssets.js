@@ -41,6 +41,7 @@ export function useAssets() {
     // double-mount the second effect must be free to start a fresh one. Guarding
     // instead leaves the first worker killed and no replacement running.
     let cancelled = false
+    const owned = []
 
     setUi({ hdStatus: 'loading', hdLoaded: 0, hdTotal: 0 })
     const imagery = loadHdTextures(
@@ -88,6 +89,7 @@ export function useAssets() {
       const textures = {}
       for (const [slot, buf] of Object.entries(msg.result)) {
         textures[slot] = toDataTexture(buf, slot)
+        owned.push(textures[slot])
       }
       worker.terminate()
 
@@ -115,6 +117,7 @@ export function useAssets() {
     return () => {
       cancelled = true
       worker.terminate()
+      owned.forEach((texture) => texture.dispose())
     }
   }, [])
 

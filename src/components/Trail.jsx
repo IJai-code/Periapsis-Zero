@@ -87,7 +87,7 @@ export function Trail({
     }
     geometry.attributes.instanceColorStart.data.needsUpdate = true
 
-    return { line: l, buffer: new Float32Array(points * 3), cursor: { head: 0, last: -Infinity } }
+    return { line: l, buffer: new Float32Array(points * 3), cursor: { head: 0, last: -Infinity, seeded: false } }
   }, [points, width, head, tail])
 
   // Braces matter: the concise-body form returns the Vector2 from .set(), which
@@ -118,9 +118,11 @@ export function Trail({
     }
     cursor.head = points - 1
     cursor.last = live.sim.t
+    cursor.seeded = true
   }, [body, reference, interval, points, buffer, cursor])
 
-  useEffect(seed, [seed])
+  // Hidden presentation trails need no backwards integration at startup.
+  useEffect(() => { cursor.seeded = false }, [seed, cursor])
 
   const rel = useMemo(() => new THREE.Vector3(), [])
 
@@ -141,7 +143,7 @@ export function Trail({
     // wide: the stored history no longer connects to the present, so rebuild it
     // rather than drawing a chord across the gap. A merely large forward step is
     // normal at high time warp and just samples more coarsely.
-    if (elapsed < -interval || elapsed > interval * points) {
+    if (!cursor.seeded || elapsed < -interval || elapsed > interval * points) {
       seed()
     } else if (elapsed >= interval) {
       cursor.head = (cursor.head + 1) % points
@@ -150,6 +152,8 @@ export function Trail({
       buffer[cursor.head * 3 + 1] = rel.y
       buffer[cursor.head * 3 + 2] = rel.z
       cursor.last = live.sim.t
+    } else {
+      return // No new sample: keep the GPU buffer, even when its parent moves.
     }
 
     // Unroll the ring buffer into chronological order, straight into the

@@ -127,6 +127,7 @@ const GATES = [
   ['verify-deep-sky', false],
   ['verify-galaxy', false],
   ['verify-intro', false],
+  ['verify-render-budget', false],
   ['verify-search', false],
   ['verify-flora', false],
   ['verify-site-ground', false],

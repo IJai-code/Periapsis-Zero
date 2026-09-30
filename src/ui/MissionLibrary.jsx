@@ -125,6 +125,7 @@ export function MissionLibrary({ open, onClose }) {
     return () => {
       alive = false
       for (const u of urls) URL.revokeObjectURL(u)
+      setFilms({})
     }
   }, [open])
 
@@ -222,10 +223,8 @@ export function MissionLibrary({ open, onClose }) {
             const craft = VESSELS[p.vessel]?.name ?? p.vessel
             const pad = ALL_SITES[p.site]?.name ?? p.site
             return (
-              <a
+              <article
                 key={p.id}
-                data-card
-                href={presetHref(p)}
                 className="group relative flex flex-col bg-[#0a0b0d] p-5 outline-none transition-colors duration-500 hover:bg-hud/[0.045] focus-visible:bg-hud/[0.055]"
               >
                 <span
@@ -247,7 +246,9 @@ export function MissionLibrary({ open, onClose }) {
                       muted
                       loop
                       playsInline
-                      autoPlay
+                      preload="none"
+                      onPointerEnter={(e) => e.currentTarget.play().catch(() => {})}
+                      onPointerLeave={(e) => e.currentTarget.pause()}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -288,21 +289,20 @@ export function MissionLibrary({ open, onClose }) {
                     Your film ↓
                   </button>
                 )}
-                <span className="mt-4 flex items-center gap-2 font-mono text-[10px] tracking-[0.22em] text-hud/40 uppercase transition-colors duration-500 group-hover:text-ember">
+                <a data-card href={presetHref(p)} className="control mt-4 flex items-center gap-2 font-mono text-[10px] tracking-[0.22em] text-hud/60 uppercase transition-colors duration-500 hover:text-ember focus-visible:text-ember">
                   Fly this flight
                   <span aria-hidden className="text-hud/30 transition-colors duration-500 group-hover:text-ember">
                     →
                   </span>
-                </span>
-              </a>
+                </a>
+              </article>
             )
           })}
         </div>
 
         <footer className="mt-8 border-t border-hud/12 pt-4 font-mono text-[10px] leading-relaxed tracking-wider text-hud/35">
           Arrow keys walk the drawer · Esc closes · Each flight is flown from the pad
-          to the moment it names, in well under a second · A flight watched is kept
-          here as a film.
+          to the moment it names · Recorded approaches stay here as films · Hover a film to preview it.
         </footer>
       </div>
     </div>,

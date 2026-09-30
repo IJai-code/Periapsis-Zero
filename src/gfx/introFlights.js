@@ -416,7 +416,7 @@ export function introStart(presetId, finalFocus = 'earth') {
  */
 export function introStep(camera, delta) {
   if (!INTRO.active) return -2
-  INTRO.t += delta
+  INTRO.t += Math.max(0, Math.min(delta, 0.1))
   const raw = Math.min(1, INTRO.t / INTRO.duration)
   // Out of stillness, steady through the middle, settling onto the first frame.
   const s = raw * raw * (3 - 2 * raw)

@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
+import { boundedRatio } from './gfx/renderBudget.js'
 import { ACESFilmicToneMapping } from 'three'
 import { Scene } from './components/Scene.jsx'
 import { Resolution } from './components/Resolution.jsx'
@@ -37,6 +38,7 @@ export default function App() {
    * ratio the answer sets, waits for it.
    */
   const device = useUi((s) => s.device)
+  const graphicsLost = useUi((s) => s.graphicsLost)
   const choose = useCallback((id) => {
     chooseDevice(id)
     setUi({ device: id, panelOpen: window.innerWidth >= 1024 && id !== 'phone' })
@@ -171,7 +173,7 @@ export default function App() {
          * sorts inside the canvas and the HUD sits on top of all of it.
          */
         style={{ isolation: 'isolate' }}
-        dpr={flight ? QUALITY.dpr : [1, Math.min(3, QUALITY.dpr[1] + 0.5)]}
+        dpr={boundedRatio(window.innerWidth, window.innerHeight, 1)}
         /**
          * One scene unit is one metre, so the camera has to span from a
          * spacecraft hull to an astronomical unit — fourteen decades. The
@@ -241,6 +243,15 @@ export default function App() {
         />
       )}
       <MissionLibrary open={library} onClose={() => setLibrary(false)} />
+      {graphicsLost && (
+        <div role="alertdialog" aria-label="Graphics interrupted" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-8">
+          <div className="max-w-md text-hud">
+            <h2 className="font-display text-3xl">Graphics interrupted</h2>
+            <p className="mt-3 text-sm text-hud/65">The browser lost its GPU context. The view will resume if it recovers. You can also reload with a smaller drawing buffer; no mission or detail is removed.</p>
+            <button className="control mt-6 border border-ember px-4 py-2 text-ember" onClick={() => window.location.reload()}>Reload safely</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

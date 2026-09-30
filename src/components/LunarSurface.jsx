@@ -323,6 +323,7 @@ function LunarGround({ site, textures }) {
   }, [site])
 
   const regolith = useMemo(() => regolithTexture(), [])
+  useEffect(() => () => regolith.dispose(), [regolith])
   const materials = useMemo(
     () => (terrain ? terrain.levels.map((l) => groundMaterial(l, moonMap, regolith)) : null),
     [terrain, moonMap, regolith],
@@ -462,6 +463,7 @@ function Flag({ heightAt }) {
     geom.translate(FLAG_W / 2, -FLAG_H / 2, 0)
     return geom
   }, [])
+  useEffect(() => () => { texture.dispose(); cloth.dispose() }, [texture, cloth])
   const pivot = useRef()
   const fall = useRef({ angle: 0, rate: 0, seen: 0 })
   const ground = heightAt(FLAG_AT[0], FLAG_AT[2])

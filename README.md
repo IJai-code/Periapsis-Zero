@@ -238,6 +238,17 @@ Kennedy, after which the patch's far edge comes into view and the globe is drawn
 again. `verify-site-ground` sweeps every height and offset and checks the
 property directly rather than the arithmetic that implements it.
 
+## Rendering safety
+
+The scene starts at no more than 1× CSS resolution and 4 million pixels, then
+adapts within the device tier. Long frames still trigger emergency downscaling;
+**Full resolution** bypasses adaptation, not the pixel/driver safety limits.
+Hidden tabs stop rendering. Sky refinement retains its final resolution but
+runs in smaller tiles/strips; moving volumes are capped at 400,000 pixels.
+Photography is capped at 8,294,400 pixels. A lost GPU context is reported with
+a recovery/reload screen. These bounds reduce risk; they cannot guarantee 60 fps
+or prevent an OS/driver crash on every device. See [the audit](docs/performance-audit.md).
+
 ## Photographs
 
 `P`, or *photograph* under the control bar. The panels step out of the way, the
@@ -743,13 +754,14 @@ geometry is a gate —
 `verify-intro` drives every dossier's whole path under Node and asserts it
 never enters anything drawn, at any lunar phase, from any hand-over world.
 
-And the film is *kept* (`src/gfx/filmRecorder.js`): the scene and the titles
-are composited into one canvas and recorded as the flight plays — VP9/WebM at
-the panel's own resolution, paced by the recorder's own `requestFrame` rather
-than the compositor, so a backgrounded tab still makes a whole film. At
-arrival the take lands on an IndexedDB shelf and the mission library's card
-plays it back and hands it over as a file (the 42-second Apollo 8 flight
-keeps at 473 KB). A flight watched becomes a flight kept.
+Select **Keep this approach as a film** before Begin to record it. Capture
+copies the completed render at at most 24 fps and 921,600 pixels (including
+portrait screens), prefers VP8 over the more expensive VP9, and stops every
+stream track on completion, failure or unmount. Films remain downloadable from
+the IndexedDB shelf; previews play on hover rather than all decoding at once.
+Recording adds work; it is not free because it runs outside physics. Hidden
+tabs stop rendering and do not produce unseen film frames. WebM duration and
+seeking remain browser-dependent; no audio track is recorded.
 
 ### The shot a preset lands on
 

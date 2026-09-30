@@ -23,7 +23,10 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // 'curtain' | 'flying' | 'arrived'
   const [stage, setStage] = useState('curtain')
   const [beat, setBeat] = useState(-1)
-  const [, setFilm] = useState(null)
+  const [record, setRecord] = useState(false)
+  const [filmStatus, setFilmStatus] = useState('')
+  const lastBeat = useRef(-1)
+  const progress = useRef(null)
   const raf = useRef(0)
   const started = useRef(false)
   const dossier = DOSSIERS[preset?.id] ?? null
@@ -39,9 +42,9 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     introStart(preset.id, finalFocus)
     // And the film is made of it: the flight is a pure function of its clock,
     // so what is recorded is not *a* take, it is the flight.
-    startFilm(document.querySelector('canvas'), preset)
+    if (record && !startFilm(document.querySelector('canvas'), preset)) setFilmStatus('Recording unavailable; the intro still plays.')
     setStage('flying')
-  }, [preset, finalFocus])
+  }, [preset, finalFocus, record])
 
   /** Skip leaves the film and goes straight to the mission. */
   const skip = useCallback(() => {
@@ -74,7 +77,8 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     if (stage !== 'flying') return
     const loop = () => {
       const b = INTRO.beat
-      setBeat((prev) => (prev === b ? prev : b))
+      if (b !== lastBeat.current) { lastBeat.current = b; setBeat(b) }
+      if (progress.current) progress.current.style.transform = `scaleX(${Math.min(1, INTRO.s)})`
       if (!INTRO.active) {
         setStage('arrived')
         return
@@ -93,15 +97,15 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     if (stage !== 'arrived') return
     stopFilm().then((blob) => {
       if (!blob) return
-      setFilm(blob)
       filmSave(preset.id, blob)
     })
     const t = setTimeout(() => onBegin?.(), 1250)
     return () => clearTimeout(t)
   }, [stage, onBegin, preset])
 
+  useEffect(() => () => { stopFilm(); introEnd() }, [])
+
   if (!preset) return null
-  const s = INTRO.s
   const page = beat >= 0 ? dossier?.beats?.[beat] : null
 
   return (
@@ -165,9 +169,16 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             >
               Begin the approach ▸
             </button>
+            {filmSupported() && (
+              <label className="mt-5 flex items-center justify-center gap-2 text-[11px] text-hud/60">
+                <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />
+                Keep this approach as a film · 24 fps, up to 720p area
+              </label>
+            )}
+            <div role="status" className="mt-2 text-[11px] text-ember">{filmStatus}</div>
             <div className="mt-4 font-mono text-[9px] tracking-[0.22em] text-hud/35 uppercase">
               Esc to skip
-              {filmSupported() && ' · the flight is kept as a film'}
+
             </div>
           </div>
         </div>
@@ -202,9 +213,10 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
           <div className="pointer-events-auto absolute inset-x-0 top-[7vh] flex items-center gap-4 px-6 py-3">
             <div className="h-px flex-1 bg-hud/15">
               <div
+                ref={progress}
                 aria-hidden
-                className="h-px bg-ember/80 transition-[width] duration-500"
-                style={{ width: `${Math.round(s * 100)}%` }}
+                className="h-px origin-left bg-ember/80"
+                style={{ transform: 'scaleX(0)' }}
               />
             </div>
             <button

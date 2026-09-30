@@ -5,6 +5,23 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Performance audit — 29 September 2026
+
+- Recording is opt-in, capped by area in portrait and landscape, sampled at
+  24 fps after rendering, and releases every stream track on stop/error.
+- Library films no longer autoplay together. Download and mission links are
+  separate controls, rather than a button nested in an anchor.
+- Screen/photograph buffers have pixel-area bounds. Long stalls trigger the
+  resolution governor instead of being excluded from its emergency response.
+- Photography no longer owns the R3F render loop when bloom is off.
+- Hidden tabs stop rendering; procedural/material resources are disposed on
+  unmount; diagnostics reuse the existing GL context and include p95 latency.
+- Sky tiles/strips are smaller without reducing final detail. Atmosphere avoids
+  duplicate front/back integration outside its shell.
+- `verify-render-budget` exercises budgets and recorder lifecycle/error paths.
+  Full suite: 58/58 gates. No new device FPS claim: the preview was hidden and
+  did not deliver animation frames. OS crash cause remains unconfirmed.
+
 ### Fixed
 
 **A launch site ran at eight frames a second on a Retina display, and nobody
@@ -329,10 +346,9 @@ button beside the map's. It carries:
 `MissionLibrary`) — the intro is a pure function of its clock, so it is
 recorded as it plays and kept. The WebGL scene and the film's own titles (the
 opening card, the dossier's pages, the letterbox, the hairline) are composited
-into one hidden canvas and recorded at the browser's best codec — VP9 where it
-will, VP8 if it must, MP4 on the engines that only do that — with the frames
-pushed by the recorder's own tick (`requestFrame`) rather than paced by the
-compositor, so a throttled or backgrounded tab still makes a whole film. At
+into one hidden canvas. Originally this ran automatically on its own rAF;
+that did not make capture free or guarantee background recording. The audit
+above replaces it with explicit, budgeted capture after the renderer. At
 arrival the take comes off the recorder onto IndexedDB's shelf, where the
 mission library's card plays it back and hands it over as a file — measured:
 the 42-second Apollo 8 flight keeps as a 473 KB VP9 WebM at 880 × 1650. Skip
