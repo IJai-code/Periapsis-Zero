@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { Observatory } from './Observatory.jsx'
 import { takePhotograph } from '../components/Photograph.jsx'
 import { requestedFocus, viewHref, viewName } from '../sim/shareView.js'
@@ -54,8 +55,7 @@ const FOCUS_KEYS = {
 function EclipseBanner() {
   const [kind, setKind] = useState(null)
   useEffect(() => {
-    const id = setInterval(() => setKind(live.eclipse), 200)
-    return () => clearInterval(id)
+    return subscribeUiTick(() => setKind(live.eclipse), 2)
   }, [])
   if (!kind) return null
 

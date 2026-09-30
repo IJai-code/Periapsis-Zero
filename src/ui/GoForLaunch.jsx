@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { beginCountdown, currentPhase, mission } from '../sim/mission.js'
 import { SHIP } from '../sim/constants.js'
 
@@ -22,8 +23,7 @@ export function GoForLaunch() {
   useEffect(() => {
     const tick = () => setHeld(Boolean(currentPhase().held) && !mission.running)
     tick()
-    const id = setInterval(tick, 250)
-    return () => clearInterval(id)
+    return subscribeUiTick(tick, 2)
   }, [])
 
   if (!held) return null

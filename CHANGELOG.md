@@ -5,6 +5,33 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### One clock for the HUD, and the ladder's last rung — 30 September 2026
+
+A pilot reported the animations "quite literally laggy" and asked whether the
+answer was a downloadable app. It is not — a wrapper runs the same WebGL — so
+the answer is the same discipline the resolution governor already applies,
+extended to the two costs it could not reach. **The timeouts:** thirteen HUD
+components (telemetry, flight strip, burn panel, fly HUD, commentary, the
+broadcast's clocks, and six more) each owned a `setInterval` between 80 and
+250 ms, a dozen alarm clocks going off beside the frame loop on schedules
+nothing coordinated. One 110 ms pulse now serves them all (`ui/uiClock.js`),
+each reader hearing exactly the steps it asks for, the timer existing only
+while someone listens; the fastest readout keeps its cadence. **The shadow
+map:** the ground beam's 4,096-texel depth pass was the one always-on per-frame
+cost the distress ladder could not spend — pixels and tessellation had levers,
+it ran at full size regardless. `gfx/groundBudget.js` adds the last rung,
+spent only after both are spent, halving the map to 2,048 (a quarter of the
+depth fill) and refunding out of comfort like every other lever; a pad shadow
+stays hard-edged at the doubled texel, `GroundLight` remounts its light on a
+change because three fixes the map at creation, and *Full resolution* releases
+it. The ceiling is asserted unchanged: nothing was toned down, on a machine
+with headroom none of this ever runs. Diagnostics' Detail row carries the
+spend, so the bug-report copy is the whole diagnosis. New gate
+`verify-ui-pace` (26 checks): the pulse's arithmetic and lifecycle under a
+faked timer, no migrated component owning an interval, the lever order pixels →
+tessellation → shadow and refunds in reverse, and the 4,096 ceiling untouched.
+65/65 gates.
+
 ### Personal bests, the plate gallery, and one sampler — 30 September 2026
 
 The logbook grew the two things engagement actually asks for. **Personal

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { live } from '../sim/live.js'
 import { activeStage, deltaV, ship, totalMass } from '../sim/ship.js'
 import { SHIP } from '../sim/constants.js'
@@ -224,8 +225,7 @@ const RENDEZVOUS = [
 function LaunchButton() {
   const [held, setHeld] = useState(true)
   useEffect(() => {
-    const id = setInterval(() => setHeld(Boolean(currentPhase().held) && !mission.running), 200)
-    return () => clearInterval(id)
+    return subscribeUiTick(() => setHeld(Boolean(currentPhase().held) && !mission.running), 2)
   }, [])
   if (!held) return null
   return (
@@ -498,8 +498,7 @@ const ENTRY = [
 function TliButton() {
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    const id = setInterval(() => setReady(currentPhase().id === 'COAST'), 200)
-    return () => clearInterval(id)
+    return subscribeUiTick(() => setReady(currentPhase().id === 'COAST'), 2)
   }, [])
   if (!ready) return null
   return (
@@ -629,8 +628,7 @@ export function ShipTelemetry() {
       if (fuel) fuel.style.width = st ? `${(ship.stageProp[ship.stage] / st.propellant) * 100}%` : '0%'
     }
     tick()
-    const id = setInterval(tick, 110)
-    return () => clearInterval(id)
+    return subscribeUiTick(tick, 1)
   }, [])
 
   return (

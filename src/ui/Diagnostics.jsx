@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DEVICE, QUALITY } from '../sim/device.js'
 import { DETAIL_STEPS, MAX_DETAIL_STEP, detailStep, subscribeDetail } from '../gfx/detailBudget.js'
+import { shadowRelief, subscribeShadowRelief } from '../gfx/groundBudget.js'
 import { summarizeFrameTimes } from '../gfx/frameStats.js'
 
 /**
@@ -56,6 +57,14 @@ export function Diagnostics() {
    */
   const [detail, setDetail] = useState(detailStep())
   useEffect(() => subscribeDetail(() => setDetail(detailStep())), [])
+  /*
+   * The shadow rung belongs in the same report: "the governor had spent every
+   * lever, the shadow map included, and the machine was still short" is the
+   * complete diagnosis, and anything less invites someone to add a lever that
+   * was already pulled.
+   */
+  const [relief, setRelief] = useState(shadowRelief())
+  useEffect(() => subscribeShadowRelief(() => setRelief(shadowRelief())), [])
 
   /*
    * Read the shared ring once a second. No second rAF loop: the governor's
@@ -79,7 +88,7 @@ export function Diagnostics() {
     ['Drawing', summary ? `${summary.fps} frames a second (median)` : 'measuring…'],
     ['Frame times', summary ? `p50 ${summary.p50.toFixed(1)} ms · p95 ${summary.p95.toFixed(1)} ms` : 'measuring…'],
     ['Buffer', (() => { const c = document.querySelector('canvas'); return c ? `${c.width} × ${c.height}` : 'unavailable' })()],
-    ['Detail', detail === 0 ? 'full tessellation' : `relief ${detail}/${MAX_DETAIL_STEP} · surfaces capped at ${DETAIL_STEPS[detail]} segments`],
+    ['Detail', detail === 0 && !relief ? 'full detail' : `relief ${detail}/${MAX_DETAIL_STEP}${detail ? ` · surfaces capped at ${DETAIL_STEPS[detail]} segments` : ''}${relief ? ' · shadow map halved' : ''}`],
   ]
 
   /*

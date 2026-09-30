@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { currentPhase } from '../sim/mission.js'
 import { TERMINAL, commentaryNow } from '../sim/commentary.js'
 
@@ -70,8 +71,7 @@ export function Commentary() {
     // a finished flight — so the clock starts here rather than only on a change.
     endedAt.current = TERMINAL.has(currentPhase().id) ? performance.now() : null
     tick()
-    const t = setInterval(tick, 200)
-    return () => clearInterval(t)
+    return subscribeUiTick(tick, 2)
   }, [])
 
   const dismiss = useCallback(() => setDismissed(true), [])

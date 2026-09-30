@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useSyncExternalStore } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { live } from '../sim/live.js'
@@ -18,6 +18,7 @@ import {
   shadowTexel,
 } from '../gfx/sunlight.js'
 import { padEnvelope } from '../gfx/padGeometry.js'
+import { shadowRelief, subscribeShadowRelief } from '../gfx/groundBudget.js'
 import { GROUND_AIR } from '../gfx/groundLook.js'
 
 /*
@@ -82,6 +83,21 @@ export function GroundLight() {
   const sunward = useMemo(() => new THREE.Vector3(), [])
   // Walking every vertex of a pad is a gate's job, not a frame's: once per site.
   const envelope = useMemo(() => padEnvelope(site.id), [site.id])
+
+  /*
+   * The shadow map's size is the distress ladder's last rung (`gfx/groundBudget.js`),
+   * spent only by the resolution governor, after pixels and tessellation are
+   * both spent. The key remounts the light on a change — three fixes a light's
+   * shadow map when it is created, so an in-place write would be read by
+   * nothing — and relief is a quarter of the depth pass's fill, for a doubling
+   * of the ground texel that keeps a pad shadow hard-edged rather than a smear.
+   * A change is governor-paced, a few per minute at most.
+   */
+  const shadowKey = useSyncExternalStore(
+    subscribeShadowRelief,
+    () => (shadowRelief() ? 'relief' : 'full'),
+    () => 'full',
+  )
 
   useFrame(({ camera }) => {
     const l = light.current
@@ -165,6 +181,7 @@ export function GroundLight() {
     <>
       <primitive object={target} />
       <directionalLight
+        key={shadowKey}
         ref={light}
         visible={false}
         color="#fff4e0"

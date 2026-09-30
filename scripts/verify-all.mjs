@@ -140,6 +140,7 @@ const GATES = [
   ['verify-detail-budget', false],
   ['verify-frame-stats', false],
   ['verify-plate-shelf', false],
+  ['verify-ui-pace', false],
   ['verify-shadows', true],
   ['verify-countdown', true],
   ['verify-ground-view', true],

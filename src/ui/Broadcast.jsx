@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { setUi, uiStore, useUi, WARP_LEVELS } from '../sim/store.js'
 import { currentPhase } from '../sim/mission.js'
 import { FEED, cameraSource, eventCaption, missionClock } from '../sim/broadcast.js'
@@ -126,9 +127,9 @@ export function BroadcastHud() {
       if (now > narrationUntil.current) setNarrating((v) => (v ? false : v))
     }
     tick()
-    const h = setInterval(tick, 100)
+    const un = subscribeUiTick(tick, 1)
     return () => {
-      clearInterval(h)
+      un()
       clearTimeout(lowerTimer.current)
     }
   }, [showLower, narrate])

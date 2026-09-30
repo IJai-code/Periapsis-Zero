@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { mission } from '../sim/mission.js'
 import { nodes } from '../sim/nodes.js'
 
@@ -40,8 +41,7 @@ function read() {
 export function CaptureStatus() {
   const [s, setS] = useState(read)
   useEffect(() => {
-    const id = setInterval(() => setS(read()), 200)
-    return () => clearInterval(id)
+    return subscribeUiTick(() => setS(read()), 2)
   }, [])
   if (!s.solving && !s.error && !s.planned) return null
 

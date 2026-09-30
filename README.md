@@ -206,6 +206,20 @@ holds the policy: escalate only at the floor, relieve only at the ceiling, and
 the cap never costs more than the ladder's own sub-pixel error at the size
 where it takes over.
 
+One rung sits below that, in `gfx/groundBudget.js`: the ground beam's shadow
+map. Its 4,096 texels are the right *ceiling* — a dawn shadow 2,166 m long has
+to stay under a metre of quantisation — but it was also the one always-on
+per-frame cost the governor could not reach: pixels and tessellation had
+levers, the depth pass ran at full size regardless. Relief halves the map to
+2,048, spent only after pixels and tessellation are both spent (the order the
+eye loses least first), quartering the depth pass for a doubled ground texel
+that keeps a pad shadow hard-edged rather than a smear. It refunds out of
+comfort like every other lever, *Full resolution* releases it, and the
+Diagnostics row says so: "relief 2/2 · shadow map halved" is the complete
+diagnosis of a machine at the bottom of every lever. The ceiling itself is
+asserted unchanged by `verify-ui-pace` — this is an emergency lever, not a
+toning-down; the sim keeps every detail a machine can pay for.
+
 The ground at a launch site is the most expensive thing here, and it was
 expensive in two ways that had nothing to do with how much detail is in it.
 
@@ -342,6 +356,28 @@ the performance audit asked for, describing the machine *now*.
 `verify-frame-stats` holds the arithmetic: percentiles of a known
 distribution, a 45-second sleeping-tab gap excluded rather than averaged in,
 the cut as a dial, wrap at exactly 512, and the absence of any second loop.
+
+## One clock for the readouts
+
+The frames were only half the story; the other half was everything beside
+them. Thirteen HUD components each owned a `setInterval` — telemetry and the
+flight strip at 110 ms, the fly HUD at 90, commentary and the capture status
+at 200, the broadcast's clocks at 100 — each firing React state updates from
+its own timer, each timer waking the main thread on a schedule nothing
+coordinated with the render loop. Individually each is a rounding error; on a
+machine already short of frame time they are a dozen alarm clocks going off on
+top of it, and the `verify-alloc` discipline holds the frame path to zero
+allocation but nothing held the timeouts.
+
+They share one pulse now (`ui/uiClock.js`): a single 110 ms interval, started
+when the first reader arrives and cleared when the last leaves, each reader
+hearing exactly the steps it asks for — every pulse for the fast readouts,
+every second for commentary, every third would be the old 250 ms class. The
+fastest figure in the HUD redraws at exactly the cadence it had; twelve timers
+became one, and the copy-for-a-bug-report diagnosis no longer has to wonder
+whether the jank was the scene or the furniture. `verify-ui-pace` holds the
+pulse's arithmetic, the lifecycle, and the wiring: no migrated component owns
+a timer, and the clock file contains exactly one `setInterval`.
 
 ## Photographs
 

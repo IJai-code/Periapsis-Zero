@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { Vector3 } from 'three'
 import { currentPhase, mission } from '../sim/mission.js'
 import { activeStage, ship, totalMass } from '../sim/ship.js'
@@ -182,8 +183,7 @@ export function BurnPanel() {
       }
     }
     tick()
-    const timer = setInterval(tick, 110)
-    return () => clearInterval(timer)
+    return subscribeUiTick(tick, 1)
   }, [])
 
   if (!kind) return null

@@ -10,6 +10,7 @@ import {
   setDetailStep,
 } from '../gfx/detailBudget.js'
 import { pushFrameTime, resetFrameTimes } from '../gfx/frameStats.js'
+import { setShadowRelief, shadowRelief } from '../gfx/groundBudget.js'
 
 /**
  * As many pixels as the machine can actually draw.
@@ -35,6 +36,12 @@ import { pushFrameTime, resetFrameTimes } from '../gfx/frameStats.js'
  * way; this is the resolution they are drawn at, and nothing else. *Full
  * resolution* under Display pins it to the top of the range for anyone who
  * would rather have the pixels than the frames.
+ *
+ * Below the pixel floor the levers continue in `gfx/detailBudget.js` —
+ * tessellation, the geometry behind the pixels — and one rung further in
+ * `gfx/groundBudget.js`: the ground beam's shadow map, the last always-on
+ * cost the ladder could not reach. Each lever is spent only when the one
+ * before it is spent, and each refunds itself out of comfort the same way.
  */
 
 /** Frames sampled before each decision, and the shorter window used until the first one. */
@@ -117,6 +124,7 @@ export function Resolution() {
     s.current.ceiling = Infinity
     s.current.hold = 0
     setDetailStep(0)
+    setShadowRelief(false)
     setDpr(maxDpr)
   }, [full, maxDpr, setDpr])
 
@@ -167,7 +175,7 @@ export function Resolution() {
           down()
           return
         }
-        // Already at the pixel floor: the last lever is tessellation, spent
+        // Already at the pixel floor: the next lever is tessellation, spent
         // immediately rather than after another window of two frames a second.
         if (detailCap() < MAX_DETAIL_STEP) {
           setDetailStep(detailCap() + 1)
@@ -175,6 +183,14 @@ export function Resolution() {
           c.n = 0
           c.sum = 0
           return
+        }
+        // At the bottom of tessellation: the shadow map is the last lever,
+        // and it is a boolean — spent once, refunded only out of comfort.
+        if (!shadowRelief()) {
+          setShadowRelief(true)
+          c.settle = 3
+          c.n = 0
+          c.sum = 0
         }
       }
     } else {
@@ -217,6 +233,17 @@ export function Resolution() {
       if (dpr < Math.min(max, c.ceiling)) {
         c.settle = 3
         setDpr(Math.min(max, c.ceiling, dpr + STEP))
+      } else if (shadowRelief()) {
+        /*
+         * The shadow rung is refunded first, and for the same reason it is
+         * spent last: it is the coarsest lever. The tessellation cap above it
+         * stays until the machine has room for the pixels *and* the geometry.
+         * Refunds are paid only out of comfort — a machine that stabilised at
+         * the floor keeps its spend until it genuinely has room, so no lever
+         * oscillates against itself.
+         */
+        setShadowRelief(false)
+        c.settle = 3
       } else if (detailCap() > 0) {
         /*
          * Back at the pixel ceiling and comfortable: refund one rung. The

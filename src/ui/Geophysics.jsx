@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { live } from '../sim/live.js'
 import { INDEX } from '../sim/system.js'
 import { activeSite, siteDeflection, siteGravity } from '../sim/launchsite.js'
@@ -171,14 +172,14 @@ export function Geophysics() {
 
   useEffect(() => {
     if (!open) return
-    const id = setInterval(() => {
+    const un = subscribeUiTick(() => {
       const next = snapshot()
       setRead(next)
       if (next.radius > rMax || next.radius < rMax * 0.4) {
         setRMax(Math.min(CHART_REACH, Math.max(PREM_RADIUS * 1.06, next.radius * 1.06)))
       }
-    }, 250)
-    return () => clearInterval(id)
+    }, 2)
+    return un
   }, [open, rMax])
 
   const chart = useMemo(() => buildChart(rMax), [rMax])

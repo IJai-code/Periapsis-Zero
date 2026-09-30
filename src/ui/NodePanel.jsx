@@ -1,4 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { live } from '../sim/live.js'
 import { BODIES } from '../sim/constants.js'
 import { MAX_NODE_FRAMES, plan } from '../sim/predict.js'
@@ -37,8 +38,13 @@ const AXES = [
   { key: 'radial', label: 'Radial', color: '#5ce1f2' },
 ]
 
-/** Refresh rate for the live readouts. Fast enough to read as continuous. */
-const TICK = 80
+/**
+ * The live readouts ride the HUD's one shared pulse (`uiClock.js`). This panel
+ * ran its own 80 ms interval, the fastest of the twelve; one step of the 110 ms
+ * pulse still reads as continuous for figures that stream, and a dozen alarm
+ * clocks going off beside the frame loop became one.
+ */
+const UI_EVERY = 1
 
 /**
  * What React is allowed to notice: ids, order, selection, flown-ness. Nothing
@@ -138,7 +144,7 @@ export function NodePanel() {
 
   useEffect(() => {
     if (pending.length === 0) return undefined
-    const id = setInterval(() => {
+    const un = subscribeUiTick(() => {
       for (const node of nodes) {
         const row = rows.current[node.id]
         if (!row) continue
@@ -157,8 +163,8 @@ export function NodePanel() {
           }
         }
       }
-    }, TICK)
-    return () => clearInterval(id)
+    }, UI_EVERY)
+    return un
   }, [pending.length, selected])
 
   const open = (node) => {

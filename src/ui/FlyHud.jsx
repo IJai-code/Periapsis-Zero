@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { live } from '../sim/live.js'
 import { useUi } from '../sim/store.js'
 
@@ -64,8 +65,7 @@ export function FlyHud() {
       }
     }
     tick()
-    const id = setInterval(tick, 90)
-    return () => clearInterval(id)
+    return subscribeUiTick(tick, 1)
   }, [flying])
 
   if (!flying) return null

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { live } from '../sim/live.js'
 import { G0, SHIP } from '../sim/constants.js'
 import { ship } from '../sim/ship.js'
@@ -149,8 +150,7 @@ export function FlightStrip() {
       for (const [f, el] of nodes) el.textContent = f.get()
     }
     tick()
-    const id = setInterval(tick, 110)
-    return () => clearInterval(id)
+    return subscribeUiTick(tick, 1)
   }, [])
 
   /*

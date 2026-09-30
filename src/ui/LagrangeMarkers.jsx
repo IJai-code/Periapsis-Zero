@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { subscribeUiTick } from './uiClock.js'
 import { lagrange, markerNodes } from '../sim/lagrange.js'
 import { useUi } from '../sim/store.js'
 
@@ -30,8 +31,7 @@ export function LagrangeMarkers() {
       }
     }
     tick()
-    const id = setInterval(tick, 250)
-    return () => clearInterval(id)
+    return subscribeUiTick(tick, 2)
   }, [show])
 
   if (!show) return null
