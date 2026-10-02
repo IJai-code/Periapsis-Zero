@@ -19,6 +19,8 @@ import {
   stepCeiling,
   updateStepCeiling,
 } from '../sim/mission.js'
+import { wingHolds } from '../sim/programs.js'
+import { isLanded } from '../sim/mission.js'
 import { setUi, uiStore, useUi, WARP, WARP_LEVELS } from '../sim/store.js'
 import * as nodeApi from '../sim/nodes.js'
 import * as predictApi from '../sim/predict.js'
@@ -285,7 +287,16 @@ export function Driver() {
     const stage = activeStage()
     const burning = ship.throttle > 0 && stage !== null && ship.stageProp[ship.stage] > 0
 
-    if (burning) {
+    /*
+     * The ceiling is a courtesy of the flight computer, and a wing that has
+     * taken the vehicle declines courtesies: at Aldrin and Kármán the
+     * powered-warp cap is the pilot's to respect. The step-ceiling
+     * arithmetic above still runs — the integrator's own safety is not a
+     * mode — so exceeding what a frame can carry is caught by the RK4
+     * substep limit, which is the physics telling a pilot what their
+     * throttle chose.
+     */
+    if (burning && wingHolds('warpCeiling')) {
       if (warp > POWERED_WARP_CAP) {
         warpBeforeBurn.current = warp
         setUi({ warp: POWERED_WARP_CAP })
@@ -358,6 +369,9 @@ export function Driver() {
     // Same shape at the other end of the mission: once the capsule is down it
     // rides the surface instead of continuing through it.
     if (isSplashed()) applySplashdownHold()
+    // A pilot's own landing is held the way a splashdown is: the ground as
+    // a constraint, not a contact force. Exported beside the other holds.
+    if (isLanded()) applyLandedHold()
 
     /**
      * The camera director, applied the way the warp ladder is: only when the

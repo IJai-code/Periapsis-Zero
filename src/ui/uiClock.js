@@ -45,6 +45,14 @@ export function subscribeUiTick(fn, every = 1) {
   return subscribeUiClock(run)
 }
 
+/**
+ * The ambience's one AudioParam move rides this clock too — `sfx/ambience.js`
+ * glides its low-pass on the same pulse the readouts use. Imported lazily by
+ * the pulse below rather than by its callers, so a page with the ambience
+ * never enabled pays nothing but an idle listener.
+ */
+import { tickAmbience } from '../sfx/ambience.js'
+
 /* ---------------------------------------------------------------- *
  * The one timer
  * ---------------------------------------------------------------- */
@@ -70,4 +78,8 @@ function pulse() {
   // A hidden tab's timers are throttled by the browser anyway; the readers
   // that care check `document.hidden` themselves, as they always did.
   for (const fn of readers) fn()
+  // The ambience's filter glide, once per pulse whether anyone else reads
+  // or not — the timer exists while any reader does, and the ambience is
+  // one more reader of the same clock rather than a clock of its own.
+  tickAmbience()
 }

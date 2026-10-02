@@ -89,6 +89,18 @@ const SHOTS = {
   LIFTOFF: ['pad', 'Liftoff', WARP.x1],
   PITCH_KICK: ['pad', 'Pitch kick', WARP.x1],
   GRAVITY_TURN: ['chase', 'Gravity turn', WARP.m1],
+  /*
+   * The pilot's own phases. The ascent rides the hull — it is the one
+   * view where a hand on the stick is legible — and asks for real time,
+   * because a pilot's ascent is watched the way the count is watched. The
+   * flight phase is the vehicle too: the pilot is flying, and the camera
+   * has no better idea than they do. The touchdown is a ground camera:
+   * after the landing, the vehicle is furniture and the ground is the
+   * subject — the same reasoning LUNAR_PRE_LAUNCH follows.
+   */
+  PILOT_ASCENT: ['chase', 'Pilot ascent', WARP.x1],
+  PILOT_FLIGHT: ['chase', 'Your spacecraft'],
+  PILOT_DOWN: ['ground', 'On the surface'],
   STAGING: ['chase', 'Separation'],
   MECO: ['chase', 'Cutoff'],
 

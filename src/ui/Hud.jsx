@@ -8,6 +8,7 @@ import { SearchBar } from './SearchBar.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
 import { WalkHud, WalkPrompt } from './WalkHud.jsx'
+import { ProgramStrip } from './ProgramStrip.jsx'
 import { Geophysics } from './Geophysics.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
@@ -243,6 +244,9 @@ export function Hud() {
   const instruments = (
     <>
       <CaptureStatus />
+      {/* An armed program's checklist rides the instruments column: it is
+          the pilot's own plan, so it sits with the pilot's own instruments. */}
+      <ProgramStrip />
       <NodePanel />
       <Telemetry />
       {!map && <ShipTelemetry />}

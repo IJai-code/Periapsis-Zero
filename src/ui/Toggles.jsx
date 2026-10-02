@@ -1,5 +1,6 @@
 import { setUi, useUi } from '../sim/store.js'
 import { DEVICE_COPY, DEVICE_IDS, chooseDevice } from '../sim/device.js'
+import { setAmbience } from '../sfx/ambience.js'
 import { Diagnostics } from './Diagnostics.jsx'
 
 /**
@@ -22,6 +23,7 @@ const OPTIONS = [
   { key: 'bloom', label: 'Bloom / vignette' },
   { key: 'fullRes', label: 'Full resolution' },
   { key: 'score', label: 'Film score' },
+  { key: 'ambience', label: 'Ambient sound' },
   { key: 'broadcast', label: 'Broadcast feed' },
   { key: 'geophysics', label: 'Terra interior' },
   { key: 'observatory', label: 'Observatory card' },
@@ -56,7 +58,12 @@ export function Toggles() {
           return (
             <button
               key={o.key}
-              onClick={() => setUi({ [o.key]: !on })}
+              onClick={() => {
+                // The ambience's AudioContext is created *inside* this click:
+                // see sfx/ambience.js on the gesture rule.
+                if (o.key === 'ambience') setAmbience(!on)
+                setUi({ [o.key]: !on })
+              }}
               aria-pressed={on}
               className="control flex min-h-9 w-full items-center gap-2.5 px-1 py-2 text-left outline-none transition-colors duration-300 hover:bg-hud/[0.06] focus-visible:bg-hud/[0.08] lg:min-h-0 lg:py-1"
             >

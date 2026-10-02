@@ -806,6 +806,7 @@ actually landed.
 | drag / scroll   | orbit and zoom (damped)                              |
 | `1` `2` `3` `4` | camera lock: free · Sun · Earth · Moon               |
 | `0`             | stand on the ground by the pad, at eye height         |
+| `g`             | walk on foot / back to the ground camera              |
 | click a body    | lock onto it                                         |
 | `space`         | pause                                                |
 | `[` `]`         | time warp down / up                                  |
@@ -1008,12 +1009,25 @@ beyond that it is a different place and gets a cut.
 
 ### Sound
 
-There is none. The engine and pad sounds, the staging, ignition, parachute and
-splashdown effects, the intro's generative score and the radio's tones, static
-and spoken voices were all removed: they were described as terrifying, and a
-simulator nobody can bear to listen to is not improved by being accurate about
-it. The loop is captioned instead (see *The broadcast*). `src/sfx/`, the audio
-component and `verify-audio` went with them.
+The engine and pad sounds, the staging, ignition, parachute and splashdown
+effects, the radio's tones, static and spoken voices were all removed: they were
+described as terrifying, and a simulator nobody can bear to listen to is not
+improved by being accurate about it. The loop is captioned instead (see *The
+broadcast*). Two layers of deliberate sound remain, both chosen as *rooms* and
+not events in one:
+
+- **The generative score** plays on the front door and the mission library —
+  films, not simulation.
+- **The ambient bed** (flying your own mission, toggle in the panels) is the
+  room tone the visitor chose to bring: a loop behind a lowpass whose cutoff is
+  the atmosphere itself — 420 Hz at sea level opening to 14 kHz by 140 km, fully
+  open on the Moon — so the vacuum is heard as the absence of air rather than
+  the absence of audio. Gesture-gated, fetched and decoded on first enable; one
+  `setTargetAtTime` per clock tick follows the flight up through it.
+
+No flight-path module imports an audio module — `verify-audio` holds that as an
+architectural fact, alongside the leaf-shape of the ambience and the gesture
+before any `AudioContext` exists. The simulation itself makes no sound.
 
 ### The broadcast
 
@@ -1050,6 +1064,74 @@ the map's button). It is presentation, and it is held to what it claims by
 The captions and the narration are separate boxes — the loop above, the
 commentary below, the commentary shown for its reading time when a phase begins
 — and the controls fold away three seconds after the pointer stops.
+
+## Flying your own mission
+
+Everything in *Missions* is a flight someone else planned. This is the other
+door: **Plan your own flight** — from the front door, from the missions drawer,
+or by linking straight to it with `?program=orbit-run` — opens the planner, and
+the planner hands the mission to *you*.
+
+### The planner
+
+Four decisions, in the order they bind:
+
+1. **The route.** *Orbit Run* reaches orbit and comes home; *Free Return* swings
+   behind the Moon without capturing; *Lunar Orbit* flies the Apollo 8 loop;
+   *Descent* lands on the Moon — one way. Each route is priced leg by leg in
+   delta-v, and the price is shown against what the stack can actually deliver:
+   the budget comes from the vessel's own stage table through the rocket
+   equation, not from a hand-typed constant, and the margin goes ember the
+   moment the plan does not close.
+2. **Your wings** — who holds the stick, below.
+3. **The fuel load.** Not a slider: a wing. The Kármán wing is the load.
+4. **The pad.** Latitude is the cheapest inclination there is — Kourou throws
+   east over the ocean, Vandenberg south for polar orbits; the Moon is reached
+   from all of them.
+
+The honest number on the page is the margin, and it is why *Descent* is sold
+one-way: landing on the Moon and returning costs 18.24 km/s on the Apollo 8
+stack, which is more than the vehicle carries — the reason Apollo needed a
+second spacecraft — while the descent alone prices at 15.34 against 16.01
+delivered. The planner shows that truth instead of selling a round trip the
+stack cannot fly. A future lander vessel is the honest fix, and the budget bar
+will say so when one exists.
+
+### The wings
+
+A freedom ladder over the vocabulary the sequencer already had. The wings change
+who flies; they never change the physics.
+
+| wing      | holds                                                       |
+| ---       | ---                                                         |
+| Trainee   | nothing — the computer flies ascent and insertion, hands over in the parking orbit |
+| Aviator   | the ascent, from the pitch kick through MECO                 |
+| Aldrin    | nothing is held — every burn is yours, and the powered-warp ceiling too |
+| Kármán    | Aldrin, at 84% of the propellant                             |
+
+The names are the contract: trainee wings are what a flight instructor signs;
+Aldrin is the man who flew the landing by hand; Kármán is the line where the
+atmosphere stops helping, which is what flying at 84% feels like. Three phases
+join the sequencer to carry this — `PILOT_ASCENT`, `PILOT_FLIGHT` and
+`PILOT_DOWN` — and `setPhase` reads the wing before entering a phase the wing
+does not hold, routing around it so the sequence still visits the same physics
+with the pilot at the stick instead.
+
+### The flight
+
+From the count you stand where the presets' cameras stood; `g` walks, `g` again
+returns to the ground camera. Your objectives are evaluated from the simulation
+every frame — never from a UI flag: orbit means the osculating perigee and
+apogee say orbit, landing means the selenocentric altitude and descent rate say
+touchdown — and the checklist riding the instruments column ticks them off as
+the flight makes them true. In pilot flight the step ceiling is lifted (a
+pilot's pace is the pilot's own; node preemption still fires), and a landed
+vehicle is held at its touchdown point against the surface, so an Aldrin
+descent ends standing on the Moon with the Earth overhead — the view the
+simulator was built for, now earned.
+
+The wings, budgets and deep links are held to by `verify-programs`; the
+ambience's place in the architecture by `verify-audio`.
 
 ## Flight planning
 

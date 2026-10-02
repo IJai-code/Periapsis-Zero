@@ -17,6 +17,8 @@ import { MissionLibrary } from './ui/MissionLibrary.jsx'
 import { Guide, guideShouldOpen } from './ui/Guide.jsx'
 import { MissionIntro } from './ui/MissionIntro.jsx'
 import { introEnd } from './gfx/introFlights.js'
+import { requestedProgram, armProgram } from './sim/programs.js'
+import { resetMission } from './sim/mission.js'
 
 /**
  * Which half of the product is on screen, from the URL.
@@ -124,7 +126,22 @@ export default function App() {
 
   useEffect(() => {
     const preset = requestedPreset()
-    if (!preset) return
+    if (!preset) {
+      /*
+       * A program deep-link arms its plan without flying it: ?program=
+       * names the route, the planner's wing default stands, and the flight
+       * opens on the pad with the count at sixty — the same first frame a
+       * launch preset gets, minus the film, because a film of a flight
+       * the visitor has not planned is not their film.
+       */
+      const programDef = requestedProgram()
+      if (programDef && isFlight()) {
+        armProgram(programDef, 'trainee')
+        resetMission()
+        setUi({ paused: false, focus: 'ground' })
+      }
+      return
+    }
     const run = startPreset(preset)
     /*
      * The shot `startPreset` resolved, which is the preset's own if it names one

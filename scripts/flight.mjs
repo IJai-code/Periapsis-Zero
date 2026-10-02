@@ -27,12 +27,30 @@ import {
   isSplashed,
   applySplashdownHold,
   mission,
+  PHASE_IDS,
   resetLoiter,
   resetMission,
   stepCeiling,
   updateMission,
   updateStepCeiling,
 } from '../src/sim/mission.js'
+
+/**
+ * Phase ids back to positions, for restoring a snapshot that names its phase.
+ *
+ * A snapshot's `mission.index` is a position in the PHASES array — and the
+ * array is a list the code keeps editing. The pilot-flight phases went in and
+ * three checked-in fixtures silently restored three phases early: the heating
+ * gate came back reading LUNAR_APPROACH instead of LUNAR_ORBIT, and the
+ * allocation gate's steady loop crossed a phase boundary mid-measurement and
+ * reported the transition cost as a leak. The state vector was fine; the
+ * *label* was positional.
+ *
+ * So a snapshot now carries the phase's id next to its index, and restore
+ * resolves the id first — ids survive insertions in a way positions never
+ * will. The index stays in the file for old snapshots without one.
+ */
+const PHASE_INDEX = Object.fromEntries(PHASE_IDS.map((id, i) => [id, i]))
 
 /** Mirrors store.js — kept as a literal so the harness never imports React. */
 /**
@@ -67,6 +85,9 @@ export function snapshot() {
     },
     mission: {
       index: mission.index,
+      /** The id travels with the index, so the id is what restore trusts. */
+      phase: PHASE_IDS[mission.index],
+      resume: PHASE_IDS[mission.resumeIndex],
       resumeIndex: mission.resumeIndex,
       t: mission.t,
       phaseT: mission.phaseT,
@@ -106,8 +127,13 @@ export function restore(snap) {
   ship.mass = totalMass()
 
   Object.assign(mission, {
-    index: snap.mission.index,
-    resumeIndex: snap.mission.resumeIndex,
+    /* The id resolves against *this* code's phase list; the raw index is only
+       the fallback for snapshots written before ids were recorded. */
+    index: PHASE_INDEX[snap.mission.phase] ?? snap.mission.index,
+    resumeIndex:
+      snap.mission.resume != null
+        ? (PHASE_INDEX[snap.mission.resume] ?? snap.mission.resumeIndex)
+        : snap.mission.resumeIndex,
     t: snap.mission.t,
     phaseT: snap.mission.phaseT,
     running: snap.mission.running,

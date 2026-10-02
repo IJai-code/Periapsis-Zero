@@ -5,6 +5,94 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The pilot's own mission — 1 October 2026
+
+Until now every flight in this simulator was somebody else's: nine missions in a
+library, flown by a sequencer, watched from a broadcast camera. This adds the
+fourth thing a visitor could want from a solar system and could not yet do here —
+plan a flight of their own, fly it themselves, and land somewhere.
+
+**The planner.** A full-page room reachable from the front door (*Plan your own
+flight*), from the missions drawer, and from a link (`?program=`). Four decisions
+in the order they bind — the route, the wing, the fuel load, the pad — and
+everything else derived: the route's cost priced leg by leg, the vessel's budget
+from its own stage table through the rocket equation, and the margin in ember the
+moment the plan does not close. Choosing a wing is not choosing a difficulty
+slider in disguise: the wings change *who holds the stick*, never what the physics
+is. The routes are named for the contract they sign — **Orbit Run** (orbit the
+Earth and come home), **Free Return** (behind the Moon without capture), **Lunar
+Orbit** (the Apollo 8 loop), and **Descent** — and Descent is honest about itself:
+priced at 15.34 km/s one-way it is the only route that closes on the full stack,
+because a landing *and* a return costs 18.24 km/s, which is more Δv than the
+vehicle carries and the reason Apollo needed a second spacecraft. The planner
+shows the negative margin rather than selling a round trip the stack cannot fly.
+
+**The wings.** A freedom ladder over a vocabulary the code already had. **Trainee**
+flies the ascent and insertion and hands over in the parking orbit; **Aviator**
+takes the stick at the pitch kick and holds it through MECO; **Aldrin** — after
+the man who landed manually — takes nothing from the sequencer after the count,
+every burn planned by hand and the powered-warp ceiling left to respect; and
+**Kármán** is Aldrin at 84% of the propellant load, the margin the budget bar
+shows being the fuel actually aboard. Three phases join the sequencer to carry
+this — `PILOT_ASCENT`, `PILOT_FLIGHT`, `PILOT_DOWN` — and a gate inside
+`setPhase` reads the wing before entering a phase the wing does not hold, routing
+around it so the *sequence* still visits the same physics with the pilot at the
+stick instead.
+
+**The flight.** On the ground the pilot stands where the presets' cameras stood;
+`G` walks, `G` again returns. In `PILOT_FLIGHT` the step ceiling is lifted —
+a pilot's own pace is the pilot's own — while node preemption still fires, and a
+program's objectives are evaluated from the simulation every frame, never from a
+UI flag: liftoff from the pad's hold releasing, orbit from the osculating
+perigee and apogee, landing from the selenocentric altitude and descent rate,
+splashdown from the phase itself. A checklist rides the instruments column
+(`ProgramStrip`) showing which leg of the pilot's own plan is running and how far
+along it is. Landing holds the vehicle at its touchdown point against the surface
+(`applyLandedHold`), so an Aldrin descent ends standing on the Moon with the
+Earth overhead — the view the whole simulator was built for, now earned.
+
+**The room tone.** The user-supplied ambient bed (`public/audio/monume-space-
+ambient.mp3`) returns as ambience: a toggle in the panels, gesture-gated like the
+removed score was, fetched and decoded on first enable only. It runs through a
+lowpass whose cutoff is the atmosphere — 420 Hz at sea level opening to 14 kHz
+by 140 km, open on the Moon — so a vacuum is finally *heard* as a vacuum rather
+than rendered as silence, and the filter follows the flight with one
+`setTargetAtTime` per clock tick. This is deliberately the only audio: no engine
+sound, no staging, no chutes — the sim makes no sound, the broadcast is captioned,
+and the room tone is the one layer that is the place and not an event in it. The
+flight path stays provably silent: `verify-audio` asserts no flight-path module
+imports an sfx module, that the ambience is a leaf reachable only from the HUD
+clock and the toggle, and that the `AudioContext` is constructed inside the
+gesture.
+
+**The snapshot format learned to name its phases.** The three new phases shifted
+every positional `mission.index` in the checked-in flight fixtures by three, and
+both failures were the same bug wearing two coats: `verify-heating`'s fixture
+restored into `LUNAR_APPROACH` instead of `LUNAR_ORBIT`, and `verify-allocation`'s
+steady loop — which its own header says begins and ends in one phase — started
+three early, crossed a boundary mid-measurement, and reported the transition cost
+as a 1.92 B/frame leak. The state vectors were perfect; the labels were
+positional. Snapshots now record `mission.phase` / `mission.resume` ids beside
+the indices, restore resolves the id first with the raw index as the fallback for
+older files, and the fixtures are regenerated at the same METs as before
+(184.747 h orbit, 70.713/70.782 h approach) — byte-identical across repeat runs,
+so the reproducibility claims in `scripts/fixtures/README.md` keep their standard.
+
+**Gates.** Two join the suite, bringing it to 67: `verify-programs` (five checks:
+the wings form a freedom ladder, every program closes its Δv budget with margin
+at its freest wing's load, Descent stays honestly one-way, arming a program
+actually drives the wing gate and the live fuel load, and every program names
+real vessels, sites and checks) and `verify-audio` (four, above). The harness
+runs the plain and Aldrin wings headlessly end to end; the Kármán load measures
+1,805,580 kg on the pad, exactly 84% of the S-IC load.
+
+*Known limitations.* The descent program's legs are priced from the Apollo 8
+stage table; no dedicated lander vessel exists yet, so the one-way descent is the
+only honest landing this stack can sell. The ambience filter models absorption
+as a single pole and the bed as one loop; the crossfade at the 140 km boundary is
+a square curve, not a measured lapse rate. The walk yields its keys to the pause
+bar rather than sharing them.
+
 ### The dial the pilot keeps, and the sky that finishes in daylight — 1 October 2026
 
 A pilot reported the Milky Way looking "like a google image, with a rectangle

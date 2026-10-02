@@ -10,9 +10,26 @@ The third is the same phase as the second flown by the other vehicle — **a sta
 carries no vessel**, so a fixture is only coherent under the stack it was flown
 with.
 
+### What a snapshot names, and why
+
+Every snapshot records its phase twice: as the array index `mission.index`, and
+since 2026-10-01 as the phase's id (`mission.phase`, with `mission.resume` for
+`resumeIndex`). `restore()` resolves the id against the *current* phase list and
+only falls back to the raw index for files written before ids were recorded.
+
+The reason is written in the failure that produced it: adding the pilot-flight
+phases to `PHASES` shifted every later position by three, and all three fixtures
+silently restored three phases early — `verify-heating` came back reading
+`LUNAR_APPROACH` instead of `LUNAR_ORBIT`, and `verify-allocation`'s steady loop
+began in the wrong phase, crossed a boundary mid-measurement, and reported the
+transition cost as a per-frame leak. The state vectors were perfect; the *labels*
+were positional. An id survives an insertion in a way an index never will, and a
+fixture that restores into the wrong regime is worse than one that refuses to
+restore at all.
+
 ## `lunar-orbit.json` — 2.3 KB
 
-The vehicle in lunar orbit at MET 184.747 h, stage 3, 20.767 t, having flown
+The vehicle in lunar orbit at MET 184.747 h, stage 3, 20.768 t, having flown
 ascent, TLI, midcourse and LOI. It is `scripts/flight.mjs`'s own `--save`
 output, so it is the same object `snapshot()` writes and `restore()` reads;
 nothing here is hand-authored.
@@ -35,7 +52,8 @@ Pinning the state means that gate fails when the heating model changes and not
 when something upstream of it does.
 
 The cost of that choice is staleness: the file is a state this code produced on
-2026-09-20, and nothing makes it follow the code. So `verify-heating` asserts on
+2026-10-01 (regenerated with phase ids in the snapshot after the pilot-flight
+phases went in), and nothing makes it follow the code. So `verify-heating` asserts on
 load that the fixture still restores into `LUNAR_ORBIT` under the current
 simulator, rather than assuming it. If that check goes red the fixture has
 drifted out of the regime the gate is written for and wants regenerating — the
@@ -44,7 +62,7 @@ gate says so in those words.
 ### Reproducibility
 
 Four independent processes on the authoring machine wrote byte-identical files
-(sha256 `f599945f…`). That is same-machine determinism and is not a claim about
+(sha256 `cda1c4fe…`). That is same-machine determinism and is not a claim about
 other platforms; the runner reads this file rather than regenerating it, so it
 does not depend on one.
 
@@ -78,7 +96,7 @@ and two are instruments that print and assert nothing (`verify-approach` and
 
 ### Reproducibility
 
-Three independent processes wrote byte-identical files (sha256 `85dd0a8c…`), by
+Three independent processes wrote byte-identical files (sha256 `c056e6a3…`), by
 the same same-machine-only standard as `lunar-orbit.json` above.
 
 ## `lunar-approach-artemis.json` — 2.3 KB
@@ -102,4 +120,4 @@ Regenerate it with:
 
 ### Reproducibility
 
-Two independent processes wrote byte-identical files (sha256 `2a081f23…`).
+Two independent processes wrote byte-identical files (sha256 `4417cafa…`).

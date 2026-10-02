@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PRESETS } from '../sim/presets.js'
 import { hasFlown, logbookLine } from '../sim/logbook.js'
 import { Mark } from './Mark.jsx'
+import { Planner } from './Planner.jsx'
 
 /**
  * The front door, over the live simulation.
@@ -81,6 +82,8 @@ const step = (shown, i) => ({
 export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hidden = false }) {
   const [shown, setShown] = useState(false)
   const scroller = useRef(null)
+  /** The planner opens over the front door; entering flight closes it. */
+  const [planner, setPlanner] = useState(false)
   /** How far down we are, and whether there is anything below. Both drive controls. */
   const [scrolled, setScrolled] = useState(false)
   const [more, setMore] = useState(false)
@@ -142,6 +145,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
         hidden ? 'pointer-events-none invisible opacity-0' : 'visible opacity-100'
       }`}
     >
+      {planner && <Planner onClose={() => setPlanner(false)} />}
       {/*
         The scrims sit outside the scrolling box now. Inside it they were laid
         out at the top of a 1,079 px column and scrolled off with it, so the foot
@@ -329,6 +333,29 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                     <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
                       From the pad, to the Moon, and the burn for home — choose where to
                       arrive.
+                    </span>
+                  </span>
+                  <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">
+                    →
+                  </span>
+                </button>
+                <button
+                  onClick={() => setPlanner(true)}
+                  className="group relative flex w-full items-baseline gap-5 border-b border-hud/12 py-5 text-left outline-none transition-colors duration-500 hover:bg-hud/[0.04] focus-visible:bg-hud/[0.05]"
+                >
+                  <span
+                    aria-hidden
+                    className="absolute top-0 bottom-0 -left-4 w-px bg-hud/20 transition-colors duration-500 group-hover:bg-ember group-focus-visible:bg-ember"
+                  />
+                  <span className="font-mono text-[10px] text-hud/40 transition-colors duration-500 group-hover:text-ember">
+                    ✦
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                      Plan your own flight
+                    </span>
+                    <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
+                      Pick the route, the wings and the fuel — then fly it yourself, from the count to the touchdown.
                     </span>
                   </span>
                   <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">

@@ -1,7 +1,7 @@
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { COUNT_LENGTH, ignitionThrottle } from './countdown.js'
 import { live } from './live.js'
-import { activeStage, separate, ship, totalMass } from './ship.js'
+import { activeStage, resetShip, separate, ship, totalMass } from './ship.js'
 import { INDEX } from './system.js'
 import { activeSite, clampToSite, clampToSiteNow, rotationBonus, siteClock } from './launchsite.js'
 import { SPIN_AXIS, SPIN_RATE } from './atmosphere.js'
@@ -56,6 +56,7 @@ import {
 } from './lunarMission.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 import { recordBest, recordMilestone, recordPad } from './logbook.js'
+import { tickProgram, wingHolds, wingFuel, program } from './programs.js'
 import { EARTH_FIELD, fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
@@ -2377,7 +2378,45 @@ const PHASES = [
       aimThrust(_up)
     },
     done: () => live.elements.altitude > SHIP.ascent.kickAltitude,
-    next: () => INDEX_OF.PITCH_KICK,
+    next: () =>
+      // Wing boundary: an Aviator takes the stick at the kick, the first
+      // moment steering is a thing a hand can do. Trainee holds on.
+      wingHolds('ascent') ? INDEX_OF.PITCH_KICK : INDEX_OF.PILOT_ASCENT,
+  },
+  {
+    /*
+     * The pilot's ascent. Not a new flight model — the same gravity turn the
+     * sequencer flew, its targets parked, the throttle and the stick the
+     * pilot's own. The pitch programme's *shape* is drawn on the flight
+     * plan as guidance, not flown: aimPrograde/aimThrust are what a hand
+     * overrides, and FlyHud's markers show where the book says to point.
+     *
+     * MECO's own cutoffs are the exit: apoapsis at the parking altitude with
+     * speed behind it (the sequencer's insertion test), or tanks dry. The
+     * pilot who flies a sloppier trajectory than the loop would has simply
+     * spent more of the stack getting there — which is the point of wings.
+     */
+    id: 'PILOT_ASCENT',
+    label: 'Pilot ascent',
+    enter() {
+      ship.throttle = 1
+      // The stick is the pilot's from here: LIFTOFF's vertical hold left the
+      // autopilot engaged, and integrateAttitude skips manual input while it
+      // is on. Nothing steers after this — the attitude and the throttle are
+      // the pilot's own, W/S and IJKLQE, with the assist hold doing exactly
+      // what it does for the rest of the sim: damp what nobody commanded.
+      ship.autopilot = false
+    },
+    control() {},
+    done: () => {
+      const target = SHIP.parkingOrbit.altitude
+      const vCircular = Math.sqrt((G * BODIES.earth.mass) / (BODIES.earth.radius + target))
+      return (
+        (live.elements.apogee >= target && live.elements.speed >= 0.5 * vCircular) ||
+        ship.thrust === 0
+      )
+    },
+    next: () => INDEX_OF.MECO,
   },
   {
     id: 'PITCH_KICK',
@@ -2472,7 +2511,74 @@ const PHASES = [
     },
     control: aimPrograde,
     done: () => mission.phaseT > 3,
-    next: () => INDEX_OF.COAST_TO_APOAPSIS,
+    // Wing boundary: the hand-off. Trainee and Aviator stay on the book —
+    // the computer flies the coast and the insertion. Aldrin and Kármán
+    // take the spacecraft here, in the orbit the ascent made.
+    next: () =>
+      wingHolds('burns') ? INDEX_OF.COAST_TO_APOAPSIS : INDEX_OF.PILOT_FLIGHT,
+  },
+  {
+    /*
+     * The pilot's spacecraft. The hand-off state for every wing that does
+     * not hand the book back: no sequencer steering, no autopilot, the
+     * throttle and the attitude the pilot's own, the powered-warp ceiling
+     * off where the wing says so. What remains of the flight computer is
+     * the instrument set — the conic, the projection, the nodes — and the
+     * nodes still fly exactly as they always did, because a planned burn
+     * is a thing the pilot *asked* the computer to hold.
+     *
+     * Two physics hand-backs, because wings are about *choice*, and these
+     * two are not choices: falling into Earth's atmosphere hands the
+     * descent to SM_SEP — the entry is flown by the air and the sequencer's
+     * bank guidance, and no stick changes that — and a gentle touchdown on
+     * the Moon holds the vehicle where it stands (PILOT_DOWN), which is
+     * what turns the Descent program's one-way landing into a place to
+     * stand rather than a way to be lost.
+     */
+    id: 'PILOT_FLIGHT',
+    label: 'Pilot flight',
+    enter() {
+      ship.autopilot = false
+      ship.rcs.set(0, 0, 0)
+    },
+    control() {},
+    done: () => {
+      if (live.insideLunarSOI) {
+        // Touchdown, softly: inside a few metres of the ground, closing
+        // slowly. Anything harder is a crash and LOST will say so.
+        return live.lunar.altitude < 80 && Math.abs(live.lunar.vertical) < 3
+      }
+      // Entry interface: falling into the atmosphere. The computer takes
+      // the descent, whose physics is not a wing's to choose.
+      return live.elements.altitude < 100e3 && live.elements.vertical < 0
+    },
+    next: () => (live.insideLunarSOI ? INDEX_OF.PILOT_DOWN : INDEX_OF.SM_SEP),
+  },
+  {
+    /*
+     * Down, and staying down. A terminal phase with the same shape as
+     * SPLASHDOWN: the vehicle is held on the surface — see
+     * `applyLandedHold`, called beside the splashdown hold — the mission
+     * clock stops being the point, and the pilot is free to press G and
+     * stand next to what they landed. `landing: true` keeps the
+     * below-surface catch from declaring the touchdown a crash.
+     */
+    id: 'PILOT_DOWN',
+    label: 'On the surface',
+    landing: true,
+    held: true,
+    enter() {
+      ship.throttle = 0
+      ship.autopilot = false
+      mission.touchdownRadius = Math.hypot(
+        live.sim.state[SHIP_OFFSET] - live.sim.state[INDEX.moon * 6],
+        live.sim.state[SHIP_OFFSET + 1] - live.sim.state[INDEX.moon * 6 + 1],
+        live.sim.state[SHIP_OFFSET + 2] - live.sim.state[INDEX.moon * 6 + 2],
+      )
+      mission.warpRequest = WARP.x1
+    },
+    control() {},
+    done: () => false,
   },
   {
     id: 'COAST_TO_APOAPSIS',
@@ -2495,6 +2601,10 @@ const PHASES = [
   {
     id: 'CIRCULARISE',
     label: 'Circularise',
+    // Wing boundary: an Aviator or freer wing inserts by hand — the burn
+    // is theirs at the apoapsis they reached. The computer's coast never
+    // runs, because the pilot owns the vehicle from MECO.
+    skippedByWing: 'burns',
     enter() {
       ship.throttle = 1
       mission.bestEccentricity = Infinity
@@ -3155,6 +3265,14 @@ const PHASES = [
   {
     id: 'SM_SEP',
     label: 'SM separation',
+    /*
+     * Physics, not a choice, so even a free wing takes this phase: the
+     * descent that follows is flown by the air — the bank is the capsule's
+     * only control and the sequencer's entry guidance is what models it —
+     * and nothing above the capsule is anything but drag. A pilot who
+     * wanted to fly this by hand has nothing to fly: there is no throttle,
+     * no attitude authority that matters, and the chutes are procedural.
+     */
     /**
      * Discard everything above the capsule, leaving the entry vehicle.
      *
@@ -3895,7 +4013,21 @@ export const PHASE_IDS = PHASES.map((p) => p.id)
  */
 function setPhase(next, resuming = false) {
   if (next !== mission.index) PHASES[mission.index].exit?.()
-  mission.index = next
+  /*
+   * Wing boundaries, honoured at the one door every phase change passes
+   * through. A phase marked `skippedByWing: 'capability'` is computer work
+   * the current wing does not receive, and the routings into it were the
+   * obvious way to respect that — but routings multiply: TLI's coast
+   * preemptions, a staging resumption, a rescheduled node burn all name
+   * their next phase directly, and each new route is a fresh chance to
+   * forget. One check here covers all of them forever: a wing without the
+   * capability is routed straight to PILOT_FLIGHT, the hand-off state that
+   * takes nothing away the pilot owns. Deliberately after `exit` — the
+   * phase being left gets its teardown either way.
+   */
+  const skipped = PHASES[next]?.skippedByWing
+  if (skipped && !wingHolds(skipped)) next = INDEX_OF.PILOT_FLIGHT
+  if (next !== mission.index) mission.index = next
   mission.phaseT = 0
   if (!resuming) {
     PHASES[next].enter?.()
@@ -4230,6 +4362,8 @@ export function resetMission() {
   mission.entry.peakRadFlux = 0
   mission.entry.peakTotalFlux = 0
   mission.entry.splashdownSpeed = 0
+  // A pilot's touchdown radius, set by PILOT_DOWN and cleared here.
+  mission.touchdownRadius = 0
   mission.resumeDone = false
   mission.loi.bestEccentricity = Infinity
   mission.loi.minRadius = Infinity
@@ -4253,6 +4387,26 @@ export function resetMission() {
    */
   clearNodes()
   resetLunar()
+  /*
+   * The fuel load, and who owns it.
+   *
+   * resetShip() refills every stage to the vessel's own table; a Kármán
+   * program then drains the load to its fraction — the last stage's share
+   * taken entirely, the earlier stages pro-rated, because the margin a
+   * real flight plan leaves is the whole plan's, not one tank's. Applied
+   * here, inside the reset, so the fuel is a fact of the flight before the
+   * first frame of the count and no path to the pad can bypass it. A
+   * program armed *after* the reset (the planner arms on entry) still sees
+   * the right load: armProgram re-applies the drain itself.
+   */
+  resetShip()
+  if (program.armed && wingFuel() < 1) {
+    const k = wingFuel()
+    for (let i = 0; i < SHIP.stages.length; i++) {
+      ship.stageProp[i] = SHIP.stages[i].propellant * k
+    }
+    ship.mass = totalMass()
+  }
   // Columbia where it would be for a count started now. The count places it
   // again when it does start — see beginCountdown.
   if (SHIP.lunar && INDEX.target !== undefined) placeColumbia(mission.site, live.sim.t + mission.countLength)
@@ -4478,13 +4632,21 @@ export function updateStepCeiling(now) {
     stepCeiling[0] = togo > NODE_TIME_EPS ? togo : Infinity
     return
   }
+  const phase = PHASES[mission.index].id
   const node = nodeAhead(now)
-  if (!node) stepCeiling[0] = Infinity
+  /*
+   * The pilot's coast runs at the pilot's pace: a node inside PILOT_FLIGHT
+   * was placed by the pilot and is still preempted on time (see
+   * updateMission), but the ceiling does not pin the warp to its alignment
+   * window — a plan the computer did not make is not the computer's to
+   * protect. Every other coast keeps the ceiling, sequencer-planned or not.
+   */
+  if (phase === 'PILOT_FLIGHT') stepCeiling[0] = Infinity
+  else if (!node) stepCeiling[0] = Infinity
   else {
     const togo = alignmentStart(node) - now
     stepCeiling[0] = togo > NODE_TIME_EPS ? togo : 0
   }
-  const phase = PHASES[mission.index].id
   if (phase === 'GRAVITY_TURN' || phase === 'CIRCULARISE') limitStepToCutoff(phase === 'CIRCULARISE')
   else if (phase === 'NRHO_STATION_KEEP') limitStepToKeepBurn()
   else if (SHIP.lunar) {
@@ -4543,6 +4705,18 @@ export function updateMission(dt, simDt = dt) {
     setPhase(INDEX_OF.NODE_ALIGN)
     return
   }
+  /*
+   * The pilot's coast, and whose clock it runs on.
+   *
+   * In every sequencer coast the step ceiling above holds the frame back
+   * from the alignment window of the node *the flight computer asked to
+   * have planned* — a burn it scheduled is a burn it must not overshoot.
+   * PILOT_FLIGHT is a coast the pilot flies by choice, and any node in it
+   * is one they placed themselves: the preemption just above still fires
+   * and the burn still happens, but the step ceiling does not pin their
+   * warp to the alignment window of a plan the computer did not make.
+   * updateStepCeiling reads the same phase id and stands down.
+   */
 
   phase.control(dt, simDt)
 
@@ -4577,6 +4751,11 @@ export function updateMission(dt, simDt = dt) {
       setPhase(phase.next(), phase.id === 'STAGING' && !mission.resumeDone)
     }
   }
+
+  // The armed program rides the sequencer's own tail: after every routing
+  // decision above, so the objectives read this frame's settled state, and
+  // nowhere else — a second caller would tick it twice per frame.
+  tickProgram(dt, simDt)
 }
 
 /** Hold the vehicle on the pad. Called after the integration step. */
@@ -4595,6 +4774,9 @@ const SHIP_OFFSET = (INDEX.ship * 6) | 0
 
 /** True once the capsule is in the water. */
 export const isSplashed = () => Boolean(PHASES[mission.index].splashed)
+
+/** True once a pilot's own touchdown is being held on the surface. */
+export const isLanded = () => Boolean(PHASES[mission.index].landing && PHASES[mission.index].held && mission.touchdownRadius > 0)
 
 /**
  * Hold the capsule on the surface after splashdown.
@@ -4624,4 +4806,35 @@ export function applySplashdownHold() {
   st[o + 3] = st[e + 3] + (w[1] * rz * k - w[2] * ry * k)
   st[o + 4] = st[e + 4] + (w[2] * rx * k - w[0] * rz * k)
   st[o + 5] = st[e + 5] + (w[0] * ry * k - w[1] * rx * k)
+}
+
+/**
+ * Hold the vehicle where it landed — on whatever body the touchdown
+ * radius was measured against.
+ *
+ * The same constraint, shape for shape, as the splashdown hold above, and
+ * for the same reason: modelling the ground as a contact force would be
+ * the stiffest term in the system. The vehicle is pinned to its touchdown
+ * radius about the body's centre and given the body's own surface
+ * velocity, so it rides the turning ground exactly as the capsule rides
+ * the turning ocean.
+ */
+export function applyLandedHold() {
+  const st = live.sim.state
+  const o = INDEX.ship * 6
+  const body = live.insideLunarSOI ? 'moon' : 'earth'
+  const b = INDEX[body] * 6
+  const rx = st[o] - st[b]
+  const ry = st[o + 1] - st[b + 1]
+  const rz = st[o + 2] - st[b + 2]
+  const r = Math.hypot(rx, ry, rz)
+  if (!(r > 0)) return
+  const k = (mission.touchdownRadius ?? BODIES[body].radius) / r
+  st[o] = st[b] + rx * k
+  st[o + 1] = st[b + 1] + ry * k
+  st[o + 2] = st[b + 2] + rz * k
+  const w = live.sim.omega
+  st[o + 3] = st[b + 3] + (w[1] * rz * k - w[2] * ry * k)
+  st[o + 4] = st[b + 4] + (w[2] * rx * k - w[0] * rz * k)
+  st[o + 5] = st[b + 5] + (w[0] * ry * k - w[1] * rx * k)
 }

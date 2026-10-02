@@ -110,6 +110,15 @@ export const uiStore = createStore({
    * is whether the approach films have music on them.
    */
   score: true,
+  /**
+   * The ambience, under the flight — off until the visitor asks.
+   *
+   * Unlike the score, this is not fetched until it is first enabled (see
+   * `sfx/ambience.js`): a visitor who never asks for sound never downloads
+   * the 3 MB bed. The toggle's click is the gesture that creates the
+   * AudioContext, so nothing here ever fights the browser for one.
+   */
+  ambience: false,
   clouds: true,
   atmosphere: true,
   panelOpen: WIDE_ENOUGH_FOR_PANELS,

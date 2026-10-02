@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PRESETS, presetHref } from '../sim/presets.js'
 import { MissionLibrary } from './MissionLibrary.jsx'
+import { Planner } from './Planner.jsx'
 
 /**
  * Missions to jump into.
@@ -11,6 +12,7 @@ import { MissionLibrary } from './MissionLibrary.jsx'
  */
 export function Presets() {
   const [library, setLibrary] = useState(false)
+  const [planner, setPlanner] = useState(false)
   const active = new URLSearchParams(window.location.search).get('preset')
 
   const open = (event, preset) => {
@@ -49,6 +51,13 @@ export function Presets() {
       >
         Open the mission library →
       </button>
+      <button
+        onClick={() => setPlanner(true)}
+        className="control w-full pt-1.5 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
+      >
+        Plan your own flight →
+      </button>
+      {planner && <Planner onClose={() => setPlanner(false)} />}
       <div className="mt-2 text-[9px] leading-relaxed text-white/25">
         Each is flown from the pad when it loads, not restored from a save.
       </div>

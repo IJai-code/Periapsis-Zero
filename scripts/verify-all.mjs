@@ -53,8 +53,12 @@
  *
  * `verify-broadcast` checks the broadcast's claims — which views were cameras,
  * the clocks, the far-side geometry flown from the same lunar-orbit fixture the
- * heating gates use, and the loop's timing. `verify-audio` is gone with the
- * sound it verified: the product makes none.
+ * heating gates use, and the loop's timing. `verify-audio` returned with sound
+ * in the product, but only the sound the visitor brings: it holds the ambient
+ * bed to being a real recording, the flight path to importing none of it, and
+ * the AudioContext to its gesture. `verify-programs` holds the planner's
+ * promises — the wings' freedom ladder, every program's delta-v budget closed
+ * on the vehicle's own rocket equation, the fuel drains real.
  *
  * `verify-deep-sky` and `verify-galaxy` sit beside `verify-cosmos`, the rest of
  * the sky: the first holds every named star, nebula and galaxy to the
@@ -161,6 +165,8 @@ const GATES = [
   ['verify-nrho-capture', false],
   ['verify-nrho-keeping', false],
   ['verify-allocation', true],
+  ['verify-programs', false],
+  ['verify-audio', false],
 ]
 
 const wanted = process.argv.slice(2)
