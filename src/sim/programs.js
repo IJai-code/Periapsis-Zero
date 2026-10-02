@@ -2,6 +2,7 @@ import { BODIES, G, G0 } from './constants.js'
 import { live } from './live.js'
 import { mission, currentPhase, PHASE_IDS } from './mission.js'
 import { ship, deltaV } from './ship.js'
+import { INDEX } from './system.js'
 
 /**
  * Flight programs and the wings a pilot earns.
@@ -188,8 +189,39 @@ function evaluate(o) {
         ),
       }
     }
-    case 'tli':
-      return { done: reached('TRANS_LUNAR'), progress: Math.min(1, Math.max(0, (altitude() - 200e3) / 3e8)) }
+    case 'tli': {
+      /*
+       * Translunar injection, read off the conic and not the sequencer.
+       * `reached('TRANS_LUNAR')` was the first draft, and it was wrong for
+       * exactly the pilot this file exists for: an Aldrin wing never enters
+       * that phase — PILOT_FLIGHT holds the stick from MECO to the Moon —
+       * so a checklist keyed to the phase table could never tick. The honest
+       * test is geometric: the osculating apogee carried past half the way
+       * to the Moon is a translunar orbit, whatever flew it. Half-way rather
+       * than the sphere of influence because an orbit is a fact about the
+       * ellipse; whether the Moon is *at* the far end is the next line's
+       * business.
+       */
+      const el = live.elements
+      // The Earth–Moon span, from the live positions — the distance the
+      // transfer is actually being flown across this frame, not a mean.
+      const em = Math.hypot(
+        live.pos.moon.x - live.pos.earth.x,
+        live.pos.moon.y - live.pos.earth.y,
+        live.pos.moon.z - live.pos.earth.z,
+      )
+      const halfway = 0.55 * (em || 384.4e6)
+      const injected = el.apogeeRadius > halfway && el.perigee > 100e3
+      return {
+        done: injected,
+        progress: injected
+          ? 1
+          : Math.min(
+              1,
+              Math.max(0, (el.apogeeRadius - SHIP_PARKING) / (halfway - SHIP_PARKING)),
+            ),
+      }
+    }
     case 'lunarSoi': {
       // The Moon's sphere of influence, off the same value refreshDerived
       // publishes each frame (the Laplace relation, soi.js).
@@ -201,19 +233,37 @@ function evaluate(o) {
       )
       return { done: d < soi, progress: Math.max(0, Math.min(1, 1 - (d - soi) / 3.2e8)) }
     }
-    case 'lunarOrbit':
+    case 'lunarOrbit': {
+      /*
+       * In lunar orbit, read from the selenocentric conic for the same
+       * reason `tli` reads from the geocentric one: the sequencer's LOI_BURN
+       * phase is computer work, and an Aldrin wing never walks through it.
+       * Bound (eccentricity under 1), perigee above the surface, inside the
+       * sphere of influence — that is lunar orbit, however the burn was
+       * planned. A trajectory still on approach reads eccentricity ≥ 1 in
+       * the Moon's frame, and a suborbital lob reads perigee below the
+       * surface; neither is an orbit.
+       */
+      const l = live.lunar
+      const soi = live.lunarSOI || 66_100e3
+      const captured = l.perigee > 10e3 && l.eccentricity < 1 && l.altitude < soi
       return {
-        done: reached('LOI_BURN'),
-        progress: reached('LOI_BURN')
+        done: captured,
+        progress: captured
           ? 1
-          : Math.min(1, Math.max(0, 1 - (distanceToMoon() - (live.lunarSOI || 66_100e3)) / 3.2e8)),
+          : Math.min(1, Math.max(0, 1 - (distanceToMoon() - soi) / 3.2e8)),
       }
+    }
     case 'landing': {
       // On the surface and slow: the same test the sequencer's own lunar
       // hold makes, read from the live state rather than the phase table.
+      // Off `INDEX` — the slot map the integrator itself is laid out by —
+      // not off a `live.index` that does not exist. This was a TypeError
+      // waiting for the first pilot to reach the surface; nothing in the
+      // harness had ever run this branch, because the harness never lands.
       const s = live.sim.state
-      const o = live.index.ship * 6
-      const m = live.index.moon * 6
+      const o = INDEX.ship * 6
+      const m = INDEX.moon * 6
       const rx = s[o] - s[m]
       const ry = s[o + 1] - s[m + 1]
       const rz = s[o + 2] - s[m + 2]
@@ -459,6 +509,26 @@ export const wingHolds = (capability) => {
 export const wingFuel = () => {
   if (!program.armed || !program.wing) return 1
   return program.wing.id === 'karman' ? KARMAN_FUEL : 1
+}
+
+/**
+ * Whether the stick changes hands at the door out of insertion.
+ *
+ * A capability read cannot answer this. `wingHolds('burns')` is true both
+ * for a Trainee whose computer has just finished *its* last burn and for a
+ * preset with nothing armed at all — the same answer meaning opposite
+ * things, and the CIRCULARISE exit cannot send a scripted mission into the
+ * pilot's cockpit. (A first draft read the capability and would have done
+ * exactly that; the flight in `verify-programs` is what exposed it.)
+ *
+ * The honest discriminator is the armed contract: a Trainee program *names*
+ * insertion as computer work, so when its CIRCULARISE ends, the planner's
+ * promise — from the parking orbit, the spacecraft is yours — falls due.
+ * Nothing armed, or any other wing — Aviator took the stick at MECO, Aldrin
+ * and Kármán at the count — and the sequencer keeps the vehicle.
+ */
+export function handsOffAfterInsertion() {
+  return program.armed && program.wing?.id === 'trainee'
 }
 
 /** Progress through the checklist, 0..1, for the planner strip. */

@@ -1120,15 +1120,20 @@ with the pilot at the stick instead.
 ### The flight
 
 From the count you stand where the presets' cameras stood; `g` walks, `g` again
-returns to the ground camera. Your objectives are evaluated from the simulation
-every frame — never from a UI flag: orbit means the osculating perigee and
-apogee say orbit, landing means the selenocentric altitude and descent rate say
-touchdown — and the checklist riding the instruments column ticks them off as
-the flight makes them true. In pilot flight the step ceiling is lifted (a
-pilot's pace is the pilot's own; node preemption still fires), and a landed
-vehicle is held at its touchdown point against the surface, so an Aldrin
-descent ends standing on the Moon with the Earth overhead — the view the
-simulator was built for, now earned.
+returns to the ground camera. A Trainee feels the handoff the planner promised:
+the computer flies the count, the ascent and the insertion burn, and at the door
+out of insertion the sequencer stops — from there the spacecraft is yours, with
+the map, the nodes and the window solutions still there to ask. Your objectives
+are evaluated from the simulation every frame — never from a UI flag, and never
+from the phase table, because a hand-flown flight does not walk the computer's
+phases: orbit means the osculating perigee and apogee say orbit, injection means
+the apogee has been carried past half the way to the Moon, landing means the
+selenocentric altitude and descent rate say touchdown — and the checklist riding
+the instruments column ticks them off as the flight makes them true. In pilot
+flight the step ceiling is lifted (a pilot's pace is the pilot's own; node
+preemption still fires), and a landed vehicle is held at its touchdown point
+against the surface, so an Aldrin descent ends standing on the Moon with the
+Earth overhead — the view the simulator was built for, now earned.
 
 The wings, budgets and deep links are held to by `verify-programs`; the
 ambience's place in the architecture by `verify-audio`.

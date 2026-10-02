@@ -86,6 +86,41 @@ real vessels, sites and checks) and `verify-audio` (four, above). The harness
 runs the plain and Aldrin wings headlessly end to end; the Kármán load measures
 1,805,580 kg on the pad, exactly 84% of the S-IC load.
 
+**The handoff the planner promised.** The Trainee's copy says *from the parking
+orbit, the spacecraft is yours* — and the code did not keep it: nothing routed
+`CIRCULARISE`'s exit anywhere but `COAST`, so the sequencer rolled on flying
+(window solutions, the injection itself) while the checklist's later legs asked
+for burns the pilot was never handed the stick to make. The handoff now lives on
+that door and reads the armed contract (`handsOffAfterInsertion()`), because the
+obvious capability read cannot distinguish a Trainee whose computer has just
+finished its last burn from a preset with nothing armed — the same answer meaning
+opposite things, and a scripted mission must never land in the pilot's cockpit.
+Both directions are held by a flown check in `verify-programs` (the sixth), which
+caught the inverted first draft before a pilot could. A preset also stands any
+armed program down — `startPreset` disarms — because the broadcast is nobody's
+plan.
+
+**The checks the harness had never run.** The landing objective read
+`live.index`, which does not exist — a TypeError the first Descent pilot would
+have met at the surface, invisible to a suite that never lands; it reads `INDEX`
+now, the slot map the integrator itself is laid out by. And the `tli` and
+`lunarOrbit` objectives latched on phase positions a hand-flying pilot never
+walks through (the sequencer holds `PILOT_FLIGHT` from MECO to the Moon), so
+their checklist could never tick; they read the conics now — apogee carried past
+55% of the live Earth–Moon span is an injection, a bound selenocentric conic with
+perigee above the surface is lunar orbit — the same rule the orbit check already
+kept: a fact about the flight, not the phase table.
+
+**The door and the bed.** A `?program=` link landing on the front door armed
+nothing: *Enter* gave a plain flight and the plan died in the address bar. The
+link is re-read on the way in now, and arms on the route's freest wing — which
+also fixes a deep-linked Descent being silently armed Trainee, a wing the route
+does not offer and the sequencer gate would not have honoured. The ambience's
+first enable fetches 3 MB across an await, and a second click inside that window
+could leave the bed playing under a toggle reading OFF; the await fence, the
+flag rebalance and a closed context on every abandoned path fix that, and
+`pagehide` disposes the graph — the caller its comment always claimed.
+
 *Known limitations.* The descent program's legs are priced from the Apollo 8
 stage table; no dedicated lander vessel exists yet, so the one-way descent is the
 only honest landing this stack can sell. The ambience filter models absorption

@@ -56,7 +56,7 @@ import {
 } from './lunarMission.js'
 import { BODIES, G, G0, SHIP } from './constants.js'
 import { recordBest, recordMilestone, recordPad } from './logbook.js'
-import { tickProgram, wingHolds, wingFuel, program } from './programs.js'
+import { tickProgram, wingHolds, wingFuel, handsOffAfterInsertion, program } from './programs.js'
 import { EARTH_FIELD, fieldOf, meanEccentricity, meanSemiMajor, radialGravity } from './prem.js'
 import { DECAY_FLOOR, circularOrbitDecayingTo, decayAfter, decayed, orbitalLifetime } from './decay.js'
 
@@ -2644,7 +2644,30 @@ const PHASES = [
       }
       return e > mission.bestEccentricity + PROFILE.eccNoiseFloor
     },
-    next: () => INDEX_OF.COAST,
+    /**
+     * The handoff, and why it lives on the door out of insertion.
+     *
+     * `CIRCULARISE` is the last burn the flight computer holds on a Trainee
+     * wing — the planner's own copy says so: *from the parking orbit, the
+     * spacecraft is yours*. Before this conditional the promise was false:
+     * the sequencer rolled straight from insertion into `COAST` and kept
+     * flying — window solutions, the TLI burn itself — while the checklist's
+     * later legs asked for burns the pilot was never given the stick to
+     * make. The wing gate in `setPhase` already routes the pilot wings
+     * around this phase entirely (they take the stick at MECO); this is the
+     * other half of the same contract, the moment the computer hands the
+     * stick over. The read is the armed contract, not a capability —
+     * `wingHolds('burns')` cannot tell a Trainee whose computer has just
+     * finished its last burn from a preset with nothing armed, and this
+     * gate must never send a scripted mission into the pilot's cockpit
+     * (a first draft read the capability; the flown check in
+     * `verify-programs` caught it before a pilot could). Nothing is lost:
+     * `NODE_ALIGN` and `NODE_BURN` stay reachable from pilot flight
+     * through the pilot's own planned nodes, and committing TLI remains
+     * an explicit ask — assistance the pilot requests is not the computer
+     * holding the stick.
+     */
+    next: () => (handsOffAfterInsertion() ? INDEX_OF.PILOT_FLIGHT : INDEX_OF.COAST),
   },
   {
     id: 'COAST',

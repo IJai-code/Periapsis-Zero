@@ -21,13 +21,20 @@
  *      load actually drained on the live stack.
  *   4. Every program names a real vessel and sites that exist, and every
  *      objective names a check the evaluator knows.
+ *   5. The Trainee handoff is flown, not asserted: a Trainee Orbit Run from
+ *      the pad, through the scripted ascent and insertion, and the stick
+ *      actually changes hands at the door out of CIRCULARISE — PILOT_FLIGHT
+ *      entered, COAST never reached, the first objectives latched by the
+ *      simulation. This is the planner's own copy made true on a real
+ *      trajectory; it caught an inverted capability read before a pilot did.
  */
 import assert from 'node:assert/strict'
 import { PROGRAMS, WINGS, stackDeltaV, armProgram, disarmProgram, wingHolds, wingFuel, program, KARMAN_FUEL } from '../src/sim/programs.js'
 import { VESSELS } from '../src/sim/vessels.js'
 import { LAUNCH_SITES, ALL_SITES } from '../src/sim/launchsite.js'
-import { resetMission } from '../src/sim/mission.js'
+import { resetMission, currentPhase } from '../src/sim/mission.js'
 import { ship } from '../src/sim/ship.js'
+import { flyMission, flyUntil } from '../src/sim/fastForward.js'
 
 let n = 0
 const check = (label, fn) => {
@@ -143,4 +150,72 @@ check('every program names real vessels, real sites, real checks', () => {
   for (const id of Object.keys(LAUNCH_SITES)) assert.ok(offered.has(id), `no program offers ${id}`)
 })
 
-console.log(`verify-programs: ${n} checks — freedom ladder, closed budgets, the honest one-way landing, arming and fuel drains pass`)
+/* 5. The handoff is a flight, not a claim — in both directions. */
+check('the Trainee handoff happens on a flown trajectory — and presets keep theirs', () => {
+  const def = PROGRAMS.find((p) => p.id === 'orbit-run')
+  // The armed half: a Trainee's stick changes hands at insertion's door.
+  // The phase log is collected through flyMission's own onPhase hook — the
+  // ascent happens *inside* that call, and a collector that starts after it
+  // sees only what came later. (This gate caught exactly that mistake in
+  // its own first draft.)
+  armProgram(def, 'trainee')
+  const phases = new Set()
+  flyMission('CIRCULARISE', {
+    onPhase: (id, from) => {
+      phases.add(from)
+      phases.add(id)
+    },
+  })
+
+  let handed = false
+  flyUntil(
+    () => {
+      if (currentPhase().id === 'PILOT_FLIGHT') return (handed = true)
+      return false
+    },
+    { maxFrames: 2_000_000 },
+  )
+
+  assert.ok(handed, 'the stick never changed hands after insertion')
+  assert.ok(!phases.has('COAST'), 'the sequencer kept flying through COAST — the handoff did not happen')
+  for (const scripted of ['PITCH_KICK', 'GRAVITY_TURN', 'CIRCULARISE']) {
+    assert.ok(phases.has(scripted), `the computer was supposed to fly ${scripted}`)
+  }
+  const done = program.objectives.filter((o) => o.done)
+  assert.ok(done.some((o) => o.check === 'liftoff'), 'liftoff did not latch')
+  assert.ok(
+    done.some((o) => o.check === 'orbit'),
+    'the orbit objective did not latch on a real 185 km orbit — the geometric check is broken',
+  )
+  disarmProgram()
+
+  /* The unarmed half — the one a first draft of the sequencer gate got
+     wrong: with nothing armed the same door must open onto COAST, exactly
+     as every scripted mission has always flown it. A capability read
+     passes this by accident, for the wrong reason; the armed-contract read
+     passes it by construction. */
+  const unprogrammed = new Set()
+  flyMission('CIRCULARISE', {
+    onPhase: (id, from) => {
+      unprogrammed.add(from)
+      unprogrammed.add(id)
+    },
+  })
+  let coasted = false
+  flyUntil(
+    () => {
+      const id = currentPhase().id
+      if (id === 'COAST') return (coasted = true)
+      if (id === 'PILOT_FLIGHT') return true
+      return false
+    },
+    { maxFrames: 400_000 },
+  )
+  assert.ok(coasted, 'an unarmed flight was routed into pilot flight — the scripted missions broke')
+  assert.ok(unprogrammed.has('CIRCULARISE'), 'the unarmed flight never reached insertion')
+  assert.ok(!unprogrammed.has('PILOT_FLIGHT'), 'an unarmed flight entered pilot flight')
+  disarmProgram()
+  resetMission()
+})
+
+console.log(`verify-programs: ${n} checks — ladder, budgets, the one-way landing, arming, tables, and a flown handoff pass`)

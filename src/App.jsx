@@ -17,7 +17,7 @@ import { MissionLibrary } from './ui/MissionLibrary.jsx'
 import { Guide, guideShouldOpen } from './ui/Guide.jsx'
 import { MissionIntro } from './ui/MissionIntro.jsx'
 import { introEnd } from './gfx/introFlights.js'
-import { requestedProgram, armProgram } from './sim/programs.js'
+import { requestedProgram, armProgram, program } from './sim/programs.js'
 import { resetMission } from './sim/mission.js'
 
 /**
@@ -128,18 +128,22 @@ export default function App() {
     const preset = requestedPreset()
     if (!preset) {
       /*
-       * A program deep-link arms its plan without flying it: ?program=
-       * names the route, the planner's wing default stands, and the flight
+       * A program deep-link arms its plan without flying it: `?program=`
+       * names the route, the wing is the route's freest, and the flight
        * opens on the pad with the count at sixty — the same first frame a
        * launch preset gets, minus the film, because a film of a flight
        * the visitor has not planned is not their film.
+       *
+       * It arms on this half only — a link with a program but no `#flight`
+       * is re-read on entering the flight (below), so the plan follows the
+       * visitor through the door instead of dying in the address bar.
        */
       const programDef = requestedProgram()
       if (programDef && isFlight()) {
-        armProgram(programDef, 'trainee')
-        resetMission()
-        setUi({ paused: false, focus: 'ground' })
-      }
+          armProgram(programDef, programDef.wings[0] ?? 'trainee')
+          resetMission()
+          setUi({ paused: false, focus: 'ground' })
+        }
       return
     }
     const run = startPreset(preset)
@@ -173,10 +177,27 @@ export default function App() {
     setUi({ warp: run.warp, paused: false, ...(run.focus ? { focus: run.focus } : {}) })
   }, [])
 
+  /**
+   * Into the flight with a program in the address.
+   *
+   * The mount effect above only arms a `?program=` when it lands on
+   * `#flight` — a link to the front door with a plan in it must not reset
+   * a flight the visitor is already in. But armed state is what makes the
+   * plan real, and the natural click is *Enter*: if the plan is still
+   * unarmed on the way in, arm it here, on the route's freest wing. The
+   * reset is safe by the same argument the planner's own button makes —
+   * nothing has flown yet in a flight being entered for the first time.
+   */
   const enter = useCallback(() => {
     setGuide(false)
     window.location.hash = FLIGHT
     setFlight(true)
+    const programDef = requestedProgram()
+    if (programDef && !program.armed) {
+      armProgram(programDef, programDef.wings[0] ?? 'trainee')
+      resetMission()
+      setUi({ paused: false, focus: 'ground' })
+    }
   }, [])
 
   if (!device) return <DevicePrompt onChoose={choose} />

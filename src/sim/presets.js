@@ -1,4 +1,5 @@
 import { flight, flyMission, standOnPad } from './fastForward.js'
+import { disarmProgram } from './programs.js'
 import { armHaloCaptureInBackground, currentPhase, mission } from './mission.js'
 import { director, updateDirector } from './director.js'
 import { ACTIVE_VESSEL } from './vessels.js'
@@ -348,6 +349,13 @@ let started = null
 export function startPreset(preset) {
   if (started) return started
   const begun = performance.now()
+  /*
+   * A preset is the mission as flown, and no pilot is at the stick — so any
+   * program a visitor armed earlier stands down here. Without this, a preset
+   * started after planning a flight inherits that program's checklist and
+   * its wing gates, and the broadcast flies a mission nobody planned.
+   */
+  disarmProgram()
   const arrived = preset.fromPad
     ? standOnPad(preset.launchHour ?? 0)
     : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })

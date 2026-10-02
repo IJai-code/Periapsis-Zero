@@ -60,6 +60,8 @@ export const ambience = {
   /** True once the file has been fetched and decoded (or has failed). */
   loaded: false,
   failed: false,
+  /** True while the first enable is still fetching and decoding. */
+  building: false,
 }
 
 /** Fetch and decode the bed once. Returns the buffer or null. */
@@ -78,9 +80,20 @@ async function loadBuffer(ctx) {
  * Turn the ambience on or off.
  *
  * Called from the store toggle's own handler — the click — so every path
- * into `new AudioContext` here is behind a real gesture. Turning it off
- * never destroys the context: the buffer and the graph are kept, the gain
- * goes to zero, and asking again later is instant and free.
+ * into `new AudioContext` here is behind a real gesture. The `AudioContext`
+ * itself is constructed *synchronously*, before the first `await`: the
+ * gesture's grant does not survive an await boundary, and a context built
+ * after the fetch would start suspended.
+ *
+ * Turning it off never destroys the context: the buffer and the graph are
+ * kept, the gain goes to zero, and asking again later is instant and free.
+ *
+ * The await fence matters because the first enable fetches 3 MB. Click on,
+ * then click off again before the decode finishes: the second call returns
+ * through the `!on` branch and mutes the gain — and when the first call's
+ * await resumes, it sees `on === false` and refuses to start the source.
+ * Without that check the second click would be swallowed and the bed would
+ * play under a toggle reading OFF, with only a page reload to stop it.
  */
 export async function setAmbience(on) {
   if (on === ambience.on) return
@@ -91,33 +104,55 @@ export async function setAmbience(on) {
     }
     return
   }
-  if (ambience.failed) return
+  if (ambience.failed || ambience.building) return
   if (!ambience.ctx) {
     const Ctx = window.AudioContext ?? window.webkitAudioContext
     if (!Ctx) {
       ambience.failed = true
+      ambience.on = false
       return
     }
-    const ctx = new Ctx()
-    const gain = ctx.createGain()
-    gain.gain.value = 0
-    const filter = ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = SEA_LEVEL_HZ
-    filter.Q.value = 0.4
-    const source = ctx.createBufferSource()
-    source.loop = true
-    source.buffer = await loadBuffer(ctx)
-    if (!source.buffer) return
-    // filter -> gain -> destination; the filter is what moves, the gain is
-    // the switch's own hand.
-    source.connect(filter).connect(gain).connect(ctx.destination)
-    source.start()
-    ambience.ctx = ctx
-    ambience.source = source
-    ambience.filter = filter
-    ambience.gain = gain
-    ambience.loaded = true
+    ambience.building = true
+    try {
+      const ctx = new Ctx()
+      const gain = ctx.createGain()
+      gain.gain.value = 0
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.value = SEA_LEVEL_HZ
+      filter.Q.value = 0.4
+      const source = ctx.createBufferSource()
+      source.loop = true
+      source.buffer = await loadBuffer(ctx)
+      // The toggle may have moved while the buffer was in flight, or the
+      // fetch may have failed. Either way the graph is not wanted: the
+      // context is closed below and its nodes go with it.
+      if (!source.buffer || !ambience.on) {
+        // Nobody wants this graph — the toggle moved or the load failed, and
+        // `ambience.ctx` was never assigned. Close the context so the audio
+        // hardware is released; the next enabling gesture rebuilds from scratch.
+        ctx.close().catch(() => {})
+        if (!source.buffer) ambience.on = false
+        return
+      }
+      // filter -> gain -> destination; the filter is what moves, the gain is
+      // the switch's own hand.
+      source.connect(filter).connect(gain).connect(ctx.destination)
+      source.start()
+      ambience.ctx = ctx
+      ambience.source = source
+      ambience.filter = filter
+      ambience.gain = gain
+      ambience.loaded = true
+      // The tab is going away, or the user agent put it in the back-forward
+      // cache: stop the source and close the context so the bed does not
+      // keep playing in a page nobody can see. The next enable rebuilds the
+      // graph from scratch — a new gesture, a new context, and the buffer
+      // is cheap the second time because the browser has it cached.
+      window.addEventListener('pagehide', disposeAmbience, { once: true })
+    } finally {
+      ambience.building = false
+    }
   }
   if (ambience.ctx.state === 'suspended') await ambience.ctx.resume()
   ambience.gain.gain.setTargetAtTime(0.55, ambience.ctx.currentTime, 1.5)
@@ -141,7 +176,13 @@ export function tickAmbience() {
   ambience.filter.frequency.setTargetAtTime(hz, ambience.ctx.currentTime, GLIDE)
 }
 
-/** Stop everything — the tab is going away. */
+/**
+ * Stop everything — the page is going away.
+ *
+ * Registered on `pagehide` the moment a graph exists, which is the caller
+ * this comment always claimed: nothing else in the app has a reason to
+ * dispose the bed, because turning it off is a fade and not a teardown.
+ */
 export function disposeAmbience() {
   try {
     ambience.source?.stop()
