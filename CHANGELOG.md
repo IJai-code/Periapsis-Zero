@@ -121,6 +121,19 @@ could leave the bed playing under a toggle reading OFF; the await fence, the
 flag rebalance and a closed context on every abandoned path fix that, and
 `pagehide` disposes the graph — the caller its comment always claimed.
 
+**The polish the first outside visitors earned.** The front door carried five
+near-identical creams where the palette has one — `#f5efe6`, `#f0e7da`,
+`#e8e0d5`, `#efe7db`, `#f2ebe0`, raw hexes scattered across ten files, each a
+little wrong against `hud`, the champagne the rest of the interface is mixed
+from. They are all `text-hud` now, and the oddball sizes that rode in beside
+them (10.5, 11.5, 12.5, 13.5, 16.5 px) sit on the ladder the panels already
+used. The Earth texture manifest named a file this install deliberately does
+not ship, so every visitor's console printed a 404 before the fallback
+answered — the specular map is declared as the slot's primary now, inverted on
+load, and the loader probes only files that exist. The planner's Close button
+was a 29 px tap target on a phone; it gets the house's 36 px minimum like every
+other control.
+
 *Known limitations.* The descent program's legs are priced from the Apollo 8
 stage table; no dedicated lander vessel exists yet, so the one-way descent is the
 only honest landing this stack can sell. The ambience filter models absorption

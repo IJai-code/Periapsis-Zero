@@ -19,7 +19,12 @@ import { useUi } from '../sim/store.js'
  * `alt` is a fallback filename for the same slot. Published Earth maps are
  * almost always *specular* rather than roughness — bright where the surface is
  * shiny — which is the exact inverse of what a roughnessMap wants. Rather than
- * making that the user's problem, the alternate is inverted on load.
+ * making that the user's problem, the alternate is inverted on load. `invert`
+ * says the same of a *primary*: the Earth slot is declared with the specular
+ * map as its file, because this install deliberately ships no roughness map
+ * (see `public/textures/README.md`) and a manifest entry whose primary is
+ * absent costs every visitor a console 404 and a dead request before the
+ * fallback answers.
  *
  * `defer` says a slot is not wanted for the first frame. The Moon's two maps
  * are 9.5 MB of the 14 MB this site downloads, and every visitor was waiting
@@ -33,7 +38,7 @@ import { useUi } from '../sim/store.js'
 export const HD_MANIFEST = [
   { slot: 'earth.day', file: 'earth_day.jpg' },
   { slot: 'earth.normal', file: 'earth_normal.jpg' },
-  { slot: 'earth.rough', file: 'earth_roughness.jpg', alt: 'earth_specular.jpg', invertAlt: true },
+  { slot: 'earth.rough', file: 'earth_specular.jpg', invert: true },
   { slot: 'earth.night', file: 'earth_night.jpg' },
   { slot: 'earth.clouds', file: 'earth_clouds.png' },
   { slot: 'moon.color', file: 'moon_color.jpg', defer: true },
@@ -139,7 +144,7 @@ export function loadHdTextures(onProgress = () => {}, onLate = () => {}) {
     let done = 0
     const fetchInto = async (entry) => {
       let texture = configureTexture(await loader.loadAsync(entry.url), entry.slot)
-      if (entry.usedAlt && entry.invertAlt) texture = invertToRoughness(texture, entry.slot)
+      if (entry.usedAlt ? entry.invertAlt : entry.invert) texture = invertToRoughness(texture, entry.slot)
       textures[entry.slot] = texture
       return texture
     }

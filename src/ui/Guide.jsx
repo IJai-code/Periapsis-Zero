@@ -212,10 +212,10 @@ export function Guide({ open, onClose, onLibrary }) {
           <div className="font-mono text-[10px] tracking-[0.26em] text-ember/85 uppercase">
             {s.eyebrow}
           </div>
-          <h2 className="mt-2 font-display text-2xl font-normal tracking-[0.03em] text-[#efe7db]">
+          <h2 className="mt-2 font-display text-2xl font-normal tracking-[0.03em] text-hud">
             {s.title}
           </h2>
-          <p className="mt-2.5 text-[12.5px] leading-relaxed text-[#e8e0d5]/72">{s.body}</p>
+          <p className="mt-2.5 text-[12px] leading-relaxed text-hud/72">{s.body}</p>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
             {last ? (

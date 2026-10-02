@@ -161,16 +161,16 @@ export function LogProgress() {
       <div className="flex items-stretch">
         <div className="flex items-baseline gap-2 border-r border-hud/15 px-3.5 py-2 sm:px-4">
           <span className="rule text-[8px]">Log</span>
-          <span className="font-mono text-[12px] leading-none text-[#f0e7da]/90 tabular-nums">
+          <span className="font-mono text-[12px] leading-none text-hud/90 tabular-nums">
             {count}
             <span className="text-hud/35">/{MILESTONES.length}</span>
           </span>
           <span aria-hidden className="text-hud/20">·</span>
-          <span className="font-mono text-[12px] leading-none text-[#f0e7da]/75 tabular-nums">
+          <span className="font-mono text-[12px] leading-none text-hud/75 tabular-nums">
             {rec.plates} <span className="text-hud/35">plates</span>
           </span>
           <span aria-hidden className="text-hud/20">·</span>
-          <span className="font-mono text-[12px] leading-none text-[#f0e7da]/75 tabular-nums">
+          <span className="font-mono text-[12px] leading-none text-hud/75 tabular-nums">
             {Object.keys(rec.films).length} <span className="text-hud/35">films</span>
           </span>
         </div>
@@ -237,10 +237,10 @@ export function Logbook({ open, onClose }) {
             <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
               Periapsis Zero · this browser
             </div>
-            <h1 className="mt-2 font-display text-3xl font-normal tracking-[0.04em] text-[#efe7db] sm:text-4xl">
+            <h1 className="mt-2 font-display text-3xl font-normal tracking-[0.04em] text-hud sm:text-4xl">
               Flight logbook
             </h1>
-            <p className="mt-2 max-w-xl text-[12.5px] leading-relaxed text-[#e8e0d5]/60">
+            <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-hud/60">
               What you have actually flown, seen and kept here. Nothing is graded —
               the record is the point.
             </p>
@@ -272,11 +272,11 @@ export function Logbook({ open, onClose }) {
                   />
                   <span
                     className={`min-w-0 flex-1 font-sans text-[13px] ${
-                      done ? 'text-[#efe7db]/92' : 'text-[#e8e0d5]/38'
+                      done ? 'text-hud/92' : 'text-hud/38'
                     }`}
                   >
                     {m.label}
-                    <span className="ml-3 hidden text-[11px] text-[#e8e0d5]/45 sm:inline">
+                    <span className="ml-3 hidden text-[11px] text-hud/45 sm:inline">
                       {m.note}
                     </span>
                   </span>
@@ -299,10 +299,10 @@ export function Logbook({ open, onClose }) {
               {bests.map((b) => (
                 <div key={b.id} className="bg-[#0a0b0d] p-5">
                   <div className="rule text-[8px]">{b.label}</div>
-                  <div className="mt-2 font-display text-3xl font-light text-[#f0e7da] tabular-nums">
+                  <div className="mt-2 font-display text-3xl font-light text-hud tabular-nums">
                     {formatBest(b)}
                   </div>
-                  <p className="mt-1.5 text-[10.5px] leading-snug text-[#e8e0d5]/50">
+                  <p className="mt-1.5 text-[10.5px] leading-snug text-hud/50">
                     {b.note}
                     {Number.isFinite(b.missionT) && (
                       <span className="ml-2 font-mono text-[9.5px] text-hud/45">{metLabel(b.missionT)}</span>
@@ -318,15 +318,15 @@ export function Logbook({ open, onClose }) {
         <div className="mt-8 grid gap-px bg-hud/12 sm:grid-cols-3">
           <div className="bg-[#0a0b0d] p-5">
             <div className="rule text-[8px]">Plates taken</div>
-            <div className="mt-2 font-display text-4xl font-light text-[#f0e7da]">{plateCount}</div>
-            <p className="mt-2 text-[11px] leading-snug text-[#e8e0d5]/50">
+            <div className="mt-2 font-display text-4xl font-light text-hud">{plateCount}</div>
+            <p className="mt-2 text-[11px] leading-snug text-hud/50">
               Press P anywhere to add one — captioned, and yours to keep. The last {PLATE_SHELF_SIZE} live
               in the gallery below.
             </p>
           </div>
           <div className="bg-[#0a0b0d] p-5">
             <div className="rule text-[8px]">Films kept</div>
-            <div className="mt-2 font-display text-4xl font-light text-[#f0e7da]">
+            <div className="mt-2 font-display text-4xl font-light text-hud">
               {Object.keys(films).length}
             </div>
             <ul className="mt-2 space-y-1">
@@ -337,7 +337,7 @@ export function Logbook({ open, onClose }) {
                   <li key={id}>
                     <a
                       href={presetHref(PRESETS.find((p) => p.id === id) ?? PRESETS[0])}
-                      className="text-[11px] text-[#e8e0d5]/60 transition-colors duration-300 hover:text-ember"
+                      className="text-[11px] text-hud/60 transition-colors duration-300 hover:text-ember"
                     >
                       {presetName(id)}
                     </a>
@@ -347,13 +347,13 @@ export function Logbook({ open, onClose }) {
           </div>
           <div className="bg-[#0a0b0d] p-5">
             <div className="rule text-[8px]">Pads flown from</div>
-            <div className="mt-2 font-display text-4xl font-light text-[#f0e7da]">
+            <div className="mt-2 font-display text-4xl font-light text-hud">
               {pads.length}
               <span className="ml-1 font-mono text-[11px] text-hud/35">/{SITES.length}</span>
             </div>
             <ul className="mt-2 space-y-1">
               {SITES.filter((s) => pads.includes(s.id)).map((s) => (
-                <li key={s.id} className="text-[11px] text-[#e8e0d5]/60">
+                <li key={s.id} className="text-[11px] text-hud/60">
                   {s.name}
                 </li>
               ))}
@@ -382,7 +382,7 @@ export function Logbook({ open, onClose }) {
                   />
                   <figcaption className="flex items-start justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
-                      <div className="truncate font-sans text-[12px] text-[#efe7db]/88">{p.title}</div>
+                      <div className="truncate font-sans text-[12px] text-hud/88">{p.title}</div>
                       <div className="mt-0.5 truncate font-mono text-[9.5px] tracking-wider text-hud/45">{p.facts}</div>
                     </div>
                     <div className="flex shrink-0 gap-1.5">

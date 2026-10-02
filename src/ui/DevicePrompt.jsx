@@ -95,11 +95,11 @@ export function DevicePrompt({ onChoose }) {
         </div>
         <h1
           id="pz-device-title"
-          className="mt-3 font-display text-3xl font-light tracking-[0.04em] text-[#efe7db] sm:text-4xl"
+          className="mt-3 font-display text-3xl font-light tracking-[0.04em] text-hud sm:text-4xl"
         >
           What are you flying on?
         </h1>
-        <p className="mx-auto mt-3 max-w-md font-sans text-[13px] leading-relaxed text-[#e8e0d5]/60">
+        <p className="mx-auto mt-3 max-w-md font-sans text-[13px] leading-relaxed text-hud/60">
           The solar system is drawn to fit the machine it runs on. Pick yours and the
           controls, the layout and the level of detail follow.
         </p>
@@ -124,7 +124,7 @@ export function DevicePrompt({ onChoose }) {
                 </span>
                 <span className="min-w-0">
                   <span className="block font-mono text-[12px] tracking-[0.22em] uppercase">{copy.label}</span>
-                  <span className="mt-1.5 block font-sans text-[12px] leading-snug text-[#e8e0d5]/55">
+                  <span className="mt-1.5 block font-sans text-[12px] leading-snug text-hud/55">
                     {copy.note}
                   </span>
                 </span>

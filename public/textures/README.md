@@ -18,8 +18,7 @@ safe: that slot falls back to its generated version. `npm run textures:fetch
 | ----------------------- | --------------------------- | ------------ |
 | `earth_day.jpg`         | Earth albedo                | sRGB         |
 | `earth_normal.jpg`      | Earth terrain normals       | linear       |
-| `earth_roughness.jpg`   | Earth roughness             | linear       |
-| `earth_specular.jpg`    | *alternative* to the above  | linear       |
+| `earth_specular.jpg`    | Earth roughness — inverted on load | linear |
 | `earth_night.jpg`       | City lights (emissive)      | sRGB         |
 | `earth_clouds.png`      | Cloud sheet — **needs alpha** | sRGB       |
 | `moon_color.jpg`        | Lunar albedo                | sRGB         |
@@ -40,9 +39,12 @@ supply that file yourself.
   green channel, so oceans must be *dark*. Most published Earth maps are
   specular — bright where the surface is shiny — which is the exact inverse, and
   using one directly gives mirror-finish continents and matte water. Rather than
-  making that your problem, a file named `earth_specular.jpg` is detected and
-  inverted automatically on load. Name it `earth_roughness.jpg` only if it is
-  already dark over water.
+  making that your problem, the manifest declares `earth_specular.jpg` as the
+  Earth's roughness slot and inverts it on load — this install ships no
+  `earth_roughness.jpg`, and a manifest entry pointing at a file that is not
+  there costs every visitor a console 404. To ship a true roughness map instead,
+  add the file *and* change the slot's `file` in `src/gfx/hdTextures.js`; name it
+  `earth_roughness.jpg` only if it is already dark over water.
 - The cloud map is the only one that must carry an alpha channel; coverage is
   read from alpha, not luminance. Hence PNG.
 - Colour space is assigned by slot, not guessed from the file, so colour maps

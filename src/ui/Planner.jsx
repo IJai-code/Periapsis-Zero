@@ -78,13 +78,13 @@ export function Planner({ onClose }) {
             <div className="font-mono text-[10px] tracking-[0.3em] text-ember/80 uppercase">
               Flight planning
             </div>
-            <h1 className="mt-2 font-display text-3xl font-light tracking-[0.04em] text-[#f5efe6]">
+            <h1 className="mt-2 font-display text-3xl font-light tracking-[0.04em] text-hud">
               Plan the mission
             </h1>
           </div>
           <button
             onClick={onClose}
-            className="control border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+            className="control min-h-9 border border-hud/20 px-4 py-1.5 font-mono text-[10px] tracking-[0.22em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember lg:min-h-0"
           >
             Close
           </button>
@@ -114,14 +114,14 @@ export function Planner({ onClose }) {
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className={`text-[13px] ${on ? 'text-ember' : 'text-[#efe7db]/90'}`}>
+                    <span className={`text-[13px] ${on ? 'text-ember' : 'text-hud/90'}`}>
                       {p.name}
                     </span>
                     <span className="font-mono text-[9px] tracking-[0.2em] text-hud/40 uppercase">
                       {p.group}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-[11.5px] leading-snug text-[#e8e0d5]/55">{p.blurb}</p>
+                  <p className="mt-1.5 text-[11px] leading-snug text-hud/55">{p.blurb}</p>
                   <div className="mt-2 font-mono text-[9.5px] text-hud/40 tabular-nums">
                     {p.legs.length} burns · {(PROGRAM_DV(p) / 1000).toFixed(1)} km/s priced
                   </div>
@@ -153,10 +153,10 @@ export function Planner({ onClose }) {
                     on ? 'border-ember bg-ember/10' : 'border-hud/15 hover:border-hud/40'
                   }`}
                 >
-                  <div className={`text-[12.5px] ${on ? 'text-ember' : 'text-[#efe7db]/90'}`}>
+                  <div className={`text-[12px] ${on ? 'text-ember' : 'text-hud/90'}`}>
                     {spec.name}
                   </div>
-                  <div className="mt-1 text-[10.5px] leading-snug text-[#e8e0d5]/50">
+                  <div className="mt-1 text-[10px] leading-snug text-hud/50">
                     {spec.tagline}
                   </div>
                 </button>
@@ -164,7 +164,7 @@ export function Planner({ onClose }) {
             })}
           </div>
           {/* What the wing changes, in machine terms the pilot can hold. */}
-          <div className="mt-2.5 text-[11px] leading-relaxed text-[#e8e0d5]/45">
+          <div className="mt-2.5 text-[11px] leading-relaxed text-hud/45">
             {wing === 'trainee' &&
               'The flight computer flies the ascent and inserts you. From the parking orbit, the spacecraft is yours.'}
             {wing === 'aviator' &&
@@ -184,13 +184,13 @@ export function Planner({ onClose }) {
           <div className="border border-hud/15 px-4 py-3.5">
             <div className="flex items-baseline justify-between font-mono text-[11px] tabular-nums">
               <span className="text-hud/60">Route, priced ({def.legs.length} burns)</span>
-              <span className="text-[#efe7db]/85">{(cost / 1000).toFixed(2)} km/s</span>
+              <span className="text-hud/85">{(cost / 1000).toFixed(2)} km/s</span>
             </div>
             <div className="mt-1.5 flex items-baseline justify-between font-mono text-[11px] tabular-nums">
               <span className="text-hud/60">
                 {vessel.name} stack, {karman ? '84% load' : 'full load'}
               </span>
-              <span className="text-[#efe7db]/85">{(budget / 1000).toFixed(2)} km/s</span>
+              <span className="text-hud/85">{(budget / 1000).toFixed(2)} km/s</span>
             </div>
             <div className="mt-3 h-px bg-hud/12" />
             <div className="mt-2.5 flex items-baseline justify-between">
@@ -216,7 +216,7 @@ export function Planner({ onClose }) {
                 style={{ width: `${Math.min(100, (cost / budget) * 100)}%` }}
               />
             </div>
-            <div className="mt-3 text-[11px] leading-relaxed text-[#e8e0d5]/45">
+            <div className="mt-3 text-[11px] leading-relaxed text-hud/45">
               Priced from the vehicle's own stages — dry mass, exhaust velocity,
               the lot — by the same rocket equation the flight computer flies.
               A negative margin is a plan that fails before the count: pick a
@@ -238,7 +238,7 @@ export function Planner({ onClose }) {
                   key={s.id}
                   onClick={() => setSite(s.id)}
                   className={`control border px-3.5 py-2 text-left transition-colors duration-300 outline-none focus-visible:border-ember ${
-                    on ? 'border-ember bg-ember/10 text-ember' : 'border-hud/15 text-[#efe7db]/85 hover:border-hud/40'
+                    on ? 'border-ember bg-ember/10 text-ember' : 'border-hud/15 text-hud/85 hover:border-hud/40'
                   }`}
                 >
                   <div className="text-[12px]">{s.name}</div>
@@ -247,7 +247,7 @@ export function Planner({ onClose }) {
               )
             })}
           </div>
-          <div className="mt-2.5 text-[11px] leading-relaxed text-[#e8e0d5]/45">
+          <div className="mt-2.5 text-[11px] leading-relaxed text-hud/45">
             The pad sets the plane you climb out of: latitude is the cheapest
             inclination there is. Kourou throws east over the ocean; Vandenberg
             launches south for the polar orbits. The Moon is reached from any
@@ -259,7 +259,7 @@ export function Planner({ onClose }) {
         <div className="mt-10 flex flex-wrap items-center gap-4 border-t border-hud/12 pt-6">
           <button
             onClick={launch}
-            className="control border border-hud/45 px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] text-[#f0e7da] uppercase transition-colors duration-300 outline-none hover:border-ember hover:bg-ember hover:text-obsidian focus-visible:border-ember"
+            className="control border border-hud/45 px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] text-hud uppercase transition-colors duration-300 outline-none hover:border-ember hover:bg-ember hover:text-obsidian focus-visible:border-ember"
           >
             To the pad · begin the count
           </button>
@@ -269,7 +269,7 @@ export function Planner({ onClose }) {
         </div>
 
         {/* The objectives, so the pilot knows what they agreed to. */}
-        <div className="mt-6 mb-4 text-[11.5px] leading-relaxed text-[#e8e0d5]/55">
+        <div className="mt-6 mb-4 text-[11px] leading-relaxed text-hud/55">
           <span className="text-hud/50">Objectives: </span>
           {def.objectives.map((o) => o.label).join(' · ')}
         </div>

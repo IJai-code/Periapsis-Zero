@@ -227,14 +227,14 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
             </div>
             <h1
               style={step(shown, 1)}
-              className="font-display text-[2rem] leading-[1.06] font-light tracking-[0.15em] text-[#f5efe6] sm:text-[3rem] lg:text-[3.4rem]"
+              className="font-display text-[2rem] leading-[1.06] font-light tracking-[0.15em] text-hud sm:text-[3rem] lg:text-[3.4rem]"
             >
               Periapsis Zero
             </h1>
 
             <p
               style={step(shown, 2)}
-              className="mt-7 max-w-[30rem] text-[16.5px] leading-[1.75] font-light text-[#e8e0d5]/92"
+              className="mt-7 max-w-[30rem] text-[16px] leading-[1.75] font-light text-hud/92"
             >
               Fly the missions that were actually flown — Apollo&nbsp;8 to the Moon and
               home, Artemis onto a halo orbit beyond it — through a solar system the
@@ -261,7 +261,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                  */
                 className={`control group relative w-full overflow-hidden border px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] uppercase transition-colors duration-300 outline-none focus-visible:ring-1 focus-visible:ring-ember/80 focus-visible:ring-offset-4 focus-visible:ring-offset-obsidian sm:w-auto ${
                   ready
-                    ? 'border-hud/45 text-[#f0e7da] hover:border-ember hover:bg-ember hover:text-obsidian'
+                    ? 'border-hud/45 text-hud hover:border-ember hover:bg-ember hover:text-obsidian'
                     : 'cursor-progress border-white/10 bg-transparent text-white/40'
                 }`}
               >
@@ -327,10 +327,10 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                     {String(PRESETS.length).padStart(2, '0')}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                    <span className="block font-sans text-[13px] font-normal text-hud/90">
                       Mission library
                     </span>
-                    <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
+                    <span className="mt-1.5 block text-[11px] leading-snug text-hud/58">
                       From the pad, to the Moon, and the burn for home — choose where to
                       arrive.
                     </span>
@@ -351,10 +351,10 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                     ✦
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                    <span className="block font-sans text-[13px] font-normal text-hud/90">
                       Plan your own flight
                     </span>
-                    <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
+                    <span className="mt-1.5 block text-[11px] leading-snug text-hud/58">
                       Pick the route, the wings and the fuel — then fly it yourself, from the count to the touchdown.
                     </span>
                   </span>
@@ -374,10 +374,10 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                     ~
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-sans text-[13.5px] font-normal text-[#efe7db]/90">
+                    <span className="block font-sans text-[13px] font-normal text-hud/90">
                       Take the tour
                     </span>
-                    <span className="mt-1.5 block text-[11.5px] leading-snug text-[#e8e0d5]/58">
+                    <span className="mt-1.5 block text-[11px] leading-snug text-hud/58">
                       A short tour of the solar system, flown by the camera itself.
                     </span>
                   </span>
@@ -415,7 +415,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                     everywhere needs white/65, which is the term's own weight
                     and would flatten the list into one tone.
                   */}
-                  <dd className="mt-1.5 min-w-0 text-[11.5px] leading-relaxed text-[#e8e0d5]/55 sm:mt-0">
+                  <dd className="mt-1.5 min-w-0 text-[11px] leading-relaxed text-hud/55 sm:mt-0">
                     {c.v}
                   </dd>
                 </div>
@@ -430,15 +430,15 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               style={step(shown, 6)}
               className="mt-10 flex flex-wrap items-baseline gap-x-6 gap-y-2"
             >
-              <span className="text-[11.5px] text-[#e8e0d5]/55">
-                Built by <span className="font-medium text-[#f2ebe0]/85">Ishaan&nbsp;Jha</span>.
+              <span className="text-[11px] text-hud/55">
+                Built by <span className="font-medium text-hud/85">Ishaan&nbsp;Jha</span>.
               </span>
               <span className="font-mono text-[10px] tracking-[0.16em] text-hud/35 uppercase">
                 Four pads · one integrator
               </span>
             </div>
 
-            <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-[#e8e0d5]/42">
+            <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-hud/42">
               Everything behind this page is the simulation itself, already running.
             </p>
 

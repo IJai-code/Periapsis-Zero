@@ -222,10 +222,10 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             <div className="font-mono text-[10px] tracking-[0.32em] text-hud/50 uppercase">
               Periapsis Zero presents
             </div>
-            <h1 className="mt-4 font-display text-4xl font-light tracking-[0.06em] text-[#efe7db] sm:text-5xl">
+            <h1 className="mt-4 font-display text-4xl font-light tracking-[0.06em] text-hud sm:text-5xl">
               {preset.title}
             </h1>
-            <div className="mt-3 text-[12.5px] tracking-wide text-[#e8e0d5]/60">{preset.blurb}</div>
+            <div className="mt-3 text-[12px] tracking-wide text-hud/60">{preset.blurb}</div>
             {/* The dossier's cover sheet: the flight's own numbers, in the
                 library's grammar — hairlines and mono labels, nothing lifted. */}
             {dossier?.specs && (
@@ -235,7 +235,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
                     <dt className="font-mono text-[9px] tracking-[0.22em] text-hud/40 uppercase">
                       {label}
                     </dt>
-                    <dd className="mt-1 text-[11.5px] leading-snug text-[#e8e0d5]/78">{value}</dd>
+                    <dd className="mt-1 text-[11px] leading-snug text-hud/78">{value}</dd>
                   </div>
                 ))}
               </dl>
@@ -279,7 +279,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
                   <div className="font-mono text-[10px] tracking-[0.32em] text-ember/85 uppercase">
                     {page.eyebrow}
                   </div>
-                  <div className="mt-2 font-display text-2xl font-light tracking-wide text-[#efe7db]/92 sm:text-3xl">
+                  <div className="mt-2 font-display text-2xl font-light tracking-wide text-hud/92 sm:text-3xl">
                     {page.line}
                   </div>
                 </>

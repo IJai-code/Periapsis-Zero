@@ -190,10 +190,10 @@ export function MissionLibrary({ open, onClose }) {
             <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
               Periapsis Zero · flight archive
             </div>
-            <h1 className="mt-2 font-display text-3xl font-normal tracking-[0.04em] text-[#efe7db] sm:text-4xl">
+            <h1 className="mt-2 font-display text-3xl font-normal tracking-[0.04em] text-hud sm:text-4xl">
               Mission library
             </h1>
-            <p className="mt-2 max-w-xl text-[12.5px] leading-relaxed text-[#e8e0d5]/60">
+            <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-hud/60">
               Every flight here is flown from the pad when it loads — nothing is a saved
               state. Choose where to arrive.
             </p>
@@ -279,10 +279,10 @@ export function MissionLibrary({ open, onClose }) {
                     <Motif tag={plan.tag} />
                   )}
                 </div>
-                <h2 className="mt-3 font-sans text-[14px] font-normal text-[#efe7db]/92">
+                <h2 className="mt-3 font-sans text-[14px] font-normal text-hud/92">
                   {p.title}
                 </h2>
-                <p className="mt-1.5 text-[11.5px] leading-snug text-[#e8e0d5]/58">{p.blurb}</p>
+                <p className="mt-1.5 text-[11px] leading-snug text-hud/58">{p.blurb}</p>
                 <dl className="mt-4 space-y-1 border-t border-hud/10 pt-3 font-mono text-[9.5px] tracking-wider text-hud/45 uppercase">
                   <div className="flex justify-between gap-3">
                     <dt>Craft</dt>

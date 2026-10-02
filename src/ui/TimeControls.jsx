@@ -45,7 +45,7 @@ export function TimeControls() {
                 ? 'lit border-ember bg-ember/18 text-ember'
                 : i < warp
                   ? 'border-transparent text-hud/55 hover:border-ember/50 hover:text-ember'
-                  : 'border-transparent text-[#e8e0d5]/25 hover:border-ember/50 hover:text-ember'
+                  : 'border-transparent text-hud/25 hover:border-ember/50 hover:text-ember'
             }`}
           >
             {level.short}
@@ -58,7 +58,7 @@ export function TimeControls() {
 
       <div className="hidden w-28 shrink-0 px-1 lg:block">
         <div className="rule text-[8px]">Time warp</div>
-        <div className="text-[11px] leading-tight text-[#efe7db]/80">
+        <div className="text-[11px] leading-tight text-hud/80">
           {paused ? 'held' : WARP_LEVELS[warp].label}
         </div>
       </div>

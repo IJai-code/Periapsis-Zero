@@ -108,7 +108,7 @@ export function Commentary() {
       <p
         key={phase}
         ref={body}
-        className="font-sans text-[11.5px] leading-[1.65] text-[#e8e0d5]/70"
+        className="font-sans text-[11px] leading-[1.65] text-hud/70"
       />
     </div>
   )
