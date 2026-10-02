@@ -21,24 +21,48 @@
  */
 
 import { DOSSIERS, INTRO } from './introFlights.js'
-import { FILM_FPS, FILM_MAX_BYTES, filmSize } from './renderBudget.js'
+import { FILM_BITRATE, FILM_FPS, FILM_FRAME_MS, FILM_MAX_BYTES, FILM_STEPS, filmSize } from './renderBudget.js'
+import { scoreTrack } from '../sfx/score.js'
 
-/** The browser's best-supported flavour, or null where there is none. */
+/**
+ * The browser's best-supported flavour, or null where there is none.
+ *
+ * H.264 first, and the order is the whole point. VP8 led this list, which is
+ * the one codec here with no hardware encoder on any machine this runs on: it
+ * encodes on the CPU, beside a render loop that wants the CPU, and it is the
+ * weakest of the three at a given bit rate. H.264 is encoded by a fixed
+ * function block on every current Mac, PC and phone, so it costs the flight
+ * almost nothing — measured in the page, compositing and handing over a
+ * 1080p frame came back under a tenth of a millisecond — and the file it
+ * makes opens in everything a person might take a film home to. VP9 is the
+ * fallback where mp4 recording is not offered, and VP8 the last resort.
+ */
 const MIME =
   typeof MediaRecorder === 'undefined'
     ? null
     : (
         [
-          'video/webm;codecs=vp8',
-          'video/webm;codecs=vp9',
-          'video/webm',
+          'video/mp4;codecs=avc1.42E01E',
           'video/mp4;codecs=avc1',
           'video/mp4',
+          'video/webm;codecs=vp9',
+          'video/webm;codecs=vp8',
+          'video/webm',
         ].find((t) => MediaRecorder.isTypeSupported(t)) ?? null
       )
 
 /** Is there a film to be had on this browser? */
 export const filmSupported = () => MIME !== null
+
+/**
+ * What the last film was made at, for the checkbox to say so honestly rather
+ * than promising a number it may have stepped down from.
+ */
+export const film = { width: 0, height: 0, step: 0 }
+
+/** The codec's short name, for the same reason. */
+export const filmCodec = () =>
+  MIME === null ? 'none' : MIME.includes('avc1') || MIME === 'video/mp4' ? 'H.264' : MIME.includes('vp9') ? 'VP9' : 'VP8'
 
 /** The container the file gets — `.webm` everywhere but the mp4-only engines. */
 const extension = () => (MIME && MIME.includes('mp4') ? 'mp4' : 'webm')
@@ -99,14 +123,36 @@ function drawFilm(ctx, w, h, preset) {
 let rec = null
 
 /**
+ * What one composited frame costs on this machine, at this size.
+ *
+ * `drawImage` from a WebGL canvas is queued, so timing the call alone times
+ * the queueing and returns almost zero however expensive the copy is. One
+ * one-pixel read after it forces the copy to complete, which is the work the
+ * frame actually pays for. That read is itself a synchronisation the real
+ * recorder never performs, so this over-states the cost — deliberately, since
+ * the direction to be wrong in is the cautious one.
+ */
+function compositeCost(ctx, gl, w, h) {
+  ctx.drawImage(gl, 0, 0, w, h)
+  ctx.getImageData(0, 0, 1, 1)
+  const began = performance.now()
+  const takes = 3
+  for (let i = 0; i < takes; i++) {
+    ctx.drawImage(gl, 0, 0, w, h)
+    ctx.getImageData(0, 0, 1, 1)
+  }
+  return (performance.now() - began) / takes
+}
+
+/**
  * Begin recording the flight. `glCanvas` is the R3F canvas; `preset` is the
  * mission's own entry — its id picks the dossier whose pages belong to the
  * film, its title and blurb make the opening card. Returns false where there
  * is nothing to record with, or a film is already running.
  */
-export function startFilm(glCanvas, preset) {
+export function startFilm(glCanvas, preset, step = 0) {
   if (!MIME || rec || !glCanvas || !preset) return false
-  const { width: w, height: h } = filmSize(glCanvas.width || 1280, glCanvas.height || 720)
+  const { width: w, height: h } = filmSize(glCanvas.width || 1280, glCanvas.height || 720, step)
 
   const canvas = document.createElement('canvas')
   canvas.width = w
@@ -116,6 +162,30 @@ export function startFilm(glCanvas, preset) {
   const ctx = canvas.getContext('2d')
 
   if (!ctx) { canvas.remove(); return false }
+  /*
+   * The downscale is a resample, so say so. A 2D context defaults to `low`
+   * smoothing, which on a 2:1 reduction of a star field means most stars land
+   * between taps and the rest alias — the single cheapest thing that was
+   * making these films look like a screen recording of a screen recording.
+   */
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
+  /*
+   * Settle the size before a frame is recorded, not during one.
+   *
+   * MediaRecorder cannot change its frame size mid-stream, so a governor that
+   * reacts while the flight is under way has nothing useful to do with what
+   * it learns. Measuring here costs four composites — under a frame, before
+   * the film exists — and the answer holds for the whole recording.
+   */
+  if (glCanvas.width && step < FILM_STEPS) {
+    const cost = compositeCost(ctx, glCanvas, w, h)
+    if (cost > FILM_FRAME_MS) {
+      canvas.remove()
+      return startFilm(glCanvas, preset, step + 1)
+    }
+  }
   let recorder
   let stream
   let requestFrame = null
@@ -128,9 +198,23 @@ export function startFilm(glCanvas, preset) {
       stream.getTracks().forEach((t) => t.stop())
       stream = canvas.captureStream(FILM_FPS)
     }
+    /*
+     * The score goes into the film.
+     *
+     * The graph is tapped, not re-rendered, so what is written into the file
+     * is exactly what was heard over the flight — and a film of a flight with
+     * its score on it is a film, where the same film silent is a screen
+     * recording. There may be no track: the score is off, or the browser has
+     * no AudioContext, or the visitor never triggered the gesture that
+     * resumes one. A film without music is still a film, so this is a
+     * question asked and not a requirement.
+     */
+    const audio = scoreTrack()
+    if (audio) stream.addTrack(audio)
     recorder = new MediaRecorder(stream, {
       mimeType: MIME,
-      videoBitsPerSecond: 3_500_000,
+      videoBitsPerSecond: FILM_BITRATE,
+      ...(audio ? { audioBitsPerSecond: 128_000 } : {}),
     })
   } catch {
     stream?.getTracks().forEach((t) => t.stop())
@@ -138,20 +222,37 @@ export function startFilm(glCanvas, preset) {
     return false
   }
   const chunks = []
-  const r = { recorder, stream, canvas, ctx, chunks, gl: glCanvas, preset, requestFrame,
-    last: -Infinity, bytes: 0, failed: false, finish: null, cleaned: false }
+  const r = { recorder, stream, canvas, ctx, chunks, gl: glCanvas, preset, requestFrame, step,
+    last: -Infinity, bytes: 0, failed: false, capped: false, finish: null, cleaned: false }
+  film.width = w
+  film.height = h
+  film.step = step
   recorder.ondataavailable = (e) => {
     if (!e.data?.size || r.failed) return
     r.bytes += e.data.size
-    if (r.bytes > FILM_MAX_BYTES) { r.failed = true; stopFilm(); return }
     chunks.push(e.data)
+    /*
+     * Reaching the cap ends the recording and *keeps* what is in it. It used
+     * to mark the film failed, which discarded every chunk already written —
+     * so the one outcome the cap protected against, a runaway file, was paid
+     * for with the outcome it was supposed to prevent: no film at all. A film
+     * that stops early is a film; nothing is not.
+     */
+    if (r.bytes > FILM_MAX_BYTES) { r.capped = true; stopFilm() }
   }
   recorder.onerror = () => { r.failed = true; stopFilm() }
   recorder.onstop = () => {
     if (r.cleaned) return
     r.cleaned = true
     if (rec === r) rec = null
-    stream.getTracks().forEach((t) => t.stop())
+    /*
+     * Video tracks are this recorder's and are stopped with it. The audio
+     * track is *not*: it belongs to the score's own graph, which outlives any
+     * one film, and stopping a track ends it permanently — the next film
+     * would be silent and so would the speakers.
+     */
+    stream.getVideoTracks().forEach((t) => t.stop())
+    for (const t of stream.getAudioTracks()) stream.removeTrack(t)
     canvas.remove()
     const blob = !r.failed && chunks.length ? new Blob(chunks, { type: MIME }) : null
     chunks.length = 0

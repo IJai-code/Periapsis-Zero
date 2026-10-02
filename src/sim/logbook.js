@@ -290,9 +290,15 @@ export const platesTaken = () => load().plates
 /** Has anything at all been done here? The landing page asks exactly this. */
 export function hasFlown() {
   const rec = load()
+  // Films included. They were not, which is the same disagreement with
+  // `logbookLine` as the one recorded there, running the other way: a browser
+  // holding a kept film and nothing else had something to say and was greeted
+  // with silence. Every kind of record this module keeps counts here, and
+  // `verify-logbook` builds each of them one at a time to prove it.
   return (
     rec.plates > 0 ||
     rec.pads.length > 0 ||
+    Object.keys(rec.films).length > 0 ||
     Object.keys(rec.milestones).length > 0 ||
     Object.keys(rec.bests).length > 0
   )
@@ -302,6 +308,19 @@ export function hasFlown() {
  * A short line for the landing page: what this browser has done, or null.
  * "First thing a returning visitor reads" — one line, no numbers but the
  * honest ones. Milestones lead (they are the flying), then the kept things.
+ *
+ * ── this line and `hasFlown` have to agree, and they did not ─────────
+ *
+ * The front door asked `hasFlown()` whether to show a greeting and then asked
+ * *this* what the greeting says. `hasFlown` counts a single pad and a single
+ * personal best; this counted neither — pads only from the second one, bests
+ * not at all — so a browser that had visited one pad and nothing else
+ * answered true to the first question and null to the second, and the front
+ * door printed, in ember, **"Your logbook: null"**. It was on the live site.
+ *
+ * Both halves are fixed. The caller no longer prints a line it has not
+ * checked, and every fact `hasFlown` counts now has something to say here, so
+ * the two cannot disagree again. `verify-logbook` holds the equivalence.
  */
 export function logbookLine() {
   const rec = load()
@@ -318,7 +337,9 @@ export function logbookLine() {
   const films = Object.keys(rec.films).length
   if (films) parts.push(`${films} film${films === 1 ? '' : 's'} kept`)
   if (rec.plates) parts.push(`${rec.plates} plate${rec.plates === 1 ? '' : 's'} taken`)
-  if (rec.pads.length > 1) parts.push(`${rec.pads.length} pads`)
+  if (rec.pads.length) parts.push(rec.pads.length === 1 ? 'one pad' : `${rec.pads.length} pads`)
+  const bests = Object.keys(rec.bests).length
+  if (bests) parts.push(`${bests} personal best${bests === 1 ? '' : 's'}`)
   return parts.length ? parts.join(' · ') : null
 }
 

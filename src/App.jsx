@@ -77,10 +77,21 @@ export default function App() {
       resumeDirector()
     } else {
       releaseDirector()
-      // The feed is a view of a flight; the front door is not one.
-      setUi({ focus: 'cinematic', paused: false, broadcast: false })
+      /*
+       * The front door gets its own shot back — unless the tour is holding the
+       * camera, and the tour opens with the page. A child's effects run before
+       * its parent's on mount, so the guide's first beat has already pointed
+       * the camera at the Sun when this effect fires; resetting the focus here
+       * overrode it with the cinematic shot, and the tour's opening caption
+       * described a move the camera never made. The same ordering holds on the
+       * later re-render when the tour is opened from the front door, so the
+       * guard is the rule and not a patch for one mount order: while the tour
+       * is open, the camera is the tour's; when it closes, the door's shot
+       * returns (and the tour's own cleanup says the same thing).
+       */
+      setUi({ ...(guide ? {} : { focus: 'cinematic' }), paused: false, broadcast: false })
     }
-  }, [flight])
+  }, [flight, guide])
 
   /**
    * A preset in the address is flown now, before the frame loop mounts: the store

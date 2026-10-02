@@ -243,16 +243,39 @@ export function Planets() {
   }
 
   const bodies = useMemo(() => {
-    const spheres = SPHERE_SEGMENTS.slice(0, 4).map((seg) => new THREE.SphereGeometry(1, seg, seg / 2))
-    const sphere = spheres[0]
+    /*
+     * The LOD ladder, one rung built the first time a body asks for it.
+     *
+     * It has to span the whole of `SPHERE_SEGMENTS`, and a shorter array is
+     * not a cheaper ladder — it is an out-of-range read. `sphereLevel` returns
+     * the top rung for any body whose projected radius passes about 4,000
+     * drawing-buffer pixels, and returns it unconditionally from *inside* a
+     * body, where `projectedRadius` is Infinity by construction. Built over
+     * four rungs, approaching Mars closer than about 1.2 radii therefore
+     * assigned `undefined` to the mesh; measured in the page, the next frame
+     * threw `Cannot read properties of undefined (reading 'boundingSphere')`
+     * and took the render loop with it. The ladder's length is the ladder's,
+     * not a number restated here.
+     *
+     * Lazy because the top rung is 131,000 vertices and most visitors never
+     * fly close enough to a planet to need it, and shared because one unit
+     * sphere is every body — a radius is a scale on the mesh, not a mesh.
+     */
+    const spheres = new Array(SPHERE_SEGMENTS.length)
+    const rung = (level) => {
+      const seg = SPHERE_SEGMENTS[level]
+      return (spheres[level] ??= new THREE.SphereGeometry(1, seg, seg / 2))
+    }
+    const sphere = rung(0)
     const list = RAILS.map((p) => buildBody(p, sphere)).filter(Boolean)
     for (const b of list) { b.poleW = new Vector3(0, 1, 0); b.level = -1 }
-    return { sphere, spheres, list, byId: Object.fromEntries(list.map((b) => [b.id, b])) }
+    return { sphere, spheres, rung, list, byId: Object.fromEntries(list.map((b) => [b.id, b])) }
   }, [])
 
   useEffect(
     () => () => {
-      bodies.spheres.forEach((g) => g.dispose())
+      // Holes are rungs nobody ever climbed to; there is nothing to free.
+      for (const g of bodies.spheres) g?.dispose()
       for (const b of bodies.list) {
         if (b.ownsGeometry) b.geometry.dispose()
         b.surface.dispose()
@@ -303,8 +326,9 @@ export function Planets() {
         const cap = DETAIL_STEPS[detailStep()]
         const level = cappedLevel(pixels, cap !== b.cap ? -1 : b.level, cap)
         if (level !== b.level || cap !== b.cap) {
-          entry.surface.geometry = bodies.spheres[level]
-          if (entry.air) entry.air.geometry = bodies.spheres[level]
+          const geometry = bodies.rung(level)
+          entry.surface.geometry = geometry
+          if (entry.air) entry.air.geometry = geometry
           b.level = level
           b.cap = cap
         }

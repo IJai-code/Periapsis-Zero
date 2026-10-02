@@ -1,9 +1,9 @@
 {
   "name": "Periapsis Zero",
   "short_name": "Periapsis",
-  "description": "Real-time N-body solar system simulation driven by an RK4 integrator.",
+  "description": "Fly the missions that were actually flown, through a solar system the size it really is.",
   "start_url": "/",
-  "display": "browser",
+  "display": "standalone",
   "background_color": "#0a0b0d",
   "theme_color": "#0a0b0d",
   "icons": [

@@ -9,6 +9,7 @@ import { SAMPLES, packPolyline } from '../sim/predict.js'
 import { dominantBody, soiRadius } from '../sim/soi.js'
 import { INDEX } from '../sim/system.js'
 import { useUi } from '../sim/store.js'
+import { FREE_FALL_G, freeFall, underSky } from '../gfx/instruments.js'
 
 /**
  * The osculating conic: the orbit the craft would keep if every body but the
@@ -113,7 +114,17 @@ export function Osculating() {
     clock.current += delta
     if (clock.current >= REFRESH) {
       clock.current = 0
-      g.visible = draw()
+      /*
+       * A conic is the orbit the craft *would keep* if every body but one
+       * vanished, which presumes it is falling freely. Under a first stage it
+       * is not: the conic is rebuilt each pass from a state being driven hard
+       * across it, so it swings from a shallow ellipse through a hyperbola and
+       * back inside a second, and what the screen shows is a line thrashing
+       * about a rocket. Above 0.1 g of thrust or drag there is no
+       * conic to draw, and from inside a sky there is nowhere to draw it —
+       * see gfx/instruments.js.
+       */
+      g.visible = freeFall() && !underSky() && draw()
     }
     g.position.copy(live.pos[body.current])
   }, -2)

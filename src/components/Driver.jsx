@@ -61,6 +61,10 @@ const ORIGIN_BODY = {
   // the vehicle it is watching leave.
   pad: 'earth',
   ground: 'earth',
+  // Boots on the ground stand where the ground camera stands, so they keep
+  // the same origin: the body underfoot on Earth, and the vehicle on the
+  // Moon, where the body's centre is too far under the feet for a float32.
+  walk: 'earth',
   iss: 'iss',
   hubble: 'hubble',
   /** The opening shot circles Earth, so the origin sits on it. */
@@ -120,6 +124,8 @@ export function Driver() {
    */
   const lastShotRequest = useRef(undefined)
   const lastShotWarp = useRef(null)
+  /** Set once a director's pace has been laid down for the running sequence — see the shot-warp block below. */
+  const shotWarpApplied = useRef(false)
 
   // Arm the sequencer once. Without this the opening phase's enter() never
   // runs, so the autopilot is never engaged and the vehicle would leave the pad
@@ -288,15 +294,27 @@ export function Driver() {
       const restore = warpBeforeBurn.current
       warpBeforeBurn.current = null
       /**
-       * Hand the dial back only if nobody else is driving.
+       * Hand the dial back only to the pilot's own saved choice, and only if
+       * the pilot has not chosen since.
        *
-       * While the sequencer is asking for a warp level it owns the dial, and
-       * restoring over the top of it drops a day-long step into whatever phase
-       * follows cutoff: MECO's three-second hold becomes a single 1440 s frame
-       * and the mission clock jumps 24 minutes. The restore exists for the
-       * pilot's own burns, which are the case where nothing is being requested.
+       * The guard used to read "the sequencer is not asking" — which no longer
+       * means the pilot owns the dial, since the shot's pace became a one-time
+       * boundary above. And the restore used to compare against the *prop*,
+       * which React can hold at the pre-ignition value on the frame the cap
+       * fires, so restoring to it would have undone a faster warp the pilot
+       * chose *during* the burn. Both sides now read the store, which is the
+       * one authority about what the dial says this frame; and the restore is
+       * refused outright while a watched sequence is holding the dial inside
+       * its own boundary (shotWarpApplied, below), because re-raising it here
+       * on the cutoff frame is precisely the race the boundary exists to
+       * prevent. The pilot keeps the dial the rest of the time.
        */
-      if (mission.warpRequest === null && uiStore.get().warp <= POWERED_WARP_CAP) {
+      const now = uiStore.get().warp
+      if (
+        mission.warpRequest === null &&
+        !(director.enabled && director.warp !== null && shotWarpApplied.current) &&
+        now <= POWERED_WARP_CAP
+      ) {
         setUi({ warp: restore })
       }
     }
@@ -368,24 +386,40 @@ export function Driver() {
     }
 
     /**
-     * A shot may also ask for a pace, on exactly the same terms.
+     * A shot may also ask for a pace — but only as a *boundary condition*.
      *
-     * Applied on change and nothing else, so it is a request rather than a lock
-     * and the pilot keeps whatever they choose afterward. It has the weakest
-     * claim on the dial of anything here: the sequencer asks for physics
-     * reasons above, and the powered clamp further down overrides both by
-     * capping this frame's step where it is used — so a shot can slow the
-     * mission down but can never speed it past what is safe to integrate.
+     * It used to write the store on every change of phase, which made the
+     * director the dial's owner whenever a watched sequence was running: a
+     * pilot who set 1 day/s between two ascent cuts had it silently taken back
+     * to real time at the next cut, every cut, for as long as the sequence
+     * lasted. The powered-warp cap two blocks above already holds the physics
+     * at real time whenever the throttle is open, so the shot's pace is a
+     * boundary the sim starts inside — not a per-frame instruction — and the
+     * same bargain the camera shot itself strikes applies to it: applied once
+     * on entering the sequence, and the pilot keeps the dial the rest of the
+     * time. That is what the comment above the camera request means by "a
+     * request rather than a lock", and this is the pace half of it.
      *
-     * It lands after the sequencer deliberately. Where both want the dial on the
-     * same frame the shot wins, and the only phases that state a warp are ones
-     * the sequencer is not laddering.
+     * Landing: the first frame the sequence's asking pace is set, the store is
+     * moved to it once if the pilot has not already chosen something slower;
+     * `shotWarpApplied` then falls until a different sequence asks again.
+     * Two watched sequences in a row at the same pace — the ascent's cuts —
+     * re-arm nothing, and a pilot's faster dial is never reduced mid-sequence:
+     * the cap above is what protects the integration, not this request.
      */
-    if (director.warp !== null && director.warp !== lastShotWarp.current) {
-      lastShotWarp.current = director.warp
-      if (uiStore.get().warp !== director.warp) setUi({ warp: director.warp })
-    } else if (director.warp === null) {
-      lastShotWarp.current = null
+    if (director.warp !== null) {
+      if (lastShotWarp.current !== director.warp) {
+        // A different watched sequence has begun: put the dial inside its
+        // boundary, but never *above* where the pilot already had it.
+        lastShotWarp.current = director.warp
+        shotWarpApplied.current = false
+      }
+      if (!shotWarpApplied.current && uiStore.get().warp > director.warp) {
+        shotWarpApplied.current = true
+        setUi({ warp: director.warp })
+      }
+    } else {
+      if (director.warp !== lastShotWarp.current) lastShotWarp.current = null
     }
 
     // Rebase. The origin follows whatever the camera is looking at; in free
@@ -436,7 +470,7 @@ export function Driver() {
           // body — not on the node, which would make the rest of the scene
           // shift under a point the pilot is trying to read.
           (predictApi.plan.reference ?? 'earth')
-        : (focus === 'ground' || focus === 'pad') && mission.site?.body === 'moon'
+        : (focus === 'ground' || focus === 'pad' || focus === 'walk') && mission.site?.body === 'moon'
           ? /*
              * On the Moon the ground camera keeps the origin on the vehicle.
              * The Moon's centre is 1,737 km under the observer, where a

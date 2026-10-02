@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { Line2, LineGeometry, LineMaterial } from 'three-stdlib'
 import { live } from '../sim/live.js'
 import { INDEX, readPosition } from '../sim/system.js'
+import { underSky } from '../gfx/instruments.js'
 
 /**
  * Fading orbit trail, drawn from the integrator's own output.
@@ -43,6 +44,19 @@ export function Trail({
   tail = '#26333c',
   width = 1.7,
   visible = true,
+  /**
+   * Whether this trail survives being seen from inside a sky.
+   *
+   * A trail is an orbit drawn across the whole frame, and from a chase camera
+   * on an ascent the frame is a blue sky with a rocket in it. Earth's
+   * heliocentric trail, the Moon's geocentric one, the ISS's and Hubble's are
+   * then four bright lines in four unrelated directions over a photograph —
+   * the thing a viewer described as random lines around the sky. The craft's
+   * own trail is the exception and sets this: it comes out of the vehicle the
+   * shot is about, and it is the one line on screen that is saying something
+   * about what is happening.
+   */
+  inSky = false,
 }) {
   const size = useThree((s) => s.size)
   const group = useRef()
@@ -134,7 +148,10 @@ export function Trail({
     // a jagged polygon that misrepresents the path rather than showing it. Below
     // roughly sixteen samples per revolution, draw nothing.
     const resolvable = live.simDtLastFrame * MIN_SAMPLES_PER_ORBIT <= period
-    line.visible = visible && resolvable
+    const shown = visible && resolvable && (inSky || !underSky())
+    line.visible = shown
+    // Hidden is not stopped: the ring keeps filling, so a trail that comes
+    // back at 40 km comes back with the history it would have had.
     if (!visible || !resolvable) return
 
     const elapsed = live.sim.t - cursor.last

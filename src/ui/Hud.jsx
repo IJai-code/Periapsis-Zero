@@ -7,6 +7,7 @@ import { TRANSIT } from '../gfx/transit.js'
 import { SearchBar } from './SearchBar.jsx'
 import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
+import { WalkHud, WalkPrompt } from './WalkHud.jsx'
 import { Geophysics } from './Geophysics.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
@@ -118,6 +119,19 @@ function useNarrow() {
 
 export function Hud() {
   const open = useUi((s) => s.panelOpen)
+  /**
+   * On foot, the cockpit folds away.
+   *
+   * Every other camera here is an instrument and is entitled to instruments
+   * around it. The walk is the one view that is meant to be a *place* — a
+   * person standing on the Moon, at eye height, with the ground under them —
+   * and a flight-plan panel, a model picker and a telemetry rail over that is
+   * the cockpit reaching into a photograph, which is the same argument
+   * `Scene.jsx` makes for keeping the trails and the predicted path out of it.
+   * What stays is the walk's own card and the clock; H brings the rest back
+   * for anyone who wants it, because it is a fold and not a lock.
+   */
+  const onFoot = useUi((s) => s.focus === 'walk')
   // A photograph is of the scene, not of the instruments over it.
   const photo = useUi((s) => s.photo)
   const focus = useUi((s) => s.focus)
@@ -175,8 +189,24 @@ export function Hud() {
     const onKey = (e) => {
       if (e.target instanceof HTMLInputElement) return
       if (logbookRef.current) return
+      /*
+       * On foot, the keyboard belongs to the feet.
+       *
+       * A walker uses WASD to move and Space to jump, and every one of those
+       * is bound here or in `ShipControls` to something else — camera locks,
+       * the throttle, the pause. Yielding the whole set while the boots are on
+       * is the same bargain free flight already makes for W and S, and for the
+       * same reason: the pair a hand reaches for is the pair a hand reaches
+       * for, and a person walking is not flying the vehicle.
+       */
+      const onFoot = uiStore.get().focus === 'walk'
       if (FOCUS_KEYS[e.key]) return setUi({ focus: FOCUS_KEYS[e.key] })
+      // G for "go on foot" — the walk is where the ground camera at 0 leads.
+      if (e.key.toLowerCase() === 'g') {
+        return setUi((s) => ({ focus: s.focus === 'walk' ? 'ground' : 'walk', map: false }))
+      }
       if (e.code === 'Space') {
+        if (onFoot) return
         e.preventDefault()
         return setUi((s) => ({ paused: !s.paused }))
       }
@@ -261,7 +291,7 @@ export function Hud() {
               map · m
             </button>
           </div>
-          <div className="rule mt-1">{map ? 'Flight plan' : 'Sol · Terra · Luna'}</div>
+          <div className="rule mt-1">{map ? 'Flight plan' : 'Instruments'}</div>
         </div>
         {/*
           The figures that change fastest, beside the ones that never do. Not
@@ -285,7 +315,7 @@ export function Hud() {
             <SearchBar compact />
           </div>
         )}
-        {open && (
+        {open && !onFoot && (
           <div className="pointer-events-auto flex flex-col gap-3">
             {/* Setting the flight up, not flying it: out of the way on the map. */}
             {!map && <Presets />}
@@ -316,7 +346,7 @@ export function Hud() {
         </div>
       )}
 
-      {open && !narrow && (
+      {open && !narrow && !onFoot && (
         <div className="pointer-events-auto absolute top-[4.25rem] right-4 max-h-[calc(100vh-11rem)] overflow-y-auto">
           <div className="flex flex-col gap-3">{instruments}</div>
         </div>
@@ -347,11 +377,10 @@ export function Hud() {
       {/* Outside the panel toggle on purpose: it is the mode's own instructions,
           and a mode whose controls are only documented behind a hidden panel is
           a mode nobody finds. */}
-      {/* Outside the panel toggle on purpose: it is the mode's own instructions,
-          and a mode whose controls are only documented behind a hidden panel is
-          a mode nobody finds. */}
       <div className="absolute bottom-4 left-4">
         <FlyHud />
+        <WalkHud />
+        <WalkPrompt />
       </div>
 
       {/*

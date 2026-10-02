@@ -17,6 +17,7 @@ import { dominantBody } from '../sim/soi.js'
 import { nodeRevision, nodes } from '../sim/nodes.js'
 import { NodeEditor } from './NodeEditor.jsx'
 import { useUi } from '../sim/store.js'
+import { freeFall, underSky } from '../gfx/instruments.js'
 
 /**
  * Where the craft is going, drawn from the forward projection.
@@ -181,6 +182,22 @@ export function Trajectory() {
   useFrame((_, delta) => {
     const g = group.current
     if (!g || !show || cinematic) return
+
+    /*
+     * Not from inside a sky, and not under power.
+     *
+     * The projection is deliberately ballistic — sim/predict.js zeroes thrust,
+     * because a burn the pilot has not committed to is not a path — so during a
+     * powered ascent this line is where the vehicle would go *if the engines
+     * cut out now*: a suborbital arc back into the ocean, drawn unlabelled
+     * across a blue sky out of a rocket that is climbing. It is a real
+     * instrument in a coast and an untrue-looking one here, which is half of
+     * what a viewer reported as random lines around the sky. The apsis tags go
+     * with it: they name a periapsis inside the planet.
+     */
+    const meaningful = freeFall() && !underSky()
+    g.visible = meaningful
+    if (!meaningful) return
 
     clock.current += delta
     const ballistic = clock.current >= REFRESH

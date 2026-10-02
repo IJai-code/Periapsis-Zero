@@ -95,6 +95,16 @@ export const live = {
   /** Whether free flight currently holds the pointer. Read by the HUD. */
   flyLocked: false,
 
+  /**
+   * The walker, for the HUD to read: ground speed in m/s, height of the soles
+   * above the surface in m, and whether they are on it. Written by the rig's
+   * walk block; `sim/walk.js` is what decides them, out of the gravity of
+   * whatever world is underfoot.
+   */
+  walkSpeed: 0,
+  walkHeight: 0,
+  walkGround: true,
+
   /** Live osculating elements of the craft. Same object, refreshed in place. */
   elements,
 

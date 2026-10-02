@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { INTRO, introEnd, introStart, DOSSIERS } from '../gfx/introFlights.js'
-import { filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
+import { film, filmCodec, filmSave, filmSupported, startFilm, stopFilm } from '../gfx/filmRecorder.js'
 import { recordFilm } from '../sim/logbook.js'
+import { SCORE, cueScore, scoreFor, startScore, stopScore, tickScore } from '../sfx/score.js'
+import { uiStore } from '../sim/store.js'
 
 /**
  * The mission intro, watched rather than read.
  *
  * A black curtain holds the mission's name until the viewer asks for it,
  * then the flight begins, exactly as the reference film opens: title, then
- * the slow fall into the scene. It is silent — the product makes no sound.
+ * the slow fall into the scene. The simulator itself makes no sound — there
+ * is no engine, no pad loop and no radio — but a film has a score, and this
+ * is the one place one plays: `sfx/score.js`, started from the same click
+ * that starts the flight, leaning on the dossier's own beats, and written
+ * into the recording so the film keeps it.
  *
  * Under it, one continuous camera flight through the real solar system (see
  * `gfx/introFlights.js`) with the dossier's pages turning on its beats, a
@@ -24,7 +30,18 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // 'curtain' | 'flying' | 'arrived'
   const [stage, setStage] = useState('curtain')
   const [beat, setBeat] = useState(-1)
-  const [record, setRecord] = useState(false)
+  /*
+   * On, unless it is turned off.
+   *
+   * It was off, and a checkbox nobody ticks is a feature nobody has: every
+   * mission card in the library showed its fallback diagram because no flight
+   * had ever been recorded. The flight is going to be drawn either way — the
+   * recorder composites the frame that was already rendered and hands it to a
+   * hardware encoder, measured at well under a millisecond a frame — so the
+   * default that leaves someone with a film costs them almost nothing and the
+   * default that leaves them with none costs them the film.
+   */
+  const [record, setRecord] = useState(true)
   const [filmStatus, setFilmStatus] = useState('')
   const lastBeat = useRef(-1)
   const progress = useRef(null)
@@ -41,15 +58,35 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
     if (started.current) return
     started.current = true
     introStart(preset.id, finalFocus)
+    /*
+     * The score, before the recorder.
+     *
+     * Order matters and it is the only ordering constraint here: `startFilm`
+     * asks the score for its audio track, and a score that has not been
+     * started has no graph and therefore no track — the film would come out
+     * silent for the want of two lines in the wrong order. This click is also
+     * the user gesture an AudioContext needs; there is not another one coming.
+     */
+    SCORE.enabled = uiStore.get().score !== false
+    if (SCORE.enabled) startScore(scoreFor(preset.id))
     // And the film is made of it: the flight is a pure function of its clock,
     // so what is recorded is not *a* take, it is the flight.
-    if (record && !startFilm(document.querySelector('canvas'), preset)) setFilmStatus('Recording unavailable; the intro still plays.')
+    if (record) {
+      if (startFilm(document.querySelector('canvas'), preset)) {
+        // Say the size it settled on, not the one the checkbox promised: the
+        // recorder measures the composite and may have stepped down a rung.
+        if (film.step > 0) setFilmStatus(`Recording at ${film.width}×${film.height} — this machine's composite was dear at full size.`)
+      } else {
+        setFilmStatus('Recording unavailable; the intro still plays.')
+      }
+    }
     setStage('flying')
   }, [preset, finalFocus, record])
 
   /** Skip leaves the film and goes straight to the mission. */
   const skip = useCallback(() => {
     stopFilm()
+    stopScore(0.6)
     introEnd()
     onSkip?.()
   }, [onSkip])
@@ -77,9 +114,38 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   // it renders only on change, so watching the film costs nothing per frame.
   useEffect(() => {
     if (stage !== 'flying') return
-    const loop = () => {
+    /*
+     * One loop, already here, now carrying the score's clock too.
+     *
+     * `tickScore` eases five AudioParams and advances two event clocks — no
+     * allocation, no scheduling — so it belongs on a clock that already runs
+     * rather than on a second timer beside it. The page turn and the musical
+     * cue then come off the same edge by construction, which is the only way
+     * they stay together.
+     */
+    /*
+     * The switch stays live while the film plays. `tickScore` already reads
+     * the flag every tick and follows it with a smooth gain, so turning the
+     * score off mid-flight fades it out instead of cutting it — and turning
+     * it back on brings it back, because the graph was kept.
+     */
+    const follow = () => { SCORE.enabled = uiStore.get().score !== false }
+    const unfollow = uiStore.subscribe(follow)
+    follow()
+    let last = performance.now()
+    const loop = (now) => {
+      const dt = (now - last) / 1000
+      last = now
       const b = INTRO.beat
-      if (b !== lastBeat.current) { lastBeat.current = b; setBeat(b) }
+      if (b !== lastBeat.current) {
+        lastBeat.current = b
+        setBeat(b)
+        // The dossier's pages are the film's own structure, so they are the
+        // score's: the opening two pages establish, the third leans in, and
+        // the last two are the arrival.
+        cueScore(b <= 0 ? 'hold' : b === 1 ? 'swell' : b === 2 ? 'tension' : 'reveal')
+      }
+      tickScore(dt)
       if (progress.current) progress.current.style.transform = `scaleX(${Math.min(1, INTRO.s)})`
       if (!INTRO.active) {
         setStage('arrived')
@@ -88,7 +154,10 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       raf.current = requestAnimationFrame(loop)
     }
     raf.current = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf.current)
+    return () => {
+      cancelAnimationFrame(raf.current)
+      unfollow?.()
+    }
   }, [stage])
 
   // Arrived: the flight's last frame *is* the mission's first (see
@@ -104,11 +173,14 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       // here at the only call site a film is saved from.
       recordFilm(preset.id)
     })
+    // Out with the letterbox, over the same beat and a little longer, so the
+    // mission does not start on a cut-off chord.
+    stopScore(2.4)
     const t = setTimeout(() => onBegin?.(), 1250)
     return () => clearTimeout(t)
   }, [stage, onBegin, preset])
 
-  useEffect(() => () => { stopFilm(); introEnd() }, [])
+  useEffect(() => () => { stopFilm(); stopScore(0.6); introEnd() }, [])
 
   if (!preset) return null
   const page = beat >= 0 ? dossier?.beats?.[beat] : null
@@ -178,7 +250,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             {filmSupported() && (
               <label className="mt-5 flex items-center justify-center gap-2 text-[11px] text-hud/60">
                 <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />
-                Keep this approach as a film · 24 fps, up to 720p area
+                Keep this approach as a film · {filmCodec()}, 30 fps, up to 1080p
               </label>
             )}
             <div role="status" className="mt-2 text-[11px] text-ember">{filmStatus}</div>

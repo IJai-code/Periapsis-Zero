@@ -21,7 +21,7 @@ export function Loading({ progress, label }) {
         <div className="mb-1 font-display text-3xl font-semibold tracking-[0.3em] text-hud">
           PERIAPSIS ZERO
         </div>
-        <div className="rule mb-8">Sol · Terra · Luna — RK4 N-body</div>
+        <div className="rule mb-8">Periapsis Zero — RK4 N-body</div>
 
         <div className="relative h-px w-full overflow-hidden bg-white/10">
           <div

@@ -5,7 +5,51 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
-### One clock for the HUD, and the ladder's last rung — 30 September 2026
+### The dial the pilot keeps, and the sky that finishes in daylight — 1 October 2026
+
+A pilot reported the Milky Way looking "like a google image, with a rectangle
+border," and time warp "not working properly." Both were the page deciding it
+knew better than the person holding it, in two different departments.
+
+**The warp dial.** The camera director re-asserted each phase's pace on every
+phase cut, so between two ascent cuts a pilot's 1 day/s was silently taken back
+to real time, cut after cut — the ladder lit, the clock unmoved. The shot's
+pace is now a *boundary condition*: laid down once when a watched sequence
+begins (and only downward — the powered-warp cap already holds the physics at
+real time when the throttle is open), then the dial is the pilot's for the rest
+of the sequence. The powered cap's own restore was repaired beside it: it read
+a React prop that could hold the pre-ignition level on the frame the cap fired,
+so it would have undone a faster warp chosen *during* a burn, and it now reads
+the store — the one authority about what the dial says — and stands down while
+a watched sequence is holding the dial inside its boundary.
+
+**The sky.** The sharp sky cube only marched while `daySky.milkyWay ≥ 0.02` —
+suspended entirely in daylight — and the front door's cinematic camera orbits
+the day side, so the first sky a visitor saw was the permanent 128-texel draft:
+a soft, photograph-like band whose bilinear block edges and per-face grain
+seams read as a pasted picture with a border on it. Daylight now *throttles*
+the march (a tile every fourth frame, the whole cube done in ~4 minutes)
+rather than stopping it, and skips the draft's six-face re-marches that were
+being spent on an invisible sky; `verify-cosmos` (which times the whole
+progression) holds the budget's ceiling unchanged. The volumes were never the
+border — their emission already fades by radius and height before the box that
+bounds the march is reached — so they are untouched.
+
+**The tour.** Opening the tour, its first beat pointed the camera at the Sun,
+and then the page's own effect — which runs after a child's on mount — reset
+the camera to the cinematic shot, so the opening caption described a move the
+camera never made; the tour now owns the camera while it is open. And Space or
+Enter on the tour's own buttons bubbled to the window handler and advanced the
+tour a second time, so one click moved two slides and every second caption
+flashed past unread. The beat rail is now something a cursor can find.
+
+**The name.** "Sol · Terra · Luna" is gone from the tab title, the masthead,
+the instruments' rule and the loading line — the front door now says what the
+product is ("The solar system, at true scale") where it said what a 1960s
+brochure said. The mark the site wears was verified against the tab icon
+(`make-favicon --check`): one drawing, four surfaces, byte-identical.
+
+
 
 A pilot reported the animations "quite literally laggy" and asked whether the
 answer was a downloadable app. It is not — a wrapper runs the same WebGL — so

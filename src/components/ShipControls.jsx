@@ -40,13 +40,17 @@ export function ShipControls() {
        *
        * That camera translates in the view frame and needs the whole WASD
        * cluster; A, D, R and F are unclaimed, so W and S are the only overlap.
+       * The walk needs the same four and Space besides.
        * Yielding them is better than binding the camera to something else,
        * because the pair a hand reaches for is the pair a hand reaches for —
        * and a detached observer is not flying the vehicle anyway.
        */
-      const flying = uiStore.get().focus === 'fly'
-      input.throttleUp = !flying && held.has('KeyW')
-      input.throttleDown = !flying && held.has('KeyS')
+      // ...and to a person on foot, for the same reason and one more: a
+      // walker also needs Space, which the HUD yields separately.
+      const focus = uiStore.get().focus
+      const handsOff = focus === 'fly' || focus === 'walk'
+      input.throttleUp = !handsOff && held.has('KeyW')
+      input.throttleDown = !handsOff && held.has('KeyS')
     }
 
     const onDown = (e) => {

@@ -96,6 +96,18 @@ function Motif({ tag }) {
 
 export function MissionLibrary({ open, onClose }) {
   const [tag, setTag] = useState('All')
+  /**
+   * The projection room: one film, at the size it was recorded at.
+   *
+   * The cards used to be the only place a film was ever seen, in a 64-pixel
+   * strip with `object-cover` — so a 1080p recording of a flight across the
+   * solar system was shown as a cropped letterbox the height of a line of
+   * text, with playback controls squeezed into it. That is most of what
+   * "the recordings are low quality" was: the recording was never the thing
+   * being looked at. The card keeps a still, sized to the film's own frame,
+   * and the film itself opens over the drawer at whatever size the window has.
+   */
+  const [playing, setPlaying] = useState(null)
   const gridRef = useRef(null)
   const shown = tag === 'All' ? PRESETS : PRESETS.filter((p) => (p.group ?? PLAN[p.id]?.tag) === tag)
 
@@ -134,7 +146,10 @@ export function MissionLibrary({ open, onClose }) {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        // One layer at a time: the film is on top of the drawer, so Esc takes
+        // the film off it before it takes the drawer off the flight.
+        if (playing) setPlaying(null)
+        else onClose()
         return
       }
       if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return
@@ -150,7 +165,7 @@ export function MissionLibrary({ open, onClose }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, playing])
 
   if (!open) return null
 
@@ -239,19 +254,27 @@ export function MissionLibrary({ open, onClose }) {
                     {plan.tag}
                   </span>
                 </div>
-                <div className="mt-3 h-16 w-full overflow-hidden opacity-90">
+                <div className={`mt-3 w-full overflow-hidden opacity-90 ${films[p.id] ? 'relative aspect-video bg-black' : 'h-16'}`}>
                   {films[p.id] ? (
-                    <video
-                      src={films[p.id].url}
-                      muted
-                      loop
-                      playsInline
-                      controls
-                      preload="none"
-                      onPointerEnter={(e) => e.currentTarget.play().catch(() => {})}
-                      onPointerLeave={(e) => e.currentTarget.pause()}
-                      className="h-full w-full object-cover"
-                    />
+                    <>
+                      <video
+                        src={films[p.id].url}
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        onPointerEnter={(e) => e.currentTarget.play().catch(() => {})}
+                        onPointerLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0 }}
+                        className="h-full w-full object-contain"
+                      />
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlaying(p.id) }}
+                        aria-label={`Watch the film of ${p.title}`}
+                        className="control absolute inset-0 flex items-end justify-end p-2 font-mono text-[9px] tracking-[0.2em] text-hud/0 uppercase transition-colors duration-300 hover:text-ember"
+                      >
+                        Watch ▸
+                      </button>
+                    </>
                   ) : (
                     <Motif tag={plan.tag} />
                   )}
@@ -303,9 +326,48 @@ export function MissionLibrary({ open, onClose }) {
 
         <footer className="mt-8 border-t border-hud/12 pt-4 font-mono text-[10px] leading-relaxed tracking-wider text-hud/35">
           Arrow keys walk the drawer · Esc closes · Each flight is flown from the pad
-          to the moment it names · Recorded approaches stay here as films · Hover a film to preview it.
+          to the moment it names · Recorded approaches stay here as films · Hover to preview, Watch to open one.
         </footer>
       </div>
+
+      {playing && films[playing] && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Film"
+          className="fixed inset-0 z-[55] flex flex-col items-center justify-center bg-black/97 p-4 sm:p-10"
+          onClick={() => setPlaying(null)}
+        >
+          {/* Controls live on the element, so the click that reaches the
+              backdrop is a click that missed the film — which is the gesture
+              that closes it. */}
+          <video
+            src={films[playing].url}
+            autoPlay
+            controls
+            playsInline
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[82vh] w-auto max-w-full bg-black"
+          />
+          <div className="mt-4 flex items-center gap-5">
+            <span className="font-mono text-[10px] tracking-[0.22em] text-hud/45 uppercase">
+              {PRESETS.find((p) => p.id === playing)?.title}
+            </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); filmDownload(films[playing].entry, playing) }}
+              className="control border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.2em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+            >
+              Download ↓
+            </button>
+            <button
+              onClick={() => setPlaying(null)}
+              className="control border border-hud/20 px-3 py-1.5 font-mono text-[10px] tracking-[0.2em] text-hud/70 uppercase transition-colors duration-300 hover:border-ember hover:text-ember"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   )

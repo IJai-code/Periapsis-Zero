@@ -5,7 +5,7 @@ import { live } from '../sim/live.js'
 import { springFollow, omegaForSettling } from '../gfx/follow.js'
 import { activeSite, siteDirection } from '../sim/launchsite.js'
 import { currentHullLift } from '../gfx/pads.js'
-import { EYE_FOV, groundViewpoint, lunarViewpoint } from '../gfx/groundView.js'
+import { EYE_FOV, earthStand, groundViewpoint, lunarStand, lunarViewpoint, standOffsets } from '../gfx/groundView.js'
 import { lunarChaseOffset } from '../gfx/lunarChase.js'
 import { BODIES, SHIP } from '../sim/constants.js'
 import {
@@ -20,6 +20,13 @@ import {
   zoomSpeedFor,
 } from '../gfx/framing.js'
 import { clampTrim, flyAxisInput, flyModifier, flySpeed } from '../gfx/fly.js'
+import {
+  EYE as WALK_EYE,
+  restingWalker,
+  stepWalk,
+  surfaceGravity,
+  walkSpeed,
+} from '../sim/walk.js'
 import { INTRO, introStep } from '../gfx/introFlights.js'
 import { mission } from '../sim/mission.js'
 import { MAX_NODE_FRAMES, plan, prediction } from '../sim/predict.js'
@@ -100,6 +107,22 @@ const REFRAME_RATE = 6
  */
 const LOOK_PER_PIXEL = 0.0025
 const PITCH_LIMIT = Math.PI / 2 - 0.01
+
+/** Where the observer stands, as metres east and south. Module scratch: built once, never on the frame path. */
+const _off = new Float64Array(2)
+
+/**
+ * How far the boots may get from the site, in metres.
+ *
+ * Not a fence but the edge of the ground that exists. `Terrain.jsx` grades an
+ * Earth complex flat to 400 m and real relief takes over past it, so 340 keeps
+ * the walker on the datum it is standing on with room to spare. The Moon's
+ * loaded patch is far wider, and 900 m is about as far as the LM stays a
+ * recognisable object behind you — past that the walk is a grey plain, and the
+ * plain is not the feature.
+ */
+const WALK_LEASH_EARTH = 340
+const WALK_LEASH_MOON = 900
 
 /** How quickly the camera reaches the speed the keys are asking for. */
 const FLY_RESPONSE = 8
@@ -253,9 +276,37 @@ export function CameraRig() {
       anchor: new THREE.Vector3(),
       siteNow: new THREE.Vector3(),
       sitePrev: new THREE.Vector3(),
+      // Boots on the ground: the walker's offset from the body's centre, and
+      // the tangent frame it is standing in. See sim/walk.js.
+      walkUp: new THREE.Vector3(),
+      walkEast: new THREE.Vector3(),
+      walkNorth: new THREE.Vector3(),
+      walkFwd: new THREE.Vector3(),
+      walkRight: new THREE.Vector3(),
+      walkLook: new THREE.Vector3(),
+      walkBack: new THREE.Vector3(),
+      walkBasis: new THREE.Matrix4(),
     }),
     [],
   )
+  /**
+   * The walker: which ground, where on it, which way the head is pointed, and
+   * the physics state `sim/walk.js` steps. `east`/`south` are metres in the
+   * site's own frame — the coordinate the terrain's height probe takes. The
+   * leash — how far the boots may get from the site, and why — is stated
+   * where the constants live, at `WALK_LEASH_EARTH` above.
+   */
+  const jumped = useRef(false)
+  const walker = useRef({
+    body: 'earth',
+    site: null,
+    east: 0,
+    south: 0,
+    heading: 0,
+    lastYaw: 0,
+    reach: 0,
+    state: restingWalker(),
+  })
   const baseFov = useRef(null)
   /**
    * Set on entering the pad or ground shot, and cleared by the first frame of
@@ -476,7 +527,11 @@ export function CameraRig() {
    * throttle the rest of the time.
    */
   useEffect(() => {
-    if (focus !== 'fly') return
+    // The walk borrows this wholesale: pointer lock, mouse look, a held-key
+    // set and a blur that lets go of them are the same problem for a person on
+    // foot as for a camera in free flight, and a second copy of it would be a
+    // second set of listeners fighting over the same canvas.
+    if (focus !== 'fly' && focus !== 'walk') return
     const canvas = gl.domElement
     const look = flyLook.current
     const keys = flyKeys.current
@@ -547,6 +602,17 @@ export function CameraRig() {
     }
     const onKeyDown = (e) => {
       if (!e.repeat) keys.add(e.code)
+      /*
+       * A jump is an event, not a state, and it has to be latched.
+       *
+       * Reading the held-key set on the frame path loses any press that begins
+       * and ends between two frames — which at 60 Hz is a 16 ms window a real
+       * tap can easily fit inside, and which a synthetic keypress fits inside
+       * every time. Measured: driving the page with a dispatched keyDown and
+       * keyUp in the same task, the walker never left the ground once. Held
+       * Space still repeats, because holding it is how you hop.
+       */
+      if (e.code === 'Space') jumped.current = true
     }
     const onKeyUp = (e) => keys.delete(e.code)
     // A key held while the window loses focus would otherwise stay held, and
@@ -571,6 +637,7 @@ export function CameraRig() {
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
       keys.clear()
+      jumped.current = false
       // Leaving the mode gives the pointer back, whatever else happens.
       if (document.pointerLockElement === canvas) document.exitPointerLock?.()
       look.locked = false
@@ -707,6 +774,47 @@ export function CameraRig() {
       flyLook.current.yaw = scratch.flyEuler.y
       flyLook.current.pitch = THREE.MathUtils.clamp(scratch.flyEuler.x, -PITCH_LIMIT, PITCH_LIMIT)
       scratch.flyVel.set(0, 0, 0)
+      opening.current = false
+      return
+    }
+
+    /**
+     * Boots on the ground: put the walker down beside the launch observer.
+     *
+     * The ground a person can stand on is the ground the simulator actually
+     * draws, which is the flight's own site: the graded complex at an Earth
+     * pad, or the loaded LRO patch at a lunar one. `sim/walk.js` already
+     * carries the physics for all eighteen standable worlds — every planet,
+     * every large moon, two comet nuclei — and the only thing keeping the
+     * boots off them is that those bodies are drawn as datum spheres with a
+     * shader on them, with no surface to meet the feet. Standing on one would
+     * be standing on a featureless ball, which is the opposite of the point.
+     */
+    if (focus === 'walk') {
+      const site = mission.site ?? activeSite()
+      const w = walker.current
+      w.site = site
+      w.body = site.body === 'moon' ? 'moon' : 'earth'
+      w.state = restingWalker()
+      /*
+       * Where the ground camera was standing, exactly.
+       *
+       * A change of control, not a change of place: the observer's viewpoint
+       * *is* the person, so the boots go on where the eyes already are and
+       * nothing jumps. Set down beside the site instead — three metres out,
+       * which was the first attempt — the walker opens the mode inside the
+       * LM's descent stage looking at a strut, which is not a view of the
+       * Moon. `gfx/groundView.js` owns both offsets, so the two cannot drift.
+       */
+      if (site.body === 'moon') lunarViewpoint(scratch.eye, scratch.eyeUp, site)
+      else groundViewpoint(scratch.eye, scratch.eyeUp, site, live.sunDir, live.pos.earth)
+      standOffsets(_off, site)
+      w.east = _off[0]
+      w.south = _off[1]
+      w.reach = Math.hypot(w.east, w.south)
+      w.heading = 0
+      w.lastYaw = flyLook.current.yaw
+      flyLook.current.pitch = 0
       opening.current = false
       return
     }
@@ -887,6 +995,118 @@ export function CameraRig() {
       controls.target
         .copy(camera.position)
         .addScaledVector(scratch.back, Math.max(live.nearest.distance, 10))
+      return
+    }
+
+    /**
+     * Boots on the ground: a person, not a camera.
+     *
+     * The physics is `sim/walk.js` and every number in it is a measurement
+     * about a human being — a 0.40 m standing jump, a 0.9 m leg, boots with a
+     * friction of 0.6 — acted on by whatever world is underfoot. Nothing here
+     * decides how walking feels. The Moon feels like the Moon because the Moon
+     * pulls at 1.63 m/s², and the consequences are the real ones: the walking
+     * gait breaks above **1.21 m/s** where it breaks at 2.97 on Earth, which
+     * is why the Apollo crews hopped; a jump hangs for three and a half
+     * seconds and reaches 2.4 m; and with a sixth of the grip you cannot stop
+     * or turn quickly, which is the part nobody expects.
+     *
+     * The frame is the site's — `gfx/groundView.js` — so the walker stands on
+     * the same ground the launch observer stands on, and walks on the Moon's
+     * real LRO relief rather than on a sphere. Position is carried as two
+     * numbers, metres east and south of the site, which is the coordinate the
+     * terrain's own height probe takes.
+     */
+    if (focus === 'walk') {
+      const w = walker.current
+      const site = w.site
+      const g = surfaceGravity(w.body)
+      const keys = flyKeys.current
+
+      /*
+       * Heading is kept here rather than taken from the camera's world yaw.
+       * A yaw about the scene's +y is only a heading where "up" happens to be
+       * +y, and a person standing on a sphere is almost never at that point —
+       * on the Moon's near side the local vertical is 80-odd degrees off it,
+       * and a mouse that turns the head about the wrong axis rolls the horizon
+       * instead of looking along it.
+       */
+      w.heading -= (flyLook.current.yaw - w.lastYaw)
+      w.lastYaw = flyLook.current.yaw
+      const pitch = flyLook.current.pitch
+      const ch = Math.cos(w.heading)
+      const sh = Math.sin(w.heading)
+
+      // What the feet are asking for, in the site's own east/south axes.
+      const ahead = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0)
+      const beside = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0)
+      // Heading 0 faces north, which is -south; +heading turns toward east.
+      const wantE = ahead * sh + beside * ch
+      const wantS = -(ahead * ch - beside * sh)
+
+      const step = Math.min(delta, 0.1)
+      // Latched or held: a tap that fell between two frames still counts, and
+      // Space held down hops, which on the Moon is the only way to get about.
+      const push = jumped.current || keys.has('Space')
+      jumped.current = false
+      stepWalk(w.state, step, g, wantE, wantS, push)
+      w.east += w.state.east * step
+      w.south += w.state.north * step
+
+      /*
+       * A leash, and it is an honest one rather than a fence.
+       *
+       * On Earth the ground is the datum only inside the graded complex; on
+       * the Moon it is real relief only inside the loaded patch. Outside
+       * either, this would be walking on a number the terrain does not draw.
+       * So the walker is held inside the ground that exists, and the HUD says
+       * why rather than pretending the world ends.
+       */
+      const leash = w.body === 'moon' ? WALK_LEASH_MOON : WALK_LEASH_EARTH
+      const out = Math.hypot(w.east, w.south)
+      if (out > leash) {
+        const k = leash / out
+        w.east *= k
+        w.south *= k
+        w.state.east = 0
+        w.state.north = 0
+      }
+      w.reach = out
+
+      // Where that puts the eyes, and which way is up there.
+      if (w.body === 'moon') lunarStand(camera.position, scratch.walkUp, site, w.east, w.south, WALK_EYE + w.state.height)
+      else earthStand(camera.position, scratch.walkUp, site, w.east, w.south, WALK_EYE + w.state.height)
+
+      /*
+       * The head. Built from the local frame rather than from a world-space
+       * Euler, so the horizon is level wherever on the body the walker is
+       * standing: east and north are perpendicular to the local vertical by
+       * construction, and the look direction is the heading tilted by pitch.
+       */
+      scratch.walkEast.crossVectors(WORLD_UP, scratch.walkUp)
+      if (scratch.walkEast.lengthSq() < 1e-12) scratch.walkEast.set(1, 0, 0)
+      scratch.walkEast.normalize()
+      scratch.walkNorth.crossVectors(scratch.walkUp, scratch.walkEast).normalize()
+      // Forward and right in the tangent plane, from the heading.
+      scratch.walkFwd.copy(scratch.walkNorth).multiplyScalar(ch).addScaledVector(scratch.walkEast, sh)
+      scratch.walkRight.copy(scratch.walkEast).multiplyScalar(ch).addScaledVector(scratch.walkNorth, -sh)
+      // Tilt the look, and take the head's own up with it.
+      const cp = Math.cos(pitch)
+      const sp = Math.sin(pitch)
+      scratch.walkLook.copy(scratch.walkFwd).multiplyScalar(cp).addScaledVector(scratch.walkUp, sp)
+      scratch.up.copy(scratch.walkUp).multiplyScalar(cp).addScaledVector(scratch.walkFwd, -sp)
+      // Three's basis wants the camera's +z, which looks *backwards*.
+      // `.clone().negate()` here would allocate a Vector3 a frame.
+      scratch.walkBack.copy(scratch.walkLook).negate()
+      scratch.walkBasis.makeBasis(scratch.walkRight, scratch.up, scratch.walkBack)
+      camera.quaternion.setFromRotationMatrix(scratch.walkBasis)
+      camera.up.copy(scratch.up)
+
+      live.walkSpeed = Math.hypot(w.state.east, w.state.north)
+      live.walkHeight = w.state.height
+      live.walkGround = w.state.onGround
+
+      controls.target.copy(camera.position).addScaledVector(scratch.walkLook, 40)
       return
     }
 

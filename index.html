@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Periapsis Zero — Sol / Terra / Luna</title>
+    <title>Periapsis Zero — the solar system at true scale</title>
     <meta name="description" content="Real-time N-body solar system simulation driven by an RK4 integrator." />
     <!--
       The tab icon, drawn by scripts/make-favicon.mjs — an orbital arc bending
@@ -20,6 +20,31 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="theme-color" content="#0a0b0d" />
     <link rel="manifest" href="/site.webmanifest" />
+    <!--
+      What a shared link looks like.
+
+      The simulator hands out links — a mission's address, a place in the sky,
+      a photograph's provenance — and until now every one of them unfurled as
+      a bare URL with no picture, because the site offered no card for a
+      crawler to find. `share-card.png` is the same mark from the same drawing
+      at the 1200x630 every unfurler crops to; the wording is left to the meta
+      tags, because a preview renders the title itself and a name burned into
+      the image would be the name twice. Absolute URLs: a crawler reads the
+      markup without a base, and a relative one is a broken image everywhere.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Periapsis Zero" />
+    <meta property="og:title" content="Periapsis Zero — the solar system at true scale" />
+    <meta property="og:description" content="Fly the missions that were actually flown, through a solar system the size it really is: eight bodies, one RK4 integrator, one metre to the scene unit." />
+    <meta property="og:url" content="https://periapsiszero.dev/" />
+    <meta property="og:image" content="https://periapsiszero.dev/icons/share-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="An orbit bending through periapsis around a lit world, with an ember tick naming the moment." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Periapsis Zero — the solar system at true scale" />
+    <meta name="twitter:description" content="Fly the missions that were actually flown, through a solar system the size it really is." />
+    <meta name="twitter:image" content="https://periapsiszero.dev/icons/share-card.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Cormorant Garamond replaces Chakra Petch: a light old-style serif for

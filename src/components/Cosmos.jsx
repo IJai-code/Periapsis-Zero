@@ -10,6 +10,7 @@ import { VIEW } from '../gfx/cosmicView.js'
 import { live } from '../sim/live.js'
 import { daySky } from '../gfx/skyGlow.js'
 import { QUALITY } from '../sim/device.js'
+import { FAST_MS, SLOW_MS, recentFrameMean } from '../gfx/frameStats.js'
 import { DeepStars } from './DeepStars.jsx'
 import { DeepField } from './DeepField.jsx'
 
@@ -332,6 +333,42 @@ function buildCosmos(gl) {
   const mwCam = new THREE.Vector3()
   const gCam = new THREE.Vector3()
 
+  /**
+   * How many tiles of the sky to march this frame.
+   *
+   * The march is progressive — one tile a frame, so a 176-step ray march never
+   * costs a frame more than the tile it did — and the tile edge was halved to
+   * 64 texels to bring the worst frame down. That worked and it cost something
+   * the change did not account for: the tile count is quadratic in the edge,
+   * so a 1024 cube went from 8x8x6 = 384 frames to **16x16x6 = 1,536**, and
+   * the time to a sharp Milky Way went from about 6 seconds to **26**. For the
+   * whole of that the sky is the 128-texel draft, which is the softness a
+   * viewer reads as lost detail.
+   *
+   * A fixed number of tiles cannot be right for both machines. So it is not
+   * fixed: one tile is the floor every machine gets, and a machine whose
+   * recent frames are inside the governor's comfortable band spends its slack
+   * on more of them. The same thresholds the pixel governor and the detail
+   * budget use, from the same ring (`gfx/frameStats.js`) — this is the third
+   * consumer of one measurement, not a fourth opinion about frames.
+   *
+   * The ceiling of four restores the old 128-texel *throughput* exactly (a
+   * 128 tile is four 64s by area) without restoring the 128-texel *hitch*,
+   * because the cost is still paid one small tile at a time and any one of
+   * them can be the last before the frame is presented.
+   */
+  const SKY_TILES_MAX = 4
+  function skyTileBudget() {
+    const mean = recentFrameMean(20)
+    // Nothing measured yet — the first seconds of a load, or a tab that just
+    // woke — is not evidence of room. Walk before running.
+    if (mean <= 0) return 1
+    if (mean > SLOW_MS) return 1
+    if (mean < FAST_MS) return SKY_TILES_MAX
+    // Inside the band: comfortable enough for one extra, not for four.
+    return 2
+  }
+
   /** March the next tile of the full-resolution cube. */
   function tileHi(renderer) {
     const face = Math.floor(cube.next / (TILES * TILES))
@@ -409,11 +446,20 @@ function buildCosmos(gl) {
         cube.done = false
         cube.mix = 0
       }
-      // In daylight on the ground the band is not there to see: keep the quick
-      // cube, and spend nothing refining a sky nobody can see until dusk.
+      // In daylight the band is not there to see — and that used to pause the
+      // refinement outright, which froze the sky at the 128-texel draft for
+      // the whole day. The cinematic camera orbits the day side, so the draft
+      // was the first sky a visitor ever saw: a soft, photograph-like band
+      // whose bilinear block edges and per-face grain seams read as a pasted
+      // picture with a border on it. Daylight now *throttles* the march rather
+      // than stopping it — a tile every few frames finishes the cube long
+      // before dusk at a fraction of the cost, and dusk reveals a finished sky
+      // instead of starting one.
       const hidden = daySky.milkyWay < 0.02
       if (!cube.done) {
-        if (cube.lastLo.distanceTo(mwCam) > CUBE_MOVE * 0.25) {
+        // The draft, refreshed as the camera moves — but not in daylight, where
+        // the whole six-face march was spent on a sky nobody can see.
+        if (!hidden && cube.lastLo.distanceTo(mwCam) > CUBE_MOVE * 0.25) {
           camLo.position.copy(camera.position)
           camLo.updateMatrixWorld(true)
           mwSkyMat.uniforms.uSteps.value = Math.min(QUALITY.skySteps, 72)
@@ -421,12 +467,22 @@ function buildCosmos(gl) {
           wholeLo(renderer)
           cube.lastLo.copy(mwCam)
         }
-        if (!hidden) {
+        if (hidden) {
+          // One tile every few frames: the sharp cube still arrives during the
+          // day, where the full budget would refine an invisible sky.
+          if (VIEW.frame % 4 === 0) {
+            camHi.position.copy(camera.position)
+            camHi.updateMatrixWorld(true)
+            mwSkyMat.uniforms.uSteps.value = QUALITY.skySteps
+            mwSkyMat.uniforms.uOctaves.value = 5
+            tileHi(renderer)
+          }
+        } else {
           camHi.position.copy(camera.position)
           camHi.updateMatrixWorld(true)
           mwSkyMat.uniforms.uSteps.value = QUALITY.skySteps
           mwSkyMat.uniforms.uOctaves.value = 5
-          tileHi(renderer)
+          for (let n = skyTileBudget(); n > 0 && !cube.done; n--) tileHi(renderer)
         }
       }
       cube.mix = cube.done ? Math.min(1, cube.mix + 0.08) : 0

@@ -99,6 +99,17 @@ export const uiStore = createStore({
    * already missing frames, and gives them back when it stops.
    */
   fullRes: false,
+  /**
+   * The score, under the films.
+   *
+   * On, because it is only ever heard where a person has pressed a button
+   * that says a film is about to play: an AudioContext cannot make a sound
+   * before a gesture, and `sfx/score.js` creates one only from that gesture.
+   * Nothing in the simulator itself makes a noise — there is no engine, no
+   * pad loop and no radio — so this switch governs exactly one thing, which
+   * is whether the approach films have music on them.
+   */
+  score: true,
   clouds: true,
   atmosphere: true,
   panelOpen: WIDE_ENOUGH_FOR_PANELS,

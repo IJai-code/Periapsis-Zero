@@ -126,9 +126,14 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
    * Read once, at mount: the logbook is a record of a past, not a view, and
    * the front door is mounted before a flight can change it.
    */
-  const [welcome] = useState(() =>
-    hasFlown() ? `Your logbook: ${logbookLine()}` : null,
-  )
+  const [welcome] = useState(() => {
+    // The line decides, not a second predicate that might disagree with it.
+    // Asking `hasFlown()` and then printing whatever `logbookLine()` returned
+    // put the string "Your logbook: null" on the front door of the live site
+    // for anyone whose logbook held exactly one pad.
+    const line = hasFlown() ? logbookLine() : null
+    return line ? `Your logbook: ${line}` : null
+  })
 
   return (
     <div
@@ -170,7 +175,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
           className="flex items-center gap-2.5 font-mono text-[10px] tracking-[0.34em] text-hud/75 uppercase"
         >
           <Mark size={18} />
-          Sol · Terra · Luna
+          Periapsis Zero
         </span>
         <span
           style={step(shown, 0)}
@@ -203,6 +208,19 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               editorial display line is not a big word; it is a quiet one with
               air around every letter, and the air is what has to be paid for.
             */}
+            {/*
+              The kicker gives the name a frame before it lands: what this is,
+              in the one register the house uses for a claim — mono, tracked,
+              ember, and small. It replaces the tag the masthead used to
+              carry, which said what the old brochure said instead of what a
+              visitor needs to know in the first second.
+            */}
+            <div
+              style={step(shown, 1)}
+              className="mb-5 font-mono text-[10px] font-normal tracking-[0.3em] text-ember/80 uppercase"
+            >
+              The solar system, at true scale
+            </div>
             <h1
               style={step(shown, 1)}
               className="font-display text-[2rem] leading-[1.06] font-light tracking-[0.15em] text-[#f5efe6] sm:text-[3rem] lg:text-[3.4rem]"
@@ -386,8 +404,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               className="mt-10 flex flex-wrap items-baseline gap-x-6 gap-y-2"
             >
               <span className="text-[11.5px] text-[#e8e0d5]/55">
-                Built by <span className="font-medium text-[#f2ebe0]/85">Ishaan&nbsp;Jha</span>, a
-                high-school freshman.
+                Built by <span className="font-medium text-[#f2ebe0]/85">Ishaan&nbsp;Jha</span>.
               </span>
               <span className="font-mono text-[10px] tracking-[0.16em] text-hud/35 uppercase">
                 Four pads · one integrator

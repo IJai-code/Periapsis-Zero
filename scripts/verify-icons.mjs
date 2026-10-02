@@ -109,7 +109,56 @@ try {
   fail(`brand.js does not import: ${e.message}`)
 }
 
-/* 5. The splash block is present exactly once. */
+/* 5. The web root answers for a bare /favicon.ico. */
+try {
+  const root = readFileSync(join(ROOT, 'public/favicon.ico'))
+  const icons = readFileSync(join(ROOT, 'public/icons/favicon.ico'))
+  if (!root.equals(icons)) fail('/favicon.ico differs from /icons/favicon.ico')
+  else pass(`/favicon.ico → the same ICO, ${root.length} B`)
+} catch {
+  // Not cosmetic: crawlers, bookmark restores, readers and several browsers'
+  // fallbacks ask the web root by convention and take the answer as final.
+  // Measured against the live site, this request returned 404 and 9 KB of HTML.
+  fail('/favicon.ico missing at the web root; every client that asks by convention gets the SPA fallback')
+}
+
+/* 6. A shared link has a picture, and it is a picture of the right shape. */
+const card = html.match(/property="og:image" content="([^"]+)"/)?.[1]
+if (!card) fail('index.html names no og:image; shared links unfurl with no picture')
+else if (!card.startsWith('http')) fail(`og:image "${card}" is relative; a crawler reads the markup without a base`)
+else {
+  const local = join(ROOT, 'public', new URL(card).pathname)
+  try {
+    const bytes = readFileSync(local)
+    const png = bytes[0] === 0x89 && bytes[1] === 0x50
+    // IHDR width and height live at a fixed offset in every PNG.
+    const w = bytes.readUInt32BE(16)
+    const h = bytes.readUInt32BE(20)
+    const declaredW = Number(html.match(/property="og:image:width" content="(\d+)"/)?.[1])
+    const declaredH = Number(html.match(/property="og:image:height" content="(\d+)"/)?.[1])
+    if (!png) fail(`og:image ${card}: not a PNG`)
+    else if (w !== declaredW || h !== declaredH)
+      fail(`og:image is ${w}x${h} but the markup declares ${declaredW}x${declaredH}`)
+    else pass(`og:image → PNG ${w}x${h}, ${bytes.length} B, matching its declared size`)
+  } catch {
+    fail(`og:image ${card}: missing on disk at ${local}`)
+  }
+}
+
+/* 7. Nothing in the generated set is shipped uncompressed. */
+for (const name of ['favicon-512.png', 'favicon-192.png', 'apple-touch-icon.png', 'share-card.png']) {
+  const bytes = readFileSync(join(ROOT, 'public/icons', name))
+  const w = bytes.readUInt32BE(16)
+  const h = bytes.readUInt32BE(20)
+  const raw = w * h * 4
+  // A stored-block PNG is its raw size plus change. These were exactly that —
+  // 4.46 MB across the set — because the encoder assembled uncompressed
+  // deflate blocks by hand. Anything above half of raw is that bug returning.
+  if (bytes.length > raw * 0.5) fail(`${name} is ${bytes.length} B against ${raw} B raw: it is not being compressed`)
+  else pass(`${name} → ${w}x${h}, ${bytes.length} B (${(100 * bytes.length / raw).toFixed(1)}% of raw)`)
+}
+
+/* 8. The splash block is present exactly once. */
 const opens = html.split('<!-- boot:generated').length - 1
 const closes = html.split('<!-- /boot:generated -->').length - 1
 if (opens === 1 && closes === 1) pass('index.html boot splash present, markers balanced')

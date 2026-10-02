@@ -308,9 +308,42 @@ function decodePng(path) {
     off += 12 + len
   }
   const raw = inflateSync(Buffer.concat(idat))
+  /*
+   * Reverse the row filters, all five of them.
+   *
+   * This used to copy each row straight out and drop the filter byte, which is
+   * only a decoder if every row happens to carry filter 0 — an assumption
+   * about the *encoder* that was never written down anywhere. The day
+   * make-favicon started choosing a filter per row (it now does, which is how
+   * a 1 MB icon became 55 kB) this gate reported stray pixels in a margin that
+   * had not changed and stars that had not come back. A decoder that cannot
+   * decode is worse than no decoder, because it fails as a false positive.
+   */
+  const stride = w * 4
+  const bpp = 4
   const px = Buffer.alloc(w * h * 4)
-  for (let y = 0; y < h; y++)
-    raw.copy(px, y * w * 4, y * (w * 4 + 1) + 1, y * (w * 4 + 1) + 1 + w * 4)
+  for (let y = 0; y < h; y++) {
+    const type = raw[y * (stride + 1)]
+    const from = y * (stride + 1) + 1
+    for (let i = 0; i < stride; i++) {
+      const x = raw[from + i]
+      const a = i >= bpp ? px[y * stride + i - bpp] : 0
+      const b = y > 0 ? px[(y - 1) * stride + i] : 0
+      const c = i >= bpp && y > 0 ? px[(y - 1) * stride + i - bpp] : 0
+      let v
+      if (type === 0) v = x
+      else if (type === 1) v = x + a
+      else if (type === 2) v = x + b
+      else if (type === 3) v = x + ((a + b) >> 1)
+      else if (type === 4) {
+        const pa = Math.abs(b - c)
+        const pb = Math.abs(a - c)
+        const pc = Math.abs(a + b - 2 * c)
+        v = x + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)
+      } else throw new Error(`unknown PNG filter ${type} on row ${y}`)
+      px[y * stride + i] = v & 0xff
+    }
+  }
   return { w, h, px }
 }
 try {
@@ -375,6 +408,51 @@ try {
   else fail(`mark.svg stars missing: ${starCircles} candidates`)
 } catch (e) {
   fail(`mark.svg unreadable: ${e.message}`)
+}
+
+/*
+ * The greeting and the predicate behind it must agree.
+ *
+ * The front door asks `hasFlown()` whether a returning visitor has a logbook
+ * and then prints `logbookLine()`. Those were two different definitions of
+ * "has flown": the predicate counted one pad and one personal best, the line
+ * counted pads only from the second and bests not at all. A browser holding
+ * exactly one pad therefore read, in ember, on the live site: **"Your
+ * logbook: null"**. Anything `hasFlown` counts must be something the line can
+ * say, and the cheapest way to hold that is to build each of those states and
+ * check both answers together.
+ */
+{
+  const states = [
+    ['nothing at all', () => {}],
+    ['one pad, and nothing else', (m) => m.recordPad('ksc')],
+    ['one personal best, and nothing else', (m) => m.recordBest('touchdown-vertical', 4, { unit: 'm/s' })],
+    ['one plate, and nothing else', (m) => m.recordPhotograph()],
+    ['one film, and nothing else', (m) => m.recordFilm('apollo8-tli')],
+    ['one milestone, and nothing else', (m) => m.recordMilestone('LIFTOFF', 0)],
+  ]
+  for (const [what, make] of states) {
+    // `_installTestLogbook` drops the in-memory record; the *store* is what
+    // `load()` reads next, so a genuinely pristine state needs both cleared.
+    const back = lb._installTestLogbook()
+    globalThis.localStorage?.removeItem?.('periapsis.logbook.v1')
+    make(lb)
+    const flown = lb.hasFlown()
+    const line = lb.logbookLine()
+    if (flown && !line) fail(`${what}: hasFlown() is true but logbookLine() is null — the front door prints "null"`)
+    else if (!flown && line) fail(`${what}: logbookLine() has something to say but hasFlown() hides it`)
+    else pass(`${what}: hasFlown()=${flown}, line=${JSON.stringify(line)}`)
+    back()
+  }
+  globalThis.localStorage?.removeItem?.('periapsis.logbook.v1')
+}
+
+/* And the front door must not print a line it has not checked. */
+{
+  const landing = readFileSync(join(ROOT, 'src/ui/Landing.jsx'), 'utf8')
+  if (/hasFlown\(\)\s*\?\s*`Your logbook: \$\{logbookLine\(\)\}`/.test(landing))
+    fail('Landing.jsx interpolates logbookLine() without checking it for null')
+  else pass('Landing.jsx checks the line before printing it')
 }
 
 console.log(failures ? `\n  ${failures} failure${failures === 1 ? '' : 's'}` : '\n  PASS')

@@ -1,4 +1,4 @@
-# Periapsis Zero — Sol · Terra · Luna
+# Periapsis Zero — the solar system at true scale
 
 A real-time three-body simulation of the Sun, Earth and Moon, integrated with a
 4th-order Runge-Kutta scheme and rendered with React Three Fiber.
@@ -804,7 +804,7 @@ actually landed.
 | Input           | Action                                              |
 | --------------- | --------------------------------------------------- |
 | drag / scroll   | orbit and zoom (damped)                              |
-| `1` `2` `3` `4` | camera lock: free · Sol · Terra · Luna               |
+| `1` `2` `3` `4` | camera lock: free · Sun · Earth · Moon               |
 | `0`             | stand on the ground by the pad, at eye height         |
 | click a body    | lock onto it                                         |
 | `space`         | pause                                                |

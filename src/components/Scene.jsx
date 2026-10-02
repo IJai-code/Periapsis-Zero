@@ -30,7 +30,10 @@ const LUNAR_MONTH = 27.321661 * DAY
  * rather than read live, so a burn does not re-seed the trail mid-flight.
  */
 const FLEET_TRAILS = [
-  { body: 'ship', period: 5545, head: '#e8823c', tail: '#4a2410' },
+  // `inSky`: the craft's own trail is the one that comes out of the vehicle
+  // the shot is about, so it is the one that survives an ascent. See
+  // gfx/instruments.js.
+  { body: 'ship', period: 5545, head: '#e8823c', tail: '#4a2410', inSky: true },
   { body: 'iss', period: 5545, head: '#c9b48a', tail: '#3a3223' },
   { body: 'hubble', period: 5716, head: '#b9a3c4', tail: '#332b3a' },
 ]
@@ -55,7 +58,13 @@ export function Scene({ textures }) {
    * all the HUD reaching into it. Unlike the opening shot it keeps the terrain
    * and the planets: it is standing on the one and may see the others.
    */
-  const ground = useUi((s) => s.focus === 'ground')
+  /*
+   * `walk` joins it. A person on foot is the ground view with the standing
+   * observer given feet, and a predicted orbit drawn up out of the pad reads
+   * exactly as it does from the observer's spot: as the instrument panel
+   * reaching into a photograph.
+   */
+  const ground = useUi((s) => s.focus === 'ground' || s.focus === 'walk')
   /**
    * Nor does the camera riding with the LM. Its predicted path starts inside
    * the ship and, climbing off the Moon, runs down through the ground ahead:
@@ -129,6 +138,7 @@ export function Scene({ textures }) {
           points={280}
           head={t.head}
           tail={t.tail}
+          inSky={t.inSky}
           width={1.1}
           visible={trails && !ground && !lunarChase && !presenting && !deep}
         />

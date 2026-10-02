@@ -30,6 +30,7 @@
  */
 import { deflateRawSync } from 'node:zlib'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
@@ -39,6 +40,10 @@ const ROOT = join(here, '..')
 const OUT_DIR = process.argv.includes('--out')
   ? process.argv[process.argv.indexOf('--out') + 1]
   : join(ROOT, 'public/icons')
+/** Where a bare `/favicon.ico` has to live to be served from the web root. */
+const PUBLIC_DIR = process.argv.includes('--out')
+  ? join(OUT_DIR, '..')
+  : join(ROOT, 'public')
 const BRAND = join(ROOT, 'src/gfx/brand.js')
 const INDEX = join(ROOT, 'index.html')
 const CHECK = process.argv.includes('--check')
@@ -450,7 +455,72 @@ function chunk(type, data) {
   return out
 }
 
-/** Raw RGBA rows -> PNG, using zlib *stored* blocks (no compression, exact bytes). */
+/**
+ * Which of the five PNG row filters to spend on a row, by the standard
+ * minimum-sum-of-absolute-differences heuristic.
+ *
+ * A filter does not compress anything by itself; it makes the row *easier* to
+ * compress by replacing each byte with its difference from a neighbour. On
+ * this mark that is the whole game: the field is one flat obsidian and the
+ * planet is a smooth gradient, so under Sub or Up almost every byte becomes a
+ * zero or a one and deflate eats them. The heuristic is the one the PNG
+ * specification itself recommends — try all five, keep the one whose output
+ * has the smallest total magnitude.
+ */
+function filterRow(out, cur, prev, width) {
+  const bpp = 4
+  const n = width * bpp
+  let best = -1
+  let bestScore = Infinity
+  const candidate = Buffer.alloc(n)
+  for (let type = 0; type < 5; type++) {
+    let score = 0
+    for (let i = 0; i < n; i++) {
+      const a = i >= bpp ? cur[i - bpp] : 0
+      const b = prev ? prev[i] : 0
+      const c = i >= bpp && prev ? prev[i - bpp] : 0
+      let v
+      if (type === 0) v = cur[i]
+      else if (type === 1) v = cur[i] - a
+      else if (type === 2) v = cur[i] - b
+      else if (type === 3) v = cur[i] - ((a + b) >> 1)
+      else {
+        // Paeth: whichever of left, above, upper-left the linear estimate is
+        // nearest to.
+        const pa = Math.abs(b - c)
+        const pb = Math.abs(a - c)
+        const pc = Math.abs(a + b - 2 * c)
+        v = cur[i] - (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)
+      }
+      v &= 0xff
+      candidate[i] = v
+      score += v < 128 ? v : 256 - v
+    }
+    if (score < bestScore) {
+      bestScore = score
+      best = type
+      candidate.copy(out)
+    }
+  }
+  return best
+}
+
+/**
+ * Raw RGBA rows -> PNG.
+ *
+ * This wrote *stored* deflate blocks — a valid PNG carrying no compression at
+ * all, so every file was width x height x 4 bytes plus a header. The icon set
+ * came to 1.4 MB and a 1200 x 630 share card to 3.0 MB, for a drawing that is
+ * mostly one flat colour.
+ *
+ * The comment that used to sit here records why: an early attempt called
+ * `deflateSync` on a stream that was *already* stored blocks, which wrapped a
+ * deflate stream inside a deflate stream and decoded to junk. The mistake was
+ * the input, not the tool. `deflateSync` on the filtered rows emits the whole
+ * zlib stream — 0x78 header, compressed blocks, Adler-32 — which is exactly
+ * what an IDAT wants, so the hand-assembly below it goes as well. `node:zlib`
+ * is Node's own library, so the script's no-dependencies rule is intact.
+ */
 function encodePng(width, height, rgba) {
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
   const ihdr = Buffer.alloc(13)
@@ -460,41 +530,19 @@ function encodePng(width, height, rgba) {
   ihdr[9] = 6 // colour type: RGBA
   // compression, filter, interlace: all zero.
 
-  // Each row gets its filter byte (0 = none) prefixed.
-  const raw = Buffer.alloc(height * (width * 4 + 1))
+  // Each row gets its filter byte, chosen per row.
+  const stride = width * 4
+  const raw = Buffer.alloc(height * (stride + 1))
+  const filtered = Buffer.alloc(stride)
+  let prev = null
   for (let y = 0; y < height; y++) {
-    raw[y * (width * 4 + 1)] = 0
-    Buffer.from(rgba.buffer, rgba.byteOffset + y * width * 4, width * 4).copy(raw, y * (width * 4 + 1) + 1)
+    const cur = Buffer.from(rgba.buffer, rgba.byteOffset + y * stride, stride)
+    raw[y * (stride + 1)] = filterRow(filtered, cur, prev, width)
+    filtered.copy(raw, y * (stride + 1) + 1)
+    prev = cur
   }
 
-  /**
-   * A true *uncompressed* deflate stream, assembled by hand: a 2-byte zlib
-   * wrapper, then stored blocks of 5 header bytes per 65535 of payload.
-   *
-   * The first version called `deflateSync(..., { level: 0 })` on an already
-   * stored-block stream, which double-wraps it — zlib still builds block
-   * structure of its own, so the IDAT was a deflate stream inside a deflate
-   * stream and decoded to 5 junk bytes plus the image. Assembling the stored
-   * blocks directly is also smaller: no second header layer.
-   */
-  const blocks = []
-  let off = 0
-  while (off < raw.length) {
-    const n = Math.min(65535, raw.length - off)
-    const last = off + n >= raw.length ? 1 : 0
-    const head = Buffer.alloc(5)
-    head[0] = last
-    head.writeUInt16LE(n, 1)
-    head.writeUInt16LE(~n & 0xffff, 3)
-    blocks.push(head, raw.subarray(off, off + n))
-    off += n
-  }
-  const payload = Buffer.concat(blocks)
-  const wrapper = Buffer.from([0x78, 0x01])
-  const adler = Buffer.alloc(4)
-  adler.writeUInt32BE(adler32(raw), 0)
-  const idat = Buffer.concat([wrapper, payload, adler])
-
+  const idat = deflateSync(raw, { level: 9 })
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))])
 }
 
@@ -652,6 +700,44 @@ function writeIndexSplash() {
 
 const SIZES = [16, 32, 48, 64, 128, 180, 192, 512]
 
+/**
+ * The share card: the same mark, on the same ground, at the shape a link
+ * preview wants.
+ *
+ * 1200 x 630 is what every unfurler crops to, and a site that does not offer
+ * one gets whatever the crawler guesses — usually nothing, which is what this
+ * site's links were showing. The mark is drawn square and composited into the
+ * middle of the wide field rather than redrawing the geometry for a rectangle:
+ * `geom` is anchored on the shorter side, so a wide canvas would put the mark
+ * against the left edge, and the mark is the same mark either way.
+ *
+ * No wordmark is drawn into it. A link preview renders `og:title` itself, in
+ * the reader's own interface, and a name burned into the image as well would
+ * be the name twice — once at a size the crawler chose.
+ */
+const CARD_W = 1200
+const CARD_H = 630
+const CARD_MARK = 430
+
+function shareCard() {
+  const px = new Uint8ClampedArray(CARD_W * CARD_H * 4)
+  for (let i = 0; i < CARD_W * CARD_H; i++) {
+    px[i * 4] = OBSIDIAN[0]
+    px[i * 4 + 1] = OBSIDIAN[1]
+    px[i * 4 + 2] = OBSIDIAN[2]
+    px[i * 4 + 3] = 255
+  }
+  const mark = drawMark(CARD_MARK, CARD_MARK)
+  const ox = ((CARD_W - CARD_MARK) / 2) | 0
+  const oy = ((CARD_H - CARD_MARK) / 2) | 0
+  for (let y = 0; y < CARD_MARK; y++) {
+    const from = y * CARD_MARK * 4
+    const to = ((y + oy) * CARD_W + ox) * 4
+    px.set(mark.subarray(from, from + CARD_MARK * 4), to)
+  }
+  return encodePng(CARD_W, CARD_H, px)
+}
+
 function build() {
   const images = SIZES.map((size) => ({ size, px: drawMark(size, size) }))
   const pngs = new Map(images.map(({ size, px }) => [size, encodePng(size, size, px)]))
@@ -667,12 +753,35 @@ const TARGETS = [
   })),
   { name: 'favicon.ico', make: () => encodeIco([16, 32, 48].map((s) => ({ size: s, png: pngs.get(s) }))) },
   { name: 'mark.svg', make: () => Buffer.from(svgMark(512), 'utf8') },
+  { name: 'share-card.png', make: shareCard },
+]
+
+/**
+ * And one copy at the web root.
+ *
+ * `<link rel="icon">` covers a browser that has loaded the page. It does not
+ * cover everything that wants an icon: a crawler unfurling a shared link, a
+ * bookmark restored before the page is fetched, a reader, a chat client, and
+ * several browsers' own fallbacks all ask for `/favicon.ico` by convention and
+ * take the answer as final. Measured against the live site, that request
+ * returned **404 and 9 KB of HTML**, so every one of those showed a default
+ * globe beside a simulator that has a mark. It is the same bytes as
+ * `icons/favicon.ico`; only the address is new.
+ */
+const ROOT_TARGETS = [
+  { name: 'favicon.ico', make: () => encodeIco([16, 32, 48].map((s) => ({ size: s, png: pngs.get(s) }))) },
+]
+
+/** Every file this script owns, as [directory, name, make]. */
+const ALL = [
+  ...TARGETS.map((t) => [OUT_DIR, t.name, t.make]),
+  ...ROOT_TARGETS.map((t) => [PUBLIC_DIR, t.name, t.make]),
 ]
 
 if (CHECK) {
   let ok = true
-  for (const { name, make } of TARGETS) {
-    const path = join(OUT_DIR, name)
+  for (const [dir, name, make] of ALL) {
+    const path = join(dir, name)
     let onDisk = null
     try {
       onDisk = readFileSync(path)
@@ -734,8 +843,9 @@ if (CHECK) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true })
-for (const { name, make } of TARGETS) {
-  writeFileSync(join(OUT_DIR, name), make())
+mkdirSync(PUBLIC_DIR, { recursive: true })
+for (const [dir, name, make] of ALL) {
+  writeFileSync(join(dir, name), make())
 }
 writeFileSync(BRAND, brandModule())
 const how = writeIndexSplash()

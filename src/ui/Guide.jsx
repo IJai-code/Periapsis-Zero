@@ -130,6 +130,17 @@ export function Guide({ open, onClose, onLibrary }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => {
+      /*
+       * The tour's keys belong to the tour's own controls only. Space and
+       * Enter bubbled out of the caption card's buttons — press Next and the
+       * keydown also advanced the beat the button had just moved to, so one
+       * click moved the tour two steps and every second slide flashed past
+       * unread; on the last beat they fired the flight link *and* closed the
+       * tour. Inputs are excluded so the mission library's search still works
+       * underneath.
+       */
+      if (e.target instanceof HTMLInputElement) return
+      if (e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement) return
       if (e.key === 'Escape') {
         e.preventDefault()
         close()
@@ -175,9 +186,10 @@ export function Guide({ open, onClose, onLibrary }) {
                 role="tab"
                 aria-selected={i === step}
                 aria-label={st.eyebrow}
+                title={st.title}
                 onClick={() => setStep(i)}
-                className={`control h-px w-8 transition-colors duration-500 ${
-                  i === step ? 'lit bg-ember' : i < step ? 'bg-hud/50' : 'bg-hud/20 hover:bg-hud/40'
+                className={`control h-3 w-8 transition-colors duration-500 ${
+                  i === step ? 'lit bg-ember' : i < step ? 'bg-hud/50 hover:bg-hud/70' : 'bg-hud/20 hover:bg-hud/40'
                 }`}
               />
             ))}

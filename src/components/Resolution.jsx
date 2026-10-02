@@ -2,14 +2,14 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { QUALITY } from '../sim/device.js'
 import { setUi, useUi } from '../sim/store.js'
-import { boundedRatio } from '../gfx/renderBudget.js'
+import { maxRatio } from '../gfx/renderBudget.js'
 import {
   MAX_DETAIL_STEP,
   detailStep as detailCap,
   nextDetailStep,
   setDetailStep,
 } from '../gfx/detailBudget.js'
-import { pushFrameTime, resetFrameTimes } from '../gfx/frameStats.js'
+import { FAST_MS, SLOW_MS, pushFrameTime, resetFrameTimes } from '../gfx/frameStats.js'
 import { setShadowRelief, shadowRelief } from '../gfx/groundBudget.js'
 
 /**
@@ -47,19 +47,12 @@ import { setShadowRelief, shadowRelief } from '../gfx/groundBudget.js'
 /** Frames sampled before each decision, and the shorter window used until the first one. */
 const WINDOW = 90
 const FIRST_WINDOW = 24
-/**
- * Slower than this on average and the machine is missing frames; faster and it
- * has room.
- *
- * These sit either side of one refresh rather than around some frame rate to
- * aim at, because the signal is `requestAnimationFrame` and that is quantised
- * to the display: a machine that misses every other frame reports 33 ms, never
- * 20. A threshold between the two steps quantities that do not exist, and the
- * first pair tried — 26 and 18.5 — sat inside the gap and parked a Retina Mac
- * at thirty frames a second when it could hold sixty two steps lower down.
+/*
+ * Slower than SLOW_MS on average and the machine is missing frames; faster
+ * than FAST_MS and it has room. Both come from `gfx/frameStats.js`, beside
+ * the ring they are read against — the sky's progressive march and the detail
+ * budget ask the same question of the same numbers.
  */
-const SLOW_MS = 21
-const FAST_MS = 17.2
 /** Three frames this slow is not a hiccup, and waiting out a window of them helps nobody. */
 const PANIC_MS = 60
 /** A frame longer than this was a texture upload or a shader compile, not the steady state. */
@@ -109,7 +102,20 @@ export function Resolution() {
   }, [])
   const dpr = useThree((s) => s.viewport.dpr)
   const size = useThree((s) => s.size)
-  const maxDpr = boundedRatio(size.width, size.height, Math.min(window.devicePixelRatio || 1, QUALITY.dpr[1]))
+  /*
+   * The ceiling is the panel's own ratio, bounded only by what the hardware
+   * can allocate.
+   *
+   * It used to be bounded by the opening frame's four-megapixel budget as
+   * well, which made that budget a permanent cap: measured, a 16-inch
+   * MacBook Pro was held to 52% of its pixels, a 4K monitor to 48%, and a 5K
+   * iMac to **27%** — on machines that draw every one of them at sixty frames
+   * a second. The budget exists so the *first* frame is safe before anything
+   * has been measured (see App.jsx), and this loop is the thing that measures.
+   * Letting a guess outrank the measurement is how a fast machine ends up
+   * looking soft forever, which is what a visitor reported as lost detail.
+   */
+  const maxDpr = maxRatio(size.width, size.height, Math.min(window.devicePixelRatio || 1, QUALITY.dpr[1]))
   const full = useUi((s) => s.fullRes)
   // A photograph raises the ratio on purpose; judging the machine on those
   // frames would read a deliberate expense as a machine in trouble.

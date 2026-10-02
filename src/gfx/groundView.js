@@ -215,6 +215,41 @@ export function lastPlacement(across, launch) {
   launch.copy(_launch)
 }
 
+/**
+ * A point standing on the graded ground at an Earth pad, `east` and `south`
+ * metres from the site, eye `eye` metres up.
+ *
+ * The height is the datum and that is not an approximation here: `Terrain.jsx`
+ * grades the complex flat to `FLAT_RADIUS` — 400 m — because a launch complex
+ * *is* graded flat, and the drawn ground inside that circle is the datum. Past
+ * it the real relief takes over and this would start to lie, so the walker's
+ * leash is shorter than the grading (see `components/CameraRig.jsx`).
+ *
+ * East is taken from the spin axis, the same axis `groundViewpoint` above uses
+ * and the same one the clamp and the drag model share, so the ground a person
+ * walks on turns with the vehicle standing on it rather than drifting away
+ * from it at 465 m/s.
+ */
+const _siteUp = new Vector3()
+const _siteEast = new Vector3()
+const _siteNorth = new Vector3()
+const _spin = new Vector3(SPIN_AXIS[0], SPIN_AXIS[1], SPIN_AXIS[2])
+
+export function earthStand(out, up, site, east, south, eye = EYE) {
+  siteDirection(_siteUp, site, live.sim.t)
+  _siteEast.crossVectors(_spin, _siteUp)
+  if (_siteEast.lengthSq() < 1e-12) _siteEast.set(1, 0, 0)
+  _siteEast.normalize()
+  _siteNorth.crossVectors(_siteUp, _siteEast).normalize()
+  const R = BODIES.earth.radius
+  const e = live.pos.earth
+  out.x = e.x + _siteUp.x * (R + eye) + _siteEast.x * east - _siteNorth.x * south
+  out.y = e.y + _siteUp.y * (R + eye) + _siteEast.y * east - _siteNorth.y * south
+  out.z = e.z + _siteUp.z * (R + eye) + _siteEast.z * east - _siteNorth.z * south
+  up.copy(_siteUp)
+  return out
+}
+
 /* ---------------------------------------------------------------- *
  * On the Moon
  * ---------------------------------------------------------------- */
@@ -237,10 +272,24 @@ const LUNAR_OFF = 30
 const LUNAR_AZIMUTH = 205 * DEG
 const R_MOON = BODIES.moon.radius
 const _mx = new Float64Array(9)
+const _frame = new Float64Array(9)
 let _axes = null
 let _axesFor = ''
 
-export function lunarViewpoint(out, up, site) {
+/**
+ * The site's own frame in the scene, and the ground's height in it.
+ *
+ * Nine numbers out: east, up and south at the site, as scene directions, built
+ * from the site's body-fixed axes turned by the Moon's own rotation. It is the
+ * frame everything standing on the Moon shares — the observer below, and the
+ * walker in `components/CameraRig.jsx` — so a person who walks away from the
+ * viewpoint walks on the same ground the viewpoint was standing on, by
+ * construction rather than by two files agreeing.
+ *
+ * Allocation-free: the axes are cached per site and the Moon's rotation goes
+ * into a module-level array.
+ */
+export function lunarSiteFrame(out, site) {
   if (_axesFor !== site.id) {
     _axes = siteAxes(site.latitude, site.longitude)
     _axesFor = site.id
@@ -248,27 +297,33 @@ export function lunarViewpoint(out, up, site) {
   const A = _axes
   moonClock[0] = live.sim.t
   moonAxes(_mx)
-  const east = LUNAR_OFF * Math.sin(LUNAR_AZIMUTH)
-  const south = -LUNAR_OFF * Math.cos(LUNAR_AZIMUTH)
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      out[r * 3 + c] = A[r * 3] * _mx[c] + A[r * 3 + 1] * _mx[3 + c] + A[r * 3 + 2] * _mx[6 + c]
+    }
+  }
+  return out
+}
+
+/**
+ * A point standing on the lunar ground at `east`, `south` metres from the
+ * site, with its eye `eye` metres above the surface there.
+ *
+ * `lunarViewpoint` is this with the observer's own offsets; the walker is this
+ * with whatever offsets the feet have reached. Writes the scene position into
+ * `out` and the local vertical into `up`, and allocates nothing.
+ */
+export function lunarStand(out, up, site, east, south, eye = EYE) {
+  const F = lunarSiteFrame(_frame, site)
   groundProbe[0] = east
   groundProbe[1] = south
   probeGround()
-  const h = groundProbe[2] + EYE
-  // The site's east, up and south in the scene, from the Moon's body axes.
-  const Ex = A[0] * _mx[0] + A[1] * _mx[3] + A[2] * _mx[6]
-  const Ey = A[0] * _mx[1] + A[1] * _mx[4] + A[2] * _mx[7]
-  const Ez = A[0] * _mx[2] + A[1] * _mx[5] + A[2] * _mx[8]
-  const Ux = A[3] * _mx[0] + A[4] * _mx[3] + A[5] * _mx[6]
-  const Uy = A[3] * _mx[1] + A[4] * _mx[4] + A[5] * _mx[7]
-  const Uz = A[3] * _mx[2] + A[4] * _mx[5] + A[5] * _mx[8]
-  const Sx = A[6] * _mx[0] + A[7] * _mx[3] + A[8] * _mx[6]
-  const Sy = A[6] * _mx[1] + A[7] * _mx[4] + A[8] * _mx[7]
-  const Sz = A[6] * _mx[2] + A[7] * _mx[5] + A[8] * _mx[8]
+  const h = groundProbe[2] + eye
   const moon = live.pos.moon
-  out.x = moon.x + Ux * (R_MOON + h) + Ex * east + Sx * south
-  out.y = moon.y + Uy * (R_MOON + h) + Ey * east + Sy * south
-  out.z = moon.z + Uz * (R_MOON + h) + Ez * east + Sz * south
-  // The observer's own vertical, so the horizon is level.
+  out.x = moon.x + F[3] * (R_MOON + h) + F[0] * east + F[6] * south
+  out.y = moon.y + F[4] * (R_MOON + h) + F[1] * east + F[7] * south
+  out.z = moon.z + F[5] * (R_MOON + h) + F[2] * east + F[8] * south
+  // The stander's own vertical, so the horizon is level.
   up.x = out.x - moon.x
   up.y = out.y - moon.y
   up.z = out.z - moon.z
@@ -276,5 +331,36 @@ export function lunarViewpoint(out, up, site) {
   up.x /= n
   up.y /= n
   up.z /= n
+  return out
+}
+
+export function lunarViewpoint(out, up, site) {
+  return lunarStand(out, up, site, LUNAR_OFF * Math.sin(LUNAR_AZIMUTH), -LUNAR_OFF * Math.cos(LUNAR_AZIMUTH))
+}
+
+/**
+ * Where the observer is standing, as metres east and south of the site.
+ *
+ * The walker starts here rather than a few metres from the pad, so putting the
+ * boots on is a change of control and not of place. Both offsets come from the
+ * placements above rather than being restated: the Moon's from its own two
+ * constants, Earth's by projecting the across-the-trench direction
+ * `groundViewpoint` chose onto the site's east and north. Earth's therefore
+ * requires `groundViewpoint` to have run for this site — which the caller does,
+ * because it is placing the camera it is about to hand over from.
+ */
+export function standOffsets(out, site) {
+  if (site.body === 'moon') {
+    out[0] = LUNAR_OFF * Math.sin(LUNAR_AZIMUTH)
+    out[1] = -LUNAR_OFF * Math.cos(LUNAR_AZIMUTH)
+    return out
+  }
+  siteDirection(_siteUp, site, live.sim.t)
+  _siteEast.crossVectors(_spin, _siteUp)
+  if (_siteEast.lengthSq() < 1e-12) _siteEast.set(1, 0, 0)
+  _siteEast.normalize()
+  _siteNorth.crossVectors(_siteUp, _siteEast).normalize()
+  out[0] = OFF * _across.dot(_siteEast)
+  out[1] = -OFF * _across.dot(_siteNorth)
   return out
 }
