@@ -285,6 +285,43 @@ function evaluate(o) {
     }
     case 'splashdown':
       return { done: reached('SPLASHDOWN'), progress: reached('SPLASHDOWN') ? 1 : 0 }
+    case 'photograph': {
+      /*
+       * Take a photograph. The counter is this module's own — Photograph.jsx
+       * notes each plate here — so the check reads a count taken since the
+       * contract was armed, not a lifetime total.
+       */
+      const taken = photographs - (program.plates0 ?? 0)
+      const want = o.count ?? 1
+      return { done: taken >= want, progress: Math.min(1, taken / want) }
+    }
+    case 'proximity': {
+      /*
+       * Come close to something. Rendezvous is the honest hard part of
+       * spaceflight — matching an orbit costs more delta-v than reaching the
+       * Moon — and the contracts pay it respect: the target is read from the
+       * integrator's own state vector, the same slots everything else flies
+       * by, so there is no shortcut around the phasing.
+       */
+      const s = live.sim.state
+      const i = INDEX[o.body]
+      const oSlot = INDEX.ship * 6
+      if (i == null) return { done: false, progress: 0 }
+      const t = i * 6
+      const d = Math.hypot(s[oSlot] - s[t], s[oSlot + 1] - s[t + 1], s[oSlot + 2] - s[t + 2])
+      const want = (o.km ?? 100) * 1000
+      return { done: d < want, progress: Math.max(0, Math.min(1, 1 - (d - want) / 2e6)) }
+    }
+    case 'inclination': {
+      const deg = live.elements.inclination * (180 / Math.PI)
+      const want = o.deg ?? 90
+      return { done: deg >= want, progress: Math.min(1, deg / want) }
+    }
+    case 'apoapsis': {
+      const km = live.elements.apogee / 1000
+      const want = o.km ?? 10_000
+      return { done: km >= want, progress: Math.min(1, km / want) }
+    }
     default:
       return { done: false, progress: 0 }
   }
@@ -303,6 +340,131 @@ function distanceToMoon() {
 let SHIP_PARKING = 185e3
 export function __wireParking(alt) {
   SHIP_PARKING = alt
+}
+
+/**
+ * Photographs taken this session, noted by the photograph component and read
+ * by the `photograph` check. A counter, not an import of the logbook: the
+ * logbook persists across flights and the contracts measure *this* flight.
+ */
+export let photographs = 0
+export function notePhotograph() {
+  photographs += 1
+}
+
+/**
+ * The contracts: jobs a pilot takes, not routes a planner prices.
+ *
+ * They ride exactly the machinery the routes ride — objectives evaluated from
+ * the simulation, a checklist riding the instruments, arming through the same
+ * gate — because a job and a route differ in whose idea it was, not in what
+ * the flight model owes it. The board's realism is the point: nothing here
+ * shoots at anybody. The work of spaceflight — reaching orbit, phasing toward
+ * a station, raising an ellipse, coming home — *is* the game.
+ */
+export const CONTRACTS = [
+  {
+    id: 'contract-first-light',
+    name: 'First Light',
+    group: 'Contract',
+    brief: 'Reach orbit and take a photograph of the Earth from it. The plate is yours to keep.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'contract',
+    wings: ['trainee', 'aviator', 'aldrin', 'karman'],
+    contract: true,
+    legs: [{ name: 'Ascent to parking orbit', dv: 9_400 }],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'photo', label: 'Photograph the Earth from orbit', check: 'photograph' },
+    ],
+    order: 1,
+  },
+  {
+    id: 'contract-station',
+    name: 'Station Approach',
+    group: 'Contract',
+    brief: 'Close to within 100 km of the station. The phasing is the work: launch when the orbit says, not when you feel like it.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'contract',
+    wings: ['trainee', 'aviator', 'aldrin', 'karman'],
+    contract: true,
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Phasing burns', dv: 120 },
+    ],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'close', label: 'Close to within 100 km of the station', check: 'proximity', body: 'iss', km: 100 },
+    ],
+    order: 2,
+  },
+  {
+    id: 'contract-polar',
+    name: 'Polar Sentinel',
+    group: 'Contract',
+    brief: 'Orbit over the poles — past 95 degrees. Vandenberg throws south for exactly this; the dogleg is priced in.',
+    vessel: 'apollo8',
+    sites: ['vandenberg'],
+    target: 'contract',
+    wings: ['trainee', 'aviator', 'aldrin', 'karman'],
+    contract: true,
+    legs: [{ name: 'Ascent to polar orbit', dv: 9_600 }],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'inc', label: 'Fly past 95° of inclination', check: 'inclination', deg: 95 },
+    ],
+    order: 3,
+  },
+  {
+    id: 'contract-high-road',
+    name: 'The High Road',
+    group: 'Contract',
+    brief: 'Raise an ellipse a tenth of the way to the Moon and live in it for an orbit. Apoapsis past 10,000 km.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'contract',
+    wings: ['trainee', 'aviator', 'aldrin', 'karman'],
+    contract: true,
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Raise the ellipse', dv: 2_400 },
+    ],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'high', label: 'Raise apoapsis past 10,000 km', check: 'apoapsis', km: 10_000 },
+    ],
+    order: 4,
+  },
+  {
+    id: 'contract-far-side',
+    name: 'Far-Side Solo',
+    group: 'Contract',
+    brief: 'The Apollo 8 loop as a job: brake into lunar orbit behind the far side, where no one on Earth can see you.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'contract',
+    wings: ['aviator', 'aldrin', 'karman'],
+    contract: true,
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Trans-lunar injection', dv: 3_050 },
+      { name: 'Lunar orbit insertion', dv: 890 },
+    ],
+    objectives: [
+      { id: 'tli', label: 'Injected toward the Moon', check: 'tli' },
+      { id: 'loi', label: 'In lunar orbit', check: 'lunarOrbit' },
+    ],
+    order: 5,
+  },]
+
+/**
+ * Arm a contract. The wing is the route's freest unless the board says
+ * otherwise — same rule the deep link keeps.
+ */
+export function armContract(def) {
+  return armProgram(def, def.wings[0] ?? 'trainee')
 }
 
 /* ---------------------------------------------------------------- *
@@ -461,6 +623,8 @@ export function armProgram(def, wing, parking = 185e3) {
   program.armed = true
   program.started = false
   program.handedOff = false
+  // The photograph check measures *this* flight, so the baseline is taken here.
+  program.plates0 = photographs
   __wireParking(parking)
   return program
 }

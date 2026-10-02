@@ -100,20 +100,9 @@ export const uiStore = createStore({
    */
   fullRes: false,
   /**
-   * The score, under the films.
-   *
-   * On, because it is only ever heard where a person has pressed a button
-   * that says a film is about to play: an AudioContext cannot make a sound
-   * before a gesture, and `sfx/score.js` creates one only from that gesture.
-   * Nothing in the simulator itself makes a noise — there is no engine, no
-   * pad loop and no radio — so this switch governs exactly one thing, which
-   * is whether the approach films have music on them.
-   */
-  score: true,
-  /**
    * The ambience, under the flight — off until the visitor asks.
    *
-   * Unlike the score, this is not fetched until it is first enabled (see
+   * This is not fetched until it is first enabled (see
    * `sfx/ambience.js`): a visitor who never asks for sound never downloads
    * the 3 MB bed. The toggle's click is the gesture that creates the
    * AudioContext, so nothing here ever fights the browser for one.

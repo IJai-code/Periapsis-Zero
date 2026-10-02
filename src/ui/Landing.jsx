@@ -438,7 +438,37 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               </span>
             </div>
 
-            <p style={step(shown, 7)} className="mt-4 text-[11px] leading-relaxed text-hud/42">
+            {/*
+              The source. The whole simulator is public — integrator, flight
+              computer, the sixty-seven gates that hold it — and the page says
+              where, at the foot where a colophon says where the type came from.
+            */}
+            <div style={step(shown, 7)} className="mt-10 border-t border-hud/12 pt-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+                <span className="font-display text-[13px] font-normal tracking-[0.16em] text-hud/85 uppercase">
+                  Source
+                </span>
+                <a
+                  href="https://github.com/IJai-code/Periapsis-Zero"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="The source, on GitHub — issues and pull requests are read"
+                  className="group inline-flex items-baseline gap-2 font-mono text-[10px] tracking-[0.18em] text-hud/45 uppercase outline-none transition-colors duration-300 hover:text-ember focus-visible:text-ember"
+                >
+                  github.com/IJai-code/Periapsis-Zero
+                  <span aria-hidden className="text-hud/25 transition-colors duration-300 group-hover:text-ember">
+                    ↗
+                  </span>
+                </a>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-hud/45">
+                The whole simulator — integrator, flight computer, the verification
+                suite that holds it, this page — is public. Everything you see fly
+                is flown by the same code the repository runs.
+              </p>
+            </div>
+
+            <p style={step(shown, 7)} className="mt-6 text-[11px] leading-relaxed text-hud/42">
               Everything behind this page is the simulation itself, already running.
             </p>
 

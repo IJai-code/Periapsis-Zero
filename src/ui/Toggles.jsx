@@ -22,7 +22,6 @@ const OPTIONS = [
   { key: 'labels', label: 'Labels' },
   { key: 'bloom', label: 'Bloom / vignette' },
   { key: 'fullRes', label: 'Full resolution' },
-  { key: 'score', label: 'Film score' },
   { key: 'ambience', label: 'Ambient sound' },
   { key: 'broadcast', label: 'Broadcast feed' },
   { key: 'geophysics', label: 'Terra interior' },

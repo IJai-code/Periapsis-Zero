@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CATALOG, KINDS, SUGGESTED, entryById, lookup } from '../sim/catalog.js'
 // The sky beyond the planets registers itself into the catalogue on load.
 import '../sim/cosmos.js'
+import { COSMIC } from '../sim/cosmic.js'
+import { TRANSIT } from '../gfx/transit.js'
 import { setUi, useUi } from '../sim/store.js'
 
 /**
@@ -119,6 +121,17 @@ export function goToEntry(entry) {
     window.location.href = entry.href
     return
   }
+  /*
+   * The places beyond the planets *arrive*. A shared link has always been able
+   * to land the camera at Andromeda; the search — the way everyone actually
+   * travels — did not, so a galaxy chosen by name sat where it was: the rig
+   * began a pilot-speed move toward a target 2.5 million light-years out, and
+   * the visitor watched nothing happen for their trouble. The warp ladder
+   * cannot cross intergalactic space and was never meant to; the honest move
+   * is the one the link already makes. Planets keep their real transits — the
+   * journey through the system is the sim.
+   */
+  if (COSMIC[entry.focus]) TRANSIT.arrive = true
   // A view from the vehicle has no meaning on the map, which is a view of a path.
   const vehicleView = entry.kind === 'view'
   setUi((s) => ({

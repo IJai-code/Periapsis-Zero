@@ -17,6 +17,7 @@ import { ModelSelector } from './ModelSelector.jsx'
 import { ShipTelemetry } from './ShipTelemetry.jsx'
 import { NodePanel } from './NodePanel.jsx'
 import { Presets } from './Presets.jsx'
+import { Contracts } from './Contracts.jsx'
 import { CaptureStatus } from './CaptureStatus.jsx'
 import { BurnPanel } from './BurnPanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
@@ -323,6 +324,8 @@ export function Hud() {
           <div className="pointer-events-auto flex flex-col gap-3">
             {/* Setting the flight up, not flying it: out of the way on the map. */}
             {!map && <Presets />}
+            {/* Jobs a pilot takes — the board rides the missions, its own panel. */}
+            {!map && !SHIP.lunar && <Contracts />}
             {/* Earth's pads; a lunar vessel's site is its own, fixed. */}
             {!map && !SHIP.lunar && <LaunchSite />}
             {/* Earth's interior, and gravity at an Earth pad: nothing to say on the Moon. */}

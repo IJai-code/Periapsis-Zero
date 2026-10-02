@@ -1013,21 +1013,22 @@ The engine and pad sounds, the staging, ignition, parachute and splashdown
 effects, the radio's tones, static and spoken voices were all removed: they were
 described as terrifying, and a simulator nobody can bear to listen to is not
 improved by being accurate about it. The loop is captioned instead (see *The
-broadcast*). Two layers of deliberate sound remain, both chosen as *rooms* and
-not events in one:
+broadcast*). A generative score under the mission intros was removed too, at the
+owner's word — the one piece of music in the product is the one the visitor
+supplied:
 
-- **The generative score** plays on the front door and the mission library —
-  films, not simulation.
-- **The ambient bed** (flying your own mission, toggle in the panels) is the
-  room tone the visitor chose to bring: a loop behind a lowpass whose cutoff is
-  the atmosphere itself — 420 Hz at sea level opening to 14 kHz by 140 km, fully
-  open on the Moon — so the vacuum is heard as the absence of air rather than
-  the absence of audio. Gesture-gated, fetched and decoded on first enable; one
-  `setTargetAtTime` per clock tick follows the flight up through it.
+- **The ambient bed** (toggle in the panels) is the room tone the visitor chose
+  to bring: a loop behind a lowpass whose cutoff is the atmosphere itself —
+  420 Hz at sea level opening to 14 kHz by 140 km, fully open on the Moon — so
+  the vacuum is heard as the absence of air rather than the absence of audio.
+  Gesture-gated, fetched and decoded on first enable; one `setTargetAtTime` per
+  clock tick follows the flight up through it. The mission-intro films are
+  silent, the way real footage of the missions is silent.
 
 No flight-path module imports an audio module — `verify-audio` holds that as an
-architectural fact, alongside the leaf-shape of the ambience and the gesture
-before any `AudioContext` exists. The simulation itself makes no sound.
+architectural fact, alongside the leaf-shape of the ambience, the gesture
+before any `AudioContext` exists, and the score staying gone. The simulation
+itself makes no sound.
 
 ### The broadcast
 
@@ -1135,8 +1136,19 @@ preemption still fires), and a landed vehicle is held at its touchdown point
 against the surface, so an Aldrin descent ends standing on the Moon with the
 Earth overhead — the view the simulator was built for, now earned.
 
-The wings, budgets and deep links are held to by `verify-programs`; the
-ambience's place in the architecture by `verify-audio`.
+### The contracts board
+
+Under the missions in the panels sits a second board: jobs, not routes. Reach
+orbit and photograph the Earth from it; close to within 100 km of the station;
+past 95° of inclination out of Vandenberg; an ellipse a tenth of the way to the
+Moon; the Apollo 8 loop behind the far side; down onto the surface. Taking a
+job rides the same machinery as planning a route — same arming, same checklist
+on the instruments, same objectives evaluated from the simulation — and the
+realism is the game, not a limit on it: orbital mechanics is the antagonist,
+and it publishes its rules. Nothing shoots at anybody.
+
+The wings, budgets, contracts and deep links are held to by `verify-programs`;
+the ambience's place in the architecture by `verify-audio`.
 
 ## Flight planning
 

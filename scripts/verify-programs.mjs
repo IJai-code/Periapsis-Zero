@@ -29,7 +29,7 @@
  *      trajectory; it caught an inverted capability read before a pilot did.
  */
 import assert from 'node:assert/strict'
-import { PROGRAMS, WINGS, stackDeltaV, armProgram, disarmProgram, wingHolds, wingFuel, program, KARMAN_FUEL } from '../src/sim/programs.js'
+import { PROGRAMS, CONTRACTS, WINGS, stackDeltaV, armProgram, disarmProgram, wingHolds, wingFuel, program, KARMAN_FUEL } from '../src/sim/programs.js'
 import { VESSELS } from '../src/sim/vessels.js'
 import { LAUNCH_SITES, ALL_SITES } from '../src/sim/launchsite.js'
 import { resetMission, currentPhase } from '../src/sim/mission.js'
@@ -69,9 +69,9 @@ check('the wings form a freedom ladder over a known vocabulary', () => {
   assert.equal(WINGS.karman.holds.length, 0, 'Kármán holds nothing either — its margin is the fuel, not the stick')
 })
 
-/* 2. The routes fit the stacks that are asked to fly them. */
-check('every program closes its delta-v budget on its own vehicle and load', () => {
-  for (const def of PROGRAMS) {
+/* 2. The routes — and the jobs — fit the stacks that are asked to fly them. */
+check('every program and contract closes its delta-v budget on its own vehicle and load', () => {
+  for (const def of [...PROGRAMS, ...CONTRACTS]) {
     const vessel = VESSELS[def.vessel]
     assert.ok(vessel, `${def.id} names unknown vessel ${def.vessel}`)
     // The freest wing decides the fuel: a program offered at Kármán must
@@ -133,9 +133,9 @@ check('arming a program drives the wing gate and the live fuel load', () => {
 })
 
 /* 4. The tables agree with the world they name. */
-check('every program names real vessels, real sites, real checks', () => {
-  const checks = new Set(['liftoff', 'orbit', 'tli', 'lunarSoi', 'lunarOrbit', 'landing', 'home', 'splashdown'])
-  for (const def of PROGRAMS) {
+check('every program and contract names real vessels, real sites, real checks', () => {
+  const checks = new Set(['liftoff', 'orbit', 'tli', 'lunarSoi', 'lunarOrbit', 'landing', 'home', 'splashdown', 'photograph', 'proximity', 'inclination', 'apoapsis'])
+  for (const def of [...PROGRAMS, ...CONTRACTS]) {
     assert.ok(VESSELS[def.vessel], `${def.id}: unknown vessel`)
     assert.ok(def.sites.every((s) => ALL_SITES[s]), `${def.id}: unknown site ${def.sites.find((s) => !ALL_SITES[s])}`)
     assert.ok(def.sites.every((s) => !LAUNCH_SITES[s] || true))
@@ -146,7 +146,7 @@ check('every program names real vessels, real sites, real checks', () => {
   // Every launch site is offered by at least one program, and every site's
   // pads exist — a planner that cannot fly from where the sim can stand is
   // a planner lying about the world.
-  const offered = new Set(PROGRAMS.flatMap((p) => p.sites))
+  const offered = new Set([...PROGRAMS, ...CONTRACTS].flatMap((p) => p.sites))
   for (const id of Object.keys(LAUNCH_SITES)) assert.ok(offered.has(id), `no program offers ${id}`)
 })
 

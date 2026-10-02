@@ -5,6 +5,7 @@ import { boundedRatio, PHOTO_PIXELS } from '../gfx/renderBudget.js'
 import { setUi, useUi } from '../sim/store.js'
 import { captionPhotograph, captionLines } from '../gfx/photoCaption.js'
 import { recordPhotograph } from '../sim/logbook.js'
+import { notePhotograph } from '../sim/programs.js'
 import { plateSave } from '../gfx/plateShelf.js'
 
 /**
@@ -84,8 +85,10 @@ export function Photograph() {
     if (url) {
       captionPhotograph(url)
       // A plate taken is a plate kept — the logbook counts it once, at the
-      // only moment a photograph actually happens.
+      // only moment a photograph actually happens. The contracts read the
+      // same instant: a photograph objective measures this flight's plates.
       recordPhotograph()
+      notePhotograph()
       // And a copy stays on the shelf, so the logbook's gallery has it
       // tomorrow. The caption lines are read at the same instant the file's
       // own caption is composed from; the download still happens regardless

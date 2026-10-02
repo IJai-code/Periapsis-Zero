@@ -22,7 +22,6 @@
 
 import { DOSSIERS, INTRO } from './introFlights.js'
 import { FILM_BITRATE, FILM_FPS, FILM_FRAME_MS, FILM_MAX_BYTES, FILM_STEPS, filmSize } from './renderBudget.js'
-import { scoreTrack } from '../sfx/score.js'
 
 /**
  * The browser's best-supported flavour, or null where there is none.
@@ -199,22 +198,14 @@ export function startFilm(glCanvas, preset, step = 0) {
       stream = canvas.captureStream(FILM_FPS)
     }
     /*
-     * The score goes into the film.
-     *
-     * The graph is tapped, not re-rendered, so what is written into the file
-     * is exactly what was heard over the flight — and a film of a flight with
-     * its score on it is a film, where the same film silent is a screen
-     * recording. There may be no track: the score is off, or the browser has
-     * no AudioContext, or the visitor never triggered the gesture that
-     * resumes one. A film without music is still a film, so this is a
-     * question asked and not a requirement.
+     * The films are silent, deliberately: the simulator makes no sound of
+     * its own and the one piece of music in the product is the visitor's own
+     * ambience, which belongs to the room and not to any one film. A silent
+     * film of a real flight is what the archive has too.
      */
-    const audio = scoreTrack()
-    if (audio) stream.addTrack(audio)
     recorder = new MediaRecorder(stream, {
       mimeType: MIME,
       videoBitsPerSecond: FILM_BITRATE,
-      ...(audio ? { audioBitsPerSecond: 128_000 } : {}),
     })
   } catch {
     stream?.getTracks().forEach((t) => t.stop())
@@ -244,15 +235,10 @@ export function startFilm(glCanvas, preset, step = 0) {
   recorder.onstop = () => {
     if (r.cleaned) return
     r.cleaned = true
-    if (rec === r) rec = null
-    /*
-     * Video tracks are this recorder's and are stopped with it. The audio
-     * track is *not*: it belongs to the score's own graph, which outlives any
-     * one film, and stopping a track ends it permanently — the next film
-     * would be silent and so would the speakers.
-     */
-    stream.getVideoTracks().forEach((t) => t.stop())
-    for (const t of stream.getAudioTracks()) stream.removeTrack(t)
+    if (rec === r)    rec = null
+    /* Every track on this stream is the recorder's own — video only, since
+       the films carry no audio — and stops with it. */
+    stream.getTracks().forEach((t) => t.stop())
     canvas.remove()
     const blob = !r.failed && chunks.length ? new Blob(chunks, { type: MIME }) : null
     chunks.length = 0

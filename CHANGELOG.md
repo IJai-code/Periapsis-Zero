@@ -5,6 +5,51 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The door opens outward — 1 October 2026
+
+Three things asked for by the first people to visit, and one thing they
+shouldn't have to ask for.
+
+**The generated score is gone.** The mission intros played a soundtrack written
+by the tooling that built them, and the owner wanted it out: the one piece of
+music in the product is now the bed the owner themselves supplied, behind the
+ambience toggle. The intro films are silent — the way real footage of the
+missions is silent until a narrator speaks — and the films' recorder no longer
+reaches for an audio track that no longer exists. `verify-audio` gained the
+check that keeps it gone, and lost none of its teeth: five checks now.
+
+**The search arrives.** Choosing Andromeda from the search used to begin a
+pilot-speed move toward a target 2.5 million light-years out — the visitor
+watched nothing happen for their trouble, which is the fairest complaint the
+site has received. The warp ladder cannot cross intergalactic space and was
+never meant to, so a search choice beyond the planets now does what a shared
+link always did: it arrives. The camera lands in range of the object, framed
+at the distance its own photometry says it is best seen from, and the
+observatory card — which never spoke for anything past Saturn — now carries
+the deep sky: live camera range, diameter in the units the catalogue speaks,
+and the arrival fact, how long the object's light was in the air before it
+reached the camera. Planets keep their real transits; the journey through the
+system is the sim.
+
+**The contracts board.** Jobs a pilot takes, riding exactly the machinery the
+routes ride — objectives evaluated from the simulation, the checklist riding
+the instruments, arming through the same gate. The realism is the point and
+not a limit: nothing shoots at anybody, because the work of spaceflight *is*
+the game. Six jobs at launch — First Light (orbit and a photograph of Earth
+from it), Station Approach (close to within 100 km of the station; the phasing
+is the work), Polar Sentinel (past 95°, from Vandenberg), The High Road (an
+ellipse a tenth of the way to the Moon), Far-Side Solo (the Apollo 8 loop as a
+job) — each priced against the same stack, each held by the same flown checks.
+Four objective checks join the vocabulary: photograph (this flight's plates,
+not a lifetime total), proximity (read off the integrator's own state vector,
+so there is no shortcut around the phasing), inclination, and apoapsis.
+`verify-programs` holds the contracts to everything it holds the routes to —
+both budgets and tables iterate them now — and is six checks going on seven.
+
+**The source is on the front door.** The colophon carries the repository —
+integrator, flight computer, the sixty-seven gates, this page — where a
+colophon says where the type came from.
+
 ### The pilot's own mission — 1 October 2026
 
 Until now every flight in this simulator was somebody else's: nine missions in a

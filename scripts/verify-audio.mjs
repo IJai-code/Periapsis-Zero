@@ -16,8 +16,9 @@
  *   3. The graph is wired the way the module says: one context, created
  *      only by the toggle's gesture; the file fetch happens inside the
  *      same call, so an ambience never enabled costs nothing.
- *   4. The score's gesture rule is unchanged — an AudioContext appears
- *      only when a film is started.
+ *   4. The generated score stays gone: no sfx module but the ambience
+ *      exists, and nothing imports one. The bed the owner supplied is the
+ *      only music in the product.
  *
  * What cannot be asserted headlessly — that it sounds like anything — is
  * left to the ear that supplied it.
@@ -91,7 +92,28 @@ check('the ambience is a leaf: only the HUD clock and the toggle reach it', () =
   assert.equal(found.length, allowed.size, `expected both consumers to import it; found ${found.length}`)
 })
 
-check('the score still gates on a gesture and the ambience module says so', () => {
+check('the generated score stays gone — the supplied bed is the only music', () => {
+  // `sfx/score.js` was a generative soundtrack under the mission intros;
+  // it was removed at the owner's word, and this is where that stays true.
+  assert.ok(!existsSync(join(ROOT, 'src/sfx/score.js')), 'sfx/score.js has returned')
+  const walk = (dir, found) => {
+    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const p = join(ROOT, dir, e.name)
+      if (e.isDirectory()) walk(join(dir, e.name), found)
+      else if (/\.(js|jsx)$/.test(e.name)) {
+        const src = readFileSync(p, 'utf8')
+        if (/from\s+'[^']*sfx\/score/.test(src)) found.push(join(dir, e.name).replaceAll('\\', '/'))
+      }
+    }
+    return found
+  }
+  const importers = walk('src', [])
+  assert.equal(importers.length, 0, `something imports the removed score: ${importers.join(', ')}`)
+  const sfx = readdirSync(join(ROOT, 'src/sfx')).filter((f) => f.endsWith('.js'))
+  assert.deepEqual(sfx, ['ambience.js'], `sfx/ holds more than the ambience: ${sfx.join(', ')}`)
+})
+
+check('the ambience still gates on a gesture', () => {
   const amb = readFileSync(join(ROOT, 'src/sfx/ambience.js'), 'utf8')
   assert.ok(amb.includes('setAmbience'), 'the enable entry point is named')
   // The context is constructed inside the toggle-driven call, not at
@@ -103,4 +125,4 @@ check('the score still gates on a gesture and the ambience module says so', () =
   assert.ok(at > 0 && ctor > at, 'the AudioContext must be constructed inside setAmbience, after the gesture arrives')
 })
 
-console.log(`verify-audio: ${n} checks — the bed is real, the flight path is silent, the graph waits for a gesture`)
+console.log(`verify-audio: ${n} checks — the bed is real, the flight path is silent, the generated score stays gone`)

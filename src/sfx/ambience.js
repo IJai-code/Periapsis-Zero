@@ -8,12 +8,12 @@ import { BODIES } from '../sim/constants.js'
  *
  * ── what this is not ─────────────────────────────────────────────────
  *
- * It is not the film score (`sfx/score.js`, which stays the only thing under
- * the mission intros), and it is not engine audio: the simulator itself still
- * makes no sound of its own, because a rocket in vacuum is silent and the
- * product has always said so. This is the *room* — a quiet bed the visitor
- * may put under the flight, started only by their own click, faded in from
- * nothing, and one switch to stop.
+ * It is the only audio in the product — a generated soundtrack once played
+ * under the mission intros and was removed at the owner's word, and there is
+ * no engine audio: the simulator itself makes no sound of its own, because a
+ * rocket in vacuum is silent and the product has always said so. This is the
+ * *room* — a quiet bed the visitor may put under the flight, started only by
+ * their own click, faded in from nothing, and one switch to stop.
  *
  * ── the gesture ──────────────────────────────────────────────────────
  *
