@@ -114,6 +114,7 @@ body {
 @utility panel {
   position: relative;
   background: color-mix(in oklab, var(--color-void) 86%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
   backdrop-filter: blur(14px) saturate(1.1);
   border-style: solid;
   border-color: color-mix(in oklab, var(--color-hud) 30%, transparent);

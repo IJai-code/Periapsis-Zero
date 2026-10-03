@@ -5,6 +5,41 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The entry chunk, and what Safari gets to see: 3 October 2026
+
+The site's first download was 1.14 MB of JavaScript (322 kB gzipped) before a
+single pixel of interface appeared, because react, three.js, drei and the whole
+simulator entry sat in one bundle. The entry now statically imports **51 kB**
+of its own code plus react (193 kB) and a 1 kB preload helper: **245 kB raw,
+about 82 kB gzipped**, and the libraries that follow (three at 709 kB, the
+drei/postprocessing bucket at 334 kB) arrive behind dynamic imports when the
+scene mounts rather than gating first paint. Three chunks own the split:
+`react` (rarely changes, cached across deploys), `three` (the npm package
+alone, so no chunk cycle can form), and `deps` for the rest. The landing
+backdrop moved to `src/ui/ScenicBackdrop.jsx` and the expedition mode loads
+lazily, which is what let three leave the entry at all.
+
+Two build warnings went with them. The circular-chunk warning (`deps ->
+three -> deps`, caused by bucketing drei and fiber together with the package
+they import) is gone by construction. The 500 kB chunk-size warning is
+addressed honestly rather than muzzled: every application chunk is 51 kB or
+under, and `chunkSizeWarningLimit` is set to 760 kB with the reason written
+into `vite.config.js`, because the one chunk above 500 kB is three.js's
+pre-bundled module, which npm ships as a single file rollup cannot divide.
+
+**Safari.** The pilot dialog and expedition modal blur was written only as
+`backdrop-filter`, which WebKit did not ship unprefixed until 18; the
+`-webkit-backdrop-filter` spelling now precedes it in all three places, so
+older Safari gets the blur instead of a flat panel. The rest of the modern API
+surface the interface uses (`color-mix`, `oklch`, `:has`, `Array.at`,
+`structuredClone`) landed in Safari 15.4 to 16.2, and no post-2022 API is
+called from `src/`, so the practical floor is Safari 16.4, which is also
+Tailwind 4's floor.
+
+Verified end to end on the restructured build: 70 of 70 gates, and the full
+browser survey (land, drive 1,472 m, three instruments, two samples, deliver,
+take off) with **0 console errors and 0 failed requests** in 475 s.
+
 ### The rover, the instruments, and one palette: 3 October 2026
 
 The surface loop got the middle it was missing. A survey was *land, walk to two

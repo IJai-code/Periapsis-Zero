@@ -138,5 +138,54 @@ const base = '/'
 export default defineConfig({
   base,
   plugins: [react(), tailwindcss(), provideDraco(), pruneUnusedModels(), stampModules()],
+  build: {
+    // 760 kB, which is above every chunk this build actually produces except
+    // none: the entry is 51 kB, its react vendor 193 kB, and the only chunk
+    // that ever crosses the default 500 is `three` itself, whose core ships
+    // from npm as one already-bundled module that rollup cannot divide
+    // further. The warning exists to catch application code that should have
+    // been split; this application's own chunks are 51, 16, and 11 kB. The
+    // figures are asserted by hand in the build output, not guessed: if a
+    // future chunk passes 760, the limit should move with it deliberately.
+    chunkSizeWarningLimit: 760,
+    rollupOptions: {
+      output: {
+        /**
+         * Chunks the way the site actually loads, by ownership rather than by
+         * import order.
+         *
+         * The entry needs react and three (the landing page's backdrop is a
+         * live scene), but neither of them is *our* code: they are dependency
+         * code that survives every deploy of the source. Left in one bundle,
+         * a copy change re-downloads 1.1 MB of libraries nobody edited. Split
+         * out, a source-only deploy touches only the application chunk, the
+         * simulator's lazy chunk shares the same vendor files instead of
+         * carrying a second graph of them, and the browser can cache the
+         * libraries across releases.
+         *
+         * Only node_modules is partitioned; application code is left to
+         * rollup, which already cuts it at the dynamic import for the
+         * simulator. Matching on the package directory (with the trailing
+         * slash) keeps `react` from also claiming `@react-three/*`.
+         */
+        manualChunks(id) {
+          // Vite's own `__vitePreload` helper (a virtual module) must never
+          // land in a vendor bucket: rollup put it there on its own, and
+          // because the entry imports the helper, that pulled the whole of
+          // drei and postprocessing into the eager path. Kept alone, it is a
+          // ~2 kB static import and every vendor bucket stays behind a
+          // dynamic import.
+          if (id.includes('vite/preload-helper')) return 'preload'
+          if (!id.includes('node_modules')) return undefined
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react'
+          // The `three` package alone: it imports nothing, so this bucket can
+          // never point back at the rest, which is what broke the first
+          // attempt (deps -> three -> deps) when drei and fiber shared it.
+          if (/node_modules\/three\//.test(id)) return 'three'
+          return 'deps'
+        },
+      },
+    },
+  },
   server: { port: 5173, host: true },
 })
