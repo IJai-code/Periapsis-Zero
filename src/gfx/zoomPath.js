@@ -33,6 +33,18 @@
 export const RHO = 1.42
 
 /**
+ * The curvature for a move that is a click rather than a journey.
+ *
+ * The RHO geodesic zooms out to pan while wide, which is the right shape for
+ * crossing a system and the wrong one for clicking the Moon from the Earth:
+ * the viewer watches the world shrink, the view pin to the far side and the
+ * world grow again, to cover a distance a glance would cross. Raising rho
+ * straightens the same path into a glide that keeps both ends in frame and
+ * never leaves the scale it is travelling in. Same machinery, one constant.
+ */
+export const DIRECT_RHO = 3.4
+
+/**
  * Plan a move from a view of width `w0` to one of width `w1`, `u1` apart.
  * Writes into and returns `plan`; allocates nothing.
  */

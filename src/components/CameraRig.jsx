@@ -34,9 +34,9 @@ import { selectedNode } from '../sim/nodes.js'
 import { ship } from '../sim/ship.js'
 import { useUi } from '../sim/store.js'
 import { COSMIC, absoluteOf, rebasedOf } from '../sim/where.js'
-import { flightSeconds, planZoomPan, smoother, zoomPanAt } from '../gfx/zoomPath.js'
+import { DIRECT_RHO, RHO, flightSeconds, planZoomPan, smoother, zoomPanAt } from '../gfx/zoomPath.js'
 import { PILOT_MOVE, QUICK_MOVE, TRANSIT } from '../gfx/transit.js'
-import { BASE_FOV, PAD_FOV, PAD_OFFSET, litQuarter } from '../gfx/shotPoses.js'
+import { BASE_FOV, PAD_FOV, PAD_OFFSET, litQuarter, padDrift } from '../gfx/shotPoses.js'
 
 
 
@@ -80,6 +80,8 @@ const PAD_AIM_SETTLE = 0.45
 
 /** The eye-level view's settle, s: a head turning, a little softer than a mount. */
 const GROUND_AIM_SETTLE = 0.7
+/** The pad crane eases in over the first seconds of the shot. See padDrift in shotPoses.js. */
+const PAD_DRIFT_EASE = 2.4
 
 
 /**
@@ -326,6 +328,8 @@ export function CameraRig() {
   const flyLook = useRef({ yaw: 0, pitch: 0, dragging: false, locked: false, pointer: null, x: 0, y: 0 })
   const flyTrim = useRef(1)
   const cineT = useRef(0)
+  /** How long the pad shot's crane has been easing in; reset when the shot starts. */
+  const padT = useRef(0)
   /** The drawn length last framed, and the radius a reframe is closing on. */
   const hullSeen = useRef(STAGE_LENGTH[0])
   const reframe = useRef(0)
@@ -463,7 +467,17 @@ export function CameraRig() {
     const d1 = Math.max(tr.destCam.distanceTo(tr.destTarget), 1e-3)
     const k0 = 2 * Math.tan((tr.fov0 * Math.PI) / 360)
     const k1 = 2 * Math.tan((fov1 * Math.PI) / 360)
-    planZoomPan(tr.plan, d0 * k0, d1 * k1, tr.startTarget.distanceTo(tr.destTarget))
+    const w0 = d0 * k0
+    const w1 = d1 * k1
+    const u1 = tr.startTarget.distanceTo(tr.destTarget)
+    /*
+     * A click is a glance, not a journey. When the pan is inside a few view
+     * widths the geodesic is straightened (DIRECT_RHO) instead of zooming the
+     * world out, pinning across it and zooming back in to cross a distance a
+     * glance crosses. A system-spanning move keeps the geodesic, which is the
+     * right shape for scale.
+     */
+    planZoomPan(tr.plan, w0, w1, u1, u1 < 2.5 * Math.max(w0, w1) ? DIRECT_RHO : RHO)
     // The length is fixed on the first frame; after that only the ends move.
     if (tr.t === 0) tr.T = flightSeconds(tr.plan.S, 0.9, tr.maxT)
     tr.t += Math.min(delta, 1 / 20)
@@ -479,14 +493,38 @@ export function CameraRig() {
       camera.updateProjectionMatrix()
       return
     }
-    zoomPanAt(tr.plan, e * tr.plan.S, tr.at)
     const fov = tr.fov0 + (fov1 - tr.fov0) * e
-    const dist = tr.at.w / (2 * Math.tan((fov * Math.PI) / 360))
-    tr.look.copy(tr.startTarget).lerp(tr.destTarget, Math.min(1, Math.max(0, tr.at.f)))
-    tr.dir0.subVectors(tr.startCam, tr.startTarget).normalize()
-    tr.dirD.subVectors(tr.destCam, tr.destTarget).normalize()
-    slerpUnit(tr.dir, tr.dir0, tr.dirD, e)
-    camera.position.copy(tr.look).addScaledVector(tr.dir, dist).sub(live.origin)
+    /*
+     * An arrival at the ground is shaped like a flyover that turns final.
+     * The zoom-pan geodesic dives radially along the chord, which over a
+     * rotating Earth means a long slide across open ocean and then the pad
+     * arriving from nowhere: the sloppy zoom-in. So for an arrival from
+     * height (ground or pad, more than 25 times the shot's own range and at
+     * least 200 km up) the pan happens first and the descent happens last:
+     * the direction swings onto the shot while the camera holds its
+     * altitude, then the altitude falls along the shot's own axis with the
+     * horizon in frame the whole way down. It ends exactly on the shot, the
+     * same as every other move.
+     */
+    const arrival = (TRANSIT.to === 'ground' || TRANSIT.to === 'pad') && d0 > d1 * 25 && d0 > 2e5
+    if (arrival) {
+      const panE = smoother(Math.min(1, raw / 0.5))
+      const dropE = smoother(Math.max(0, (raw - 0.45) / 0.55))
+      tr.look.copy(tr.startTarget).lerp(tr.destTarget, e)
+      tr.dir0.subVectors(tr.startCam, tr.startTarget).normalize()
+      tr.dirD.subVectors(tr.destCam, tr.destTarget).normalize()
+      slerpUnit(tr.dir, tr.dir0, tr.dirD, panE)
+      const dist = Math.exp(Math.log(d0) + (Math.log(d1) - Math.log(d0)) * dropE)
+      camera.position.copy(tr.look).addScaledVector(tr.dir, dist).sub(live.origin)
+    } else {
+      zoomPanAt(tr.plan, e * tr.plan.S, tr.at)
+      const dist = tr.at.w / (2 * Math.tan((fov * Math.PI) / 360))
+      tr.look.copy(tr.startTarget).lerp(tr.destTarget, Math.min(1, Math.max(0, tr.at.f)))
+      tr.dir0.subVectors(tr.startCam, tr.startTarget).normalize()
+      tr.dirD.subVectors(tr.destCam, tr.destTarget).normalize()
+      slerpUnit(tr.dir, tr.dir0, tr.dirD, e)
+      camera.position.copy(tr.look).addScaledVector(tr.dir, dist).sub(live.origin)
+    }
     controls.target.copy(tr.look).sub(live.origin)
     slerpUnit(camera.up, tr.up0, tr.destUp, e)
     if (Math.abs(camera.fov - fov) > 1e-4) {
@@ -723,6 +761,8 @@ export function CameraRig() {
       opening.current = false
       // The aim is seeded on the first frame, from that frame's positions.
       seedAim.current = true
+      // The crane starts again with the shot.
+      padT.current = 0
       if (focus === 'ground' && !moving) {
         camera.fov = EYE_FOV
         camera.updateProjectionMatrix()
@@ -1199,10 +1239,25 @@ export function CameraRig() {
       if (scratch.east.lengthSq() < 1e-12) scratch.east.set(1, 0, 0)
       scratch.east.normalize()
 
+      /*
+       * The mount breathes: see padDrift in shotPoses.js for the crane this
+       * replaces the bolted-down mount with, and why it runs on the wall
+       * clock. It eases in from zero over the first seconds of the shot (the
+       * settled pose is nominal, so the mission intro lands on exactly this
+       * frame), and the turn rotates the mount about the pad in the tangent
+       * plane.
+       */
+      padT.current = Math.min(PAD_DRIFT_EASE, padT.current + Math.min(delta, 1 / 20))
+      const rk = padT.current / PAD_DRIFT_EASE
+      const ramp = rk * rk * (3 - 2 * rk)
+      const drift = padDrift(performance.now() / 1000)
+      const turn = drift.turn * ramp
+      scratch.desired.crossVectors(scratch.siteDir, scratch.east).normalize().multiplyScalar(Math.sin(turn))
+      scratch.desired.addScaledVector(scratch.east, Math.cos(turn))
       scratch.anchor
         .copy(live.pos.earth)
-        .addScaledVector(scratch.siteDir, BODIES.earth.radius + PAD_OFFSET.up)
-        .addScaledVector(scratch.east, PAD_OFFSET.lateral)
+        .addScaledVector(scratch.siteDir, BODIES.earth.radius + PAD_OFFSET.up * (1 + drift.lift * ramp))
+        .addScaledVector(scratch.desired, PAD_OFFSET.lateral * (1 + drift.arc * ramp))
       camera.position.copy(scratch.anchor)
 
       // The aim point is sprung, not snapped: a vehicle accelerating off a pad
@@ -1228,10 +1283,19 @@ export function CameraRig() {
         Math.min(delta, 1 / 20),
       )
 
-      // Long lens: hold the vehicle at a roughly constant fraction of frame.
+      /*
+       * Long lens: hold the vehicle at a roughly constant fraction of frame,
+       * and let that fraction shrink as it climbs. Holding 22% through the
+       * ascent keeps the vehicle the same size and the sky a backdrop that
+       * never enters the picture; the fill opens toward a half of itself by a
+       * kilometre up, so ground and horizon stay in the shot while the
+       * vehicle goes away from it.
+       */
       const range = camera.position.distanceTo(live.pos.ship)
+      const open = THREE.MathUtils.clamp((live.elements.altitude - 80) / 920, 0, 1)
+      const fill = PAD_FOV.fill * (1 - 0.45 * open)
       const wanted =
-        (2 * Math.atan(hull / (PAD_FOV.fill * 2 * Math.max(range, 1e-6))) * 180) / Math.PI
+        (2 * Math.atan(hull / (fill * 2 * Math.max(range, 1e-6))) * 180) / Math.PI
       const fov = Math.min(PAD_FOV.max, Math.max(PAD_FOV.min, wanted))
       if (Math.abs(camera.fov - fov) > 1e-3) {
         camera.fov = fov

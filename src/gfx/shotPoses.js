@@ -34,6 +34,34 @@ export const PAD_OFFSET = {
   up: SHIP.visual * 1.5,
 }
 
+/**
+ * The pad camera breathes instead of standing bolted to the ground.
+ *
+ * A mount fixed at one spot on one bearing is the shot every low-budget
+ * launch scene has: static, flat, and the same frame from T-minus an hour to
+ * the tower clear. Real launch coverage is a crane that creeps, so the mount
+ * wanders on three slow, deliberately incommensurate periods: a lateral arc
+ * of about a tenth, a small swing about the pad (the bearing turning a few
+ * degrees), and a lift of about a fifth of its height. Nothing about it is
+ * visible as motion; everything about it is visible as a shot that lives.
+ *
+ * Driven by the wall clock and not by the simulation clock, because this is
+ * presentation: under a day a second the shot would strobe. The *rig* applies
+ * it, ramping in from zero over the first seconds of the shot; `restingPose`
+ * stays on the nominal mount, which is what the mission intro lands on. The
+ * gate that holds the intro's last frame to the shot's first wants two
+ * samples of the pose to agree to a millimetre, and any pose that keeps time
+ * disagrees with itself; a crane that eases in as the shot begins gives the
+ * life without the drift.
+ */
+export function padDrift(t) {
+  return {
+    arc: Math.sin(t / 47) * 0.1 + Math.sin(t / 89 + 1.7) * 0.06,
+    turn: Math.sin(t / 73 + 2.2) * 0.055,
+    lift: Math.sin(t / 61 + 0.8) * 0.22,
+  }
+}
+
 /** The pad camera's lens holds the vehicle at `fill` of frame, clamped at both ends. */
 export const PAD_FOV = { min: 2.5, max: 42, fill: 0.22 }
 
@@ -102,6 +130,9 @@ export function restingPose(focus, pose) {
     _a.crossVectors(WORLD_UP, _dir)
     if (_a.lengthSq() < 1e-12) _a.set(1, 0, 0)
     _a.normalize()
+    // The nominal mount. The rig's crane rides on top of this and eases in
+    // from zero when the shot starts (see padDrift), so this pose is exact
+    // and the intro lands on exactly it.
     pose.cam
       .copy(live.pos.earth)
       .addScaledVector(_dir, BODIES.earth.radius + PAD_OFFSET.up)
