@@ -7,9 +7,9 @@
  * second. The Moon's body-fixed frame (moonFrame.js) turns with it.
  */
 export const MOON_MEAN = {
-  longitude: 3.784351146364365,
-  motion: 0.000002633547736560065,
-  node: 2.2067253030281044,
-  nodeRate: -1.1132188392395287e-8,
-  inclination: 0.08849337524847074,
+  longitude: 3.7838489206528507,
+  motion: 0.000002635042294653017,
+  node: 2.2070386246601057,
+  nodeRate: -1.111296414566219e-8,
+  inclination: 0.0885752966532254,
 }

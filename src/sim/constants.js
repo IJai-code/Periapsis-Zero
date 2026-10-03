@@ -156,7 +156,11 @@ export const ELEMENTS = {
     i: 0.00005,
     lonAscNode: -11.26064,
     argPeri: 114.20783,
-    meanAnomaly: 358.617,
+    /* Mean anomaly at J2000.0, deg. The standard value (L 100.46435 minus
+       longitude of perihelion 102.94719). The 1.1 deg this replaced put the
+       whole solar system 1.9 deg ahead of the almanac — verify-solar watches
+       that error, and verify-clock now pins the position directly. */
+    meanAnomaly: 357.517,
   },
   moon: {
     a: 3.84399e8,

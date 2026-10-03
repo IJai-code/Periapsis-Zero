@@ -186,7 +186,11 @@ export function logPhase(id, from) {
  */
 function holdUntilEpoch(hour) {
   if (!(hour > 0)) return
-  const target = hour * 3600
+  /* Hours past wherever the session's clock actually is, not past J2000: the
+     app boots at the real current instant, so an absolute target would sit
+     9771 days behind the vehicle and the hold would silently do nothing. At a
+     J2000 start — every gate — the two are the same number. */
+  const target = live.sim.t + hour * 3600
   flight.pilotWarp = WARP.d1
   for (let i = 0; live.sim.t < target - 3600 && i < 1_000_000; i++) frame()
   flight.pilotWarp = WARP.m1

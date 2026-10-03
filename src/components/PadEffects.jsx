@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { aimPadParticles, makePadParticles } from '../gfx/padParticles.js'
 import { vehicleFootprint } from '../gfx/pads.js'
 import { SOLAR_INTENSITY, padScenePoint } from '../gfx/sunlight.js'
-import { delugeLevel, ignitionThrottle, steamLevel, ventLevel } from '../sim/countdown.js'
+import { padLevels } from '../sim/countdown.js'
 import { SHIP } from '../sim/constants.js'
 import { live } from '../sim/live.js'
 import { activeSite } from '../sim/launchsite.js'
@@ -187,16 +187,19 @@ export function PadEffects({ built }) {
   const vent = useRef()
   const spray = useRef()
   const steam = useRef()
-  const scratch = useMemo(() => ({ pad: new THREE.Vector3(), up: new THREE.Vector3(), sun: new THREE.Vector3() }), [])
+  const scratch = useMemo(() => ({ pad: new THREE.Vector3(), up: new THREE.Vector3(), sun: new THREE.Vector3(), levels: new Float64Array(3) }), [])
 
   useFrame(({ camera, clock }) => {
     // Nothing is venting, spraying or steaming on a pad nobody is counting down.
     const running = mission.running
     const T = mission.t
     const throttle = ship.throttle
-    const lv = running ? ventLevel(T) : 0
-    const ls = running ? delugeLevel(T) * (1 - ignitionThrottle(T)) : 0
-    const lt = running ? steamLevel(T, throttle) : 0
+    const lvv = scratch.levels
+    if (running) padLevels(lvv, T, throttle)
+    else lvv[0] = lvv[1] = lvv[2] = 0
+    const lv = lvv[0]
+    const ls = lvv[1]
+    const lt = lvv[2]
 
     if (vent.current) vent.current.visible = lv > 0.002
     if (spray.current) spray.current.visible = ls > 0.002

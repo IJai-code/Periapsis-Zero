@@ -121,6 +121,24 @@ export function steamLevel(T, throttle) {
   return delugeLevel(T) * unit(throttle * 1.25)
 }
 
+/**
+ * Every level the pad effects need, in one call, into storage the caller owns.
+ *
+ * The frame loop used to call the four level functions separately and sum them
+ * at the call site. Correct — but five function boundaries crossing doubles in
+ * and out, which some engines box at a boundary they have not inlined yet, and
+ * the per-frame rule this module is held to (and `verify-countdown` measures)
+ * reads that boxing as an allocation. One compiled caller keeps the maths and
+ * drops the boundaries: `out` gets [vent, spray, steam], and `out` is returned
+ * so the call sites stay one line.
+ */
+export function padLevels(out, T, throttle) {
+  out[0] = ventLevel(T)
+  out[1] = delugeLevel(T) * (1 - ignitionThrottle(T))
+  out[2] = steamLevel(T, throttle)
+  return out
+}
+
 /** The event that most recently happened at T, for commentary to name. */
 export function stageOfCount(T) {
   if (T >= EVENTS.release) return 'release'

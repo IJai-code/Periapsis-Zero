@@ -88,7 +88,59 @@ function eclipticToScene([x, y, z]) {
 }
 
 /**
- * Build the initial state vector for Sol / Terra / Luna at J2000.0.
+ * Mean anomaly at a real instant, from the J2000 table.
+ *
+ * The ELEMENTS are J2000 values; this advances them the way the integrator
+ * itself would advance the same orbit — same mu, same mean motion — so a
+ * propagated start is the J2000 solution carried forward, not a second model
+ * of the solar system. The Moon is the exception, handled by the caller: its
+ * real motion is the Sun-perturbed mean-element rates below, not the Kepler
+ * rate of the table's a, because a static initial placement gets none of the
+ * solar perturbation the integrator would supply after it —
+ * and 13.18°/day of sidereal rate without that perturbation drifts the
+ * phase 25 deg over 27 years, which the clock gate measures directly.
+ */
+function meanAnomalyAt(el, mu, t) {
+  const n = Math.sqrt(mu / (el.a * el.a * el.a)) // rad/s
+  let M = (el.meanAnomaly * DEG + n * t) % (2 * Math.PI)
+  if (M < 0) M += 2 * Math.PI
+  return M
+}
+
+/**
+ * The Moon at a real instant: the standard mean-element rates, per day —
+ * mean anomaly 13.06499295, perigee's absolute longitude 0.11140353, node
+ * −0.05295377 — carried forward from the table's own J2000 constants.
+ *
+ * The rates are the point. The Sun's pull on the lunar orbit advances its apse
+ * and regresses its node, and a static Kepler placement gets none of that: it
+ * drifted the phase 25 deg over the 27 years to now, which the clock gate
+ * measures. These rates carry it. Good to about a degree over a century —
+ * short of the evection the mean elements cannot express, which shows up as a
+ * few thousand kilometres of range error, not a wrong sky.
+ *
+ * Carried from the *table's* J2000 constants rather than Meeus's so that t = 0
+ * reproduces the pinned state vector byte-for-byte — the fixtures and the
+ * capture gates hang off it — at the cost of the table's 0.3 deg of rounding,
+ * which no mission ever felt.
+ */
+function lunarElementsAt(t) {
+  const d = t / 86400
+  const wrap = (x) => ((x % 360) + 360) % 360
+  const base = ELEMENTS.moon
+  return {
+    ...base,
+    meanAnomaly: wrap(base.meanAnomaly + 13.06499295 * d),
+    argPeri: wrap(base.argPeri + 0.1643573 * d),
+    lonAscNode: wrap(base.lonAscNode - 0.05295377 * d),
+  }
+}
+
+/**
+ * Build the initial state vector for Sol / Terra / Luna at `t` seconds past
+ * J2000.0. Default 0 reproduces the table exactly — the fixtures pin that
+ * byte-for-byte — while the app boots at the real current time, so the day
+ * and night underfoot and the sky overhead are the real ones.
  *
  * Constructed hierarchically, the way the elements are actually defined:
  * the Earth-Moon *barycentre* follows the heliocentric elements, and Earth and
@@ -96,14 +148,19 @@ function eclipticToScene([x, y, z]) {
  * Finally the whole system is shifted into its own barycentric rest frame so
  * the Sun wobbles about the origin instead of the origin drifting away.
  */
-export function buildInitialState() {
+export function buildInitialState(t = 0) {
   const sun = BODIES.sun
   const earth = BODIES.earth
   const moon = BODIES.moon
   const emMass = earth.mass + moon.mass
 
-  const emb = elementsToState(G * (sun.mass + emMass), ELEMENTS.earth)
-  const lunar = elementsToState(G * emMass, ELEMENTS.moon)
+  const earthEl = ELEMENTS.earth
+  const moonAt = lunarElementsAt(t)
+  const emb = elementsToState(G * (sun.mass + emMass), {
+    ...earthEl,
+    meanAnomaly: meanAnomalyAt(earthEl, G * sun.mass, t) / DEG,
+  })
+  const lunar = elementsToState(G * emMass, moonAt)
 
   const earthShare = -moon.mass / emMass // Earth sits opposite the Moon
   const moonShare = earth.mass / emMass
@@ -146,9 +203,11 @@ export function buildInitialState() {
   })
 
   // The vehicle starts on the pad, not in orbit — Phase 5 flies the ascent.
-  // On whichever body the site is on: Earth's pads, or the Moon's.
+  // On whichever body the site is on: Earth's pads, or the Moon's. At the
+  // start instant, so a real-clock boot stands the vehicle where the pad
+  // truly is at that hour — the clamp's whole rotation frame is f(t).
   const site = activeSite()
-  clampToSite(state, 0, site, ORDER.indexOf(site.body ?? 'earth') * 6, BODY_ORDER.indexOf('ship') * 6)
+  clampToSite(state, t, site, ORDER.indexOf(site.body ?? 'earth') * 6, BODY_ORDER.indexOf('ship') * 6)
   for (const [id, spec] of Object.entries(SATELLITES)) placeCraft(state, id, spec.orbit, spec.primary)
   return state
 }
@@ -192,11 +251,17 @@ function placeCraft(state, id, { altitude, inclination, phase = 0 }, primary = '
   }
 }
 
-export function createSimulation() {
+/**
+ * Build the live simulation. `t` is seconds past J2000.0 to start the clock
+ * at — 0 by default, which is what every gate and fixture pins; the app boot
+ * passes the real current instant, so the planets, the Moon, the satellites
+ * and every rotating pad frame are placed where they truly are now.
+ */
+export function createSimulation(t = 0) {
   // Test particles carry zero mass; the integrator never reads it, but keeping
   // the array the same length as the state vector keeps the indexing uniform.
   const masses = BODY_ORDER.map((id) => BODIES[id]?.mass ?? 0)
-  const sim = new RK4NBody(masses, buildInitialState(), MASSIVE_COUNT)
+  const sim = new RK4NBody(masses, buildInitialState(t), MASSIVE_COUNT)
   sim.epochMs = J2000_MS
   // A craft can genuinely fly into a planet, unlike the planets themselves.
   // Softening only the test-particle tier keeps the 1/r^2 singularity from
@@ -241,7 +306,7 @@ export function createSimulation() {
     refreshAfter: RAIL_REFRESH,
     refresh: updateRails,
   }
-  updateRails(0)
+  updateRails(t)
 
   // Satellite ballistic coefficients are fixed. The ship's changes as it burns
   // propellant and sheds stages, so it is refreshed every frame instead.
@@ -257,6 +322,22 @@ export function createSimulation() {
 export function simDate(sim) {
   return new Date(J2000_MS + sim.t * 1000)
 }
+
+/**
+ * Where the app's clock starts, as seconds past J2000.0.
+ *
+ * In the app — anything with a `window` — that is the real current instant,
+ * captured once at module load: the session begins now, the terminator under
+ * the pad is today's, and every reader adds sim.t on top of this, so nothing
+ * drifts as the session runs.
+ *
+ * Node — every gate and fixture — has no window and starts at 0: the pinned
+ * J2000 world, byte for byte, whenever verification runs. A gate that wanted
+ * the real sky could pass an explicit t to `createSimulation`, but none does:
+ * determinism is worth more to the suite than almanac dates, and verify-clock
+ * exercises the propagated path without giving up the pinned one.
+ */
+export const NOW_T = typeof window === 'undefined' ? 0 : (Date.now() - J2000_MS) / 1000
 
 export const INDEX = Object.fromEntries(BODY_ORDER.map((id, i) => [id, i]))
 

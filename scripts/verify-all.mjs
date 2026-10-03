@@ -115,6 +115,7 @@ const GATES = [
   ['verify-prem', true],
   ['verify-terrain', false],
   ['verify-solar', false],
+  ['verify-clock', false],
   ['verify-moon-frame', true],
   ['verify-lunar-ascent', true],
   ['verify-loi', false],

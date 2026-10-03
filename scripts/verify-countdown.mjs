@@ -43,11 +43,9 @@ const {
   COUNT_LENGTH,
   EVENTS,
   armRetraction,
-  delugeLevel,
   ignitionThrottle,
+  padLevels,
   stageOfCount,
-  steamLevel,
-  ventLevel,
 } = await import('../src/sim/countdown.js')
 const { EYE_FOV, EYE_HEIGHT, STAND_OFF, groundViewpoint, lastPlacement } = await import('../src/gfx/groundView.js')
 const { padFor } = await import('../src/gfx/pads.js')
@@ -65,8 +63,11 @@ const ordered = order.every((t, i) => i === 0 || t > order[i - 1])
 const armsClearBeforeIgnition = armRetraction(EVENTS.ignition) === 1
 const fullThrustAtRelease = ignitionThrottle(EVENTS.release) === 1
 const noThrustBeforeIgnition = ignitionThrottle(EVENTS.ignition - 0.01) === 0
-const noSteamWithoutWater = steamLevel(EVENTS.ignition, 1) === delugeLevel(EVENTS.ignition) * 1 && steamLevel(-30, 1) === 0
-const ventsClosedAtIgnition = ventLevel(EVENTS.ignition) === 0
+const padChecks = new Float64Array(3)
+padLevels(padChecks, EVENTS.ignition, 1)
+const noSteamWithoutWater =
+  padChecks[2] === padChecks[1] * 1 && (padLevels(padChecks, -30, 1), padChecks[2] === 0)
+const ventsClosedAtIgnition = (padLevels(padChecks, EVENTS.ignition, 0), padChecks[0] === 0)
 
 /* ---------------------------------------------------------------- *
  * 2. The minute, flown at real time
@@ -262,9 +263,11 @@ const Ts = new Float64Array(512)
 for (let i = 0; i < 512; i++) Ts[i] = -60 + (i / 512) * 80
 const cursor = new Int32Array(1)
 const sink = new Float64Array(1)
+const frameLevels = new Float64Array(3)
 const levels = await bytesPerCall(() => {
   const T = Ts[cursor[0]++ & 511]
-  sink[0] = ventLevel(T) + delugeLevel(T) + armRetraction(T) + steamLevel(T, ignitionThrottle(T))
+  padLevels(frameLevels, T, ignitionThrottle(T))
+  sink[0] = frameLevels[0] + frameLevels[1] + frameLevels[2]
 })
 const benchSun = new Vector3(0.12, 0.6, -0.78).normalize()
 const placement = await bytesPerCall(() => {

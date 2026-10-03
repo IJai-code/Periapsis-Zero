@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import { createSimulation, INDEX, readPosition, simDate } from './system.js'
+import { createSimulation, INDEX, readPosition, simDate, NOW_T } from './system.js'
 import { BODIES, CRAFT, ORDER, BODY_ORDER, TEST_PARTICLES, AU } from './constants.js'
 import {
   activeStage,
@@ -39,7 +39,7 @@ import { BODIES as B } from './constants.js'
  * The HUD samples this on a timer instead.
  */
 export const live = {
-  sim: createSimulation(),
+  sim: createSimulation(NOW_T),
 
   /**
    * Absolute display-space positions, in scene units — the old, un-rebased
@@ -140,7 +140,7 @@ export const live = {
   },
 
   eclipse: null, // null | 'solar' | 'lunar'
-  date: simDate(createSimulation()),
+  date: simDate(createSimulation(NOW_T)),
   stepsLastFrame: 0,
   /** Simulated seconds advanced last frame. Trails use it to judge resolution. */
   simDtLastFrame: 0,
@@ -472,8 +472,8 @@ export function updateNearestSurface(point) {
   return best
 }
 
-export function resetSimulation() {
-  live.sim = createSimulation()
+export function resetSimulation(t = NOW_T) {
+  live.sim = createSimulation(t)
   resetShip()
   live.maxQ = 0
   refreshDerived()

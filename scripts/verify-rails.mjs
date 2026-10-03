@@ -159,18 +159,22 @@ function integratedEMB(out) {
 }
 
 /**
- * The two do not start at the same place, and that is a fact about the
- * simulator rather than about this table.
+ * The two start in essentially the same place, and that is the point.
  *
- * Its Earth is built from elements whose longitude of perihelion agrees with
- * the JPL row to 0.0095 degrees — so the orbit is the same orbit — but whose
- * mean anomaly puts the planet 1.0996 degrees further round it, which is 1.12
- * days of Earth's motion. What the comparison can therefore establish is
- * everything except the phase: same size, same plane, same sense, and a
- * separation that does not *grow*, which is what a wrong frame, a wrong
- * rotation order or a wrong rate would all produce.
+ * They used not to: the table's mean anomaly carried 358.617 deg where the
+ * standard J2000 value is 357.517, which put the integrated Earth 1.0996 deg
+ * — 1.12 days of motion — ahead of the tabulated one, and this gate carried
+ * that offset as a constant and judged the separation against it. The element
+ * was corrected on 2 October 2026 (verify-clock now holds the almanac Sun to
+ * 0.85 deg at the real date), and the measured start phase fell to a few
+ * thousandths of a degree. What remains is the *rate* residual — the sim's own
+ * year runs 67.5 minutes short of sidereal — which the growth check below
+ * measures separately, as it always has.
+ *
+ * The constant is kept so the comparison still has a scale, but it is now the
+ * phase the two tables actually start with, measured here rather than assumed.
  */
-const PHASE_DEG = 1.0996
+const PHASE_DEG = 0.0007
 
 console.log('\n=== the Earth-Moon barycentre, integrated against tabulated ===')
 console.log('  after            integrated r        tabulated r       separation    predicted')
@@ -202,14 +206,14 @@ for (const days of CHECKS) {
   const angle = Math.acos(Math.min(1, Math.max(-1, cos))) / DEG
   if (days === 0) startAngle = angle
   endAngle = angle
-  // The chord that phase difference subtends at this radius, predicted from the
-  // two tables and not fitted to anything measured here.
-  const predicted = 2 * rT * Math.sin((PHASE_DEG * DEG) / 2)
-  // Judged where it is a test of the pipeline rather than of two mean motions:
-  // the gap grows slowly because the two Earths do not have quite the same
-  // period, and that growth is measured separately below.
+  // The chord the measured angle subtends at this radius. The separation and
+  // the angle are read from the same states, so this is a consistency check on
+  // the pipeline — separation really is the angle seen from the Sun — which is
+  // what let the old constant-chord form claim anything at all. The rate the
+  // angle grows at is judged separately below.
+  const predicted = 2 * rT * Math.sin((angle * DEG) / 2)
   if (days <= 120) {
-    worstAgainstPhase = Math.max(worstAgainstPhase, Math.abs(gap - predicted) / predicted)
+    worstAgainstPhase = Math.max(worstAgainstPhase, Math.abs(gap - predicted) / gap)
   }
   console.log(
     `  ${String(days).padStart(5)} days${(rI / AU).toFixed(6).padStart(15)} AU` +
@@ -285,7 +289,8 @@ const checks = [
   ['and the semi-major axis agrees with the mean-longitude rate', worstPeriod < 0.001],
   ['mean orbital speeds land within 0.5% of published', worstSpeed < 0.005],
   ['the integrated Earth and the tabulated one agree on the distance to 0.1%', worstRadius < 0.001],
-  ['their separation is the phase difference between the two tables', worstAgainstPhase < 0.1],
+  ['their separation is the angle between them, seen from the Sun', worstAgainstPhase < 0.02],
+  ['and the two Earths start in the same place, to a hundredth of a degree', startAngle < 0.01],
   /*
    * And it creeps rather than runs. A wrong frame, rotation order or rate would
    * put degrees between them within a year; what is actually there is the
@@ -306,9 +311,9 @@ for (const [label, ok] of checks) {
   if (!ok) pass = false
 }
 console.log(
-  `\n  Earth: radii agree to ${(worstRadius * 1e6).toFixed(1)} parts per million, and the` +
-    ` separation is within ${(worstAgainstPhase * 100).toFixed(1)}% of the ${PHASE_DEG} deg phase` +
-    ` difference over the first four months.`,
+  `\n  Earth: radii agree to ${(worstRadius * 1e6).toFixed(1)} parts per million, they start` +
+    ` ${startAngle.toFixed(4)} deg apart, and the separation tracks the angle` +
+    ` between them to ${(worstAgainstPhase * 100).toFixed(1)}% over the first four months.`,
 )
 const simYear =
   (2 * Math.PI * Math.sqrt(EARTH_A ** 3 / (G * (BODIES.sun.mass + BODIES.earth.mass + BODIES.moon.mass)))) /
