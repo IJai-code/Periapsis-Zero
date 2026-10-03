@@ -11,6 +11,7 @@ import {
   J2000_MS,
 } from './constants.js'
 import { RK4NBody } from './rk4.js'
+import { lunarState } from './lunar.js'
 import { OMEGA, dragCoefficient } from './atmosphere.js'
 import { FORCE_COUNT, RAIL_MU, RAIL_REFRESH, railHelio, updateRails } from './rails.js'
 import { EARTH_FIELD } from './prem.js'
@@ -108,45 +109,18 @@ function meanAnomalyAt(el, mu, t) {
 }
 
 /**
- * The Moon at a real instant: the standard mean-element rates, per day —
- * mean anomaly 13.06499295, perigee's absolute longitude 0.11140353, node
- * −0.05295377 — carried forward from the table's own J2000 constants.
- *
- * The rates are the point. The Sun's pull on the lunar orbit advances its apse
- * and regresses its node, and a static Kepler placement gets none of that: it
- * drifted the phase 25 deg over the 27 years to now, which the clock gate
- * measures. These rates carry it. Good to about a degree over a century —
- * short of the evection the mean elements cannot express, which shows up as a
- * few thousand kilometres of range error, not a wrong sky.
- *
- * Carried from the *table's* J2000 constants rather than Meeus's so that t = 0
- * reproduces the pinned state vector byte-for-byte — the fixtures and the
- * capture gates hang off it — at the cost of the table's 0.3 deg of rounding,
- * which no mission ever felt.
- */
-function lunarElementsAt(t) {
-  const d = t / 86400
-  const wrap = (x) => ((x % 360) + 360) % 360
-  const base = ELEMENTS.moon
-  return {
-    ...base,
-    meanAnomaly: wrap(base.meanAnomaly + 13.06499295 * d),
-    argPeri: wrap(base.argPeri + 0.1643573 * d),
-    lonAscNode: wrap(base.lonAscNode - 0.05295377 * d),
-  }
-}
-
-/**
  * Build the initial state vector for Sol / Terra / Luna at `t` seconds past
- * J2000.0. Default 0 reproduces the table exactly — the fixtures pin that
- * byte-for-byte — while the app boots at the real current time, so the day
- * and night underfoot and the sky overhead are the real ones.
+ * J2000.0. Default 0 is the J2000 instant the fixtures are flown from; the
+ * app boots at the real current time, so the day and night underfoot and the
+ * sky overhead are the real ones.
  *
  * Constructed hierarchically, the way the elements are actually defined:
  * the Earth-Moon *barycentre* follows the heliocentric elements, and Earth and
- * Moon are then placed either side of it using the geocentric lunar elements.
- * Finally the whole system is shifted into its own barycentric rest frame so
- * the Sun wobbles about the origin instead of the origin drifting away.
+ * Moon are then placed either side of it, the Moon from the truncated lunar
+ * theory in `lunar.js` (mean elements cannot express evection, and the few
+ * thousand kilometres that cost was measured). Finally the whole system is
+ * shifted into its own barycentric rest frame so the Sun wobbles about the
+ * origin instead of the origin drifting away.
  */
 export function buildInitialState(t = 0) {
   const sun = BODIES.sun
@@ -155,12 +129,11 @@ export function buildInitialState(t = 0) {
   const emMass = earth.mass + moon.mass
 
   const earthEl = ELEMENTS.earth
-  const moonAt = lunarElementsAt(t)
   const emb = elementsToState(G * (sun.mass + emMass), {
     ...earthEl,
-    meanAnomaly: meanAnomalyAt(earthEl, G * sun.mass, t) / DEG,
+    meanAnomaly: meanAnomalyAt(earthEl, G * (sun.mass + emMass), t) / DEG,
   })
-  const lunar = elementsToState(G * emMass, moonAt)
+  const lunar = lunarState(t)
 
   const earthShare = -moon.mass / emMass // Earth sits opposite the Moon
   const moonShare = earth.mass / emMass

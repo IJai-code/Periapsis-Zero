@@ -47,12 +47,12 @@ import { MOON_MEAN } from './moonMean.js'
  * The mean orbit is the *simulated* Moon's, measured, and not the real one's
  * (`scripts/measure-moon.mjs`, a year of the integrated system). Locking is to
  * the orbit the body is actually on, and the simulated orbit is not quite the
- * real one: its J2000 elements are mean values used as the osculating state,
- * and the Sun's tide moves the osculating semi-major axis by about a per cent
- * either side of the mean, so it runs a sidereal month of 27.614 d against the
- * real 27.322, with its mean longitude at J2000 216.83° against 218.32°. The
- * first version of this frame used the real Moon's figures and drifted 3.8° a
- * month off the Moon it was turning with.
+ * real one: it starts from a truncated lunar theory and the integrator carries
+ * it on from there on its own osculating elements, so it runs a sidereal month
+ * of 27.335 d against the real 27.322, with its mean longitude at J2000 217.79°
+ * against 218.32°. The first version of this frame used the real Moon's figures
+ * and drifted 3.8° a month off the Moon it was turning with; the measured
+ * orbit leaves a mismatch of seven thousandths of a degree a day.
  */
 
 const DEG = Math.PI / 180

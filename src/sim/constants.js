@@ -20,9 +20,15 @@ export const DAY = 86400 // seconds
 export const YEAR = 365.25 * DAY
 
 /**
- * Masses are the real GM-derived values; radii are the IAU mean/equatorial
- * radii. `tilt` is obliquity to its orbit, `spin` is the sidereal rotation
- * period in seconds (negative would mean retrograde).
+ * Masses are the measured GM products divided by the G above, which is the
+ * only honest way round to do it: a gravity integrator acts on GM, and the
+ * literature masses that used to sit here were each paired with some other
+ * decade's G. Sun 1.98892e30 was one of them; G times it is 1.327465e20
+ * against the IAU's 1.3271244e20, twenty-six parts per hundred thousand too
+ * heavy, which ran the year 67.5 minutes short and walked the Earth 1.2 deg
+ * ahead of the almanac by 2026. Radii are the IAU mean/equatorial radii.
+ * `tilt` is obliquity to its orbit, `spin` is the sidereal rotation period in
+ * seconds (negative would mean retrograde).
  */
 export const BODIES = {
   sun: {
@@ -35,7 +41,7 @@ export const BODIES = {
      * very criterion that put two-thirds of a translunar coast on the Sun.
      */
     parent: null,
-    mass: 1.98892e30,
+    mass: 1.98840987e30, // GM 1.3271244e20, the IAU nominal
     radius: 6.957e8,
     spin: 25.38 * DAY,
     tilt: (7.25 * Math.PI) / 180,
@@ -44,7 +50,7 @@ export const BODIES = {
     id: 'earth',
     name: 'Terra',
     parent: 'sun',
-    mass: 5.97219e24,
+    mass: 5.97216849e24, // GM 3.986004418e14, EGM2008
     radius: 6.371e6,
     spin: 86164.0905, // sidereal day, not solar
     tilt: (23.4392811 * Math.PI) / 180,
@@ -53,7 +59,7 @@ export const BODIES = {
     id: 'moon',
     name: 'Luna',
     parent: 'earth',
-    mass: 7.34767309e22,
+    mass: 7.34578907e22, // GM 4.9028e12, GRAIL
     radius: 1.7374e6,
     spin: 27.321661 * DAY, // tidally locked to its orbital period
     tilt: (6.68 * Math.PI) / 180,

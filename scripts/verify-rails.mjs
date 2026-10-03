@@ -166,10 +166,12 @@ function integratedEMB(out) {
  * — 1.12 days of motion — ahead of the tabulated one, and this gate carried
  * that offset as a constant and judged the separation against it. The element
  * was corrected on 2 October 2026 (verify-clock now holds the almanac Sun to
- * 0.85 deg at the real date), and the measured start phase fell to a few
- * thousandths of a degree. What remains is the *rate* residual — the sim's own
- * year runs 67.5 minutes short of sidereal — which the growth check below
- * measures separately, as it always has.
+ * 0.01 deg at the real date), and the measured start phase fell to a few
+ * thousandths of a degree. The rate residual went the same way a day later:
+ * the masses were literature masses paired with some other decade's G, and
+ * G times them was 26 parts per hundred thousand too heavy, which ran the
+ * year 67.5 minutes short of sidereal. Made GM-consistent the year matches
+ * the table's to under two seconds and the phase holds instead of creeping.
  *
  * The constant is kept so the comparison still has a scale, but it is now the
  * phase the two tables actually start with, measured here rather than assumed.
@@ -206,12 +208,14 @@ for (const days of CHECKS) {
   const angle = Math.acos(Math.min(1, Math.max(-1, cos))) / DEG
   if (days === 0) startAngle = angle
   endAngle = angle
-  // The chord the measured angle subtends at this radius. The separation and
-  // the angle are read from the same states, so this is a consistency check on
-  // the pipeline — separation really is the angle seen from the Sun — which is
-  // what let the old constant-chord form claim anything at all. The rate the
+  // The separation the measured radii and angle predict: the radial gap plus
+  // the arc the angle subtends. The separation, the radii and the angle are
+  // read from the same states, so this is a consistency check on the pipeline
+  // — separation really is what the Sun sees. It was a plain chord until the
+  // two years were made to agree, at which point the radial gap the chord
+  // ignores became most of what is left between the two Earths. The rate the
   // angle grows at is judged separately below.
-  const predicted = 2 * rT * Math.sin((angle * DEG) / 2)
+  const predicted = Math.hypot(rI - rT, rT * angle * DEG)
   if (days <= 120) {
     worstAgainstPhase = Math.max(worstAgainstPhase, Math.abs(gap - predicted) / gap)
   }
@@ -289,16 +293,16 @@ const checks = [
   ['and the semi-major axis agrees with the mean-longitude rate', worstPeriod < 0.001],
   ['mean orbital speeds land within 0.5% of published', worstSpeed < 0.005],
   ['the integrated Earth and the tabulated one agree on the distance to 0.1%', worstRadius < 0.001],
-  ['their separation is the angle between them, seen from the Sun', worstAgainstPhase < 0.02],
+  ['their separation is the radial gap plus the arc of the angle between', worstAgainstPhase < 0.02],
   ['and the two Earths start in the same place, to a hundredth of a degree', startAngle < 0.01],
   /*
    * And it creeps rather than runs. A wrong frame, rotation order or rate would
-   * put degrees between them within a year; what is actually there is the
-   * simulator's year being 67 minutes short of the sidereal one, which is
-   * 0.046 deg of phase a year and accounts for all but 0.002 of the 0.048
-   * measured. The bound is set from that cause, not from the observation.
+   * put degrees between them within a year. What is left is the two years
+   * differing by under two seconds, 0.00002 deg of phase a year, so the angle
+   * holds inside two hundredths of a degree across the three years. The bound
+   * is set from what the tables can carry, not from the observation.
    */
-  ['and creeps only at the rate the two years differ', Math.abs(endAngle - startAngle) < 0.25],
+  ['and creeps only at the rate the two years differ', Math.abs(endAngle - startAngle) < 0.02],
   ['every planet stays between its own periapsis and apoapsis, 1800-2050', boundsOk],
   ['they come out in order of distance from the Sun', ordered],
   ['none strays further off the ecliptic than its inclination allows', worstTilt < 0.01],
@@ -325,8 +329,8 @@ console.log(
 )
 console.log(
   `  That is the simulator's own year: ${simYear.toFixed(5)} d against a sidereal ${tableYear.toFixed(5)},` +
-    ` short by ${((tableYear - simYear) * 24 * 60).toFixed(1)} minutes, which is` +
-    ` ${(((tableYear - simYear) / tableYear) * 360).toFixed(4)} deg of phase a year.`,
+    ` off by ${((tableYear - simYear) * 24 * 3600).toFixed(1)} seconds, which is` +
+    ` ${(((tableYear - simYear) / tableYear) * 360).toFixed(5)} deg of phase a year.`,
 )
 console.log(`  updateRails: ${sampleText(bytes)}`)
 console.log(`  ${pass ? 'PASS' : 'FAIL'}`)

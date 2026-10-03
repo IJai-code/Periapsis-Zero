@@ -1417,13 +1417,14 @@ applied to both bodies with opposite sign.
 Initial conditions (`src/sim/system.js`) are built from real J2000.0 orbital
 elements, the way the elements are actually defined: the Earth–Moon *barycentre*
 follows the heliocentric ellipse, and Earth and Moon are placed either side of
-it from the geocentric lunar elements. The whole system is then shifted into its
-own barycentric rest frame.
+it from a truncated lunar theory (Meeus ch. 47, longitude to about 0.01°).
+The whole system is then shifted into its own barycentric rest frame.
 
 It reproduces the real thing closely — perihelion distance 147,101,548 km,
 Earth's perihelion velocity 30.296 km/s, a lunar distance in the correct
-356,000–407,000 km range, and a sidereal month within 1% of 27.32 days (the
-period is emergent here, not prescribed). Total energy is conserved to better
+356,000–407,000 km range, a sidereal month within 0.05% of 27.32 days (27.335
+against 27.322; the period is emergent here, not prescribed), and a year within
+two seconds of the sidereal 365.2564 d. Total energy is conserved to better
 than one part in 10¹²; the HUD reports the live drift in parts per billion.
 
 Steps are subdivided so none exceeds 900s, capped at 96 substeps per frame so
@@ -3809,16 +3810,16 @@ month's mean within 0.33° of the centre. The drawn Moon is turned by the same
 frame; the map longitude facing Earth equals the frame's to 6.5e-14°.
 
 **The simulated Moon is not quite the real one, and the frame follows the
-simulated one.** Locking is to the orbit the body is actually on. The Moon's
-J2000 elements are mean values, used as the osculating state — and the Sun's
-tide moves the osculating semi-major axis by about a per cent either side of the
-mean — so the integrated orbit runs a sidereal month of 27.614 d against the
-real 27.322, with its mean longitude at J2000 216.83° against 218.32°. A frame
-paced by the real Moon drifted 3.8° a month off the Moon it was turning with. So
-the mean orbit is measured — `npm run moon:measure` fits a year of the integrated
-system and commits the result — and `verify-moon-frame` re-measures it. Starting
-the Moon from a real J2000 state vector would correct the orbit itself, and would
-move every mission figure in this document; it is a separate change.
+simulated one.** Locking is to the orbit the body is actually on. The Moon now
+starts from a real J2000 position — the truncated lunar theory — but the
+integrator carries it on from there on its own osculating elements, so the
+integrated orbit runs a sidereal month of 27.335 d against the real 27.322,
+with its mean longitude at J2000 217.79° against 218.32°. (It read 27.614 d
+and 216.83° when the start was mean elements used as osculating ones.) A frame
+paced by the real Moon's figures drifts seven thousandths of a degree a day off
+the Moon it is turning with. So the mean orbit is measured —
+`npm run moon:measure` fits a year of the integrated system and commits the
+result — and `verify-moon-frame` re-measures it.
 
 ## The rest of the solar system
 
@@ -3843,14 +3844,18 @@ JPL table has a row for the Earth–Moon barycentre. Running both is an
 end-to-end test of epoch, frame, rotation order and units against a body this
 simulator computes by a route sharing no code with the one under test.
 
-They agree on the heliocentric distance to **279 parts per million**. They
-disagree on where along the orbit, by 1.0996°, and that turned out to be a fact
-about the simulator: its Earth's longitude of perihelion matches the JPL row to
-0.0095°, so it is the same orbit, but its mean anomaly puts the planet 1.12 days
-further round it. The gap also creeps by 0.048° a year, which is the simulator's
-own year being **365.2095 d against a sidereal 365.2564 — 67.5 minutes short**.
-Neither is changed here. Both are now measured, and the gate is bounded by the
-cause rather than by the observation.
+They agree on the heliocentric distance to **6 parts per million**. They used
+to disagree on where along the orbit, by 1.0996°, and that turned out to be a
+fact about the simulator: its Earth's longitude of perihelion matches the JPL
+row to 0.0095°, so it was the same orbit with the mean anomaly putting the
+planet 1.12 days further round it. That element was corrected on 2 October
+2026. The gap also crept by 0.048° a year, which is the simulator's own year
+being **365.2095 d against a sidereal 365.2564 — 67.5 minutes short**. That
+was the masses: literature masses paired with some other decade's G made GM 26
+parts per hundred thousand too heavy. Made GM-consistent the year runs
+365.25634 d, off by two seconds, and the two Earths hold 0.0007° apart across
+three years. Both residuals are now measured, and the gate is bounded by the
+causes rather than by the observations.
 
 **What a craft feels.** 2.759 × 10⁻⁷ m/s² at Earth, near enough all of it Venus
 and Jupiter. On a parking orbit that moves apoapsis from 185.057 km to 185.058.

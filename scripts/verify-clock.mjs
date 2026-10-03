@@ -19,9 +19,11 @@
  *
  *  1. t = 0 is still J2000, byte for byte. The fixtures hang off it.
  *  2. The Sun is where the almanac puts it today (geocentric ecliptic
- *     longitude, to 1.5 deg — the table's own residual, as verify-solar holds).
- *  3. The Moon is where the almanac puts it, in longitude to 2 deg (the mean
- *     elements carry no evection) and in range to what they can carry.
+ *     longitude, to 0.1 deg. It read 1.2 deg before the masses were made
+ *     GM-consistent: the year ran 67.5 minutes short, and 27 of them had
+ *     walked the Sun 1.2 deg ahead of the almanac).
+ *  3. The Moon is where the almanac puts it, in longitude to 0.5 deg and in
+ *     range to 2500 km, against the truncated lunar theory that places it.
  *  4. The terminator is real: the sub-solar longitude reads local solar time
  *     at each site to within 20 minutes, the equation of time's own amplitude
  *     — the claim "it was day where I live, and the sim showed day".
@@ -67,6 +69,18 @@ function moonState(t) {
   return { lon: (lon + 360) % 360, dist }
 }
 
+/* General precession in longitude since J2000, deg (IAU 1976). Both almanacs
+   above speak of the equinox and ecliptic *of date*; the simulator's frame is
+   the fixed J2000 ecliptic (its elements are J2000 elements, its star charts
+   are J2000 charts, and the lunar theory reduces itself to J2000 for the same
+   reason). The two conventions disagree by this much, which is larger than
+   the Moon's own disc, so the almanac values are reduced to J2000 before they
+   are compared and what is left is the simulator's own residual. */
+function precessionInLongitude(t) {
+  const T = t / DAY / 36525
+  return 1.396981 * T + 0.0003086 * T * T
+}
+
 /* The simulator's geocentric ecliptic longitudes, from the scene frame. */
 function skyAt(t) {
   const s = buildInitialState(t)
@@ -106,16 +120,18 @@ check('the browser clock is the real current instant', Math.abs(nowT - (Date.now
 const now = skyAt(nowT)
 console.log(`  now: ${new Date(Date.UTC(2000, 0, 1, 12) + nowT * 1000).toISOString()}  (${(nowT / DAY).toFixed(2)} d past J2000)`)
 
-const sunErr = diff(now.sunLon, sunLongitude(nowT))
-console.log(`  sun ecliptic longitude: sim ${now.sunLon.toFixed(3)}  almanac ${sunLongitude(nowT).toFixed(3)}  err ${sunErr.toFixed(3)} deg`)
-check('the Sun is where the almanac puts it today, to 1.5 deg', Math.abs(sunErr) < 1.5)
+const sunAlm = sunLongitude(nowT) - precessionInLongitude(nowT)
+const sunErr = diff(now.sunLon, sunAlm)
+console.log(`  sun ecliptic longitude: sim ${now.sunLon.toFixed(3)}  almanac ${sunAlm.toFixed(3)}  err ${sunErr.toFixed(3)} deg`)
+check('the Sun is where the almanac puts it today, to 0.1 deg', Math.abs(sunErr) < 0.1)
 
 const moon = moonState(nowT)
-const moonErr = diff(now.moonLon, moon.lon)
-console.log(`  moon ecliptic longitude: sim ${now.moonLon.toFixed(2)}  almanac ${moon.lon.toFixed(2)}  err ${moonErr.toFixed(2)} deg`)
-check('the Moon is where the almanac puts it today, to 2 deg', Math.abs(moonErr) < 2)
+const moonAlm = moon.lon - precessionInLongitude(nowT)
+const moonErr = diff(now.moonLon, moonAlm)
+console.log(`  moon ecliptic longitude: sim ${now.moonLon.toFixed(2)}  almanac ${moonAlm.toFixed(2)}  err ${moonErr.toFixed(2)} deg`)
+check('the Moon is where the almanac puts it today, to 0.5 deg', Math.abs(moonErr) < 0.5)
 console.log(`  moon range: sim ${now.moonDist.toFixed(0)} km  almanac ${moon.dist.toFixed(0)} km  err ${(now.moonDist - moon.dist).toFixed(0)} km`)
-check('the Moon is no worse than the mean elements can carry (8000 km)', Math.abs(now.moonDist - moon.dist) < 8000)
+check('the Moon\'s range holds to the periodic terms (2500 km)', Math.abs(now.moonDist - moon.dist) < 2500)
 
 /* 4 — the terminator. The sub-solar longitude is the one whose siteDirection
    faces the Sun most squarely — an argmax, not a zero crossing, which is why

@@ -4,13 +4,13 @@
  * The Moon's rotation is locked to its orbit — Cassini's first law is that it
  * turns once per sidereal month, facing the *mean* Earth — so the frame it turns
  * in has to be phased and paced by the orbit it is actually on. That orbit is
- * the simulator's own, integrated from J2000 elements with the Sun and planets
- * pulling on it, and it is not quite the real Moon's: its elements are mean
- * values used as the osculating state, and the Sun's tide moves the osculating
- * semi-major axis by about a per cent either side of the mean, so the orbit
- * that results runs a sidereal month of 27.614 d against the real 27.322. A
- * frame paced by the real Moon drifted 3.8 degrees a month off the Moon it was
- * attached to.
+ * the simulator's own, integrated with the Sun and planets pulling on it, and
+ * it is not quite the real Moon's: it starts from a truncated lunar theory and
+ * the integrator carries it on from there, so the orbit that results runs a
+ * sidereal month of 27.335 d against the real 27.322. A frame paced by the
+ * real Moon's figures drifted 3.8 degrees a month off the Moon it was attached
+ * to; the measured orbit leaves a mismatch of seven thousandths of a degree a
+ * day.
  *
  * So the mean orbit is measured rather than looked up: a year of the integrated
  * system, sampled daily, and straight lines fitted through the unwrapped mean

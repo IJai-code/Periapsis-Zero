@@ -5,6 +5,36 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The Moon's own theory, and a year that keeps the calendar: 2 October 2026
+
+Two accuracy claims, both root-caused rather than tuned.
+
+**The Moon where the almanac puts it.** The Moon was placed by mean elements
+advanced at the Kepler rate, which cannot express evection, and verify-clock
+measured the cost at 0.80° of longitude and 6,200 km of range at the real date.
+It is placed by a truncated lunar theory now (Meeus ch. 47: 23 longitude, 14
+range and 11 latitude terms with the eccentricity factor on the solar ones,
+reduced from of-date to the fixed J2000 frame the scene lives in). The range
+series is a *cosine* series where longitude and latitude are sines, and the
+first version summed it as a sine too, which put the Moon 12,784 km off its
+own theory. Corrected, the gate reads 0.03° and 20 km at the real date, and
+its bounds were tightened from 2° to 0.5° and from "what the mean elements
+can carry" to 2,500 km.
+
+**The year keeps the calendar.** The Sun read 1.2° ahead of the almanac, and
+the cause was not the model but the masses: literature masses each paired with
+some other decade's G, so G·M was 26 parts per hundred thousand too heavy,
+the year ran 365.2095 d against a sidereal 365.2564 (67.5 minutes short), and
+27 of those years walked the Earth 1.21° ahead. Masses are now the measured GM
+products divided by the G the code actually uses; the year runs 365.25634 d,
+off by two seconds. verify-clock holds the Sun to 0.1° against the almanac at
+the real date (it reads 0.003°), and verify-rails, which watched the years
+differ and bounded its creep check by the cause, now watches them agree: the
+integrated Earth and the tabulated one hold 0.0007° apart across three years
+instead of creeping 0.048° a year. All three flight fixtures and the measured
+moon mean were regenerated against the new GM values; the integrated month
+is 27.335 d against the real 27.322 where it was 27.614.
+
 ### The face, the four colours, and the sky that writes its own missions: 2 October 2026
 
 The identity, the camera and the game layer, in one pass.
