@@ -1,14 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { subscribeUiTick } from './uiClock.js'
 import { program, STORY } from '../sim/programs.js'
+import { storyState, subscribeStory } from '../sim/story.js'
+import { beginDef } from './beginDef.js'
 
 /**
  * The program checklist, live.
  *
  * A pilot flying their own mission needs one thing the presets never had to
  * provide: to know where they are in *their own* plan. This strip is that.
- * It reads the program's objectives — each one evaluated from the
- * simulation, never from a UI flag — and draws them as a flight plan is
+ * It reads the program's objectives, each one evaluated from the
+ * simulation, never from a UI flag, and draws them as a flight plan is
  * drawn on a checklist: done, or not, with the current leg's progress
  * bar moving under it.
  *
@@ -20,6 +22,14 @@ import { program, STORY } from '../sim/programs.js'
 export function ProgramStrip() {
   const armed = program.armed
   const root = useRef(null)
+  /*
+   * Re-render only when a chapter is recorded. The tick below writes the
+   * marks and bars straight to the DOM; this subscription exists so the one
+   * moment that changes the panel's *shape* (a chapter flown, and the next
+   * chapter offered) happens the tick it is true, by the same record that
+   * unlocks the board.
+   */
+  useSyncExternalStore(subscribeStory, storyState, storyState)
 
   useEffect(() => {
     if (!program.armed) return
@@ -45,18 +55,20 @@ export function ProgramStrip() {
   if (!armed || !program.def) return null
 
   /*
-   * A story chapter rides the same strip as any program — the machinery is
-   * identical — but it carries its number and its brief, because a chapter
+   * A story chapter rides the same strip as any program, the machinery is
+   * identical, but it carries its number and its brief, because a chapter
    * is a place in a sequence and the pilot should feel where they stand.
    */
   const chapter = program.def.story ? STORY.findIndex((c) => c.id === program.def.id) + 1 : 0
+  const flown = chapter > 0 && program.objectives.length > 0 && program.objectives.every((o) => o.done)
+  const nextChapter = chapter > 0 ? (STORY[chapter] ?? null) : null
 
   return (
     <div ref={root} className="panel w-52 rounded-sm p-3.5">
       <div className="mb-2.5 flex items-baseline justify-between border-b border-white/10 pb-2">
         <span className="rule">{program.def.name}</span>
         <span data-done className="font-mono text-[9.5px] text-hud/50 tabular-nums">
-          —
+          ·
         </span>
       </div>
       {chapter > 0 && (
@@ -82,6 +94,23 @@ export function ProgramStrip() {
           </div>
         ))}
       </div>
+      {flown && (
+        <div className="mt-2.5 border-t border-white/10 pt-2">
+          <div className="rule mb-1.5">Chapter flown</div>
+          {nextChapter ? (
+            <button
+              onClick={() => beginDef(nextChapter)}
+              className="control w-full border border-ember/60 px-2 py-1.5 font-mono text-[9px] tracking-[0.18em] text-ember uppercase outline-none transition-colors duration-300 focus-visible:border-ember"
+            >
+              Begin {nextChapter.name} →
+            </button>
+          ) : (
+            <p className="text-[10px] leading-snug text-hud/50">
+              All six flown. The sky writes more in the Almanac.
+            </p>
+          )}
+        </div>
+      )}
       <div className="mt-2.5 border-t border-white/10 pt-2 font-mono text-[9px] tracking-[0.18em] text-white/25 uppercase">
         {program.wing?.name} wings · flown by you
       </div>

@@ -1166,9 +1166,24 @@ carried you there cannot carry you home, and that is not a limitation of the
 sim, it is why Apollo had a lander. Press `G` on the surface and stand on it.
 
 `verify-programs` holds the story chapters to everything it holds the routes
-and the jobs to — same budgets, same tables, same flown checks — plus a check
+and the jobs to: same budgets, same tables, same flown checks, plus a check
 that the chain is honest: gentlest wing first, every chapter saying what the
 flight is for.
+
+### The Almanac
+
+Missions the sky writes. Every other board here lists work a person
+invented; the Almanac (`sim/almanac.js`, in the flight-setup drawer) is
+generated from the solar system as it actually stands at boot: the gap
+between the vehicle and the station right now, how far out the Moon is this
+hour, whether an eclipse is in the sky at this moment. The numbers in the
+briefs are the numbers the integrator is flying, so the board read tomorrow
+is a different board. The generator is pure (the sky is passed in), which is
+what lets `verify-programs` hold it to its own arithmetic: the gap a brief
+quotes is the gap the objective measures, and a briefing for an eclipse is
+generated only when an eclipse is actually in the sky. One check joins the
+vocabulary for it, `eclipsePlate`, which reads what the sky was doing when
+the shutter opened.
 
 ## Flight planning
 

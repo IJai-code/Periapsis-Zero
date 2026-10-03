@@ -29,7 +29,8 @@
  *      trajectory; it caught an inverted capability read before a pilot did.
  */
 import assert from 'node:assert/strict'
-import { PROGRAMS, CONTRACTS, STORY, WINGS, stackDeltaV, armProgram, disarmProgram, wingHolds, wingFuel, program, KARMAN_FUEL } from '../src/sim/programs.js'
+import { PROGRAMS, CONTRACTS, STORY, WINGS, stackDeltaV, armProgram, disarmProgram, tickProgram, wingHolds, wingFuel, program, KARMAN_FUEL, notePhotograph, plateLog } from '../src/sim/programs.js'
+import { almanacBriefings } from '../src/sim/almanac.js'
 import { VESSELS } from '../src/sim/vessels.js'
 import { LAUNCH_SITES, ALL_SITES } from '../src/sim/launchsite.js'
 import { resetMission, currentPhase } from '../src/sim/mission.js'
@@ -134,7 +135,7 @@ check('arming a program drives the wing gate and the live fuel load', () => {
 
 /* 4. The tables agree with the world they name. */
 check('every program, contract and story chapter names real vessels, real sites, real checks', () => {
-  const checks = new Set(['liftoff', 'orbit', 'tli', 'lunarSoi', 'lunarOrbit', 'landing', 'home', 'splashdown', 'photograph', 'proximity', 'inclination', 'apoapsis'])
+  const checks = new Set(['liftoff', 'orbit', 'tli', 'lunarSoi', 'lunarOrbit', 'landing', 'home', 'splashdown', 'photograph', 'eclipsePlate', 'proximity', 'inclination', 'apoapsis'])
   for (const def of [...PROGRAMS, ...CONTRACTS, ...STORY]) {
     assert.ok(VESSELS[def.vessel], `${def.id}: unknown vessel`)
     assert.ok(def.sites.every((s) => ALL_SITES[s]), `${def.id}: unknown site ${def.sites.find((s) => !ALL_SITES[s])}`)
@@ -148,6 +149,59 @@ check('every program, contract and story chapter names real vessels, real sites,
   // a planner lying about the world.
   const offered = new Set([...PROGRAMS, ...CONTRACTS, ...STORY].flatMap((p) => p.sites))
   for (const id of Object.keys(LAUNCH_SITES)) assert.ok(offered.has(id), `no program offers ${id}`)
+})
+
+/* The Almanac: missions generated from a fixed sky must be honest about it. */
+check('the Almanac quotes the sky it was handed, and prices its legs like every other flight', () => {
+  const sky = { issGap: 228_000e3, moonSpan: 382_471e3, eclipse: true }
+  const board = almanacBriefings(sky)
+  assert.deepEqual(board, almanacBriefings(sky), 'the generator must be deterministic')
+  assert.equal(board.length, 4, 'three standing briefs and one for the eclipse in the sky')
+
+  const gap = board.find((d) => d.id === 'almanac-gap')
+  const close = gap.objectives.find((o) => o.check === 'proximity')
+  assert.equal(gap.basis.gapKm, 228000, 'the brief quotes the gap it was handed')
+  assert.equal(close.km, 34200, 'the objective closes at 15% of the gap the brief quotes')
+  assert.ok(gap.brief.includes('228,000'), 'the brief text carries the measured gap')
+
+  const high = board.find((d) => d.id === 'almanac-high')
+  const apo = high.objectives.find((o) => o.check === 'apoapsis')
+  assert.equal(apo.km, 210359, 'the apoapsis target is 55% of tonight lunar span')
+  assert.ok(high.brief.includes('382,471'), 'the brief text carries the measured span')
+
+  assert.ok(
+    !almanacBriefings({ ...sky, eclipse: false }).some((d) => d.id === 'almanac-shadows'),
+    'no eclipse in the sky, no eclipse briefing: a board that invents events is a board that lies',
+  )
+
+  const vessel = VESSELS['apollo8']
+  for (const def of board) {
+    assert.ok(def.wings.every((w) => WINGS[w]), `${def.id}: unknown wing`)
+    assert.equal(def.wings[0], 'trainee', `${def.id}: the brief must open at the gentlest wing`)
+    const cost = def.legs.reduce((s, l) => s + l.dv, 0)
+    assert.ok(stackDeltaV(vessel, 1) - cost > 300, `${def.id}: the brief cannot close its own budget`)
+  }
+})
+
+/* The eclipse plate is a fact about the shutter's moment, and the log is the
+   only thing that remembers it. The check is exercised through the real
+   evaluator, the tick the checklist itself rides. */
+check('the eclipse plate check reads what the sky was doing when the plate was taken', () => {
+  const sky = { issGap: 1e6, moonSpan: 3.8e8, eclipse: true }
+  const def = almanacBriefings(sky).find((d) => d.id === 'almanac-shadows')
+  plateLog.length = 0
+  resetMission()
+  armProgram(def, 'trainee')
+  assert.equal(program.objectives[0].check, 'eclipsePlate')
+  // A plate under a clear sky (the note path reads live.eclipse, null under Node).
+  notePhotograph()
+  tickProgram(1 / 60)
+  assert.equal(program.objectives[0].done, false, 'a plate under a clear sky is not the eclipse plate')
+  // A plate under the eclipse: it ticks.
+  plateLog.push({ eclipse: true })
+  tickProgram(1 / 60)
+  assert.equal(program.objectives[0].done, true, 'a plate under the eclipse is the eclipse plate')
+  disarmProgram()
 })
 
 /* The story is a chain: a chapter that armed its wing at anything but the

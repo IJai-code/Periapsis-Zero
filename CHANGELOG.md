@@ -5,7 +5,68 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
-### The clock catches up with the sky, and the cockpit keeps still — 2 October 2026
+### The face, the four colours, and the sky that writes its own missions: 2 October 2026
+
+The identity, the camera and the game layer, in one pass.
+
+**The identity.** The old face was champagne serif over charcoal: a light
+Cormorant Garamond with wide tracking, Inter for prose, hairline borders,
+soft glass. Pretty, and the same pretty every tooling demo wears. Display is
+now **Rubik Dirt** (eroded, blotchy, printed rather than generated), prose is
+**Bricolage Grotesque**, figures are **Space Mono**. The serif and the clean
+sans are gone. The palette is four colours and only four: **void**
+(#120b22), **bone** (#f4e8cf), **ember** (#ff6b2c) and **ion** (#2fd3ff),
+enforced by remapping the stock white, black, amber and red tokens so the
+200-plus existing call sites fold into the four without a single edit. Ion
+cyan is not decoration: the flight plan is drawn cyan in the scene, so the
+plan's numbers wear the same colour on the glass. Panels carry the blotch:
+borders of two weights (thick where the light comes from), corners that do
+not match, a hard offset shadow like a sticker, and a grain plate over every
+surface. Motion is rationed: every hover and press answers in 120 ms with 60
+ms of physical travel, the entrance fades are gone, and the em dash is
+retired across the interface (prose uses commas, colons and full stops;
+readouts use a middle dot where a dash sat).
+
+**The camera.** The pad camera was a mount bolted to one spot on one
+bearing, which is the shot every low-budget launch scene has. It is a crane
+now: a slow lateral arc, a few degrees of bearing, a fifth of its height, on
+three incommensurate periods that read as a shot that lives rather than as
+motion (shared with the mission intro's arrival frame on the same clock, so
+the hand-off is seamless). The lens holds the vehicle at a shrinking
+fraction of frame as it climbs, so ground and horizon stay in the shot.
+Arrivals at the ground are shaped like a flyover that turns final: the pan
+happens first at altitude, the descent happens last along the shot's own
+axis, the horizon in frame the whole way down. The old move dove radially
+along the chord, which over a rotating Earth meant a long slide across open
+ocean and the pad arriving from nowhere. And a click is a glance again: when
+the pan is inside a few view widths the zoom-pan geodesic straightens into a
+glide instead of zooming the world out, pinning across it and zooming back
+in (one constant, `DIRECT_RHO`, in `gfx/zoomPath.js`).
+
+**The Almanac: missions the sky writes.** Every board in this product lists
+work a person invented. This one is generated from the solar system as it
+actually stands: the gap between the vehicle and the station right now, how
+far out the Moon is this hour, whether an eclipse is in the sky at this
+moment. Read it on another night and the numbers are different, because the
+sky is different. What it arms is a program like any other: legs priced by
+the rocket equation, objectives from the same vocabulary, the same
+checklist. One new check joins that vocabulary, `eclipsePlate`, which reads
+what the sky was doing when the shutter opened (the plate log is the only
+thing that remembers that), and the eclipse briefing is generated only when
+an eclipse is actually in the sky: a board that invents events is a board
+that lies. `verify-programs` holds the generator to its own arithmetic with
+a fixed sky, and is nine checks.
+
+**The story continues.** A flown chapter now offers the next one on the
+checklist itself ("Chapter flown", and the button right there), the record
+written by the same tick that latches the last objective. Arming a story
+chapter or an Almanac briefing goes through one path (`ui/beginDef.js`), so
+the pad choice, the fuel load and the hand-off to the ground camera behave
+identically wherever the flight was begun from.
+
+Nothing in the flight model changed; the same 68 gates hold it.
+
+### The clock catches up with the sky, and the cockpit keeps still: 2 October 2026
 
 Two reports, one redesign, and a story.
 

@@ -21,7 +21,7 @@ import { recordStory } from './story.js'
  * The natural design is "easy mode steers for you". That is the design this
  * file refuses, because it cannot be made honest: the sequencer's ascent is
  * a closed loop over the *live* state (apoapsis, dynamic pressure, stage
- * margins — `aimAscent`, `manageThrottle`), and a UI-level override that
+ * margins, `aimAscent`, `manageThrottle`), and a UI-level override that
  * yanks the stick away per frame either fights that loop or duplicates it.
  * So the ladder is written in freedom instead:
  *
@@ -32,10 +32,10 @@ import { recordStory } from './story.js'
  *                are yours unless you ask for them back.
  *   **Aldrin**   nothing flies for you after the count: ascent, insertion,
  *                every burn, and the powered-warp ceiling the computer used
- *                to impose is *yours* to respect — exceed the step the
+ *                to impose is *yours* to respect, exceed the step the
  *                integrator can carry and the flight model will tell you
  *                what that costs.
- *   **Kármán**   Aldrin, plus a fuel load of 84% — the road-not-taken
+ *   **Kármán**   Aldrin, plus a fuel load of 84%, the road-not-taken
  *                margin, cut at the last stage, because the last stage is
  *                the one a return comes home on. Its budget is verified from
  *                the vehicle's own numbers in `verify-programs`.
@@ -46,7 +46,7 @@ import { recordStory } from './story.js'
  * rocket equation on the stack as the leg would meet it: stage by stage,
  * dry mass included, exactly as `deltaV()` in `sim/ship.js` does. A leg
  * priced at 3.2 km/s against a stack that can only deliver 3.1 is a plan
- * that fails before the count — so the planner shows the margin, in ember
+ * that fails before the count, so the planner shows the margin, in ember
  * when it is negative, and the planner's promise is checked in
  * `verify-programs`: every program's full route must fit inside its own
  * fuel load with margin to spare, on both vehicles, from every site.
@@ -96,14 +96,14 @@ export const WINGS = {
 export const KARMAN_FUEL = 0.84
 
 /* ---------------------------------------------------------------- *
- * Rocket-equation helpers — the same arithmetic `ship.js` uses
+ * Rocket-equation helpers, the same arithmetic `ship.js` uses
  * ---------------------------------------------------------------- */
 
 /*
  * Δv pricing, honestly.
  *
  * The first draft of this file carried a per-leg propellant allocation —
- * "this leg draws from the S-IC, that one from the SPS" — and it was deleted,
+ * "this leg draws from the S-IC, that one from the SPS", and it was deleted,
  * because it was planning fiction: an allocation that precise is a *claim*
  * about the flown trajectory, and the trajectory is the pilot's, not the
  * plan's. What a plan can honestly price is the route's total against what
@@ -134,7 +134,7 @@ export function stackDeltaV(vessel, fuelScale = 1) {
 }
 
 /* ---------------------------------------------------------------- *
- * Objective evaluation — read from the sim, never from a flag
+ * Objective evaluation, read from the sim, never from a flag
  * ---------------------------------------------------------------- */
 
 /** The craft's geocentric speed, m/s, off the same elements the HUD reads. */
@@ -167,13 +167,13 @@ function evaluate(o) {
     case 'orbit': {
       /*
        * An orbit is a fact about the *conic*, not about which phases ran.
-       * The first draft latched this on `reached('CIRCULARISE')` — and the
+       * The first draft latched this on `reached('CIRCULARISE')`, and the
        * harness caught it within minutes: a hand-flown vehicle that goes
        * too high skips the insertion phase entirely and re-enters, having
        * never been in orbit, while the checklist ticked anyway. The honest
        * test is the osculating perigee: above the atmosphere, with the
        * apoapsis near the parking altitude, the craft *is* in orbit,
-       * however it got there — and perigee below the air is not, whatever
+       * however it got there, and perigee below the air is not, whatever
        * the phase table did.
        */
       const el = live.elements
@@ -195,7 +195,7 @@ function evaluate(o) {
        * Translunar injection, read off the conic and not the sequencer.
        * `reached('TRANS_LUNAR')` was the first draft, and it was wrong for
        * exactly the pilot this file exists for: an Aldrin wing never enters
-       * that phase — PILOT_FLIGHT holds the stick from MECO to the Moon —
+       * that phase, PILOT_FLIGHT holds the stick from MECO to the Moon —
        * so a checklist keyed to the phase table could never tick. The honest
        * test is geometric: the osculating apogee carried past half the way
        * to the Moon is a translunar orbit, whatever flew it. Half-way rather
@@ -204,7 +204,7 @@ function evaluate(o) {
        * business.
        */
       const el = live.elements
-      // The Earth–Moon span, from the live positions — the distance the
+      // The Earth–Moon span, from the live positions, the distance the
       // transfer is actually being flown across this frame, not a mean.
       const em = Math.hypot(
         live.pos.moon.x - live.pos.earth.x,
@@ -240,7 +240,7 @@ function evaluate(o) {
        * reason `tli` reads from the geocentric one: the sequencer's LOI_BURN
        * phase is computer work, and an Aldrin wing never walks through it.
        * Bound (eccentricity under 1), perigee above the surface, inside the
-       * sphere of influence — that is lunar orbit, however the burn was
+       * sphere of influence, that is lunar orbit, however the burn was
        * planned. A trajectory still on approach reads eccentricity ≥ 1 in
        * the Moon's frame, and a suborbital lob reads perigee below the
        * surface; neither is an orbit.
@@ -258,7 +258,7 @@ function evaluate(o) {
     case 'landing': {
       // On the surface and slow: the same test the sequencer's own lunar
       // hold makes, read from the live state rather than the phase table.
-      // Off `INDEX` — the slot map the integrator itself is laid out by —
+      // Off `INDEX`, the slot map the integrator itself is laid out by —
       // not off a `live.index` that does not exist. This was a TypeError
       // waiting for the first pilot to reach the surface; nothing in the
       // harness had ever run this branch, because the harness never lands.
@@ -288,19 +288,28 @@ function evaluate(o) {
       return { done: reached('SPLASHDOWN'), progress: reached('SPLASHDOWN') ? 1 : 0 }
     case 'photograph': {
       /*
-       * Take a photograph. The counter is this module's own — Photograph.jsx
-       * notes each plate here — so the check reads a count taken since the
+       * Take a photograph. The counter is this module's own, Photograph.jsx
+       * notes each plate here, so the check reads a count taken since the
        * contract was armed, not a lifetime total.
        */
       const taken = photographs - (program.plates0 ?? 0)
       const want = o.count ?? 1
       return { done: taken >= want, progress: Math.min(1, taken / want) }
     }
+    case 'eclipsePlate': {
+      // A plate taken while an eclipse was in the sky. The log is this
+      // module's own, sliced from the baseline taken when the program was
+      // armed: what the shutter opened on is a fact about the moment of the
+      // plate, and no UI flag can remember it after the fact.
+      const events = plateLog.slice(program.plates0 ?? 0)
+      const hit = events.some((p) => p.eclipse)
+      return { done: hit, progress: hit ? 1 : 0 }
+    }
     case 'proximity': {
       /*
        * Come close to something. Rendezvous is the honest hard part of
-       * spaceflight — matching an orbit costs more delta-v than reaching the
-       * Moon — and the contracts pay it respect: the target is read from the
+       * spaceflight, matching an orbit costs more delta-v than reaching the
+       * Moon, and the contracts pay it respect: the target is read from the
        * integrator's own state vector, the same slots everything else flies
        * by, so there is no shortcut around the phasing.
        */
@@ -347,21 +356,28 @@ export function __wireParking(alt) {
  * Photographs taken this session, noted by the photograph component and read
  * by the `photograph` check. A counter, not an import of the logbook: the
  * logbook persists across flights and the contracts measure *this* flight.
+ *
+ * Each plate also records what the sky was doing when the shutter opened,
+ * because one briefing (the Almanac's *The Shadows*) is about a geometry
+ * that lasts minutes: an eclipse is a fact about the moment of the plate,
+ * and only this log remembers that.
  */
 export let photographs = 0
+export const plateLog = []
 export function notePhotograph() {
   photographs += 1
+  plateLog.push({ eclipse: Boolean(live.eclipse) })
 }
 
 /**
  * The contracts: jobs a pilot takes, not routes a planner prices.
  *
- * They ride exactly the machinery the routes ride — objectives evaluated from
+ * They ride exactly the machinery the routes ride, objectives evaluated from
  * the simulation, a checklist riding the instruments, arming through the same
- * gate — because a job and a route differ in whose idea it was, not in what
+ * gate, because a job and a route differ in whose idea it was, not in what
  * the flight model owes it. The board's realism is the point: nothing here
- * shoots at anybody. The work of spaceflight — reaching orbit, phasing toward
- * a station, raising an ellipse, coming home — *is* the game.
+ * shoots at anybody. The work of spaceflight, reaching orbit, phasing toward
+ * a station, raising an ellipse, coming home, *is* the game.
  */
 export const CONTRACTS = [
   {
@@ -405,7 +421,7 @@ export const CONTRACTS = [
     id: 'contract-polar',
     name: 'Polar Sentinel',
     group: 'Contract',
-    brief: 'Orbit over the poles — past 95 degrees. Vandenberg throws south for exactly this; the dogleg is priced in.',
+    brief: 'Orbit over the poles, past 95 degrees. Vandenberg throws south for exactly this; the dogleg is priced in.',
     vessel: 'apollo8',
     sites: ['vandenberg'],
     target: 'contract',
@@ -462,7 +478,7 @@ export const CONTRACTS = [
 
 /**
  * Arm a contract. The wing is the route's freest unless the board says
- * otherwise — same rule the deep link keeps.
+ * otherwise, same rule the deep link keeps.
  */
 export function armContract(def) {
   return armProgram(def, def.wings[0] ?? 'trainee')
@@ -473,21 +489,21 @@ export function armContract(def) {
  * ---------------------------------------------------------------- */
 
 /**
- * Six flights, in order — the career of a pilot in miniature.
+ * Six flights, in order, the career of a pilot in miniature.
  *
  * A contract is someone else's idea of work; a preset is someone else's
  * flight. What neither gives a newcomer is an *order*: the boards list
  * everything at once, and the hardest thing in orbital mechanics has always
  * been knowing what to learn next. The story is that order, told the way
- * the programme itself was — orbit, then station, then high, then the
+ * the programme itself was, orbit, then station, then high, then the
  * crossing, then the far side, then down. Each chapter is a program in
  * every mechanical sense: legs priced by the rocket equation, objectives
  * evaluated from the live state, the same checklist riding the instruments.
  * What makes it a story is only that each one unlocks the next, and that
  * the briefs say what the flight is *for*.
  *
- * Every chapter arms with the Trainee wing — the computer flies the book
- * parts, the pilot reads the checklist — because a story that demands
+ * Every chapter arms with the Trainee wing, the computer flies the book
+ * parts, the pilot reads the checklist, because a story that demands
  * mastery in chapter one is a story nobody finishes. The wings a pilot
  * flies the chapters with are their own business; the ladder is still
  * there, and `verify-programs` still holds every leg price against the
@@ -516,7 +532,7 @@ export const STORY = [
     name: 'Rendezvous',
     group: 'Story',
     story: true,
-    brief: 'A station is a place with no address. Launch when the orbit says — catching up is flown at liftoff or not at all — and close to within a hundred kilometres of the one other thing moving up here with you.',
+    brief: 'A station is a place with no address. Launch when the orbit says, catching up is flown at liftoff or not at all, and close to within a hundred kilometres of the one other thing moving up here with you.',
     vessel: 'apollo8',
     sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
     target: 'earth-orbit',
@@ -536,7 +552,7 @@ export const STORY = [
     name: 'Alone in the Sky',
     group: 'Story',
     story: true,
-    brief: 'Raise apoapsis a tenth of the way to the Moon and live up there for an orbit. From ten thousand kilometres the planet stops being a place and becomes a body — phase, terminator, weather — and the view is the instrument.',
+    brief: 'Raise apoapsis a tenth of the way to the Moon and live up there for an orbit. From ten thousand kilometres the planet stops being a place and becomes a body, phase, terminator, weather, and the view is the instrument.',
     vessel: 'apollo8',
     sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
     target: 'earth-orbit',
@@ -578,7 +594,7 @@ export const STORY = [
     name: 'Far Side',
     group: 'Story',
     story: true,
-    brief: 'Brake into lunar orbit where Earth cannot see you — behind the Moon, alone with the spacecraft, LOS gone for half an hour at a stretch. Photograph what no one on the ground can watch you photograph.',
+    brief: 'Brake into lunar orbit where Earth cannot see you, behind the Moon, alone with the spacecraft, LOS gone for half an hour at a stretch. Photograph what no one on the ground can watch you photograph.',
     vessel: 'apollo8',
     sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
     target: 'lunar-orbit',
@@ -600,7 +616,7 @@ export const STORY = [
      * The last chapter, and why it is one-way.
      *
      * The stack that carried the crossing cannot carry a ride home out of
-     * lunar orbit — the pricing is the Descent program's, verified against
+     * lunar orbit, the pricing is the Descent program's, verified against
      * the vehicle's own numbers in `verify-programs`, and it closes with
      * 670 m/s of margin for a hand-flown approach. That is not a limitation
      * of the sim; it is why Apollo had a lander, learned here at the scale
@@ -612,7 +628,7 @@ export const STORY = [
     name: 'Contact',
     group: 'Story',
     story: true,
-    brief: 'The last ten kilometres by hand, down to the surface — one way, because the stack that brought you cannot bring you back. Set down gently, then press G and stand on it. That is the ending.',
+    brief: 'The last ten kilometres by hand, down to the surface, one way, because the stack that brought you cannot bring you back. Set down gently, then press G and stand on it. That is the ending.',
     vessel: 'apollo8',
     sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
     target: 'lunar-descent',
@@ -668,7 +684,7 @@ export const PROGRAMS = [
     id: 'free-return',
     name: 'Free Return',
     group: 'Flyer',
-    blurb: 'Trans-lunar injection on a free-return trajectory — pass behind the Moon and let its gravity bring you home.',
+    blurb: 'Trans-lunar injection on a free-return trajectory, pass behind the Moon and let its gravity bring you home.',
     vessel: 'apollo8',
     sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
     target: 'free-return',
@@ -714,7 +730,7 @@ export const PROGRAMS = [
      * The one-way landing, and why it is one-way.
      *
      * The first draft of this program offered "land and come home" at a
-     * priced 18.2 km/s — and the budget check caught it: the full stack
+     * priced 18.2 km/s, and the budget check caught it: the full stack
      * delivers 16.0. This is not a pricing error to be tuned away; it is
      * the reason Apollo needed a two-part vehicle. After TLI the spent
      * S-IVB is discarded and the service module alone holds about 2.9 km/s,
@@ -724,18 +740,18 @@ export const PROGRAMS = [
      * lunar orbit.
      *
      * So the program is the descent, honestly priced at 15.34 against a
-     * 16.0 stack — 670 m/s of margin for a hand-flown approach, which is
-     * genuinely tight because genuinely hard — and the objective list ends
+     * 16.0 stack, 670 m/s of margin for a hand-flown approach, which is
+     * genuinely tight because genuinely hard, and the objective list ends
      * where the vehicle does. What replaces the ride home is the thing no
      * preset ever offered: press G on the surface and stand on it. The
      * return is the next program a pilot will ask for, and it will need a
-     * lander — which is the same lesson the real programme learned, learned
+     * lander, which is the same lesson the real programme learned, learned
      * in the simulator instead of in orbit.
      */
     id: 'lunar-descent',
     name: 'Descent',
     group: 'Aldrin',
-    blurb: 'Fly to the Moon, brake behind the far side, and take the last ten kilometres by hand — down to the surface, one way. Walk when you get there.',
+    blurb: 'Fly to the Moon, brake behind the far side, and take the last ten kilometres by hand, down to the surface, one way. Walk when you get there.',
     vessel: 'apollo8',
     sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
     target: 'lunar-descent',
@@ -780,7 +796,7 @@ export const program = {
  * `parking` is the vessel's parking altitude for the orbit check. The fuel
  * load needs no wiring: resetMission reads `wingFuel()` off the armed
  * program itself and drains the stack there, so the fraction lives in
- * exactly one place — `KARMAN_FUEL`, above.
+ * exactly one place, `KARMAN_FUEL`, above.
  */
 export function armProgram(def, wing, parking = 185e3) {
   program.def = def
@@ -808,7 +824,7 @@ export function disarmProgram() {
  * Advance the program: latch objectives, then evaluate hand-off and wing
  * boundaries.
  *
- * Runs inside `updateMission`'s tail — after the sequencer has acted this
+ * Runs inside `updateMission`'s tail, after the sequencer has acted this
  * frame, so every read here is of the frame's own state. Called with the
  * same arguments the sequencer itself receives.
  */
@@ -829,7 +845,7 @@ export function tickProgram(dt, simDt = dt) {
   }
 
   /*
-   * A story chapter is finished when its last objective latches — recorded
+   * A story chapter is finished when its last objective latches, recorded
    * the same tick it completes, from the same read of the sim the checklist
    * trusts, and never from a flag the UI set. `recordStory` is idempotent,
    * so the every-frame cost of a completed chapter is one array scan.
@@ -839,7 +855,7 @@ export function tickProgram(dt, simDt = dt) {
   }
 }
 
-/** Whether a wing holds a capability — the sequencer gate's single question. */
+/** Whether a wing holds a capability, the sequencer gate's single question. */
 export const wingHolds = (capability) => {
   if (!program.armed || !program.wing) return true
   return program.wing.holds.includes(capability)
@@ -856,16 +872,16 @@ export const wingFuel = () => {
  *
  * A capability read cannot answer this. `wingHolds('burns')` is true both
  * for a Trainee whose computer has just finished *its* last burn and for a
- * preset with nothing armed at all — the same answer meaning opposite
+ * preset with nothing armed at all, the same answer meaning opposite
  * things, and the CIRCULARISE exit cannot send a scripted mission into the
  * pilot's cockpit. (A first draft read the capability and would have done
  * exactly that; the flight in `verify-programs` is what exposed it.)
  *
  * The honest discriminator is the armed contract: a Trainee program *names*
  * insertion as computer work, so when its CIRCULARISE ends, the planner's
- * promise — from the parking orbit, the spacecraft is yours — falls due.
- * Nothing armed, or any other wing — Aviator took the stick at MECO, Aldrin
- * and Kármán at the count — and the sequencer keeps the vehicle.
+ * promise, from the parking orbit, the spacecraft is yours, falls due.
+ * Nothing armed, or any other wing, Aviator took the stick at MECO, Aldrin
+ * and Kármán at the count, and the sequencer keeps the vehicle.
  */
 export function handsOffAfterInsertion() {
   return program.armed && program.wing?.id === 'trainee'
