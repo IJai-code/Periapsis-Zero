@@ -108,7 +108,7 @@ function useNarrow() {
   return narrow
 }
 
-export function Hud() {
+export function Hud({ onLibrary }) {
   const open = useUi((s) => s.panelOpen)
   /** The setup drawer: missions, contracts, pad, craft, display, one key, S. */
   const setup = useUi((s) => s.setup)
@@ -128,6 +128,8 @@ export function Hud() {
   // A photograph is of the scene, not of the instruments over it.
   const photo = useUi((s) => s.photo)
   const focus = useUi((s) => s.focus)
+  const [menu, setMenu] = useState(false)
+  const pauseBeforeMenu = useRef(true)
   const [shared, setShared] = useState(false)
   const map = useUi((s) => s.map)
   const broadcast = useUi((s) => s.broadcast)
@@ -180,8 +182,9 @@ export function Hud() {
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target instanceof HTMLInputElement) return
-      if (logbookRef.current) return
+      if (e.target instanceof HTMLElement && (e.target.matches('input,textarea,select,button') || e.target.isContentEditable)) return
+      if (uiStore.get().boards || uiStore.get().setup) return
+      if (logbookRef.current || uiStore.get().experienceMenu) return
       /*
        * On foot, the keyboard belongs to the feet.
        *
@@ -218,12 +221,25 @@ export function Hud() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  useEffect(() => {
+    const escape = (e) => {
+      if (e.key !== 'Escape' || e.target instanceof HTMLElement && e.target.matches('input,textarea,select')) return
+      if (uiStore.get().boards || uiStore.get().setup || logbookRef.current) return
+      if (uiStore.get().experienceMenu) { setUi({ experienceMenu: false, paused: pauseBeforeMenu.current }); setMenu(false) }
+      else { pauseBeforeMenu.current = uiStore.get().paused; setUi({ experienceMenu: true, paused: true }); setMenu(true) }
+    }
+    window.addEventListener('keydown', escape)
+    return () => { window.removeEventListener('keydown', escape); setUi({ experienceMenu: false }) }
+  }, [])
+
+  const modeMenu = menu && <div className="sim-mode-menu" role="dialog" aria-modal="true" aria-label="Simulator menu"><section><span className="eyebrow">Simulator paused</span><h2>Where next?</h2><button autoFocus className="action-button primary" onClick={() => { setUi({ experienceMenu: false, paused: pauseBeforeMenu.current }); setMenu(false) }}>Resume flight</button><button className="action-button" onClick={() => { window.location.hash = '#story' }}>Survey campaign</button><button className="action-button" onClick={() => { window.location.hash = '' }}>Mode select</button></section></div>
+
   /*
     The broadcast replaces the whole instrument layout rather than sitting on
     top of it: a feed with panels printed over it is neither. The key handler
     above stays live in both, so the number keys cut between cameras here too.
   */
-  if (broadcast) return <BroadcastHud />
+  if (broadcast) return <><BroadcastHud />{modeMenu}</>
 
   /*
    * While the shutter is open there is no interface: the panels are what a
@@ -253,7 +269,7 @@ export function Hud() {
         foot (the walk folds the instruments away, not the doors); the board
         window is a panel like any other and folds with the cockpit.
       */}
-      <Nav onMap={toggleMap} onLogbook={() => setLogbook(true)} />
+      <Nav onMap={toggleMap} onLogbook={() => setLogbook(true)} onLibrary={onLibrary} />
       {!onFoot && <Boards />}
       {/*
         The bottom clearance, measured from the bottom stack up. The stack is
@@ -298,15 +314,15 @@ export function Hud() {
           </div>
         )}
         {/* What you have done here, and what this flight is about to give you. */}
-        <div className="pointer-events-auto">
+        {open && <div className="pointer-events-auto">
           <LogProgress />
-        </div>
+        </div>}
         {/*
           The game shell's two panels fold into the one column on a narrow
           screen, rendered from the same components as the right rail so the
           notices cannot disagree with themselves.
         */}
-        {narrow && !onFoot && (
+        {narrow && open && !onFoot && (
           <div className="pointer-events-auto">
             <Notices />
             <Contacts />
@@ -355,9 +371,7 @@ export function Hud() {
       */}
       {!narrow && !onFoot && (
         <div className="pointer-events-auto absolute top-[6.25rem] right-4 flex max-h-[calc(100vh-17rem)] flex-col items-end gap-3 overflow-y-auto">
-          <Notices />
-          <Contacts />
-          {open && instruments}
+          {open && <><Notices /><Contacts />{instruments}</>}
         </div>
       )}
 
@@ -468,6 +482,7 @@ export function Hud() {
         <Hotbar />
       </div>
       <Logbook open={logbook} onClose={() => setLogbook(false)} />
+      {modeMenu}
     </div>
     </>
   )

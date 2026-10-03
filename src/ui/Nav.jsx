@@ -18,7 +18,7 @@ import { Mark } from './Mark.jsx'
  * thing it replaces. Flight is the way home: it closes whatever is open and
  * leaves the pilot with the sky.
  */
-export function Nav({ onMap, onLogbook }) {
+export function Nav({ onMap, onLogbook, onLibrary }) {
   const map = useUi((s) => s.map)
   const broadcast = useUi((s) => s.broadcast)
   const setup = useUi((s) => s.setup)
@@ -34,7 +34,10 @@ export function Nav({ onMap, onLogbook }) {
       on: clean,
       go: () => setUi({ boards: null, setup: false, map: false, broadcast: false }),
     },
-    { id: 'story', label: 'story', on: boards === 'story', go: board('story') },
+    { id: 'library', label: 'missions', on: false, go: onLibrary },
+    { id: 'home', label: 'mode select', on: false, go: () => { window.location.hash = '' } },
+    { id: 'campaign', label: 'campaign', on: false, go: () => { window.location.hash = '#story' } },
+    { id: 'story', label: 'flight school', on: boards === 'story', go: board('story') },
     { id: 'almanac', label: 'almanac', on: boards === 'almanac', go: board('almanac') },
     { id: 'contracts', label: 'contracts', on: boards === 'contracts', go: board('contracts') },
     { id: 'logbook', label: 'logbook', on: false, go: onLogbook },
@@ -66,6 +69,7 @@ export function Nav({ onMap, onLogbook }) {
           <button
             key={it.id}
             onClick={it.go}
+            aria-current={it.on ? 'page' : undefined}
             className={`control shrink-0 rounded-sm px-2.5 py-1.5 text-[9px] tracking-[0.2em] uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/45 hover:text-ember'}`}
           >
             {it.label}

@@ -96,6 +96,8 @@ check('the generated score stays gone — the supplied bed is the only music', (
   // `sfx/score.js` was a generative soundtrack under the mission intros;
   // it was removed at the owner's word, and this is where that stays true.
   assert.ok(!existsSync(join(ROOT, 'src/sfx/score.js')), 'sfx/score.js has returned')
+  const intro = readFileSync(join(ROOT, 'src/ui/MissionIntro.jsx'), 'utf8')
+  assert.ok(!/\b(?:startScore|stopScore)\s*\(/.test(intro), 'mission intro still calls a removed soundtrack function')
   const walk = (dir, found) => {
     for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
       const p = join(ROOT, dir, e.name)

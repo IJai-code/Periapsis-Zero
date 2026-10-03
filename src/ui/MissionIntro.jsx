@@ -136,14 +136,12 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       // here at the only call site a film is saved from.
       recordFilm(preset.id)
     })
-    // Out with the letterbox, over the same beat and a little longer, so the
-    // mission does not start on a cut-off chord.
-    stopScore(2.4)
+    // Let the letterbox retreat before handing the picture to the mission.
     const t = setTimeout(() => onBegin?.(), 1250)
     return () => clearTimeout(t)
   }, [stage, onBegin, preset])
 
-  useEffect(() => () => { stopFilm(); stopScore(0.6); introEnd() }, [])
+  useEffect(() => () => { stopFilm(); introEnd() }, [])
 
   if (!preset) return null
   const page = beat >= 0 ? dossier?.beats?.[beat] : null

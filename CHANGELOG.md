@@ -5,6 +5,20 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### Three experiences and a playable surface survey: 3 October 2026
+
+The brochure front door is replaced by a cinematic mode selector: Expeditions, Story, and Simulator. The historical renderer is lazy-loaded only when entering Simulator; the first landing no longer waits for its texture generation.
+
+**Playable expeditions.** A fictional reusable survey lander approaches three distinct procedural regions: lunar impact highlands, Martian layered mesas, and Europan ice ridges. SI gravity comes from the existing body catalog. A fixed-step model carries mass-dependent thrust, finite fuel, optional thrust-based landing assistance, manual tilt/yaw/throttle, Mars-only atmospheric drag, safe contact limits, crash/retry, EVA collision and jumps, sample collection, return to the lander, and takeoff. Coarse terrain boundaries morph into the next ring's lattice to avoid open LOD seams. The surfaces are explicitly procedural, not represented as measured landing-site data.
+
+**A new campaign.** *The ground truth* has three authored briefings, field objectives, debriefs, and versioned local progress. A chapter completes only after a safe landing, paired sample collection, and return to the vehicle. Free-play surveys do not unlock story chapters. The old orbital chapter board is retained as Flight school rather than presented as the new narrative campaign.
+
+**Quieter Simulator.** Idle story and contact cards no longer fill the initial cockpit. Mission library, campaign, and mode selection are visible navigation. Escape offers a paused mode menu even during a broadcast; modal/form keyboard input no longer changes ship controls.
+
+**Verification.** A new expedition gate joins the full suite. It checks gravity, safe descents on all three bodies, manual thrust and yaw, engine-off crashes, zero fuel, terrain/collision agreement in the playable inner lattice, bounded geometry, LOD edges, EVA proximity, jump physics, progression validation, and route guards. Browser play-throughs cover actual movement and samples rather than awarding objectives from the UI. Detailed results are in `docs/hybrid-rebuild.md`.
+
+**Limits.** This is a regional surface-game foundation, not seamless orbit-to-ground traversal or a finished inhabited open world. Progress records completed surveys, not full-flight saves. Existing large-bundle build warnings remain.
+
 ### The view hotbar: 2 October 2026
 
 **Ten keys, at last on screen.** The camera has always been cut with the

@@ -639,6 +639,8 @@ export function CameraRig() {
       canvas.releasePointerCapture?.(e.pointerId)
     }
     const onKeyDown = (e) => {
+      if (uiStore.get().experienceMenu || uiStore.get().boards || uiStore.get().setup) return
+      if (e.target instanceof HTMLElement && (e.target.matches('input,textarea,select,button') || e.target.isContentEditable)) return
       if (!e.repeat) keys.add(e.code)
       /*
        * A jump is an event, not a state, and it has to be latched.

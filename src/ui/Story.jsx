@@ -26,11 +26,10 @@ export function Story() {
   return (
     <div className="panel w-48 rounded-sm p-3.5">
       <div className="rule mb-2.5 border-b border-white/10 pb-2">
-        The story · {doneCount}/{STORY.length}
+        Flight school · {doneCount}/{STORY.length}
       </div>
       <p className="mb-2.5 text-[10px] leading-snug text-hud/45">
-        Six flights, in order, orbit, station, high, the crossing, the far
-        side, down. Each unlocks when the one before it is flown.
+        Six orbital lessons, from the tower to the Moon. The new survey campaign is under Campaign in the menu.
       </p>
       <div className="space-y-2.5">
         {STORY.map((c, i) => {
@@ -61,7 +60,7 @@ export function Story() {
                       : 'cursor-default border-white/6 text-white/25'
                 }`}
               >
-                {armed ? 'On this flight' : done ? 'Fly it again' : unlocked ? 'Begin the chapter' : 'Fly the one before'}
+                {armed ? 'On this flight' : done ? 'Fly it again' : unlocked ? 'Begin the lesson' : 'Fly the one before'}
               </button>
             </div>
           )

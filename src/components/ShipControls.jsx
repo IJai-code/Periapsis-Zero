@@ -32,6 +32,7 @@ export function ShipControls() {
     const held = new Set()
 
     const refresh = () => {
+      if (uiStore.get().experienceMenu || uiStore.get().boards || uiStore.get().setup) held.clear()
       for (const [axis, neg, pos] of AXES) {
         input[axis] = (held.has(neg) ? -1 : 0) + (held.has(pos) ? 1 : 0)
       }
@@ -54,7 +55,8 @@ export function ShipControls() {
     }
 
     const onDown = (e) => {
-      if (e.repeat) return
+      if (e.repeat || uiStore.get().experienceMenu || uiStore.get().boards || uiStore.get().setup) return
+      if (e.target instanceof HTMLElement && (e.target.matches('input,textarea,select,button') || e.target.isContentEditable)) return
       const id = keyId(e)
       if (id === 'KeyX') ship.throttle = 0
       if (id === 'KeyZ') ship.throttle = 1

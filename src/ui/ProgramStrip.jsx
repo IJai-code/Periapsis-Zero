@@ -1,7 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { subscribeUiTick } from './uiClock.js'
 import { program, STORY } from '../sim/programs.js'
-import { storyDone, storyState, subscribeStory } from '../sim/story.js'
+import { storyState, subscribeStory } from '../sim/story.js'
 import { beginDef } from './beginDef.js'
 
 /**
@@ -52,45 +52,7 @@ export function ProgramStrip() {
     return subscribeUiTick(tick, 1)
   }, [program.armed, program.def?.id])
 
-  if (!armed || !program.def) {
-    /*
-     * Nothing armed, and the tracker becomes the story's standing rather than
-     * disappearing. A checklist that vanishes when the flight has no plan is
-     * correct and useless: the first question a new pilot has is "what is
-     * there to do", and the answer is the chapter the story is waiting on.
-     * The first chapter not yet flown is always the unlocked one, by the same
-     * rule the board applies.
-     */
-    const doneCount = STORY.filter((c) => storyDone(c.id)).length
-    const nextIndex = STORY.findIndex((c) => !storyDone(c.id))
-    const next = nextIndex >= 0 ? STORY[nextIndex] : null
-    return (
-      <div className="panel w-52 rounded-sm p-3.5">
-        <div className="rule mb-2.5 border-b border-white/10 pb-2">
-          The story · {doneCount}/{STORY.length}
-        </div>
-        {next ? (
-          <>
-            <div className="font-mono text-[9px] tracking-[0.24em] text-ember uppercase">
-              Chapter {nextIndex + 1} of {STORY.length}
-            </div>
-            <div className="mt-1 text-[12px] text-white/85">{next.name}</div>
-            <p className="mt-1 text-[10px] leading-snug text-hud/50">{next.brief}</p>
-            <button
-              onClick={() => beginDef(next)}
-              className="control mt-2 w-full border border-hud/20 px-2 py-1.5 font-mono text-[9px] tracking-[0.18em] text-hud/60 uppercase outline-none transition-colors duration-300 hover:border-ember/70 hover:text-ember focus-visible:border-ember focus-visible:text-ember"
-            >
-              Begin the chapter
-            </button>
-          </>
-        ) : (
-          <p className="text-[10px] leading-snug text-hud/50">
-            All six flown. The sky writes more in the Almanac.
-          </p>
-        )}
-      </div>
-    )
-  }
+  if (!armed || !program.def) return null
 
   /*
    * A story chapter rides the same strip as any program, the machinery is

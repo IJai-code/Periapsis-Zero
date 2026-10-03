@@ -1,21 +1,46 @@
-# Periapsis Zero — the solar system at true scale
+# Periapsis Zero — fly, land, explore
 
-A real-time three-body simulation of the Sun, Earth and Moon, integrated with a
-4th-order Runge-Kutta scheme and rendered with React Three Fiber.
+A space game and simulator with three experiences in one app: **Expeditions**, **Story**, and the historical **Simulator**. Built with React Three Fiber and Three.js.
+
+## The hybrid release
+
+- **Expeditions:** approach the Moon, Mars, or Europa in a fictional reusable survey lander. Land with optional assistance, leave the vehicle, collect paired samples, return them, and take off. Finite propellant, inertia, real body gravity, hard-landings, and retry are active mechanics.
+- **Story:** *The ground truth*, a three-flight survey campaign with crew briefings, field objectives, debriefs, and locally saved sequential unlocks. The old six orbital chapters remain in Simulator as **Flight school**.
+- **Simulator:** measured Sun/Earth/Moon dynamics integrated by RK4, planetary rails, Apollo/Artemis missions, orbit planning, and the historical mission library. The initial cockpit is quieter; Missions and Mode select are visible in the top bar. Escape also opens a mode menu during a broadcast.
+
+**Scope:** surface regions are deterministic procedural geology, not measured reconstructions. Expeditions use a local metre-scale renderer and fictional vehicle; they are not yet seamless continuations of the historical orbital simulation. Only survey completion is saved, not an in-progress flight. Each playable survey sector extends 700 m from its center, with a wider rendered horizon. There is no multiplayer, combat, inhabited city, or whole-planet terrain streaming.
+
+### Expedition controls
+
+| Input | Action |
+| --- | --- |
+| H | Toggle landing assistance, which uses the same thrust and fuel model |
+| R / F | Increase / decrease manual throttle |
+| W A S D | Tilt the lander; move on foot |
+| Q / Z | Yaw the lander |
+| E | Leave or board the landed vehicle; collect a nearby sample |
+| T | Take off after touchdown |
+| Drag / wheel | Look / adjust chase distance |
+| Left / right arrows | Turn your view on foot |
+| Shift / Space | Run / jump on foot |
+| Escape | Pause menu, retry, or return to mode selection |
+
+Touch buttons provide movement, looking, jumping, and thrust adjustment on narrow/coarse-pointer screens. The throttle slider also supports pointer and keyboard control. Samples require standing within 5 m; boarding requires returning within 11 m of the lander.
+
+See [hybrid-rebuild.md](docs/hybrid-rebuild.md) for acceptance criteria, architecture, verification, and remaining work. Run `npm run verify:expeditions` for the new physics/terrain/progression gate; `npm run verify:all` runs all 69 gates.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open <http://localhost:5173>. The front door is the simulation — the
-planet behind the text is the live scene at the real sun angle, and *Begin
-flight* hands you that camera rather than loading anything. <http://localhost:5173/#flight>
-goes straight in.
+Then open <http://localhost:5173>. The front door now shows a rendered Martian landscape and three mode choices; it does not wait for the historical simulator's texture worker. Direct links:
 
-There used to be a separate `landing.html`. It had to be found at its own URL,
-went stale whenever the scene changed, and made a promise the simulator then had
-to keep somewhere else.
+- <http://localhost:5173/#flight> — Simulator (existing query-string mission links still work).
+- <http://localhost:5173/#story> — Survey campaign.
+- <http://localhost:5173/#expedition/moon>, <http://localhost:5173/#expedition/mars>, <http://localhost:5173/#expedition/europa> — Free expeditions.
+
+The sections below describe the historical simulator unless stated otherwise.
 
 Real NASA imagery is what you get: Blue Marble, Black Marble and the CGI Moon
 Kit, committed in `public/textures/` and loaded at startup. There is no switch

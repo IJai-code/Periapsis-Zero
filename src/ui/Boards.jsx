@@ -21,7 +21,7 @@ import { Contracts } from './Contracts.jsx'
  * moment the reading ends.
  */
 const TABS = [
-  { id: 'story', label: 'story' },
+  { id: 'story', label: 'flight school' },
   { id: 'almanac', label: 'almanac' },
   { id: 'contracts', label: 'contracts' },
 ]
