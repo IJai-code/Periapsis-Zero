@@ -7,14 +7,14 @@ import { TERMINAL, commentaryNow } from '../sim/commentary.js'
  * The line that says what is going on.
  *
  * Bottom-centre, above the controls, because it is something you read once when
- * the phase changes and then stop looking at — and because the bottom-*left*
+ * the phase changes and then stop looking at, and because the bottom-*left*
  * corner, where this started, is under a control bar that is centred and 670 px
  * wide, so a line beginning at the left margin lost its last two sentences.
  *
  * ── why it is on a timer and not on state ─────────────────────────────
  *
- * Several of these lines carry live figures — an altitude during the gravity
- * turn, a g load during entry, a countdown on the pad — and a few change every
+ * Several of these lines carry live figures, an altitude during the gravity
+ * turn, a g load during entry, a countdown on the pad, and a few change every
  * second. Putting them in React state would re-render the tree at whatever rate
  * the fastest one needs. So the text is written straight into the node on a
  * timer, the way `Telemetry` and `FlightStrip` already do it, and React
@@ -30,7 +30,7 @@ import { TERMINAL, commentaryNow } from '../sim/commentary.js'
  * Two ways, because a panel that cannot be got rid of is furniture rather than
  * information.
  *
- * It can be dismissed, and a dismissal lasts until the phase changes — the next
+ * It can be dismissed, and a dismissal lasts until the phase changes, the next
  * thing that happens is new, so it gets to speak again. And a *terminal* phase
  * retires itself: after splashdown the line sat there for the rest of the
  * session announcing that the mission was over, which is the interface failing
@@ -67,8 +67,8 @@ export function Commentary() {
       setHas(line !== null)
       if (body.current && line !== null) body.current.textContent = line
     }
-    // The phase at mount may already be terminal — a page loaded straight into
-    // a finished flight — so the clock starts here rather than only on a change.
+    // The phase at mount may already be terminal, a page loaded straight into
+    // a finished flight, so the clock starts here rather than only on a change.
     endedAt.current = TERMINAL.has(currentPhase().id) ? performance.now() : null
     tick()
     return subscribeUiTick(tick, 2)
@@ -80,7 +80,7 @@ export function Commentary() {
 
   /*
    * 28rem, not 30. The band between the two rails is not centred on the
-   * viewport — at 1024 px the left rail ends at 240 and the right begins at
+   * viewport, at 1024 px the left rail ends at 240 and the right begins at
    * 746, so its midpoint is 493 while the screen's is 512. A viewport-centred
    * element can therefore only be 468 px wide before its right edge reaches the
    * rail, and 30rem is 480. Measured, it overlapped by six pixels.

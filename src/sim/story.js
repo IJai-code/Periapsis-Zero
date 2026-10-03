@@ -3,7 +3,7 @@
  *
  * Six chapters, flown in order; this is where a completed chapter is written
  * and read back. It exists as its own module because the record is not view
- * state and not flight state — it outlives the page the way the logbook does,
+ * state and not flight state, it outlives the page the way the logbook does,
  * and both `programs.js` (which writes, the moment a chapter's last objective
  * latches) and the story board (which reads, to decide what is unlocked) need
  * one small store neither should own.
@@ -11,7 +11,7 @@
  * The shape follows `logbook.js`: subscribe/get for `useSyncExternalStore`,
  * localStorage for persistence, and a silent no-op everywhere the platform
  * says no (private browsing, SSR, a gate running under Node). A chapter that
- * cannot be recorded has still been flown — the board will just offer it
+ * cannot be recorded has still been flown, the board will just offer it
  * again next visit, which is the honest failure mode.
  */
 
@@ -43,7 +43,7 @@ export function subscribeStory(listener) {
 }
 
 /**
- * Record a completed chapter. Idempotent — `tickProgram` calls this every
+ * Record a completed chapter. Idempotent, `tickProgram` calls this every
  * frame once the checklist is full, and the first write wins.
  */
 export function recordStory(id, missionT) {

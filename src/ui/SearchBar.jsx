@@ -9,17 +9,17 @@ import { setUi, useUi } from '../sim/store.js'
 /**
  * Go anywhere by name.
  *
- * This replaces the camera-lock list — ten fixed buttons, one of them a planet,
- * none of them the other seven — with the question a visitor actually has:
+ * This replaces the camera-lock list, ten fixed buttons, one of them a planet,
+ * none of them the other seven, with the question a visitor actually has:
  * *where do I want to look?* Type "sat", "red planet", "moons of jupiter",
  * "sirius", "andromeda" or "chase" and choose; the camera flies there along a
  * zoom-pan path (see `gfx/zoomPath.js`) however far away it is. The list is
- * `sim/catalog.js`, which knows every body, craft, view, pad, mission and — once
- * the cosmos has loaded — star and galaxy the simulator draws.
+ * `sim/catalog.js`, which knows every body, craft, view, pad, mission and, once
+ * the cosmos has loaded, star and galaxy the simulator draws.
  *
  * A typed name need not be typed correctly: "nepchune" and "androemda" are
- * matched, and a name the simulator merely recognises — Ceres, Voyager 1, a
- * constellation — is answered with what it is and that it is not in yet, rather
+ * matched, and a name the simulator merely recognises, Ceres, Voyager 1, a
+ * constellation, is answered with what it is and that it is not in yet, rather
  * than with the nearest entry that shares some letters. `sim/catalog.js`
  * decides which of those it is; this draws the three answers.
  *
@@ -111,7 +111,7 @@ function Glyph({ kind }) {
   }
 }
 
-/** Open the search from anywhere — the broadcast's button, a keyboard shortcut. */
+/** Open the search from anywhere, the broadcast's button, a keyboard shortcut. */
 export const openSearch = () => window.dispatchEvent(new CustomEvent('pz:search'))
 
 /** Carry out a choice: lock the camera, or follow a link. */
@@ -123,12 +123,12 @@ export function goToEntry(entry) {
   }
   /*
    * The places beyond the planets *arrive*. A shared link has always been able
-   * to land the camera at Andromeda; the search — the way everyone actually
-   * travels — did not, so a galaxy chosen by name sat where it was: the rig
+   * to land the camera at Andromeda; the search, the way everyone actually
+   * travels, did not, so a galaxy chosen by name sat where it was: the rig
    * began a pilot-speed move toward a target 2.5 million light-years out, and
    * the visitor watched nothing happen for their trouble. The warp ladder
    * cannot cross intergalactic space and was never meant to; the honest move
-   * is the one the link already makes. Planets keep their real transits — the
+   * is the one the link already makes. Planets keep their real transits, the
    * journey through the system is the sim.
    */
   if (COSMIC[entry.focus]) TRANSIT.arrive = true
@@ -218,18 +218,18 @@ export function SearchBar({ compact = false }) {
   }
 
   const current = CATALOG.find((c) => c.focus === focus && !c.href)
-  const placeholder = current ? `${current.name} — search anywhere` : 'Search planets, moons, stars…'
+  const placeholder = current ? `${current.name}, search anywhere` : 'Search planets, moons, stars…'
 
   /*
    * On a wide screen the results float over the scene under the field. In the
-   * narrow layout the field sits in the left column, which scrolls — and a
+   * narrow layout the field sits in the left column, which scrolls, and a
    * scrolling box clips what floats out of it, so the list was drawn nowhere
    * and a tap on a result landed on the canvas. There the list takes its
    * place in the column instead.
    */
   /*
    * The answer to a name the simulator knows of but has not built, and to one
-   * it cannot place at all. Neither is selectable — there is nowhere to go —
+   * it cannot place at all. Neither is selectable, there is nowhere to go —
    * so both sit above the list rather than in it, and the arrow keys walk
    * whatever genuine near-misses came with them.
    */
@@ -249,7 +249,7 @@ export function SearchBar({ compact = false }) {
       <li role="presentation" className="px-3 pt-2.5 pb-2">
         <span className="block text-[12px] leading-tight tracking-wide text-white/65">{note}</span>
         <span className="mt-1 block text-[9.5px] leading-tight text-white/35">
-          Nothing out there answers to that — try the Sun, Mars, Andromeda, or the Pillars of Creation
+          Nothing out there answers to that, try the Sun, Mars, Andromeda, or the Pillars of Creation
         </span>
       </li>
     ) : null
@@ -326,7 +326,7 @@ export function SearchBar({ compact = false }) {
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          aria-label="Search the simulator — planets, moons, stars, craft, views"
+          aria-label="Search the simulator, planets, moons, stars, craft, views"
           role="combobox"
           aria-expanded={open}
           aria-controls={listId}

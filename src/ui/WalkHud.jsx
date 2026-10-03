@@ -10,7 +10,7 @@ import { jumpHeight, jumpTime, surfaceGravity, walkSpeed } from '../sim/walk.js'
  * What it is like to stand here.
  *
  * The walk's whole argument is that no number in it was chosen to make walking
- * feel a particular way — there are four measurements about a human being and
+ * feel a particular way, there are four measurements about a human being and
  * the gravity of whatever is underfoot, and everything else follows. That
  * argument is invisible unless the panel says it, so the panel says it: the
  * world, its gravity, the speed the walking gait breaks at here, and what a
@@ -19,7 +19,7 @@ import { jumpHeight, jumpTime, surfaceGravity, walkSpeed } from '../sim/walk.js'
  *
  * The gait number is the one worth looking at. In a walking stride the body
  * vaults over a straight leg and stays on the ground only while v² / L is
- * under g, so the fastest walk is sqrt(gL) — 2.97 m/s on Earth and **1.21 on
+ * under g, so the fastest walk is sqrt(gL), 2.97 m/s on Earth and **1.21 on
  * the Moon**. That is not a rule this simulator invented. It is why the Apollo
  * crews stopped walking and hopped, and it comes out of two measurements and a
  * square root.
@@ -76,7 +76,7 @@ export function WalkHud() {
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <span className="text-[10px] text-white/35">Speed</span>
         <span data-field="speed" className="tabular-nums text-[13px] text-hud">
-          —
+          ·
         </span>
       </div>
       <div className="flex items-baseline justify-between gap-3">
@@ -108,7 +108,7 @@ export function WalkHud() {
 
       <p className="mt-2.5 border-t border-white/10 pt-2 text-[9px] leading-relaxed text-white/25">
         {body === 'moon'
-          ? 'A sixth of the grip, so you start slowly and cannot stop quickly. Above the gait speed a walk has to become a hop — which is what the crews found.'
+          ? 'A sixth of the grip, so you start slowly and cannot stop quickly. Above the gait speed a walk has to become a hop, which is what the crews found.'
           : 'The complex is graded flat, and the boots stay on the ground that is drawn rather than wandering onto relief that is not.'}
       </p>
     </div>
@@ -119,11 +119,11 @@ export function WalkHud() {
  * How anyone finds out the walk exists.
  *
  * Cameras in this simulator are on the number keys and nothing on screen lists
- * them, which is fine for a camera — they are alternatives to each other, and
+ * them, which is fine for a camera, they are alternatives to each other, and
  * a viewer who never presses 4 has still seen the Moon. The walk is not an
  * alternative to anything; it is the only way to be *in* the scene rather than
  * looking at it, and a mode nobody presses a key for is a mode nobody has. So
- * the one view it follows from — the person standing on the ground — carries
+ * the one view it follows from, the person standing on the ground, carries
  * one line offering it, and only that view, so it is an invitation in the one
  * place it makes sense rather than a permanent label.
  */

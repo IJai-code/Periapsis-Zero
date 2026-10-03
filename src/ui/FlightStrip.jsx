@@ -15,7 +15,7 @@ import { INDEX } from '../sim/system.js'
  * glanced at, and putting it beside the wordmark means the things that change
  * fastest are where the eye already is.
  *
- * The full panels keep their rows. This is not a move, it is a summary — the
+ * The full panels keep their rows. This is not a move, it is a summary, the
  * same `live` fields read twice costs four property reads a tick.
  *
  * ── why the numbers do not twitch ─────────────────────────────────────
@@ -23,7 +23,7 @@ import { INDEX } from '../sim/system.js'
  * Two reasons, and they are separate problems.
  *
  * **Width.** Proportional digits are not the same width, so `1` replacing `0`
- * shortens the string and everything after it slides left — sixty times a
+ * shortens the string and everything after it slides left, sixty times a
  * second, on four figures at once. That is most of what reads as a jittery
  * readout, and it is a font feature rather than a layout bug: `tabular-nums`,
  * set on the mono face in `index.css` so nothing can forget it. Each value also
@@ -55,7 +55,7 @@ const FIELDS = [
   },
   {
     /*
-     * Pascals, and it reads zero on the pad by construction — the vehicle is
+     * Pascals, and it reads zero on the pad by construction, the vehicle is
      * not moving through the air, so there is no dynamic pressure on it. That
      * is the correct reading and not a broken one, which is worth knowing
      * before anybody "fixes" it.
@@ -82,7 +82,7 @@ const FIELDS = [
  * Earth's 380,000 km; and from the moment Eagle lifts off the thing it is
  * flying toward is Columbia, so the range to it and the rate it is closing
  * take the strip's middle. Range and rate are read straight off the state, on
- * this timer, not from the sequencer's copy — which only refreshes in the
+ * this timer, not from the sequencer's copy, which only refreshes in the
  * phases that steer by them.
  */
 const rel = new Float64Array(2)
@@ -114,7 +114,7 @@ const LUNAR_FIELDS = [
     label: 'Range · Columbia',
     width: '8ch',
     get: () => {
-      if (INDEX.target === undefined) return '—'
+      if (INDEX.target === undefined) return '·'
       relative()
       return rel[0] < 10e3 ? `${rel[0].toFixed(0)} m` : `${(rel[0] / 1000).toFixed(1)} km`
     },
@@ -124,7 +124,7 @@ const LUNAR_FIELDS = [
     label: 'Closing',
     width: '8ch',
     get: () => {
-      if (INDEX.target === undefined) return '—'
+      if (INDEX.target === undefined) return '·'
       relative()
       return `${rel[1] >= 0 ? '' : '−'}${Math.abs(rel[1]).toFixed(Math.abs(rel[1]) < 10 ? 2 : 1)} m/s`
     },
@@ -155,8 +155,8 @@ export function FlightStrip() {
 
   /*
    * One row where there is room for one; two by two on a phone. A phone's
-   * column is 358 px and the row is ~390, and the strip takes no touches — it
-   * is a readout, not a control — so it could not be scrolled to its last
+   * column is 358 px and the row is ~390, and the strip takes no touches, it
+   * is a readout, not a control, so it could not be scrolled to its last
    * figure either: measured, the load factor was cut off at the screen edge.
    */
   return (
@@ -169,7 +169,7 @@ export function FlightStrip() {
           key={f.key}
           /*
            * The separator is a real border on the cell that needs it, rather
-           * than a stack of sibling divs — one rule per boundary, and no
+           * than a stack of sibling divs, one rule per boundary, and no
            * trailing hairline to trim off the end.
            */
           className={`border-hud/15 px-3.5 py-2 sm:px-4 ${i % 2 === 1 ? 'border-l' : ''} ${i >= 2 ? 'border-t sm:border-t-0' : ''} ${
@@ -182,7 +182,7 @@ export function FlightStrip() {
             style={{ minWidth: f.width }}
             className="readout mt-1 font-mono text-[12px] leading-none text-hud/90 tabular-nums"
           >
-            —
+            ·
           </div>
         </div>
       ))}

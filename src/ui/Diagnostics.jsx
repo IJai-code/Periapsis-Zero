@@ -70,7 +70,7 @@ export function Diagnostics() {
    * Read the shared ring once a second. No second rAF loop: the governor's
    * frame callback already measures every delta this panel reports, and a
    * panel that measures the same frames with its own loop is a second
-   * opinion nobody asked for — plus one more callback the frame budget pays
+   * opinion nobody asked for, plus one more callback the frame budget pays
    * for whether or not the panel is open.
    */
   useEffect(() => {
@@ -96,13 +96,13 @@ export function Diagnostics() {
    *
    * Nothing here leaves the machine on its own. A report of "it was laggy" is
    * a symptom with a dozen causes, and the fastest way to tell them apart is
-   * for the person who saw it to paste these four lines — which they can read
+   * for the person who saw it to paste these four lines, which they can read
    * before they do, and which go wherever they choose to put them.
    */
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     const text = [
-      'Periapsis Zero — this machine',
+      'Periapsis Zero · this machine',
       ...rows.map(([k, v]) => `${k}: ${v}`),
       `Rendering at: ${QUALITY_LABEL()}`,
       `Browser: ${navigator.userAgent}`,

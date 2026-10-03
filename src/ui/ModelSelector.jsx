@@ -8,7 +8,7 @@ import { setUi, useUi } from '../sim/store.js'
  *
  * Nothing here names a vehicle: add a file to public/models/, re-run
  * `npm run models:scan`, and it appears. Selecting an entry fetches just that
- * model — the catalogue is far too large to pull in one go.
+ * model, the catalogue is far too large to pull in one go.
  */
 const TARGETS = ['ship', 'iss', 'hubble']
 
@@ -69,7 +69,7 @@ function Row({ craftId }) {
         onChange={(e) => assign(craftId, e.target.value)}
         className="w-full rounded-[2px] border border-white/10 bg-black/60 px-1.5 py-1 font-mono text-[10px] text-white/85 outline-none transition-colors hover:border-hud/40 focus:border-hud/60 disabled:cursor-progress disabled:opacity-50"
       >
-        <option value="">— placeholder —</option>
+        <option value="">procedural placeholder</option>
         {MODEL_GROUPS.map((group) => (
           <optgroup key={group} label={group}>
             {MODEL_CATALOG.filter((m) => m.group === group).map((m) => (
@@ -100,7 +100,7 @@ export function ModelSelector() {
       </div>
 
       <p className="mt-3 border-t border-white/10 pt-2.5 text-[9px] leading-relaxed text-white/25">
-        A mesh is a costume, not a vehicle — mass, staging and drag stay the
+        A mesh is a costume, not a vehicle, mass, staging and drag stay the
         craft's own. The catalogue has no SLS and no Orion, so Artemis has no
         faithful hull to wear yet.
       </p>

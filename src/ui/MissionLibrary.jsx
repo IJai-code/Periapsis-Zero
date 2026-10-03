@@ -9,11 +9,11 @@ import { WARP } from '../sim/warp.js'
 /**
  * The mission library: nine flights as a flight archive.
  *
- * The landing page used to carry the missions as a ruled list — fine for three,
+ * The landing page used to carry the missions as a ruled list, fine for three,
  * thin for nine. This is the drawer they belong in: a catalogue of flight
  * plans, each with the vehicle, the pad, the moment it hands over and the pace
  * it hands over at. The cards are links, because a mission here is still an
- * address — vessel and pad are fixed at load, so choosing a flight reloads with
+ * address, vessel and pad are fixed at load, so choosing a flight reloads with
  * its own and flies from the pad to the moment it advertises.
  *
  * The visual grammar is the front door's: hairlines that change colour rather
@@ -22,7 +22,7 @@ import { WARP } from '../sim/warp.js'
  */
 
 /**
- * The curated part of the catalogue — what each flight hands over to, and
+ * The curated part of the catalogue, what each flight hands over to, and
  * where it belongs in the drawer. Everything else (craft, pad) is read from
  * the simulator's own registries so the two cannot disagree.
  */
@@ -49,13 +49,13 @@ const pace = (warp) => {
 
 /* ------------------------------------------------------------------ *
  * The hero motifs: one diagram per kind of flight, drawn in the brand's
- * own hairlines — arc, body, ember tick. The library is the mark's home
+ * own hairlines, arc, body, ember tick. The library is the mark's home
  * as much as the tab is.
  * ------------------------------------------------------------------ */
 
 function Motif({ tag }) {
   const hud = 'currentColor'
-  const ember = '#d7733e'
+  const ember = '#ff6b2c'
   return (
     <svg viewBox="0 0 160 72" aria-hidden className="h-full w-full text-hud/55">
       {tag === 'From the pad' && (
@@ -100,7 +100,7 @@ export function MissionLibrary({ open, onClose }) {
    * The projection room: one film, at the size it was recorded at.
    *
    * The cards used to be the only place a film was ever seen, in a 64-pixel
-   * strip with `object-cover` — so a 1080p recording of a flight across the
+   * strip with `object-cover`, so a 1080p recording of a flight across the
    * solar system was shown as a cropped letterbox the height of a line of
    * text, with playback controls squeezed into it. That is most of what
    * "the recordings are low quality" was: the recording was never the thing
@@ -115,7 +115,7 @@ export function MissionLibrary({ open, onClose }) {
    * The shelf: films the flights have left here.
    *
    * Each mission's intro is recorded as it plays (gfx/filmRecorder.js) and
-   * kept on this shelf, so a flight watched becomes a flight kept — its card
+   * kept on this shelf, so a flight watched becomes a flight kept, its card
    * plays it back and can hand it over as a file. The object URLs are made
    * when the drawer opens and given back when it closes.
    */
@@ -173,7 +173,7 @@ export function MissionLibrary({ open, onClose }) {
    * Portalled to the body. The drawer is `fixed inset-0`, and fixed means the
    * viewport only while no ancestor has a filter: the flight HUD opens it from
    * inside the Missions panel, whose smoked glass is a `backdrop-filter`, and
-   * that made the panel its containing block — the whole library was laid out
+   * that made the panel its containing block, the whole library was laid out
    * in a 190-pixel column, scrolled 400 px up out of its own clip.
    */
   return createPortal(
@@ -181,7 +181,7 @@ export function MissionLibrary({ open, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Mission library"
-      className="fixed inset-0 z-50 overflow-y-auto bg-[#0a0b0d]/96 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 overflow-y-auto bg-[#120b22]/96 backdrop-blur-[2px]"
     >
       <div className="mx-auto min-h-full w-full max-w-6xl px-6 py-10 sm:px-10">
         {/* The masthead: same eyebrow rhythm as the front door. */}
@@ -194,7 +194,7 @@ export function MissionLibrary({ open, onClose }) {
               Mission library
             </h1>
             <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-hud/60">
-              Every flight here is flown from the pad when it loads — nothing is a saved
+              Every flight here is flown from the pad when it loads, nothing is a saved
               state. Choose where to arrive.
             </p>
           </div>
@@ -230,7 +230,7 @@ export function MissionLibrary({ open, onClose }) {
           </span>
         </nav>
 
-        {/* The cards. Colour is the only animated property — see the front
+        {/* The cards. Colour is the only animated property, see the front
             door's mission rows for why nothing here moves. */}
         <div ref={gridRef} className="mt-6 grid gap-px bg-hud/12 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((p, i) => {
@@ -240,7 +240,7 @@ export function MissionLibrary({ open, onClose }) {
             return (
               <article
                 key={p.id}
-                className="group relative flex flex-col bg-[#0a0b0d] p-5 outline-none transition-colors duration-500 hover:bg-hud/[0.045] focus-visible:bg-hud/[0.055]"
+                className="group relative flex flex-col bg-[#120b22] p-5 outline-none transition-colors duration-500 hover:bg-hud/[0.045] focus-visible:bg-hud/[0.055]"
               >
                 <span
                   aria-hidden
@@ -339,7 +339,7 @@ export function MissionLibrary({ open, onClose }) {
           onClick={() => setPlaying(null)}
         >
           {/* Controls live on the element, so the click that reaches the
-              backdrop is a click that missed the film — which is the gesture
+              backdrop is a click that missed the film, which is the gesture
               that closes it. */}
           <video
             src={films[playing].url}

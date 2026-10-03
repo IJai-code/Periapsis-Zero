@@ -10,7 +10,7 @@ const C = 299792458
  *
  * The range is eleven orders of magnitude, so no single unit works: metres per
  * second next to a hull, kilometres per second in orbit, multiples of c out
- * between the planets. The last of those is stated rather than hidden — the
+ * between the planets. The last of those is stated rather than hidden, the
  * camera is a viewpoint and not an object, and a reader who notices the number
  * is past c deserves to see it said plainly instead of silently capped.
  */
@@ -33,7 +33,7 @@ const KEYS = [
 
 /**
  * Shown only while free flight is active. Written straight into the DOM on a
- * timer, like the rest of the live readouts — the speed changes every frame and
+ * timer, like the rest of the live readouts, the speed changes every frame and
  * re-rendering a React tree to print one number would cost more than the
  * integration does.
  */
@@ -58,7 +58,7 @@ export function FlyHud() {
       if (room) {
         const d = live.nearest.distance
         room.textContent = !Number.isFinite(d)
-          ? '—'
+          ? '·'
           : d < 1000
             ? `${d.toFixed(0)} m to ${live.nearest.id}`
             : `${(d / 1e3).toLocaleString('en-US', { maximumFractionDigits: 0 })} km to ${live.nearest.id}`
@@ -80,13 +80,13 @@ export function FlyHud() {
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <span className="text-[10px] text-white/35">Speed</span>
         <span data-field="speed" className="tabular-nums text-[13px] text-hud">
-          —
+          ·
         </span>
       </div>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[10px] text-white/35">Clearance</span>
         <span data-field="room" className="tabular-nums text-[11px] text-white/85">
-          —
+          ·
         </span>
       </div>
 
@@ -102,7 +102,7 @@ export function FlyHud() {
       </div>
 
       {/* Written on the timer like the readouts above: the browser can drop the
-          lock at any moment — escape, a tab switch — and a stale line here would
+          lock at any moment, escape, a tab switch, and a stale line here would
           be telling the pilot they have a mouse they do not have. */}
       <p
         data-field="lock"

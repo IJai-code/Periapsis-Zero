@@ -34,7 +34,7 @@ function read() {
  *
  * While the worker searches: how far through it is, so fifteen seconds of
  * background targeting reads as progress rather than as nothing happening. Then
- * the burns it planned, and which have flown — the correction and the insertion
+ * the burns it planned, and which have flown, the correction and the insertion
  * are solved later, against the states the craft actually reaches, so until then
  * their figures are the search's estimate or nothing.
  */

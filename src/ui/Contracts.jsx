@@ -13,13 +13,13 @@ import { subscribeUiTick } from './uiClock.js'
  * and the answer is always the honest work of spaceflight: reach orbit, take
  * the plate, phase toward the station, raise the ellipse, brake into lunar
  * orbit. Nothing here shoots at anybody. The realism is not a limit on the
- * game; it is the game — orbital mechanics is the antagonist, and it plays
+ * game; it is the game, orbital mechanics is the antagonist, and it plays
  * by rules it publishes.
  *
  * Taking a job rides the same machinery as planning a route: the program is
  * armed, the mission resets to the pad with the contract's own site, and the
  * checklist rides the instruments column, ticked off by the simulation. When
- * every line is ticked the board says so — read live off the armed program,
+ * every line is ticked the board says so, read live off the armed program,
  * the way the checklist itself is.
  */
 export function Contracts() {
@@ -29,7 +29,7 @@ export function Contracts() {
     const tick = () => {
       const el = state.current
       if (!el) return
-      // The armed contract's progress, written straight to the DOM — the same
+      // The armed contract's progress, written straight to the DOM, the same
       // rule the checklist keeps: the board re-renders on take, the ticks
       // move on the clock.
       const done = program.armed && program.def?.contract
@@ -50,7 +50,7 @@ export function Contracts() {
     selectSite(def.sites.includes(current) ? current : def.sites[0])
     armContract(def)
     resetMission()
-    // The setup drawer closes with the job taken — same hand-off the story
+    // The setup drawer closes with the job taken, same hand-off the story
     // makes: the setup is over, the checklist rides the instruments.
     setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: true, setup: false })
   }

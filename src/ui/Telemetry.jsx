@@ -35,7 +35,7 @@ const FIELDS = [
  * Body ids as the HUD names them, for the nearest-surface row.
  *
  * The ship is whichever vessel the page loaded. This read "Artemis" from when it
- * was the only one, and went on saying so over Apollo 8 — the vehicle every page
+ * was the only one, and went on saying so over Apollo 8, the vehicle every page
  * flew until the address could choose.
  */
 const DISPLAY_NAME = { sun: 'Sol', earth: 'Terra', moon: 'Luna', ship: SHIP.name, iss: 'ISS', hubble: 'Hubble' }
@@ -46,7 +46,7 @@ const DIAGNOSTICS = [
     label: 'Nearest surface',
     get: () => {
       const { distance, id } = live.nearest
-      if (id === null || !Number.isFinite(distance)) return '—'
+      if (id === null || !Number.isFinite(distance)) return '·'
       const name = DISPLAY_NAME[id] ?? id
       // Below a kilometre the metre figure is the interesting one; above it,
       // nobody reads nine digits.
@@ -74,7 +74,7 @@ function Row({ label, id, wide }) {
         data-field={id}
         className={`tabular-nums text-right ${wide ? 'text-[13px] text-hud' : 'text-[11px] text-white/85'}`}
       >
-        —
+        ·
       </span>
     </div>
   )
@@ -114,7 +114,7 @@ export function Telemetry() {
       </div>
 
       <div className="mt-4 border-t border-white/10 pt-2.5 text-[9px] leading-relaxed text-white/25">
-        True scale, 1:1. One scene unit is one metre — every radius, altitude and
+        True scale, 1:1. One scene unit is one metre, every radius, altitude and
         separation you see is the one the integrator is working in.
       </div>
     </div>

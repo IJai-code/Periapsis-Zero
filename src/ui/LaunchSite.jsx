@@ -33,7 +33,7 @@ const LIFTOFF_TW = SHIP.stages[0].thrust / (LIFTOFF_MASS * G0)
  * has; Vandenberg, launching south, keeps 66 of its 382.
  *
  * Choosing one starts the flight over, because a vehicle is *clamped* to its
- * pad — there is no sense in which it can move to another one mid-ascent.
+ * pad, there is no sense in which it can move to another one mid-ascent.
  */
 export function LaunchSite() {
   const current = useUi((s) => s.site)

@@ -643,7 +643,7 @@ function splashBlock() {
     '      #boot.boot-done { opacity: 0; pointer-events: none; }',
     '      #boot .boot-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; }',
     '      #boot .boot-title {',
-    `        font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 300;`,
+    `        font-family: 'Rubik Dirt', Impact, fantasy; font-weight: 400;`,
     `        font-size: 15px; letter-spacing: 0.34em; text-indent: 0.34em; color: ${HUD_HEX};`,
     '      }',
     '    </style>',

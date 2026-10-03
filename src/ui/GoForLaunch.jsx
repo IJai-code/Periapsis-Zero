@@ -7,7 +7,7 @@ import { SHIP } from '../sim/constants.js'
  * The one control a held vehicle is waiting for, where the eye already is.
  *
  * "Begin flight" lands on a vehicle held on its pad, and the only way to let it
- * go was a button in the vehicle panel on the right-hand rail — the fourth
+ * go was a button in the vehicle panel on the right-hand rail, the fourth
  * panel down, 996 px below the top of the rail at a 713 px window, so below the
  * fold on every laptop. The commentary meanwhile said "T-10 s ... held down",
  * which reads as a count that has stalled. This puts the go at the foot of the

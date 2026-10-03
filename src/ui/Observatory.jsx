@@ -24,7 +24,7 @@ const WORLD = Object.fromEntries(RAILS.map((r) => [r.id, r]))
 /**
  * A length at the scales the deep sky lives at. Planetary distances read in
  * AU; beyond a twentieth of a light-year the light-year takes over, then its
- * thousands and millions — the units a catalogue speaks, not a fixed prefix.
+ * thousands and millions, the units a catalogue speaks, not a fixed prefix.
  */
 function span(n) {
   if (n < 0.05 * LY) return `${(n / AU).toLocaleString('en-US', { maximumFractionDigits: 1 })} AU`
@@ -60,7 +60,7 @@ function read(id) {
 
 /**
  * The same card for a place beyond the planets. Everything here is read live
- * — the camera's range off the object moves as the pilot flies it — and the
+ *, the camera's range off the object moves as the pilot flies it, and the
  * one number no planet card can offer sits at the foot: how long the object's
  * light was in the air before it reached the camera. That is the arrival
  * fact, the reason these places are worth flying to.
@@ -107,8 +107,7 @@ export function Observatory() {
         </dl>
         <p className="mt-3 text-[10px] leading-relaxed text-hud/50">
           Arrived, not travelled: intergalactic space is past every warp rung, so a
-          choice from the search lands the camera in range. Orbit and zoom are yours —
-          the `min` mark is a fiftieth of the object's radius on the galaxies.
+          choice from the search lands the camera in range. Orbit and zoom are yours. The `min` mark is a fiftieth of the object's radius on the galaxies.
         </p>
         <p className="mt-2 text-[9px] text-hud/40">The view here is the view every photograph was taken from: the Sun's side, turned a little off dead-on.</p>
       </aside>

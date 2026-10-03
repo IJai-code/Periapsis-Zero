@@ -1,55 +1,62 @@
 @import 'tailwindcss';
 
 /**
- * The palette, and why it is warm.
+ * The identity, and why it is what it is.
  *
- * This was a cyan instrument panel — 0.86 lightness, 0.13 chroma, hue 200 — and
- * cyan-on-black is the house style of every spacecraft UI ever put in a film.
- * It reads as a prop. What is underneath it is a solar system at true scale
- * whose only real light is a G2 star, and sunlight is warm; a cold interface
- * over warm imagery fights the picture it is drawn on.
+ * This was champagne serif over charcoal: a light Cormorant Garamond with wide
+ * tracking, Inter for prose, hairline borders, soft glass. Pretty, and the same
+ * pretty every tooling demo wears. The brief for this one is blunt: no serif,
+ * no neat stuff, blotchy instead of clean, and four colours used everywhere.
  *
- * So the accents are warm and there are two of them, doing different jobs:
+ * So the palette is four, and only four:
  *
- *   `ember`      burnt ochre. The *interactive* colour. Hover, the active item,
- *                the thing you are pointing at. Used sparingly enough that it
- *                always means "this one".
- *   `hud`        muted champagne. The *structural* colour. Hairlines, rules,
- *                dividers, the small tracked labels over telemetry. It is
- *                deliberately low-chroma: a label that competes with a figure
- *                is a label in the wrong place.
+ *   void    #120b22  deep violet-black. Every surface, every shadow.
+ *   bone    #f4e8cf  warm cream. Every piece of text.
+ *   ember   #ff6b2c  hot orange. Interactive things, warnings, the point.
+ *   ion     #2fd3ff  electric cyan. The plan: burns, trajectories, chapters.
  *
- * `hud` keeps its name rather than being renamed to `gold`, because sixty-three
- * call sites across the interface already ask for it by that name and what it
- * *means* — the structural accent — has not changed. Only its hue has.
+ * "Only these" is enforced by remapping the stock tokens to them: every
+ * `text-white/`, `bg-black/`, `amber-*` and `red-400` in the codebase renders
+ * as one of the four above without a single call site changing. The cyan is
+ * not decoration: the flight plan is already drawn cyan in the scene, so the
+ * plan's numbers wear the same colour on the glass.
+ *
+ * The type is deliberately not neat. Display is Rubik Dirt, an eroded,
+ * blotchy face, because the page should look printed rather than generated.
+ * Prose is Bricolage Grotesque, a variable grotesque with a wobble in its
+ * spine. Figures are Space Mono, which has opinions. Nothing here is a serif.
  */
 @theme {
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  /*
-   * A light old-style serif for display. Chakra Petch was a squared techno face
-   * and it put the whole page in the same register as a game menu; a Garamond at
-   * 300 with wide tracking is the register of a plate caption, which is what the
-   * headings here actually are.
-   */
-  --font-display: 'Cormorant Garamond', 'Didot', Georgia, serif;
-  /*
-   * Prose. The body is monospace because the whole instrument panel is, and an
-   * instrument should be: figures have to sit in the same column as they change.
-   * Sentences should not. Anything written to be *read* — the front door, a
-   * description — takes this instead.
-   */
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: 'Rubik Dirt', 'Impact', fantasy;
+  --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
 
-  /* Structural: hairlines, rules, small tracked labels. */
-  --color-hud: oklch(0.83 0.052 88);
-  --color-hud-dim: oklch(0.62 0.036 86);
-  /* Interactive: hover, the active item, the marker you are meant to find. */
-  --color-ember: oklch(0.66 0.142 47);
-  --color-ember-dim: oklch(0.52 0.106 45);
+  /* The four, and their working shades. */
+  --color-hud: #f4e8cf;
+  --color-hud-dim: #cbb894;
+  --color-ember: #ff6b2c;
+  --color-ember-dim: #c24c18;
+  --color-ion: #2fd3ff;
+  --color-ion-dim: #1a93b3;
 
-  /* Surfaces. Obsidian is the floor; warm is what the vignette fades from. */
-  --color-obsidian: #0a0b0d;
-  --color-warm: #1c1815;
+  /* Surfaces. Void is the floor; warm is what the vignette fades from. */
+  --color-void: #120b22;
+  --color-obsidian: #120b22;
+  --color-warm: #2b1740;
+
+  /*
+   * Enforcement. Tailwind's stock tokens are remapped rather than renamed so
+   * the two hundred existing `white/`, `black/` and `amber-` call sites fold
+   * into the four without churn. Amber was the fuel and plan colour: the plan
+   * is ion now (it matches the cyan line in the scene), fuel and warnings stay
+   * ember.
+   */
+  --color-white: #f4e8cf;
+  --color-black: #120b22;
+  --color-amber-200: #9feaff;
+  --color-amber-300: #ff6b2c;
+  --color-amber-400: #ff6b2c;
+  --color-red-400: #ff6b2c;
 }
 
 html,
@@ -57,24 +64,20 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: var(--color-obsidian);
+  background: var(--color-void);
   overscroll-behavior: none;
 }
 
 body {
-  font-family: var(--font-mono);
-  color: #efe9e1;
+  font-family: var(--font-sans);
+  color: var(--color-hud);
   -webkit-font-smoothing: antialiased;
 }
 
 /**
- * Figures do not change width when they change value.
- *
- * Every number in this interface streams — altitude, velocity, dynamic
- * pressure, mission time — and proportional digits make a readout twitch
- * sideways on every frame as a 1 replaces a 0. That is most of what reads as
- * "jitter" in a live panel, and it is a font feature rather than a layout
- * problem. Applied to the mono face at the root so no readout can forget it.
+ * Figures do not change width when they change value. Proportional digits make
+ * a readout twitch sideways on every frame as a 1 replaces a 0. Applied to the
+ * mono face at the root so no readout can forget it.
  */
 .font-mono,
 [class*='font-mono'] {
@@ -83,88 +86,93 @@ body {
 }
 
 /**
- * Smoked glass, not a lightbox.
+ * Motion, rationed.
  *
- * This used to be a cyan-edged panel with a 44 px drop shadow and an inset
- * highlight — three separate glows describing one rectangle. A panel in front of
- * a photograph should be a piece of glass laid on it: a warm charcoal tint, a
- * real blur so what is behind stays present as tone, and a single hairline to
- * say where the edge is. The shadow that remains is a contact shadow, close and
- * soft, which is what a sheet of glass actually casts.
+ * Every hover and press in the interface carried a 200 ms fade, which is what
+ * reads as "polished tooling" and what the brief calls the AI look. Clicks in a
+ * game answer now: 120 ms for colour, 60 ms of physical travel on press. Keyed
+ * animations (a pulse that means live, the mission intro's cards) are the
+ * deliberate few and keep their own timing. The reduced-motion block below
+ * still shuts everything down.
  */
-@utility panel {
-  background: color-mix(in oklab, #14120f 82%, transparent);
-  backdrop-filter: blur(16px) saturate(1.05);
-  border: 1px solid color-mix(in oklab, var(--color-hud) 22%, transparent);
-  /*
-   * The edge, lit a little harder than it was — the top hairline catches more
-   * of the light and a second, dimmer one now picks out the bottom, which is
-   * how a real sheet of glass sits on something. Still one contact shadow and
-   * still no halo: the cyan-edged version this replaced had three glows
-   * describing one rectangle, and adding an outer bloom would be walking back
-   * to it. The light belongs on the controls, where it means something.
-   */
-  box-shadow:
-    0 1px 0 0 color-mix(in oklab, var(--color-hud) 11%, transparent) inset,
-    0 -1px 0 0 color-mix(in oklab, var(--color-hud) 4%, transparent) inset,
-    0 10px 30px -18px rgb(0 0 0 / 0.85);
+*,
+*::before,
+*::after {
+  transition-duration: 120ms !important;
+  transition-delay: 0ms !important;
 }
 
 /**
- * How a control answers the pointer.
+ * Smoked glass with an uneven edge.
  *
- * Every button here already changes *colour* on hover — `hover:text-ember`,
- * sixty-odd times — and colour alone is a flat answer. A control on a panel of
- * smoked glass should also catch light when you reach for it, and go down when
- * you press it. So this adds the light and the travel, and deliberately sets no
- * colour of its own: the existing `hover:` classes keep saying which colour,
- * and this says how it is lit. Additive, so a button opts in by gaining one
- * class and nothing it already does is overridden.
- *
- * The tint is an inset shadow rather than a background, for the same reason —
- * a `background-color` here would fight every `hover:bg-*` already in the
- * markup, and an inset shadow layers under the content without touching them.
- *
- * `ember` is the interactive colour by the palette's own rule, so it is the
- * colour of the light: hover is a low warm bloom, pressing tightens it to a
- * contact, and a keyboard's focus ring is the same warmth drawn hard enough to
- * find. Under `hover: hover`, so a finger on glass never leaves a control lit
- * after the tap.
+ * The blotchy look the brief asks for lives here: borders of two different
+ * weights (thick where the light comes from, thin where it does not), corners
+ * that are not the same radius, a hard offset shadow like a sticker rather
+ * than a soft glow, and the grain plate over the top. Every panel in the
+ * interface wears this one utility, so the whole product changes with it.
+ */
+@utility panel {
+  position: relative;
+  background: color-mix(in oklab, var(--color-void) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--color-hud) 30%, transparent);
+  border-width: 2px 1px 1px 2px;
+  border-radius: 11px 4px 9px 5px;
+  box-shadow:
+    3px 4px 0 0 color-mix(in oklab, var(--color-void) 75%, transparent),
+    0 14px 32px -20px rgb(0 0 0 / 0.9);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0.07;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
+    background-size: 120px 120px;
+  }
+}
+
+/**
+ * How a control answers the pointer. Colour lives in the existing hover
+ * classes; this says how it is lit and how it moves. A press is a physical
+ * thing: 60 ms down, the face behind the button holds the shadow. Hover is
+ * only for a pointer, so a finger on glass never leaves a control lit.
  */
 @utility control {
   transition:
-    color 200ms cubic-bezier(0.2, 0, 0.2, 1),
-    border-color 200ms cubic-bezier(0.2, 0, 0.2, 1),
-    background-color 200ms cubic-bezier(0.2, 0, 0.2, 1),
-    box-shadow 220ms cubic-bezier(0.2, 0, 0.2, 1),
-    text-shadow 220ms cubic-bezier(0.2, 0, 0.2, 1),
-    transform 90ms cubic-bezier(0.2, 0, 0.2, 1);
+    color 120ms linear,
+    border-color 120ms linear,
+    background-color 120ms linear,
+    box-shadow 120ms linear,
+    text-shadow 120ms linear,
+    transform 60ms cubic-bezier(0.2, 0, 0.2, 1);
+  /* The press travel is the one duration the global ration may not touch. */
+  transition-duration: 120ms, 120ms, 120ms, 120ms, 120ms, 60ms !important;
 
   @media (hover: hover) {
     &:hover {
       box-shadow:
-        inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 7%, transparent),
-        inset 0 1px 0 0 color-mix(in oklab, var(--color-ember) 18%, transparent),
-        0 0 16px -6px color-mix(in oklab, var(--color-ember) 55%, transparent);
-      text-shadow: 0 0 11px color-mix(in oklab, var(--color-ember) 32%, transparent);
+        inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 8%, transparent),
+        2px 3px 0 0 color-mix(in oklab, var(--color-void) 70%, transparent);
+      text-shadow: 2px 2px 0 color-mix(in oklab, var(--color-ember) 28%, transparent);
     }
   }
 
-  /* Pressed: the light closes to a contact and the face moves under the finger. */
   &:active {
-    transform: translateY(0.5px);
+    transform: translate(1px, 2px) scale(0.98);
     box-shadow:
-      inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 12%, transparent),
-      inset 0 1px 2px 0 rgb(0 0 0 / 0.35);
+      inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 14%, transparent),
+      0 0 0 0 transparent;
     text-shadow: none;
   }
 
   &:focus-visible {
-    outline: 1px solid color-mix(in oklab, var(--color-ember) 72%, transparent);
+    outline: 2px solid var(--color-ion);
     outline-offset: 2px;
-    box-shadow:
-      inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 6%, transparent),
-      0 0 18px -7px color-mix(in oklab, var(--color-ember) 60%, transparent);
   }
 
   &:disabled,
@@ -172,37 +180,38 @@ body {
     box-shadow: none;
     text-shadow: none;
     transform: none;
+    opacity: 0.55;
   }
 }
 
 /**
- * The one that is chosen: a steady, low warmth that does not depend on where
- * the pointer is. Sparingly — the palette's whole argument for `ember` is that
- * it keeps meaning "this one", and a panel of lit buttons means nothing.
+ * The one that is chosen: a steady warm stamp, not a glow. Sparingly: ember
+ * keeps meaning "this one", and a panel of lit buttons means nothing.
  */
 @utility lit {
   box-shadow:
-    inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 10%, transparent),
-    0 0 18px -8px color-mix(in oklab, var(--color-ember) 62%, transparent);
-  text-shadow: 0 0 12px color-mix(in oklab, var(--color-ember) 38%, transparent);
+    inset 0 0 0 100px color-mix(in oklab, var(--color-ember) 12%, transparent),
+    2px 3px 0 0 color-mix(in oklab, var(--color-ember) 35%, transparent);
+  text-shadow: 2px 2px 0 color-mix(in oklab, var(--color-ember) 30%, transparent);
 }
 
 /**
- * A figure that is being driven by something. Not a glow so much as the
- * suggestion that the glass is emitting rather than reflecting — a hair of
- * warm bloom, well under the threshold where it would soften the digits. The
- * numerals are what this interface is for; they may not be made harder to read.
+ * A figure driven by something live: a stamped outline rather than a bloom,
+ * well under the threshold where it would soften the digits. The numerals are
+ * what this interface is for.
  */
 @utility readout {
-  text-shadow: 0 0 14px color-mix(in oklab, oklch(0.9 0.06 80) 22%, transparent);
+  text-shadow: 1px 1px 0 color-mix(in oklab, var(--color-void) 80%, transparent);
 }
 
-/** A tracked label over a figure. Champagne, never ember: labels do not shout. */
+/** A tracked label over a figure. Bone, never ember: labels do not shout. */
 @utility rule {
-  letter-spacing: 0.26em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   font-size: 9px;
-  color: color-mix(in oklab, var(--color-hud) 58%, transparent);
+  color: color-mix(in oklab, var(--color-hud) 62%, transparent);
 }
 
 /** The warm top-down vignette, as a surface anything can wear. */
@@ -210,7 +219,7 @@ body {
   background: linear-gradient(
     to bottom,
     color-mix(in oklab, var(--color-warm) 85%, transparent),
-    color-mix(in oklab, var(--color-obsidian) 0%, transparent) 60%
+    color-mix(in oklab, var(--color-void) 0%, transparent) 60%
   );
 }
 
@@ -224,11 +233,11 @@ canvas {
   height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-hud) 26%, transparent);
+  background: color-mix(in oklab, var(--color-hud) 30%, transparent);
   border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--color-ember) 42%, transparent);
+  background: var(--color-ember);
 }
 
 @keyframes sweep {
@@ -241,8 +250,9 @@ canvas {
 }
 
 /**
- * The mission intro's beat cards: pages turning in a film — a slow rise and
- * fade, never a slide. Named for the project so the intro owns its motion.
+ * The mission intro's beat cards: pages turning in a film. Named for the
+ * project so the intro owns its motion. The intro is the one place motion is
+ * the content, and it keeps it.
  */
 @keyframes pz-fade {
   from {

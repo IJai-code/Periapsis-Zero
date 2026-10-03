@@ -12,13 +12,13 @@ import { recordFilm } from '../sim/logbook.js'
  * no engine, no pad loop, no radio, and no score either: the one piece of
  * music in the product is the bed the visitor themselves supplied, behind
  * the ambience toggle (see `sfx/ambience.js`). A generated soundtrack was
- * here once and was removed at the owner's word — the films are silent, the
+ * here once and was removed at the owner's word, the films are silent, the
  * way real footage of the missions is silent until a narrator speaks.
  *
  * Under it, one continuous camera flight through the real solar system (see
  * `gfx/introFlights.js`) with the dossier's pages turning on its beats, a
  * letterbox to say *film* rather than *simulator*, and two ways out: Skip,
- * or Enter to go straight to the mission. Nothing here renders video — the
+ * or Enter to go straight to the mission. Nothing here renders video, the
  * flight is the scene itself, which is why it is sharp at any resolution.
  *
  * The component polls `INTRO` on a rAF and re-renders only when the beat
@@ -34,9 +34,9 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
    *
    * It was off, and a checkbox nobody ticks is a feature nobody has: every
    * mission card in the library showed its fallback diagram because no flight
-   * had ever been recorded. The flight is going to be drawn either way — the
+   * had ever been recorded. The flight is going to be drawn either way, the
    * recorder composites the frame that was already rendered and hands it to a
-   * hardware encoder, measured at well under a millisecond a frame — so the
+   * hardware encoder, measured at well under a millisecond a frame, so the
    * default that leaves someone with a film costs them almost nothing and the
    * default that leaves them with none costs them the film.
    */
@@ -50,7 +50,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
 
   /**
    * The gesture: the flight begins. The anchors are taken here
-   * — while the sim is still paused behind the curtain — so the path is built
+   *, while the sim is still paused behind the curtain, so the path is built
    * from the sky the viewer is about to cross.
    */
   const begin = useCallback(() => {
@@ -63,7 +63,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       if (startFilm(document.querySelector('canvas'), preset)) {
         // Say the size it settled on, not the one the checkbox promised: the
         // recorder measures the composite and may have stepped down a rung.
-        if (film.step > 0) setFilmStatus(`Recording at ${film.width}×${film.height} — this machine's composite was dear at full size.`)
+        if (film.step > 0) setFilmStatus(`Recording at ${film.width}×${film.height}, this machine's composite was dear at full size.`)
       } else {
         setFilmStatus('Recording unavailable; the intro still plays.')
       }
@@ -97,13 +97,13 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
 
   // The flight itself is flown by the camera rig (focus 'intro'); this only
   // watches `INTRO` and turns pages when the beat changes. A rAF poll outside
-  // the Canvas is the honest way to read scene state from the DOM side — and
+  // the Canvas is the honest way to read scene state from the DOM side, and
   // it renders only on change, so watching the film costs nothing per frame.
   useEffect(() => {
     if (stage !== 'flying') return
     /*
      * One rAF poll outside the Canvas, reading scene state from the DOM side
-     * and re-rendering only on a page turn — watching the film costs nothing
+     * and re-rendering only on a page turn, watching the film costs nothing
      * per frame, and the pages turn on the flight's own beats.
      */
     const loop = () => {
@@ -124,7 +124,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
   }, [stage])
 
   // Arrived: the flight's last frame *is* the mission's first (see
-  // gfx/introFlights.js), so there is nothing to wait for — the bars draw back
+  // gfx/introFlights.js), so there is nothing to wait for, the bars draw back
   // off the picture, the page fades, and the mission has the screen. The film
   // comes off the recorder and onto the library's shelf, where its card keeps it.
   useEffect(() => {
@@ -153,7 +153,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
       {/*
         The curtain itself: black, all of it, until the viewer asks. The bars
         alone left the middle quarter of the screen open onto whatever the
-        camera happened to face before the flight — at a pad at noon that was
+        camera happened to face before the flight, at a pad at noon that was
         the sky's glare, straight behind the title, the blurb and the dossier,
         which were then cream on pale yellow and could not be read. The bars
         stay for the film; the curtain lifts off them as the flight begins.
@@ -164,7 +164,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
           stage === 'curtain' ? 'opacity-100' : 'opacity-0'
         }`}
       />
-      {/* Letterbox: the one wordless signal that says film — and on arrival
+      {/* Letterbox: the one wordless signal that says film, and on arrival
           it draws back off the picture rather than vanishing with it. */}
       <div
         aria-hidden
@@ -190,7 +190,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
             </h1>
             <div className="mt-3 text-[12px] tracking-wide text-hud/60">{preset.blurb}</div>
             {/* The dossier's cover sheet: the flight's own numbers, in the
-                library's grammar — hairlines and mono labels, nothing lifted. */}
+                library's grammar, hairlines and mono labels, nothing lifted. */}
             {dossier?.specs && (
               <dl className="mx-auto mt-6 grid max-w-2xl grid-cols-2 gap-x-8 gap-y-3 border-y border-hud/12 px-2 py-4 text-left sm:grid-cols-4">
                 {dossier.specs.map(([label, value]) => (

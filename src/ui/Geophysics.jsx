@@ -26,13 +26,13 @@ import { useUi } from '../sim/store.js'
  * The interior model is the one part of this simulator with nothing to look at:
  * a layered density profile and four hundred lines of arithmetic, all of it
  * buried under a sphere that renders identically whichever coefficients are in
- * it. So this draws it — density and gravity against radius, the shell
+ * it. So this draws it, density and gravity against radius, the shell
  * boundaries marked, and the craft's own radius as a cursor on the curve. The
  * peak at 3,480 km is the core-mantle boundary, and it is why the second half of
  * the panel exists: a body whose gravity peaks *inside* it is not a point mass,
  * and an orbit round it does not close.
  *
- * The second half is the two things that follow — the node walking backwards
+ * The second half is the two things that follow, the node walking backwards
  * five degrees a day and the apsides rotating three and a half, computed from
  * the orbit the craft is actually on rather than tabulated, and both invisible
  * from one frame to the next. They are the reason a parking orbit planned
@@ -96,8 +96,8 @@ const _craft = new Float64Array(3)
 /**
  * What the panel reads, taken once so the two halves cannot disagree.
  *
- * The gravity is the *field's* radial value at the craft — the same call the
- * ascent guidance steers by — so the cursor on the chart is the acceleration the
+ * The gravity is the *field's* radial value at the craft, the same call the
+ * ascent guidance steers by, so the cursor on the chart is the acceleration the
  * integrator is applying rather than a second opinion about it. The rates come
  * off the osculating elements for the same reason: the perturbation of the orbit
  * as flown, not of the one that was planned.
@@ -138,7 +138,7 @@ function snapshot() {
      * The two semi-major axes, side by side, because the gap between them is
      * the thing this panel exists to make visible.
      *
-     * The HUD reports the osculating one — that is what "OSCULATING" at the top
+     * The HUD reports the osculating one, that is what "OSCULATING" at the top
      * of the elements panel means, and what the two rates above are functions of.
      * The flight computer plans the loiter on the mean one, and under J2 they
      * differ by several kilometres: it is why a parking orbit committed at 178.7
@@ -216,7 +216,7 @@ export function Geophysics() {
             />
           ) : null,
         )}
-        <path d={chart.rhoPath} fill="none" stroke="#f0b45a" strokeWidth="1.1" />
+        <path d={chart.rhoPath} fill="none" stroke="#2fd3ff" strokeWidth="1.1" />
         <path d={chart.gPath} fill="none" stroke="currentColor" strokeWidth="1.1" />
         {cursor && (
           <>
@@ -278,7 +278,7 @@ export function Geophysics() {
         </div>
       ) : (
         <div className="mt-2 border-t border-white/8 pt-2 text-[9px] leading-relaxed text-white/25">
-          No orbit to perturb yet — the stack is on its pad, and the pad's own gravity is above.
+          No orbit to perturb yet, the stack is on its pad, and the pad's own gravity is above.
         </div>
       )}
     </div>

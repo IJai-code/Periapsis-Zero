@@ -4,8 +4,8 @@ import { setAmbience } from '../sfx/ambience.js'
 import { Diagnostics } from './Diagnostics.jsx'
 
 /**
- * Re-answer the first question. The scene was built for the old answer — its
- * pixel ratio, its antialiasing, its forest — so a different one reloads the
+ * Re-answer the first question. The scene was built for the old answer, its
+ * pixel ratio, its antialiasing, its forest, so a different one reloads the
  * page rather than pretending to retrofit a WebGL context.
  */
 function retune(id) {

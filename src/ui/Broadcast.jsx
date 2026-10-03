@@ -16,7 +16,7 @@ import { Mark } from './Mark.jsx'
  * The instrument panel is for flying. This is for watching, and it is laid out
  * the way a feed from the mission was: the picture, a caption in the corner
  * saying which camera it is, the mission clock in the other, a lower third
- * when something happens, and the loop — Houston and the spacecraft —
+ * when something happens, and the loop, Houston and the spacecraft —
  * captioned at the foot of the frame. It is silent: the loop is read, not
  * heard. The narration the instruments
  * carry comes too, as a caption that appears when something new happens and
@@ -29,7 +29,7 @@ import { Mark } from './Mark.jsx'
  *
  * Everything that changes often is written straight into the DOM from one
  * tenth-of-a-second timer, as the instrument strip is; React renders only on
- * the events — a cut, a phase, a transmission.
+ * the events, a cut, a phase, a transmission.
  */
 
 /** How long a lower third stays up, ms. */
@@ -44,7 +44,7 @@ function readingSeconds(text) {
 }
 
 /**
- * Searching is choosing where to look, which a feed does not let you do — so
+ * Searching is choosing where to look, which a feed does not let you do, so
  * it leaves the feed for the cockpit and opens the search there, once the
  * cockpit has mounted to receive the request.
  */
@@ -300,7 +300,7 @@ export function BroadcastHud() {
         )}
 
         {/* Folded away, not just faded, so the captions sit at the foot of the
-            frame while nobody is reaching for the controls — and rise over
+            frame while nobody is reaching for the controls, and rise over
             them when somebody is, as a player's subtitles do. */}
         <div
           className={`flex flex-col items-center gap-1.5 overflow-hidden transition-[opacity,max-height] duration-500 ${
@@ -338,7 +338,7 @@ export function BroadcastHud() {
         </div>
       </div>
 
-      {/* The station's bug, where a broadcast keeps it — on a screen wide
+      {/* The station's bug, where a broadcast keeps it, on a screen wide
           enough that the captions do not reach the corner it sits in. */}
       <Mark size={18} className="absolute right-4 bottom-4 hidden opacity-40 sm:right-7 sm:block" />
     </div>

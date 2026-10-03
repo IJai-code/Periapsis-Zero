@@ -18,14 +18,14 @@ import { setUi } from '../sim/store.js'
 /**
  * The flight plan, as a list.
  *
- * A plan is a *sequence* — burn, coast, burn — and the gizmo can only ever show
+ * A plan is a *sequence*, burn, coast, burn, and the gizmo can only ever show
  * one of them. This is where the sequence lives: every planned burn in the order
  * it fires, what body it is measured against, when it comes, how big it is, and
  * what orbit it leaves behind. The selected one opens in place rather than
  * replacing the list, so editing a burn never costs sight of the rest.
  *
- * Two update rates, deliberately. Structure — which burns exist, which is
- * selected, whether one has been flown — re-renders React, and the subscription
+ * Two update rates, deliberately. Structure, which burns exist, which is
+ * selected, whether one has been flown, re-renders React, and the subscription
  * snapshot is built from exactly those facts, so dragging a handle at sixty
  * hertz renders nothing. The *values* are written into the DOM on a timer, the
  * way the telemetry panels do it, and a field the pilot is typing into is left
@@ -50,7 +50,7 @@ const UI_EVERY = 1
  * What React is allowed to notice: ids, order, selection, flown-ness. Nothing
  * else. `useSyncExternalStore` bails out when the snapshot compares equal, so a
  * delta-v changing sixty times a second while a handle is dragged produces no
- * renders at all — which is what keeps the input fields from being torn out
+ * renders at all, which is what keeps the input fields from being torn out
  * from under the cursor.
  */
 function structureKey() {
@@ -80,12 +80,12 @@ function slotOf(node) {
 /** The body a burn is measured against, as a name. */
 function bodyName(node) {
   const slot = slotOf(node)
-  return slot < 0 ? '—' : (BODIES[plan.nodeBodies[slot]]?.name ?? '—')
+  return slot < 0 ? '·' : (BODIES[plan.nodeBodies[slot]]?.name ?? '·')
 }
 
 /**
  * The orbit a burn leaves behind, about its own body. Read from what the
- * projection recorded at the instant of the impulse — see `nodeApsides`, which
+ * projection recorded at the instant of the impulse, see `nodeApsides`, which
  * exists because a burn's result must not change when a *later* burn is added.
  */
 function orbitText(node) {
@@ -169,7 +169,7 @@ export function NodePanel() {
 
   const open = (node) => {
     selectNode(node.id)
-    // The camera follows the burn the same way it follows a body — see the
+    // The camera follows the burn the same way it follows a body, see the
     // `node` focus in CameraRig. It falls back to the body the plan is drawn
     // around if the burn has no drawn position yet.
     setUi({ focus: 'node' })
@@ -192,7 +192,7 @@ export function NodePanel() {
       {pending.length === 0 ? (
         <div className="space-y-1.5 text-[10px] leading-relaxed text-white/35">
           <p>
-            Click the <span className="text-[#dfe3e6]/80">silver</span> trajectory to plan a
+            Click the <span className="text-[#f4e8cf]/80">silver</span> trajectory to plan a
             burn there. Once one exists, click the{' '}
             <span className="text-ember/90">ember</span> path to plan the next on the orbit it
             leaves.
@@ -229,9 +229,9 @@ export function NodePanel() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[11px] text-white/75">
-                      <span ref={(el) => (row.dv = el)}>—</span>
+                      <span ref={(el) => (row.dv = el)}>·</span>
                       <span className="ml-1.5 text-[9px] tracking-[0.12em] text-white/30 uppercase">
-                        about <span ref={(el) => (row.body = el)}>—</span>
+                        about <span ref={(el) => (row.body = el)}>·</span>
                       </span>
                     </span>
                   </span>
@@ -239,7 +239,7 @@ export function NodePanel() {
                     ref={(el) => (row.clock = el)}
                     className="shrink-0 font-mono text-[10px] text-hud/70"
                   >
-                    —
+                    ·
                   </span>
                 </button>
 
@@ -258,7 +258,7 @@ export function NodePanel() {
                     <div className="flex items-baseline justify-between border-t border-white/8 pt-1.5 text-[10px]">
                       <span className="text-white/35">Leaves</span>
                       <span ref={(el) => (row.result = el)} className="font-mono text-amber-200/80">
-                        —
+                        ·
                       </span>
                     </div>
                     <div className="flex items-center justify-between">

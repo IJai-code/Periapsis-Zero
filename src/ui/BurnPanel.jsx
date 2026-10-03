@@ -41,7 +41,7 @@ function nodeName() {
  * Every burn the flight computer flies, and how to read it.
  *
  * `delivered` where the sequencer integrates it, `remaining` where the burn cuts
- * off on a mass — either way the other follows from the target. The cutoff is
+ * off on a mass, either way the other follows from the target. The cutoff is
  * each burn's own criterion as its phase states it: only the planned and mass
  * burns stop on a delta-v; injection stops on apoapsis, capture on the
  * eccentricity minimum, departure on characteristic energy.

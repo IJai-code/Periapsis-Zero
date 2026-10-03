@@ -6,13 +6,13 @@ import { Mark } from './Mark.jsx'
  * The first question: what is this running on?
  *
  * Asked once, before the scene is built, because the answer decides how it is
- * built — how many pixels, how deep the surfaces go, how many trees stand round
- * the pad — and the layout the controls take. The detected device is marked and
+ * built, how many pixels, how deep the surfaces go, how many trees stand round
+ * the pad, and the layout the controls take. The detected device is marked and
  * focused so Enter takes it, but nothing is assumed: an iPad reports itself as a
  * Mac, and a touch laptop is not a tablet.
  *
  * It also takes over from the boot splash. The splash hands off on the first
- * rendered frame, and there is no frame yet — the canvas waits for this answer.
+ * rendered frame, and there is no frame yet, the canvas waits for this answer.
  */
 
 function Icon({ id }) {

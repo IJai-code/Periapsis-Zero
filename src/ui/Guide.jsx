@@ -5,14 +5,14 @@ import { presetHref, PRESETS } from '../sim/presets.js'
 /**
  * The cosmic guide: what you see when the sim opens.
  *
- * A short, skippable tour that steers the *live* scene — the same camera the
- * simulator flies with — through the beats the product is made of, one caption
+ * A short, skippable tour that steers the *live* scene, the same camera the
+ * simulator flies with, through the beats the product is made of, one caption
  * at a time. Nothing here is a video or a slideshow of renders: each step sets
  * the camera's focus and the scene responds, so the guide is the simulation
  * showing itself around.
  *
  * It opens once per browser (localStorage decides), stays reachable from the
- * front door, and gets out of the way with Esc or its own skip — an intro that
+ * front door, and gets out of the way with Esc or its own skip, an intro that
  * cannot be left is not an intro, it is a hostage situation.
  */
 
@@ -91,7 +91,7 @@ function markSeen() {
 export function Guide({ open, onClose, onLibrary }) {
   const [step, setStep] = useState(0)
 
-  // Each beat points the live camera. One store write per step — the rig does
+  // Each beat points the live camera. One store write per step, the rig does
   // the flying.
   useEffect(() => {
     if (open) setUi({ focus: STEPS[step].focus })
@@ -132,7 +132,7 @@ export function Guide({ open, onClose, onLibrary }) {
     const onKey = (e) => {
       /*
        * The tour's keys belong to the tour's own controls only. Space and
-       * Enter bubbled out of the caption card's buttons — press Next and the
+       * Enter bubbled out of the caption card's buttons, press Next and the
        * keydown also advanced the beat the button had just moved to, so one
        * click moved the tour two steps and every second slide flashed past
        * unread; on the last beat they fired the flight link *and* closed the
@@ -208,7 +208,7 @@ export function Guide({ open, onClose, onLibrary }) {
 
       {/* Bottom: the caption card and its controls. */}
       <div className="pointer-events-auto px-6 pb-8 sm:px-10">
-        <div className="mx-auto max-w-2xl border border-hud/15 bg-[#0a0b0d]/82 px-6 py-5 backdrop-blur-[3px]">
+        <div className="mx-auto max-w-2xl border border-hud/15 bg-[#120b22]/82 px-6 py-5 backdrop-blur-[3px]">
           <div className="font-mono text-[10px] tracking-[0.26em] text-ember/85 uppercase">
             {s.eyebrow}
           </div>

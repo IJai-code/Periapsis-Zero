@@ -13,7 +13,7 @@ import { resetMission } from '../sim/mission.js'
  * Four decisions, in the order they bind: the program (where the route
  * goes), the wing (how much of it is yours), the fuel load (how much
  * margin you carry), and the pad (which latitude the plane starts from).
- * Everything else — the Δv budget, the leg list, whether the plan closes —
+ * Everything else, the Δv budget, the leg list, whether the plan closes —
  * is *derived*, and shown as derived: the rocket equation on the vessel's
  * own published numbers, against the route's priced cost, with the margin
  * in ember when it goes negative. Nothing here is a difficulty slider in
@@ -23,7 +23,7 @@ import { resetMission } from '../sim/mission.js'
  *
  * The presets already exist and stay: they are the missions as flown, for
  * the visitor who came to watch. The planner is for the visitor who came
- * to *fly* — and flying starts before the count, with the two minutes of
+ * to *fly*, and flying starts before the count, with the two minutes of
  * arithmetic every real crew runs the night before. The planner is that
  * arithmetic, on one page, with the honest numbers the sim itself will
  * use. Choosing a site here writes the same `launchsite.js` state the
@@ -61,7 +61,7 @@ export function Planner({ onClose }) {
     // The scaler is a no-op on purpose: resetMission itself drains the load
     // once the program is armed (it reads the wing off the armed program),
     // and armProgram re-applies it after for the arm-after-reset path. The
-    // fraction lives in one place — programs.js — and not in two closures.
+    // fraction lives in one place, programs.js, and not in two closures.
     armProgram(def, WINGS[wing] ? wing : 'trainee')
     resetMission()
     onClose()
@@ -71,7 +71,7 @@ export function Planner({ onClose }) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-obsidian/92 backdrop-blur-[6px]">
       <div className="mx-auto max-w-4xl px-6 py-10 sm:px-10">
-        {/* Masthead — same register as the front door, because this is the
+        {/* Masthead, same register as the front door, because this is the
             front door's other half: the room where a flight is made. */}
         <div className="flex items-baseline justify-between gap-6 border-b border-hud/12 pb-5">
           <div>
@@ -127,7 +127,7 @@ export function Planner({ onClose }) {
                   </div>
                   {!reachable && (
                     <div className="mt-1 font-mono text-[9.5px] text-ember/80">
-                      Beyond this vehicle's Δv — see the budget below
+                      Beyond this vehicle's Δv, see the budget below
                     </div>
                   )}
                 </button>
@@ -139,7 +139,7 @@ export function Planner({ onClose }) {
         {/* The wings */}
         <section className="mt-8">
           <div className="rule mb-3 font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
-            2 · Your wings — who holds the stick
+            2 · Your wings, who holds the stick
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {def.wings.map((w) => {
@@ -168,7 +168,7 @@ export function Planner({ onClose }) {
             {wing === 'trainee' &&
               'The flight computer flies the ascent and inserts you. From the parking orbit, the spacecraft is yours.'}
             {wing === 'aviator' &&
-              'You fly the ascent from the pitch kick — throttle, attitude, the lot. The computer takes nothing back until MECO.'}
+              'You fly the ascent from the pitch kick, throttle, attitude, the lot. The computer takes nothing back until MECO.'}
             {wing === 'aldrin' &&
               'After the count, nothing flies for you. Every burn is yours to plan; the powered-warp ceiling is yours to respect.'}
             {karman &&
@@ -176,7 +176,7 @@ export function Planner({ onClose }) {
           </div>
         </section>
 
-        {/* The budget — the one honest number on the page */}
+        {/* The budget, the one honest number on the page */}
         <section className="mt-8">
           <div className="rule mb-3 font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
             3 · The budget
@@ -217,8 +217,8 @@ export function Planner({ onClose }) {
               />
             </div>
             <div className="mt-3 text-[11px] leading-relaxed text-hud/45">
-              Priced from the vehicle's own stages — dry mass, exhaust velocity,
-              the lot — by the same rocket equation the flight computer flies.
+              Priced from the vehicle's own stages, dry mass, exhaust velocity,
+              the lot, by the same rocket equation the flight computer flies.
               A negative margin is a plan that fails before the count: pick a
               shorter route or a fuller tank.
             </div>
@@ -251,7 +251,7 @@ export function Planner({ onClose }) {
             The pad sets the plane you climb out of: latitude is the cheapest
             inclination there is. Kourou throws east over the ocean; Vandenberg
             launches south for the polar orbits. The Moon is reached from any
-            of them — the transfer solves for the date.
+            of them, the transfer solves for the date.
           </div>
         </section>
 

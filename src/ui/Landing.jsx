@@ -7,8 +7,8 @@ import { Planner } from './Planner.jsx'
 /**
  * The front door, over the live simulation.
  *
- * Not a separate page. The background is the simulator running — real bodies at
- * real positions under the real sun angle — and entering does not load
+ * Not a separate page. The background is the simulator running, real bodies at
+ * real positions under the real sun angle, and entering does not load
  * anything, it hands that camera to the player. A standalone landing page had
  * to be found at its own URL, went stale the moment the scene changed, and made
  * a promise the thing behind it then had to keep separately.
@@ -17,20 +17,20 @@ import { Planner } from './Planner.jsx'
  * on a cold cache, and a reader has something to read while they do.
  *
  * What it is *not* any more is a specification. It used to open with a wall of
- * instrument chrome — every label in tracked capitals, four figures including
- * "0 B allocated per frame" — which reads as a machine describing itself. The
+ * instrument chrome, every label in tracked capitals, four figures including
+ * "0 B allocated per frame", which reads as a machine describing itself. The
  * numbers were true and none of them told a visitor what they could do here.
  * The claims that survive are the three a person can act on, in plain words,
  * and the missions are on the door rather than behind it.
  *
  * ── the scroll, and why it was broken ─────────────────────────────────
  *
- * The column is taller than a laptop viewport — 1,079 px against 768 — and the
+ * The column is taller than a laptop viewport, 1,079 px against 768, and the
  * element that scrolled it carried `pointer-events-none`. That flag was there so
  * the planet behind stayed grabbable, and it meant the wheel never reached the
  * scroller: the event went through to the canvas and OrbitControls zoomed
  * instead. It appeared to work in patches, because the handful of children that
- * re-enabled pointer events — the button, the three mission rows — *did* scroll
+ * re-enabled pointer events, the button, the three mission rows, *did* scroll
  * when the cursor happened to be over one. Scrolling down moved those patches
  * out from under the cursor, so the way back up was gone. A control that works
  * in three bands of a page and nowhere else is worse than one that never works,
@@ -39,7 +39,7 @@ import { Planner } from './Planner.jsx'
  * So the scroller takes pointer events, which costs nothing: this overlay is a
  * sibling of the Canvas and is mounted only *before* flight, so there is no
  * scene interaction behind it to preserve. The scrims move out of the scrolling
- * box and become siblings of it, which also fixes them visually — they used to
+ * box and become siblings of it, which also fixes them visually, they used to
  * scroll away from the text they exist to make readable.
  *
  * And because a page that scrolls should say so, there is a cue at the foot
@@ -54,7 +54,7 @@ import { Planner } from './Planner.jsx'
  * Set as a definition list rather than three equal cards. A three-up grid of
  * feature cards is the default shape of every landing page built this decade,
  * and it flattens three statements of different weight into one row of equals.
- * Deliberately not numbered either — the missions above already are, and two
+ * Deliberately not numbered either, the missions above already are, and two
  * numbered lists stacked read like a form rather than a page.
  */
 const CLAIMS = [
@@ -149,7 +149,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
       {/*
         The scrims sit outside the scrolling box now. Inside it they were laid
         out at the top of a 1,079 px column and scrolled off with it, so the foot
-        of the page — the colophon, over the daylit Pacific — lost the fade that
+        of the page, the colophon, over the daylit Pacific, lost the fade that
         made it legible at exactly the moment it came into view.
 
         Lighter than it was across the left: with less to read there, the planet
@@ -159,7 +159,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
       {/*
         The foot runs deeper and further up than it did. The column ends over
         the daylit Pacific, and cream text on a sunlit cloud top is the one
-        place on this page where contrast can actually fail — so the scrim
+        place on this page where contrast can actually fail, so the scrim
         covers the whole lower half rather than the lower third, and it fades
         from obsidian rather than from pure black so it sits under warm imagery
         without going grey.
@@ -169,7 +169,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
       <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-warm/90 via-obsidian/55 to-transparent" />
 
       {/*
-        The title bar. Two readouts, hairline-ruled, in the mono face — the
+        The title bar. Two readouts, hairline-ruled, in the mono face, the
         register of a panel rather than of a nav. It is not a menu and does not
         pretend to be one: there is one place to go from here.
       */}
@@ -192,7 +192,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
       {/*
         The scroller. `overscroll-contain` so a flick at the bottom does not
         hand the gesture to the page behind, and a focusable region so the
-        keyboard can drive it — a scrollable box that only answers to a wheel is
+        keyboard can drive it, a scrollable box that only answers to a wheel is
         half a control.
       */}
       <div
@@ -205,7 +205,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
         <div className="relative flex min-h-full items-center px-7 pt-24 pb-24 sm:px-16 lg:px-24">
           <div className="w-full max-w-[36rem]">
             {/*
-              Light, serif, and widely tracked — and *smaller* than it was,
+              Light, serif, and widely tracked, and *smaller* than it was,
               which is the part that is counter-intuitive. Letterspacing at
               0.15em adds about two ems across fourteen characters, so the old
               4.8rem setting would have run 693 px into a 576 px column. An
@@ -214,7 +214,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
             */}
             {/*
               The kicker gives the name a frame before it lands: what this is,
-              in the one register the house uses for a claim — mono, tracked,
+              in the one register the house uses for a claim, mono, tracked,
               ember, and small. It replaces the tag the masthead used to
               carry, which said what the old brochure said instead of what a
               visitor needs to know in the first second.
@@ -236,8 +236,8 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               style={step(shown, 2)}
               className="mt-7 max-w-[30rem] text-[16px] leading-[1.75] font-light text-hud/92"
             >
-              Fly the missions that were actually flown — Apollo&nbsp;8 to the Moon and
-              home, Artemis onto a halo orbit beyond it — through a solar system the
+              Fly the missions that were actually flown, Apollo&nbsp;8 to the Moon and
+              home, Artemis onto a halo orbit beyond it, through a solar system the
               size it really is.
             </p>
 
@@ -256,7 +256,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                  * block of accent with the label knocked out of it, which is
                  * the loudest thing a page can contain and made the accent
                  * colour mean "button" instead of "this one". Now the border
-                 * carries it and the fill arrives on hover — the control is
+                 * carries it and the fill arrives on hover, the control is
                  * quiet until you reach for it.
                  */
                 className={`control group relative w-full overflow-hidden border px-10 py-4 font-sans text-[11px] font-medium tracking-[0.22em] uppercase transition-colors duration-300 outline-none focus-visible:ring-1 focus-visible:ring-ember/80 focus-visible:ring-offset-4 focus-visible:ring-offset-obsidian sm:w-auto ${
@@ -293,7 +293,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
             </div>
 
             {/* The flights, and the two ways into them. Nine missions is a
-                drawer, not a list — they live in the library now — and the tour
+                drawer, not a list, they live in the library now, and the tour
                 is the other door: one row for people who know what they want,
                 one for people who would rather be shown around first. The
                 hairline that changes colour rather than moving is kept from the
@@ -304,8 +304,8 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               </div>
               {/*
                 The returning-visitor line. The logbook answers "have you been
-                here before" from what was actually done — milestones reached,
-                plates taken, films kept — rather than from a visit counter, so
+                here before" from what was actually done, milestones reached,
+                plates taken, films kept, rather than from a visit counter, so
                 it never says "welcome back" to someone who only ever read the
                 page. Nothing here yet, and the line is simply not printed.
               */}
@@ -331,7 +331,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                       Mission library
                     </span>
                     <span className="mt-1.5 block text-[11px] leading-snug text-hud/58">
-                      From the pad, to the Moon, and the burn for home — choose where to
+                      From the pad, to the Moon, and the burn for home, choose where to
                       arrive.
                     </span>
                   </span>
@@ -355,7 +355,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                       Plan your own flight
                     </span>
                     <span className="mt-1.5 block text-[11px] leading-snug text-hud/58">
-                      Pick the route, the wings and the fuel — then fly it yourself, from the count to the touchdown.
+                      Pick the route, the wings and the fuel, then fly it yourself, from the count to the touchdown.
                     </span>
                   </span>
                   <span className="pr-1 text-hud/30 transition-colors duration-500 group-hover:text-ember">
@@ -389,7 +389,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
             </div>
 
             {/*
-              Ruled, but not numbered — see CLAIMS above for why this is a
+              Ruled, but not numbered, see CLAIMS above for why this is a
               definition list and not a row of cards.
             */}
             <dl style={step(shown, 5)} className="mt-12 border-t border-hud/12">
@@ -407,7 +407,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                     sampling the band this list sits in: the background is
                     0.0191 relative luminance at the 95th percentile, where
                     white/40 reads 6.67:1 and clears AA for small text easily.
-                    The tail is the problem — the brightest cloud tops in that
+                    The tail is the problem, the brightest cloud tops in that
                     same band reach 0.111, and white/40 falls to 3.2:1 against
                     those. /50 takes the typical case to 8.1:1 and the tail to
                     3.8:1. That last figure is still under 4.5, and is left
@@ -423,7 +423,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
             </dl>
 
             {/*
-              The colophon. A person made this and the page says so — plainly,
+              The colophon. A person made this and the page says so, plainly,
               once, at the foot where a colophon belongs, rather than as a badge.
             */}
             <div
@@ -439,8 +439,8 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
             </div>
 
             {/*
-              The source. The whole simulator is public — integrator, flight
-              computer, the sixty-seven gates that hold it — and the page says
+              The source. The whole simulator is public, integrator, flight
+              computer, the sixty-seven gates that hold it, and the page says
               where, at the foot where a colophon says where the type came from.
             */}
             <div style={step(shown, 7)} className="mt-10 border-t border-hud/12 pt-4">
@@ -452,7 +452,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                   href="https://github.com/IJai-code/Periapsis-Zero"
                   target="_blank"
                   rel="noreferrer"
-                  title="The source, on GitHub — issues and pull requests are read"
+                  title="The source, on GitHub, issues and pull requests are read"
                   className="group inline-flex items-baseline gap-2 font-mono text-[10px] tracking-[0.18em] text-hud/45 uppercase outline-none transition-colors duration-300 hover:text-ember focus-visible:text-ember"
                 >
                   github.com/IJai-code/Periapsis-Zero
@@ -462,8 +462,8 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
                 </a>
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-hud/45">
-                The whole simulator — integrator, flight computer, the verification
-                suite that holds it, this page — is public. Everything you see fly
+                The whole simulator, integrator, flight computer, the verification
+                suite that holds it, this page, is public. Everything you see fly
                 is flown by the same code the repository runs.
               </p>
             </div>
@@ -476,7 +476,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
               The phone's way back up, in the flow of the column rather than
               floating over it. On a narrow screen the column is the whole width,
               so a floating control has nowhere to sit that is not on top of
-              something — measured, the two in the margin below overlapped a line
+              something, measured, the two in the margin below overlapped a line
               of body text at four of the five scroll positions sampled at 375 px.
               A control that covers the sentence you are reading is not an
               affordance. In the flow it can never collide, and a touch screen
@@ -503,7 +503,7 @@ export function Landing({ ready, progress, label, onEnter, onLibrary, onTour, hi
 
         The right margin rather than the centre, and that is a correction: the
         cue was centred on the viewport, and the reading column is left-aligned
-        and ends around two-thirds across — so a centred button sat squarely in
+        and ends around two-thirds across, so a centred button sat squarely in
         the middle of the claims, and the live page read "The Moo[ MORE ]m away".
         The column never reaches this margin, and the planet behind it is the
         part of the frame with nothing to read on it.

@@ -22,8 +22,8 @@ import { PLATE_SHELF_SIZE, plateAll, plateDelete, plateDownload } from '../gfx/p
  *
  * `LogProgress` is the strip that always runs: what you have done, and the one
  * moment this flight is about to give you next. `Logbook` is the drawer that
- * holds the whole record — milestones in flight order with the mission clock
- * they were reached at, the plates, the films on the shelf, the pads — each
+ * holds the whole record, milestones in flight order with the mission clock
+ * they were reached at, the plates, the films on the shelf, the pads, each
  * item pointing at the flight it belongs to, so the record is also an index.
  *
  * The house grammar is kept throughout: hairlines that change colour rather
@@ -37,7 +37,7 @@ import { PLATE_SHELF_SIZE, plateAll, plateDelete, plateDownload } from '../gfx/p
  * the page. But the HUD still has to re-render when it changes, so it exposes
  * the same subscribe/get pattern `uiStore` does and the same
  * `useSyncExternalStore` wiring reads it. The strip re-renders only when
- * something is actually recorded — never per frame.
+ * something is actually recorded, never per frame.
  *
  * ── which milestone is "next" ─────────────────────────────────────────
  *
@@ -47,8 +47,8 @@ import { PLATE_SHELF_SIZE, plateAll, plateDelete, plateDownload } from '../gfx/p
  * a launch from Florida. Asking "what is the first milestone I have not logged"
  * in list order would answer *Liftoff* to an Eagle pilot, forever.
  *
- * So the question is asked of the sequencer's own phase order — `PHASE_IDS`,
- * the array whose layout *is* the machine's control flow — seeded from the
+ * So the question is asked of the sequencer's own phase order, `PHASE_IDS`,
+ * the array whose layout *is* the machine's control flow, seeded from the
  * phase the flight is actually in. The first unlogged milestone at or after
  * the current phase is the honest "next in this flight"; anything the flight
  * has already passed or will never reach is not advertised.
@@ -60,7 +60,7 @@ function useLogbook() {
 
 /**
  * The shelf, read while the drawer is open. Data URLs, not object URLs —
- * nothing to revoke, the browser holds the bytes — so the cleanup is only
+ * nothing to revoke, the browser holds the bytes, so the cleanup is only
  * the timer.
  */
 function usePlateShelf(open) {
@@ -79,7 +79,7 @@ function usePlateShelf(open) {
 }
 
 /** "T+00:02:31", or an em dash for a moment the record does not date. */
-const stamp = (t) => (Number.isFinite(t) ? metLabel(t) : '—')
+const stamp = (t) => (Number.isFinite(t) ? metLabel(t) : '·')
 
 /** The first unlogged milestone at or after the phase the flight is in. */
 function upcomingMilestone(reachedPhases) {
@@ -101,8 +101,8 @@ function upcomingMilestone(reachedPhases) {
 /**
  * The progress strip, under the flight strip.
  *
- * Left: the count — milestones, plates, films. Right: the next moment this
- * flight is aiming at — except when something has just been earned, which is
+ * Left: the count, milestones, plates, films. Right: the next moment this
+ * flight is aiming at, except when something has just been earned, which is
  * announced here once and then goes quiet. Both kinds of news arrive through
  * the same store change: milestones by count, records by value, so no
  * imperative caller anywhere has to remember to toast.
@@ -132,7 +132,7 @@ export function LogProgress() {
     lastRef.current = count
     const reached = milestonesReached()
     const label = reached[reached.length - 1]?.label
-    if (label) say(`${label} — logged`)
+    if (label) say(`${label}, logged`)
   }, [count])
 
   /*
@@ -148,7 +148,7 @@ export function LogProgress() {
     for (const [id, b] of Object.entries(bests)) {
       const was = prev[id]
       if (was && was.v === b.v) continue
-      say(`${b.label} · ${formatBest(b)} — ${was ? 'new best' : 'record'}`)
+      say(`${b.label} · ${formatBest(b)}, ${was ? 'new best' : 'record'}`)
       return // one announcement per emission; the rest wait their turn
     }
   }, [rec])
@@ -195,7 +195,7 @@ export function LogProgress() {
 }
 
 /**
- * The full drawer. Portalled to the body, like the mission library — for the
+ * The full drawer. Portalled to the body, like the mission library, for the
  * same reason: the HUD's smoked glass would otherwise become its containing
  * block and lay the drawer out in a 190-pixel column.
  */
@@ -229,7 +229,7 @@ export function Logbook({ open, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Flight logbook"
-      className="fixed inset-0 z-50 overflow-y-auto bg-[#0a0b0d]/96 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 overflow-y-auto bg-[#120b22]/96 backdrop-blur-[2px]"
     >
       <div className="mx-auto min-h-full w-full max-w-4xl px-6 py-10 sm:px-10">
         <header className="flex items-start justify-between gap-6 border-b border-hud/15 pb-6">
@@ -241,8 +241,7 @@ export function Logbook({ open, onClose }) {
               Flight logbook
             </h1>
             <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-hud/60">
-              What you have actually flown, seen and kept here. Nothing is graded —
-              the record is the point.
+              What you have actually flown, seen and kept here. Nothing is graded. The record is the point.
             </p>
           </div>
           <button
@@ -253,7 +252,7 @@ export function Logbook({ open, onClose }) {
           </button>
         </header>
 
-        {/* The milestones, in flight order — flown ones lit, the rest ahead. */}
+        {/* The milestones, in flight order, flown ones lit, the rest ahead. */}
         <section aria-label="Milestones" className="mt-8">
           <div className="font-mono text-[10px] tracking-[0.26em] text-hud/45 uppercase">
             Milestones · {reached.length}/{MILESTONES.length}
@@ -297,7 +296,7 @@ export function Logbook({ open, onClose }) {
             </div>
             <div className="mt-3 grid gap-px bg-hud/12 sm:grid-cols-3">
               {bests.map((b) => (
-                <div key={b.id} className="bg-[#0a0b0d] p-5">
+                <div key={b.id} className="bg-[#120b22] p-5">
                   <div className="rule text-[8px]">{b.label}</div>
                   <div className="mt-2 font-display text-3xl font-light text-hud tabular-nums">
                     {formatBest(b)}
@@ -316,15 +315,15 @@ export function Logbook({ open, onClose }) {
 
         {/* Plates, films, pads: the other kinds of kept thing. */}
         <div className="mt-8 grid gap-px bg-hud/12 sm:grid-cols-3">
-          <div className="bg-[#0a0b0d] p-5">
+          <div className="bg-[#120b22] p-5">
             <div className="rule text-[8px]">Plates taken</div>
             <div className="mt-2 font-display text-4xl font-light text-hud">{plateCount}</div>
             <p className="mt-2 text-[11px] leading-snug text-hud/50">
-              Press P anywhere to add one — captioned, and yours to keep. The last {PLATE_SHELF_SIZE} live
+              Press P anywhere to add one, captioned, and yours to keep. The last {PLATE_SHELF_SIZE} live
               in the gallery below.
             </p>
           </div>
-          <div className="bg-[#0a0b0d] p-5">
+          <div className="bg-[#120b22] p-5">
             <div className="rule text-[8px]">Films kept</div>
             <div className="mt-2 font-display text-4xl font-light text-hud">
               {Object.keys(films).length}
@@ -345,7 +344,7 @@ export function Logbook({ open, onClose }) {
                 ))}
             </ul>
           </div>
-          <div className="bg-[#0a0b0d] p-5">
+          <div className="bg-[#120b22] p-5">
             <div className="rule text-[8px]">Pads flown from</div>
             <div className="mt-2 font-display text-4xl font-light text-hud">
               {pads.length}
@@ -372,7 +371,7 @@ export function Logbook({ open, onClose }) {
             </div>
             <div className="mt-3 grid gap-px bg-hud/12 sm:grid-cols-2">
               {plates.map((p) => (
-                <figure key={p.id} className="group relative bg-[#0a0b0d]">
+                <figure key={p.id} className="group relative bg-[#120b22]">
                   <img
                     src={p.dataUrl}
                     alt={p.title || 'A plate of the simulation'}

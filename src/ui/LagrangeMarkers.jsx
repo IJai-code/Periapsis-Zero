@@ -6,7 +6,7 @@ import { useUi } from '../sim/store.js'
 /**
  * Screen-space waypoints for the Earth-Moon libration points.
  *
- * Plain DOM in the HUD layer — positions are written directly by
+ * Plain DOM in the HUD layer, positions are written directly by
  * LagrangeProjector, so nothing here re-renders as the camera moves. The
  * distance readout ticks on a slow timer because it is text, not motion.
  */
@@ -55,7 +55,7 @@ export function LagrangeMarkers() {
                 {label}
               </span>
               <span data-lp={label} className="font-mono text-[8px] text-white/30 tabular-nums">
-                —
+                ·
               </span>
             </span>
           </div>

@@ -75,7 +75,7 @@ function EclipseBanner() {
  *
  * Entering from a camera riding the vehicle moves to whichever body the path is
  * drawn around, because an orbit cannot be read from inside it. Any other lock
- * is left alone — if the pilot was looking at the Moon, the map opens on the
+ * is left alone, if the pilot was looking at the Moon, the map opens on the
  * Moon.
  */
 function toggleMap() {
@@ -92,7 +92,7 @@ function toggleMap() {
  * dragged wider, or a load that happened before the viewport settled all leave
  * the layout committed to a width it no longer has. Measured at 375 px with the
  * panels open, the two rails and the centre column produced **ten overlapping
- * pairs** — panels printed over panels, which is the one thing a glass
+ * pairs**, panels printed over panels, which is the one thing a glass
  * interface makes worse rather than better.
  *
  * So the layout asks the viewport itself, and keeps asking.
@@ -113,13 +113,13 @@ function useNarrow() {
 
 export function Hud() {
   const open = useUi((s) => s.panelOpen)
-  /** The setup drawer: missions, contracts, pad, craft, display — one key, S. */
+  /** The setup drawer: missions, contracts, pad, craft, display, one key, S. */
   const setup = useUi((s) => s.setup)
   /**
    * On foot, the cockpit folds away.
    *
    * Every other camera here is an instrument and is entitled to instruments
-   * around it. The walk is the one view that is meant to be a *place* — a
+   * around it. The walk is the one view that is meant to be a *place*, a
    * person standing on the Moon, at eye height, with the ground under them —
    * and a flight-plan panel, a model picker and a telemetry rail over that is
    * the cockpit reaching into a photograph, which is the same argument
@@ -138,8 +138,8 @@ export function Hud() {
   // The logbook drawer: opened from the control bar, Esc or its own Close.
   const [logbook, setLogbook] = useState(false)
   /*
-   * Mirrored for the key handler, which is registered once on purpose — the
-   * comment below explains why — so it cannot read this state directly. With
+   * Mirrored for the key handler, which is registered once on purpose, the
+   * comment below explains why, so it cannot read this state directly. With
    * the drawer up, the flight's own keys do nothing: a shortcut that fires
    * behind a modal is a control that works invisibly.
    */
@@ -189,7 +189,7 @@ export function Hud() {
        * On foot, the keyboard belongs to the feet.
        *
        * A walker uses WASD to move and Space to jump, and every one of those
-       * is bound here or in `ShipControls` to something else — camera locks,
+       * is bound here or in `ShipControls` to something else, camera locks,
        * the throttle, the pause. Yielding the whole set while the boots are on
        * is the same bargain free flight already makes for W and S, and for the
        * same reason: the pair a hand reaches for is the pair a hand reaches
@@ -197,7 +197,7 @@ export function Hud() {
        */
       const onFoot = uiStore.get().focus === 'walk'
       if (FOCUS_KEYS[e.key]) return setUi({ focus: FOCUS_KEYS[e.key] })
-      // G for "go on foot" — the walk is where the ground camera at 0 leads.
+      // G for "go on foot", the walk is where the ground camera at 0 leads.
       if (e.key.toLowerCase() === 'g') {
         return setUi((s) => ({ focus: s.focus === 'walk' ? 'ground' : 'walk', map: false }))
       }
@@ -249,7 +249,7 @@ export function Hud() {
   return (
     <>
     <LagrangeMarkers />
-    <div className="pointer-events-none fixed inset-0 z-10 select-none" style={{ animation: 'pz-fade 700ms ease both' }}>
+    <div className="pointer-events-none fixed inset-0 z-10 select-none">
       {/*
         The bottom clearance is 9rem on a phone and 7rem above it, and the
         difference is the control bar's own height: its buttons are 36 px for a
@@ -261,7 +261,7 @@ export function Hud() {
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2.5">
             {/*
-              The mark rides the lockup — the same drawing the tab icon is,
+              The mark rides the lockup, the same drawing the tab icon is,
               generated into brand.js, so the corner and the browser chrome
               agree by construction.
             */}
@@ -300,7 +300,7 @@ export function Hud() {
         </div>
         {/*
           The mission checklist rides the rail whether or not the panels are
-          open — an armed program is the flight's own plan, and a plan you have
+          open, an armed program is the flight's own plan, and a plan you have
           to summon is a plan you fly past. It hides itself when nothing is
           armed, and folds away on foot with the rest of the cockpit.
         */}
@@ -325,7 +325,7 @@ export function Hud() {
         )}
         {/*
           The setup drawer, behind S or its button. Everything that is set
-          *around* a flight — where from, on what, doing which job — lives
+          *around* a flight, where from, on what, doing which job, lives
           here, and the rail it used to own belongs to the flight strip and
           the checklist. On a narrow screen the right-hand rail folds in
           beneath it, rendered from the same elements rather than a second
@@ -338,7 +338,7 @@ export function Hud() {
       </div>
 
       {/*
-        Go anywhere by name — the search replaces the camera-lock list, and sits
+        Go anywhere by name, the search replaces the camera-lock list, and sits
         where a search sits: top right, above the instruments, always there.
       */}
       {!narrow && (
@@ -356,14 +356,14 @@ export function Hud() {
       {/*
         Below the strip, not beside it. The centre column is centred on the
         *viewport* while the left rail is not, so at 1024 px the burn panel ran
-        from x=304 and the telemetry strip to x=453 — measured, a 149 px overlap
+        from x=304 and the telemetry strip to x=453, measured, a 149 px overlap
         straight through the dynamic-pressure figure. Dropping the column clear
         of the strip's own band costs nothing: the panel is still centred, still
         the first thing in the middle of the frame, and now nothing is ever
         printed over a live number.
       */}
       {/*
-        Hidden while the single column is open on a narrow screen — there is
+        Hidden while the single column is open on a narrow screen, there is
         one column's worth of room and the instruments are in it. Opening the
         panels on a phone is an explicit "show me everything" and this is what
         it costs; closing them brings the burn panel straight back.
@@ -385,8 +385,8 @@ export function Hud() {
       </div>
 
       {/*
-        The watermark, bottom-right: the one corner nothing else claims — FlyHud
-        holds the left, the centre column the middle — so the mark closes the
+        The watermark, bottom-right: the one corner nothing else claims, FlyHud
+        holds the left, the centre column the middle, so the mark closes the
         frame the way a broadcast bug closes a picture. Plain, so it sits on
         the sim rather than on a tile; dimmed to furniture, and it fades the
         moment the map wants the room.
@@ -444,7 +444,7 @@ export function Hud() {
           <span className="h-4 w-px bg-hud/15" aria-hidden />
           <button
             onClick={() => setLogbook(true)}
-            title="Your flight logbook — milestones reached, plates taken, films kept"
+            title="Your flight logbook, milestones reached, plates taken, films kept"
             className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
           >
             logbook
