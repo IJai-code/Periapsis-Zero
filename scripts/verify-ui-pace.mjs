@@ -198,10 +198,14 @@ if (/SHADOW_TEXELS\s*=\s*4096/.test(sunSrc))
   pass('the shadow map ceiling is still 4,096 texels — nothing was toned down')
 else fail('sunlight.js no longer fixes SHADOW_TEXELS at 4096')
 
-/* The governor spends it last, refunds it first, and releases it under Full resolution. */
+/* The governor spends it last, refunds it first, and releases it under Full resolution.
+   Scoped to the governor's own loop: the context-loss recovery also spends the
+   shadow rung, deliberately first, because a driver that just dropped its
+   context is known to be in trouble in a way a slow window does not prove. */
 const resSrc = readFileSync(join(ROOT, 'src/components/Resolution.jsx'), 'utf8')
-const panicSpend = resSrc.indexOf('setShadowRelief(true)')
-const tessSpend = resSrc.indexOf('detailCap() < MAX_DETAIL_STEP')
+const governorBody = resSrc.slice(resSrc.indexOf('useFrame(() => {'))
+const panicSpend = governorBody.indexOf('setShadowRelief(true)')
+const tessSpend = governorBody.indexOf('detailCap() < MAX_DETAIL_STEP')
 if (panicSpend > -1 && tessSpend > -1 && panicSpend > tessSpend)
   pass('the shadow is spent only after tessellation is spent')
 else fail('the lever order is wrong or missing')

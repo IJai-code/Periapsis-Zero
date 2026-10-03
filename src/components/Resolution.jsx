@@ -45,8 +45,26 @@ import { setShadowRelief, shadowRelief } from '../gfx/groundBudget.js'
  */
 
 /** Frames sampled before each decision, and the shorter window used until the first one. */
-const WINDOW = 90
+const WINDOW = 120
 const FIRST_WINDOW = 24
+/**
+ * Two consecutive windows on the same side of a threshold before any comfort-
+ * path move. One window of evidence moved the ratio every two seconds at the
+ * band's edge, and a machine hovering near 19 ms spent its day stepping down
+ * and back — each step reallocating every render target, each reallocation a
+ * visible hitch, and the hitches were what a visitor reported as tweaking.
+ * Two windows is four seconds of sustained signal before the picture changes,
+ * which is the difference between an instrument and a metronome.
+ */
+const CONFIRM = 2
+/**
+ * Frames ignored after any lever move: the first of them pays for
+ * reallocating every render target, which is not the new steady state, and
+ * judging the machine on its own reallocation is how one step became three.
+ * A third of a second — the scene settles, the targets refill, and only then
+ * does the measuring resume.
+ */
+const SETTLE = 24
 /*
  * Slower than SLOW_MS on average and the machine is missing frames; faster
  * than FAST_MS and it has room. Both come from `gfx/frameStats.js`, beside
@@ -73,19 +91,64 @@ const FLOOR = 0.6
 const HOLD = 5
 const HOLD_MAX = 40
 
+const LOSS_KEY = 'pz-gpu-losses'
+
+/** How many contexts this session has already lost, for the escalation below. */
+function lossesSoFar() {
+  try {
+    return Number(sessionStorage.getItem(LOSS_KEY) ?? 0)
+  } catch {
+    return 0
+  }
+}
+
 export function Resolution() {
   const gl = useThree((s) => s.gl)
+  const setDpr = useThree((s) => s.setDpr)
   useEffect(() => {
-    const lost = (e) => { e.preventDefault(); setUi({ graphicsLost: true }) }
-    const restored = () => setUi({ graphicsLost: false })
+    /*
+     * A lost context is not an error state to wall off; it is the driver
+     * asking for less. The browser restores it on its own in almost every
+     * case — the dialog exists for the seconds in between — and what the
+     * recovery does with the chance decides whether there is a next one.
+     *
+     * So restoration spends the governor's own levers: the pixel ceiling
+     * drops a step and the machine re-measures from there, exactly as if the
+     * frames had gone slow, and a second loss in one session drops further
+     * and sheds the shadow map. Random-looking losses across platforms are
+     * near always memory pressure; the response that works is the one this
+     * component already knows how to make.
+     */
+    const lost = (e) => {
+      e.preventDefault()
+      try {
+        sessionStorage.setItem(LOSS_KEY, String(lossesSoFar() + 1))
+      } catch {
+        /* private mode; the escalation just stays local */
+      }
+      setUi({ graphicsLost: true })
+    }
+    const restored = () => {
+      const losses = lossesSoFar()
+      if (losses >= 2) {
+        // Twice in one session is a pattern, not an accident. Give back the
+        // dearest things first — the shadow pass, then a third of the pixels —
+        // and let the comfort refund earn them back only if the machine is
+        // genuinely fine.
+        setShadowRelief(true)
+        setDpr(Math.max(QUALITY.dpr[0], (window.devicePixelRatio || 1) * 0.66))
+      } else {
+        setDpr(Math.max(QUALITY.dpr[0], (window.devicePixelRatio || 1) - 0.25))
+      }
+      setUi({ graphicsLost: false })
+    }
     gl.domElement.addEventListener('webglcontextlost', lost)
     gl.domElement.addEventListener('webglcontextrestored', restored)
     return () => {
       gl.domElement.removeEventListener('webglcontextlost', lost)
       gl.domElement.removeEventListener('webglcontextrestored', restored)
     }
-  }, [gl])
-  const setDpr = useThree((s) => s.setDpr)
+  }, [gl, setDpr])
 
   useEffect(() => {
     const visibility = () => {
@@ -120,7 +183,7 @@ export function Resolution() {
   // A photograph raises the ratio on purpose; judging the machine on those
   // frames would read a deliberate expense as a machine in trouble.
   const photo = useUi((s) => s.photo)
-  const s = useRef({ n: 0, sum: 0, last: 0, settle: 0, window: FIRST_WINDOW, ceiling: Infinity, hold: 0, panic: 0 })
+  const s = useRef({ n: 0, sum: 0, last: 0, settle: 0, window: FIRST_WINDOW, ceiling: Infinity, hold: 0, panic: 0, over: 0, under: 0 })
 
   // Pinned by hand: give the machine the whole range and stop judging it.
   // The pilot has taken the dial, so any distress cap the governor had spent
@@ -165,10 +228,12 @@ export function Resolution() {
     const down = () => {
       c.ceiling = Math.max(min, dpr - STEP)
       c.hold = Math.min(HOLD_MAX, Math.max(HOLD, c.hold * 2))
-      c.settle = 3
+      c.settle = SETTLE
       c.n = 0
       c.sum = 0
       c.panic = 0
+      c.over = 0
+      c.under = 0
       setDpr(c.ceiling)
     }
 
@@ -185,7 +250,7 @@ export function Resolution() {
         // immediately rather than after another window of two frames a second.
         if (detailCap() < MAX_DETAIL_STEP) {
           setDetailStep(detailCap() + 1)
-          c.settle = 3
+          c.settle = SETTLE
           c.n = 0
           c.sum = 0
           return
@@ -194,7 +259,7 @@ export function Resolution() {
         // and it is a boolean — spent once, refunded only out of comfort.
         if (!shadowRelief()) {
           setShadowRelief(true)
-          c.settle = 3
+          c.settle = SETTLE
           c.n = 0
           c.sum = 0
         }
@@ -213,6 +278,15 @@ export function Resolution() {
     c.window = WINDOW
 
     if (mean > SLOW_MS) {
+      /*
+       * One slow window is weather; two in a row is climate. The confirmation
+       * costs four seconds on a struggling machine — the panic path above
+       * still answers instantly — and it is what stops the ratio from
+       * sawing at the threshold.
+       */
+      c.under = 0
+      if (++c.over < CONFIRM) return
+      c.over = 0
       if (dpr > min) {
         down()
       } else {
@@ -230,15 +304,32 @@ export function Resolution() {
         })
         if (next !== detailCap()) {
           setDetailStep(next)
-          c.settle = 3
+          c.settle = SETTLE
           c.n = 0
           c.sum = 0
         }
       }
     } else if (mean < FAST_MS) {
-      if (dpr < Math.min(max, c.ceiling)) {
-        c.settle = 3
+      c.over = 0
+      if (++c.under < CONFIRM) return
+      c.under = 0
+      if (dpr < Math.min(max, c.ceiling) && c.hold > 0) {
+        /*
+         * The pixels are being paid back out of a debt the last down-step
+         * left — hold windows of it — and the climb is not due until the
+         * debt is cleared. The coarser refunds below still run while the
+         * hold decays: they are refunds, and a machine that has proved
+         * comfortable twice gets its shadow map back without further ado.
+         */
+        c.hold--
+      } else if (dpr < Math.min(max, c.ceiling)) {
+        c.settle = SETTLE
         setDpr(Math.min(max, c.ceiling, dpr + STEP))
+        // Re-arm the hold: an up-step is the same act a down-step is, and it
+        // waits the same way before doing it again. This is the anti-
+        // oscillation clause — without it a machine at the band's edge steps
+        // up this window and down the next, forever.
+        c.hold = HOLD
       } else if (shadowRelief()) {
         /*
          * The shadow rung is refunded first, and for the same reason it is
@@ -249,7 +340,7 @@ export function Resolution() {
          * oscillates against itself.
          */
         setShadowRelief(false)
-        c.settle = 3
+        c.settle = SETTLE
       } else if (detailCap() > 0) {
         /*
          * Back at the pixel ceiling and comfortable: refund one rung. The
@@ -264,7 +355,7 @@ export function Resolution() {
           fastMs: FAST_MS,
         })
         setDetailStep(next)
-        c.settle = 3
+        c.settle = SETTLE
       } else if (c.hold > 0) {
         c.hold--
       } else if (c.ceiling < max) {
