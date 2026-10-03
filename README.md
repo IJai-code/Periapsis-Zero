@@ -4,7 +4,7 @@ A space game and simulator with three experiences in one app: **Expeditions**, *
 
 ## The hybrid release
 
-- **Expeditions:** approach the Moon, Mars, or Europa in a fictional reusable survey lander. Land with optional assistance, leave the vehicle, collect paired samples, return them, and take off. Finite propellant, inertia, real body gravity, hard-landings, and retry are active mechanics.
+- **Expeditions:** approach the Moon, Mars, or Europa in a fictional reusable survey lander. Land with optional assistance, leave the vehicle, deploy the rover, drive out to three instrument sites, collect paired samples, return everything, and take off. Finite propellant, inertia, real body gravity, hard-landings, and retry are active mechanics; the rover runs on a battery with mass-driven traction.
 - **Story:** *The ground truth*, a three-flight survey campaign with crew briefings, field objectives, debriefs, and locally saved sequential unlocks. The old six orbital chapters remain in Simulator as **Flight school**.
 - **Simulator:** measured Sun/Earth/Moon dynamics integrated by RK4, planetary rails, Apollo/Artemis missions, orbit planning, and the historical mission library. The initial cockpit is quieter; Missions and Mode select are visible in the top bar. Escape also opens a mode menu during a broadcast.
 
@@ -16,18 +16,23 @@ A space game and simulator with three experiences in one app: **Expeditions**, *
 | --- | --- |
 | H | Toggle landing assistance, which uses the same thrust and fuel model |
 | R / F | Increase / decrease manual throttle |
-| W A S D | Tilt the lander; move on foot |
+| W A S D | Tilt the lander; move on foot; drive and steer the rover |
 | Q / Z | Yaw the lander |
-| E | Leave or board the landed vehicle; collect a nearby sample |
+| E | Leave or board the landed vehicle; collect a nearby sample; board or leave the rover; deploy an instrument |
+| G | Deploy the rover, once you are down |
 | T | Take off after touchdown |
 | Drag / wheel | Look / adjust chase distance |
 | Left / right arrows | Turn your view on foot |
 | Shift / Space | Run / jump on foot |
 | Escape | Pause menu, retry, or return to mode selection |
 
-Touch buttons provide movement, looking, jumping, and thrust adjustment on narrow/coarse-pointer screens. The throttle slider also supports pointer and keyboard control. Samples require standing within 5 m; boarding requires returning within 11 m of the lander.
+Touch buttons provide movement, looking, jumping, driving, and thrust adjustment on narrow/coarse-pointer screens. The throttle slider also supports pointer and keyboard control. Samples require standing within 5 m; instruments deploy from the driver's seat within 6 m; boarding the lander requires returning within 11 m of it, and whichever of the lander or rover you are further inside is the one `E` takes.
 
-See [hybrid-rebuild.md](docs/hybrid-rebuild.md) for acceptance criteria, architecture, verification, and remaining work. Run `npm run verify:expeditions` for the new physics/terrain/progression gate; `npm run verify:all` runs all 69 gates.
+### Pilot profile (optional)
+
+The front door offers a name for your logbook. It is stored in this browser only, there is no account and no server, and the game is identical with or without it. See `npm run verify:pilot` for the gate that holds it that way.
+
+See [hybrid-rebuild.md](docs/hybrid-rebuild.md) for acceptance criteria, architecture, verification, and remaining work. Run `npm run verify:expeditions` for the physics/terrain/rover/progression gate; `npm run verify:all` runs all 70 gates.
 
 ```bash
 npm install

@@ -169,6 +169,7 @@ const GATES = [
   ['verify-programs', false],
   ['verify-audio', false],
   ['verify-expeditions', false],
+  ['verify-pilot', false],
 ]
 
 const wanted = process.argv.slice(2)

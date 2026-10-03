@@ -19,6 +19,40 @@ export const CAMPAIGN = [
   { id: 'europa', number: '03', title: 'Under the ice', role: 'Mission scientist', contact: 'Mara Voss', brief: 'The brown material follows a young fracture. Compare it with the clean ice beside the ridge. Do not drill or claim an ocean sample; we are collecting what reached the surface.', stakes: 'Jupiter dominates the sky, but the ice under your boots is the useful evidence. Bring the paired samples home to the vehicle.', debrief: 'The fracture material differs from the nearby ice. That makes this a candidate for a later instrument package, not proof of life. Your survey has given the team a defensible next step.', samples: ['Fracture deposit', 'Clean surface ice'] },
 ]
 export const SITES = [{ x: -28, z: -42 }, { x: 36, z: -64 }]
+
+/**
+ * The surface rover, and why it is not a car.
+ *
+ * Six wheels and no differential: it steers by skid, which is what every
+ * machine that has actually driven on another world does, because a
+ * differential is mass and this vehicle is 210 kg of it. Top speed is 3.4 m/s,
+ * a fast walk. The Apollo crews' rover managed 3.6 m/s on the Moon and the
+ * limit was never the motors; it was what the driver could see and stop for.
+ *
+ * The figures are the vehicle's, not a feel choice. On the Moon 520 N against
+ * 210 kg is 2.48 m/s², which reaches top speed in under two seconds. The same
+ * motor against a gradient is fought by gravity scaled by the traction factor:
+ * it stalls on a 1.21 gradient on Mars (about 50 degrees) and on a 2.77 one on
+ * the Moon (about 70). That difference between worlds is the reason to drive
+ * on both.
+ */
+export const ROVER = { mass: 210, drive: 520, wheelbase: 2.1, track: 1.7, clearance: 0.46, maxSpeed: 3.4, grip: 0.55, drain: 9e-6 }
+
+/**
+ * The instrument packages, and why they are further out than the samples.
+ *
+ * A sample is a rock you can pick up beside the vehicle. An instrument is a
+ * decision about where a measurement should live: a seismometer wants quiet
+ * ground away from the lander's pumps, a magnetometer wants distance from the
+ * vehicle's own field, and a heat probe wants undisturbed regolith. So they sit
+ * 150 to 380 m out, which is a long walk at 2.8 m/s and a short drive at 3.4.
+ * That gap is what the rover is for.
+ */
+export const INSTRUMENTS = [
+  { name: 'Seismometer', x: -210, z: 150, reading: 'Ambient seismic noise' },
+  { name: 'Magnetometer', x: 180, z: -260, reading: 'Crustal field strength' },
+  { name: 'Heat probe', x: -140, z: -300, reading: 'Subsurface gradient' },
+]
 export const VEHICLE = { dryMass: 3600, fuel: 1500, thrust: 32000, isp: 310, clearance: 2.65, safeVertical: 3, safeHorizontal: 2.5, safeSlope: 0.28 }
 export const FIXED_STEP = 1 / 120
 export const REGION_LIMIT = 700
@@ -90,7 +124,7 @@ export function terrainFor(id) {
 export function createExpedition(id = 'moon', campaign = false) {
   const region = REGIONS[id]
   if (!region) throw new Error(`Unknown expedition region: ${id}`)
-  return { id, campaign, mode: 'flight', x: 0, y: 180 + VEHICLE.clearance, z: 180, vx: 0, vy: -6, vz: -4, yaw: 0, pitch: 0, roll: 0, throttle: 0, fuel: VEHICLE.fuel, assist: true, landed: false, samples: [], delivered: false, message: 'Landing assist engaged. It uses your engines and propellant.', time: 0, touchdown: null, walker: { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, ground: true }, steps: 0 }
+  return { id, campaign, mode: 'flight', x: 0, y: 180 + VEHICLE.clearance, z: 180, vx: 0, vy: -6, vz: -4, yaw: 0, pitch: 0, roll: 0, throttle: 0, fuel: VEHICLE.fuel, assist: true, landed: false, samples: [], delivered: false, message: 'Landing assist engaged. It uses your engines and propellant.', time: 0, touchdown: null, walker: { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, ground: true }, rover: null, instruments: [], steps: 0 }
 }
 export function altitude(s) { return Math.max(0, s.y - terrainFor(s.id).height(s.x, s.z) - VEHICLE.clearance) }
 export function nearestSample(s) {
@@ -99,10 +133,37 @@ export function nearestSample(s) {
   SITES.forEach((p, i) => { const d = Math.hypot(s.walker.x - p.x, s.walker.z - p.z); if (!s.samples.includes(i) && d < distance) { hit = i; distance = d } })
   return hit === null ? null : { index: hit, distance }
 }
+export function roverDistance(s) {
+  if (!s.rover) return Infinity
+  const p = s.mode === 'rover' ? s.rover : s.walker
+  return Math.hypot(p.x - s.rover.x, p.z - s.rover.z)
+}
+export function nearestInstrument(s) {
+  if (!s.rover || s.mode !== 'rover') return null
+  let hit = null, distance = Infinity
+  INSTRUMENTS.forEach((p, i) => { const d = Math.hypot(s.rover.x - p.x, s.rover.z - p.z); if (!s.instruments.includes(i) && d < distance) { hit = i; distance = d } })
+  return hit === null ? null : { index: hit, distance }
+}
+/** Lower the rover onto the surface beside the lander. It does not drive itself. */
+export function deployRover(s) {
+  if (s.mode !== 'flight' || !s.landed || s.rover) return false
+  /*
+   * Parked clear of the lander's own boarding radius, on purpose. Dropped any
+   * nearer, stepping out of the vehicle put the crew straight back aboard the
+   * lander instead of standing beside the rover, because the lander claims a
+   * larger share of a shorter walk. Twelve metres out leaves a stretch of open
+   * ground between the two, so E does what the player is looking at.
+   */
+  const x = s.x + 11, z = s.z + 5
+  s.rover = { x, y: terrainFor(s.id).height(x, z) + ROVER.clearance, z, vx: 0, vz: 0, yaw: Math.atan2(-x, -z), speed: 0, battery: 1, odometer: 0 }
+  s.message = 'Rover down. Walk to it and press E to drive.'
+  return true
+}
 export function interact(s) {
   if (s.mode === 'crashed') return false
   if (s.mode === 'flight' && s.landed) {
-    Object.assign(s.walker, { x: s.x + 7, z: s.z, y: terrainFor(s.id).height(s.x + 7, s.z), vy: 0, yaw: 0, pitch: 0, ground: true })
+    const x = s.x + 7, z = s.z
+    Object.assign(s.walker, { x, z, y: terrainFor(s.id).height(x, z), vy: 0, yaw: 0, pitch: 0, ground: true })
     s.mode = 'eva'; s.message = 'On the surface. Follow the survey bearings.'; return true
   }
   if (s.mode === 'eva') {
@@ -110,11 +171,47 @@ export function interact(s) {
     if (sample && sample.distance <= 5 && s.walker.ground) {
       s.samples.push(sample.index); s.message = `${CAMPAIGN.find((c) => c.id === s.id).samples[sample.index]} secured. Return both samples to the lander.`; return true
     }
-    if (s.walker.ground && Math.hypot(s.walker.x - s.x, s.walker.z - s.z) < 11) {
+    /*
+     * Two things can be boarded, and the rover parks well inside the lander's
+     * own boarding radius. Asking the lander first made the vehicle unreachable
+     * whenever the rover was down; asking the rover first stranded the crew
+     * beside their own lander. Comparing raw distances did not settle it
+     * either, because standing at the rover is nearer the rover by definition.
+     *
+     * So the comparison is the distance as a fraction of each one's own reach.
+     * A 7 m walk from a lander that claims you at 11 m is two thirds of the
+     * way in; 2 m from a rover that claims you at 4.5 is not even halfway. The
+     * larger structure therefore wins from anywhere that is genuinely inside
+     * it, and the vehicle wins from right beside it, which is how a person
+     * reads the two objects in front of them.
+     */
+    const toLander = Math.hypot(s.walker.x - s.x, s.walker.z - s.z)
+    const toRover = roverDistance(s)
+    const landerShare = toLander / 11
+    const roverShare = toRover / 4.5
+    if (s.rover && s.walker.ground && toRover < 4.5 && roverShare < landerShare) {
+      s.mode = 'rover'; s.message = 'Driving. W and S drive, A and D steer, E to step out.'; return true
+    }
+    if (s.walker.ground && toLander < 11) {
       s.mode = 'flight'
-      if (s.samples.length === SITES.length) { s.delivered = true; s.message = 'Survey complete. Samples transferred to the lander.' }
-      else s.message = 'Back aboard. The survey needs both samples.'
+      const complete = s.samples.length === SITES.length && s.instruments.length === INSTRUMENTS.length
+      if (complete) { s.delivered = true; s.message = 'Survey complete. Samples and readings are aboard.' }
+      else s.message = `Back aboard. The survey needs ${SITES.length - s.samples.length} sample(s) and ${INSTRUMENTS.length - s.instruments.length} instrument(s).`
       return true
+    }
+  }
+  if (s.mode === 'rover') {
+    const site = nearestInstrument(s)
+    if (site && site.distance <= 6) {
+      s.instruments.push(site.index)
+      s.message = `${INSTRUMENTS[site.index].name} deployed. ${INSTRUMENTS[site.index].reading} recorded.`
+      return true
+    }
+    if (Math.hypot(s.rover.x - s.x, s.rover.z - s.z) < 13) {
+      Object.assign(s.walker, { x: s.rover.x, z: s.rover.z, vy: 0, yaw: s.rover.yaw, pitch: 0, ground: true })
+      s.walker.y = terrainFor(s.id).height(s.walker.x, s.walker.z)
+      s.rover.vx = 0; s.rover.vz = 0; s.rover.speed = 0
+      s.mode = 'eva'; s.message = 'On foot beside the rover.'; return true
     }
   }
   return false
@@ -144,6 +241,38 @@ export function stepExpedition(s, keys, dt = FIXED_STEP) {
     w.vy -= region.gravity * dt; w.y += w.vy * dt
     const floor = terrain.height(w.x, w.z)
     if (w.y <= floor) { w.y = floor; w.vy = 0; w.ground = true }
+    return
+  }
+  if (s.mode === 'rover') {
+    const r = s.rover
+    // Drive is a force, not a speed. Thrust against the vehicle's mass decides
+    // the acceleration, and the terrain's own gradient decides how much of it
+    // the slope steals: drive/mass is 2.48 m/s², so a gradient g resists with
+    // g * gravity * grip, and the two worlds stall at different angles for no
+    // reason other than that one pulls harder.
+    const throttle = (keys.forward ? 1 : 0) - (keys.back ? 1 : 0)
+    const steer = (keys.left ? 1 : 0) - (keys.right ? 1 : 0)
+    const drive = throttle * ROVER.drive / ROVER.mass
+    r.yaw += steer * dt * 1.5 * Math.min(1, 0.25 + Math.abs(r.speed) / ROVER.maxSpeed)
+    const slopeX = (terrain.height(r.x + 1, r.z) - terrain.height(r.x - 1, r.z)) / 2
+    const slopeZ = (terrain.height(r.x, r.z + 1) - terrain.height(r.x, r.z - 1)) / 2
+    const fx = Math.sin(r.yaw) * drive - slopeX * region.gravity * ROVER.grip
+    const fz = -Math.cos(r.yaw) * drive - slopeZ * region.gravity * ROVER.grip
+    r.vx += fx * dt; r.vz += fz * dt
+    // Rolling resistance and the battery's limit, applied to the ground track.
+    const speed = Math.hypot(r.vx, r.vz)
+    if (speed > ROVER.maxSpeed) { r.vx *= ROVER.maxSpeed / speed; r.vz *= ROVER.maxSpeed / speed }
+    const roll = Math.max(0, 1 - dt * (r.battery > 0 ? 0.55 : 3.4))
+    r.vx *= roll; r.vz *= roll
+    const nx = r.x + r.vx * dt, nz = r.z + r.vz * dt
+    if (Math.hypot(nx, nz) < REGION_LIMIT) {
+      const step = terrain.height(nx, nz) - terrain.height(r.x, r.z)
+      if (step < 1.1) { r.x = nx; r.z = nz; r.odometer += Math.hypot(r.vx, r.vz) * dt }
+      else { r.vx *= 0.2; r.vz *= 0.2 }
+    }
+    r.speed = Math.hypot(r.vx, r.vz)
+    r.battery = Math.max(0, r.battery - ROVER.drain * (0.4 + r.speed / ROVER.maxSpeed))
+    r.y = terrain.height(r.x, r.z) + ROVER.clearance
     return
   }
   if (s.landed) { s.throttle = 0; return }
@@ -213,7 +342,7 @@ export const expeditionRecord = () => record
 export const subscribeExpeditions = (fn) => { listeners.add(fn); return () => listeners.delete(fn) }
 export const chapterUnlocked = (id, r = record) => { const i = CAMPAIGN.findIndex((c) => c.id === id); return i >= 0 && (i === 0 || Boolean(r.surveys[CAMPAIGN[i - 1].id]?.campaign)) }
 export function recordSurvey(s) {
-  if (!REGIONS[s.id] || !s.delivered || s.mode !== 'flight' || new Set(s.samples).size !== SITES.length || !SITES.every((_, i) => s.samples.includes(i)) || !s.landed) return false
+  if (!REGIONS[s.id] || !s.delivered || s.mode !== 'flight' || new Set(s.samples).size !== SITES.length || !SITES.every((_, i) => s.samples.includes(i)) || new Set(s.instruments).size !== INSTRUMENTS.length || !INSTRUMENTS.every((_, i) => s.instruments.includes(i)) || !s.landed) return false
   if (s.campaign && !chapterUnlocked(s.id)) return false
   const prior = record.surveys[s.id]
   record = { version: 1, surveys: { ...record.surveys, [s.id]: { completed: new Date().toISOString(), fuel: s.fuel, campaign: Boolean(prior?.campaign || s.campaign) } } }

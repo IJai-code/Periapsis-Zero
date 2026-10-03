@@ -43,6 +43,18 @@ const CURATED = {
   'Mars 2020 Perseverance Rover/Mars 2020 Perseverance Rover.glb': { id: 'perseverance', label: 'Perseverance Rover', group: 'Planetary' },
   'Mars Odyssey/Mars Odyssey.glb': { id: 'odyssey', label: 'Mars Odyssey', group: 'Planetary' },
   'Aura (A)/Aura (A).glb': { id: 'aura', label: 'Aura', group: 'Earth science' },
+
+  // Supplied on 3 October 2026, all NASA public domain like the rest.
+  'Astronaut/Astronaut.glb': { id: 'astronaut', label: 'Astronaut', group: 'Crewed' },
+  'Advanced Crew Escape Suit/Advanced Crew Escape Suit.glb': { id: 'aces', label: 'Advanced Crew Escape Suit', group: 'Crewed' },
+
+  'Aeronomy of Ice in the Mesosphere/Aeronomy of Ice in the Mesosphere.glb': { id: 'aim', label: 'Aeronomy of Ice in the Mesosphere', group: 'Earth science' },
+  'Aquarius (B) (unfurled)/Aquarius (B) (unfurled).glb': { id: 'aquarius', label: 'Aquarius', group: 'Earth science' },
+  'Atmosphere-Space Transition Region Explorer (ASTRE)/Atmosphere-Space Transition Region Explorer (ASTRE).glb': { id: 'astre', label: 'ASTRE', group: 'Earth science' },
+
+  'Cassini Assembly/Cassini Assembly.glb': { id: 'cassini_assembly', label: 'Cassini assembly', group: 'Deep space' },
+  'Chandra X-ray Observatory/Chandra X-ray Observatory.glb': { id: 'chandra', label: 'Chandra X-ray Observatory', group: 'Observatories' },
+  'Cassiopeia A Supernova/Cassiopeia A Supernova (C) (2025).glb': { id: 'cas_a', label: 'Cassiopeia A', group: 'Deep space' },
 }
 
 const slug = (s) =>

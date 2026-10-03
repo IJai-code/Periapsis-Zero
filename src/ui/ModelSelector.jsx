@@ -104,6 +104,9 @@ export function ModelSelector() {
         craft's own. The catalogue has no SLS and no Orion, so Artemis has no
         faithful hull to wear yet.
       </p>
+      <p className="mt-2 text-[9px] leading-relaxed text-white/25">
+        Meshes are NASA's own 3D models, public domain. Credit: NASA.
+      </p>
     </div>
   )
 }

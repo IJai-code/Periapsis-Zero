@@ -3,14 +3,14 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { buildExpeditionTerrain, buildRocks, terrainMaterial } from '../gfx/expeditionTerrain.js'
 import { mulberry32 } from '../gfx/noise.js'
-import { FIXED_STEP, REGIONS, SITES, terrainFor, stepExpedition, VEHICLE } from '../sim/expedition.js'
+import { FIXED_STEP, INSTRUMENTS, REGIONS, ROVER, SITES, terrainFor, stepExpedition, VEHICLE } from '../sim/expedition.js'
 
 export function ExpeditionScene({ session, controls, paused, scenic = false, onPulse }) {
   const ground = useMemo(() => buildExpeditionTerrain(session.id), [session.id])
   const material = useMemo(() => terrainMaterial(session.id), [session.id])
   const rocks = useMemo(() => buildRocks(session.id), [session.id])
   const region = REGIONS[session.id]
-  const lander = useRef(), plume = useRef(), light = useRef()
+  const lander = useRef(), plume = useRef(), light = useRef(), rover = useRef(), wheels = useRef([])
   const clock = useRef({ accumulated: 0, pulse: 0, yaw: 0, pitch: 0.24, distance: 28 })
   const scratch = useMemo(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3(), look: new THREE.Vector3() }), [])
   const { camera, gl, scene } = useThree()
@@ -61,24 +61,50 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
       plume.current.visible = throttle > 0.02
       plume.current.scale.set(1, 0.4 + throttle * 1.6, 1)
     }
+    if (rover.current && s.rover) {
+      const r = s.rover
+      rover.current.visible = true
+      rover.current.position.set(r.x, r.y, r.z)
+      // Chassis follows the ground's own slope rather than staying level.
+      const terrain = terrainFor(s.id)
+      const ahead = terrain.height(r.x + Math.sin(r.yaw) * 1.2, r.z - Math.cos(r.yaw) * 1.2)
+      const behind = terrain.height(r.x - Math.sin(r.yaw) * 1.2, r.z + Math.cos(r.yaw) * 1.2)
+      rover.current.rotation.set(Math.atan2(behind - ahead, 2.4), r.yaw, 0, 'YXZ')
+      const rollAngle = (s.mode === 'rover' ? r.speed : 0) * 0.9 * Math.min(delta, 0.05)
+      wheels.current.forEach((wheel) => { if (wheel) wheel.rotation.x += rollAngle })
+    }
     if (scenic) {
       scratch.position.set(360, 110, 370); scratch.target.set(-100, 220, -2200)
     } else if (s.mode === 'eva') {
       const w = s.walker
       scratch.position.set(w.x, w.y + 1.72, w.z)
       scratch.target.set(w.x + Math.sin(w.yaw) * Math.cos(w.pitch) * 20, w.y + 1.72 + Math.sin(w.pitch) * 20, w.z - Math.cos(w.yaw) * Math.cos(w.pitch) * 20)
+    } else if (s.mode === 'rover' && s.rover) {
+      /*
+       * A chase camera behind the vehicle, low and close, so the ground reads
+       * at speed. The heading is (sin yaw, -cos yaw), so "behind" is its
+       * negative and the look point sits ahead of the rover. The first version
+       * put the look point *astern* by getting that sign backwards, which
+       * framed the rover on the edge of the shot instead of in it.
+       */
+      const r = s.rover, yaw = c.yaw + r.yaw
+      const distance = 7.5, lift = 2.4 + Math.sin(c.pitch) * 5
+      scratch.position.set(r.x - Math.sin(yaw) * distance, r.y + lift, r.z + Math.cos(yaw) * distance)
+      scratch.target.set(r.x + Math.sin(yaw) * 4, r.y + 0.9, r.z - Math.cos(yaw) * 4)
+      scratch.position.y = Math.max(scratch.position.y, terrainFor(s.id).height(scratch.position.x, scratch.position.z) + 1.1)
     } else {
       const yaw = c.yaw + s.yaw, distance = c.distance
       scratch.position.set(s.x + Math.sin(yaw) * distance, s.y + 9 + Math.sin(c.pitch) * distance, s.z + Math.cos(yaw) * distance)
       scratch.target.set(s.x, s.y + 3, s.z - 10)
       scratch.position.y = Math.max(scratch.position.y, terrainFor(s.id).height(scratch.position.x, scratch.position.z) + 3)
     }
-    const k = s.mode === 'eva' || scenic ? 1 : 1 - Math.exp(-Math.min(delta, 0.1) * 5)
+    const k = s.mode === 'eva' || s.mode === 'rover' || scenic ? 1 : 1 - Math.exp(-Math.min(delta, 0.1) * 5)
     camera.position.lerp(scratch.position, k)
     scratch.look.lerp(scratch.target, k); camera.lookAt(scratch.look)
     if (light.current) {
       // Local shadow frustum follows the player, not a twelve-kilometre landscape.
-      const x = s.mode === 'eva' ? s.walker.x : s.x, z = s.mode === 'eva' ? s.walker.z : s.z
+      const focus = s.mode === 'rover' ? s.rover : s.mode === 'eva' ? s.walker : s
+      const x = focus.x, z = focus.z
       light.current.position.set(x - 300, 500, z - 700)
       light.current.target.position.set(x, 0, z); light.current.target.updateMatrixWorld()
     }
@@ -94,6 +120,8 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
     {!scenic && <>
       <group ref={lander}><SurveyLander /><mesh ref={plume} position={[0, -3.3, 0]} visible={false}><coneGeometry args={[0.45, 3.2, 20]} /><meshBasicMaterial color="#98cfff" transparent opacity={0.65} depthWrite={false} /></mesh></group>
       <LandingZone />
+      <group ref={rover} visible={false}><SurfaceRover wheels={wheels} /></group>
+      {INSTRUMENTS.map((p, i) => <Instrument key={i} id={session.id} site={p} deployed={session.instruments.includes(i)} />)}
       {SITES.map((p, i) => <Sample key={i} id={session.id} site={p} taken={session.samples.includes(i)} />)}
     </>}
   </>
@@ -130,6 +158,33 @@ function LandingZone() {
   return <group position={[0, 0.06, 0]}>
     <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[11.8, 12, 64]} /><meshBasicMaterial color="#d5ae6b" transparent opacity={0.55} side={THREE.DoubleSide} /></mesh>
     {[[-12, -12], [12, -12], [-12, 12], [12, 12]].map(([x, z]) => <group key={`${x}/${z}`} position={[x, 0, z]}><mesh position={[0, 0.65, 0]}><cylinderGeometry args={[0.04, 0.06, 1.3, 8]} /><meshStandardMaterial color="#bfc0b6" /></mesh><mesh position={[0, 1.3, 0]}><sphereGeometry args={[0.09, 8, 8]} /><meshBasicMaterial color="#e9b267" /></mesh></group>)}
+  </group>
+}
+/**
+ * Six wheels on a rocker, drawn from primitives rather than a downloaded mesh:
+ * the catalogue has no rover small enough to be a surface vehicle, and the
+ * Perseverance mesh is a 1-tonne Mars 2020 machine that would dwarf the lander.
+ * So this is the vehicle the fiction already implies, at 2.6 m long.
+ */
+function SurfaceRover({ wheels }) {
+  return <group>
+    <mesh position={[0, 0.28, 0]} castShadow><boxGeometry args={[1.5, 0.34, 2.3]} /><meshStandardMaterial color="#cfc9b6" metalness={0.35} roughness={0.62} /></mesh>
+    <mesh position={[0, 0.55, 0.35]} castShadow><boxGeometry args={[1.25, 0.42, 1.1]} /><meshStandardMaterial color="#ded8c4" roughness={0.5} /></mesh>
+    <mesh position={[0, 0.6, 0.92]} rotation={[0.45, 0, 0]}><boxGeometry args={[1.05, 0.5, 0.04]} /><meshStandardMaterial color="#1d2b33" metalness={0.6} roughness={0.2} /></mesh>
+    <mesh position={[0, 1.02, 0.3]} castShadow><cylinderGeometry args={[0.05, 0.05, 0.85, 6]} /><meshStandardMaterial color="#c6bfa8" metalness={0.6} /></mesh>
+    <mesh position={[0, 1.45, 0.3]}><boxGeometry args={[0.42, 0.16, 0.34]} /><meshStandardMaterial color="#2a3a44" metalness={0.55} roughness={0.3} /></mesh>
+    {[-1, 1].flatMap((sx) => [-1, 1].map((sz) => <mesh key={`${sx}/${sz}`} ref={(m) => { wheels.current[[sx, sz].join('')] = m }} position={[sx * 0.82, 0.26, sz * 0.78]} rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[0.26, 0.26, 0.2, 14]} /><meshStandardMaterial color="#8d8a7c" roughness={0.85} /></mesh>))}
+    {[-1, 1].map((sx) => <mesh key={sx} position={[sx * 0.62, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow><cylinderGeometry args={[0.06, 0.06, 1.9, 8]} /><meshStandardMaterial color="#b3ad99" metalness={0.5} /></mesh>)}
+  </group>
+}
+/** A deployed package: a tripod, a drum, and a small dish. */
+function Instrument({ id, site, deployed }) {
+  const y = terrainFor(id).height(site.x, site.z)
+  return <group position={[site.x, y, site.z]}>
+    <mesh position={[0, 0.5, 0]} castShadow><cylinderGeometry args={[0.22, 0.26, 1, 10]} /><meshStandardMaterial color={deployed ? '#9fd8c4' : '#b8b2a0'} metalness={0.45} roughness={0.5} /></mesh>
+    <mesh position={[0, 1.05, 0]} castShadow><boxGeometry args={[0.4, 0.1, 0.4]} /><meshStandardMaterial color="#33454e" metalness={0.6} roughness={0.3} /></mesh>
+    <mesh position={[0.3, 0.75, 0.22]} rotation={[0, 0.6, 0.5]}><boxGeometry args={[0.26, 0.2, 0.02]} /><meshBasicMaterial color={deployed ? '#7fe3ff' : '#c8c2ae'} /></mesh>
+    {[[-0.3, 0.28], [0.32, -0.2], [0.02, -0.36]].map(([x, z], i) => <mesh key={i} position={[x, 0.12, z]} rotation={[0, 0, x > 0 ? -0.4 : 0.4]}><cylinderGeometry args={[0.02, 0.02, 0.5, 6]} /><meshStandardMaterial color="#a8a294" /></mesh>)}
   </group>
 }
 function Sample({ id, site, taken }) {

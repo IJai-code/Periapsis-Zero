@@ -10,13 +10,48 @@ npm run models:scan      # regenerate src/gfx/modelsManifest.js
 
 `models:scan` also copies the Draco decoder out of three into `public/draco/`.
 
+## Supplied on 3 October 2026
+
+Eight meshes arrived as individual `.glb` files rather than from an archive,
+and are added here one directory each, the way the scanner expects:
+
+| Asset | Curated id | Group |
+| --- | --- | --- |
+| Astronaut | `astronaut` | Crewed |
+| Advanced Crew Escape Suit | `aces` | Crewed |
+| Chandra X-ray Observatory | `chandra` | Observatories |
+| Cassini assembly | `cassini_assembly` | Deep space |
+| Cassiopeia A (2025) | `cas_a` | Deep space |
+| Aeronomy of Ice in the Mesosphere | `aim` | Earth science |
+| Aquarius | `aquarius` | Earth science |
+| ASTRE | `astre` | Earth science |
+
+All are NASA public domain, and the interface says so where meshes are picked.
+Adding them takes the catalogue from 48 to 56 loadable files.
+
+**They do not ship until the release asset is republished.** CI restores
+`public/models` from the `models` release, so a new mesh is invisible to the
+pipeline until the pruned archive is rebuilt from `dist` and uploaded, and the
+workflow's cache key is bumped:
+
+```bash
+npm run build
+tar -czf models.tar.gz -C dist/models .
+gh release upload models models.tar.gz --clobber
+# then bump `models-release-vN` in .github/workflows/deploy.yml
+```
+
+The archive is made from `dist` rather than `public` because the build prunes
+`public` down to the entries the manifest actually refers to. As of this
+release the asset carries 56 files at 129 MB, against 1.1 GB unpruned.
+
 ## What is loadable
 
 Only `.glb` and `.gltf` can be opened by a browser. NASA's archives also ship
 `.max` (3ds Max), `.blend` and `.7z`, which the scanner reports and skips —
 those need converting in a DCC tool first.
 
-Current state of this folder: **48 loadable models**, plus these that are not:
+Current state of this folder: **56 loadable models**, plus these that are not:
 
 | Asset | Status |
 | --- | --- |

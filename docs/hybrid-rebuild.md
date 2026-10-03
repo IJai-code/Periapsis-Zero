@@ -23,7 +23,7 @@ The attached game video informs chase-camera weight and legible navigation. The 
 
 ### Delivered and verified on 3 October 2026
 
-- Production build succeeds. Full suite: **69/69 gates pass**, including the new 14-check expedition gate. No dedicated typecheck/lint script exists in this JavaScript project; none is claimed.
+- Production build succeeds. Full suite: **70/70 gates pass**, including the 19-check expedition gate and the 7-check `verify-pilot` gate. No dedicated typecheck/lint script exists in this JavaScript project; none is claimed.
 - Actual browser play-throughs used mouse, keyboard, and touch-button pointer input. No simulation state was teleported or completion flags set in the browser tests. Development-state inspection was read-only; production play-throughs navigated with the visible range, bearing, and heading.
 - All three production campaign chapters completed: assisted touchdown, EVA, both samples, return to lander, debrief. Sequential unlocks and the final 3/3 record survived reload.
 - Also checked: free-play Europa landing, manual throttle input, zero-input engine-off crash and retry in the development build, takeoff, pause, dialog keyboard focus containment, 390×844 touch movement/overflow, simulator mission-library entry, an Apollo 8 launch deep link, intro skip, and Escape exit from the broadcast.

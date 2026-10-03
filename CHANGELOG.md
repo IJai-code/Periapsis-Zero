@@ -3,7 +3,79 @@
 Notation: a claim stated as a number is one a gate measures. Anything measured
 but not yet fixed is under *Known limitations* rather than left out.
 
-## Unreleased — targeting 1.0.0
+## Unreleased, targeting 1.0.0
+
+### The rover, the instruments, and one palette: 3 October 2026
+
+The surface loop got the middle it was missing. A survey was *land, walk to two
+rocks, walk back*, and the walking was the whole of it: 250 m of traverse on
+foot twice, at 2.8 m/s, with nothing to spend the distance on.
+
+**The rover.** Deployed rather than summoned (`G`, once you are down), driven
+with the same `WASD` the walk already used, and stepped out of with `E`. It is
+210 kg with 520 N of drive, so its acceleration is the motor against whichever
+world it is standing on: 2.5 m/s² on the Moon, stalled sooner on Mars's 3.73,
+and limited to 3.4 m/s on flat ground either way. Slopes are the terrain's own
+gradient, so the same motor that runs flat ground tops out climbing Europa's
+ridges, measured at 1.57 m/s against 3.38 on the level. It carries a battery
+that runs the whole instrument circuit and leaves about a third in hand
+(measured 34% over a 1,472 m tour), and running it flat does not strand the
+crew: rolling resistance rises, the vehicle still rolls to a stop, and it can
+be walked home. The chassis follows the ground's slope rather than staying
+level, the wheels spin with the speed actually being made, and the chase camera
+sits behind and looks ahead, because the first version looked astern and framed
+the rover on the edge of the shot.
+
+**Three instruments.** A seismometer, a magnetometer and a heat probe, sited
+150 to 380 m out because that is where each measurement belongs: away from the
+lander's pumps, away from the vehicle's own field, and in undisturbed ground.
+They deploy from the driver's seat within 6 m, they are the reason the rover
+exists, and a survey is not a survey until both samples *and* all three
+readings are aboard. The objective now reads in four stages (Land, Samples,
+Instruments, Return) and the debrief waits for all of it.
+
+**Boarding, resolved by reach rather than by list order.** The rover parks
+inside the lander's own boarding radius, so asking the lander first made the
+vehicle unreachable and asking the rover first stranded the crew beside their
+own ship. `E` now compares each target's distance as a fraction of its own
+reach, so the lander claims you from anywhere genuinely inside it and the rover
+claims you from right beside it, and the button on screen says exactly what the
+key will do.
+
+**One palette.** The expedition, campaign and front-door screens were written
+with their own warm-paper and amber scheme, about thirty greys beside the four
+the project actually has. Every literal in `experiences.css` is folded onto
+void, bone, ember or ion by lightness first and hue second, so text stays bone
+and ground stays void instead of every heading turning orange. The file now
+contains exactly three distinct colours. The chapter art's gradients were
+softened with alpha rather than left as flat fills.
+
+**Nine more NASA meshes, and the credit they were owed.** The supplied models
+join the catalogue: Astronaut, the Advanced Crew Escape Suit, Chandra, the
+Cassini assembly, Cassiopeia A, AIM, Aquarius and ASTRE, curated into their
+real groups. The catalogue reads 56 loadable meshes, and both the front door
+and the mesh selector now say plainly that they are NASA's own and public
+domain. The CI asset was republished from `dist` with all 56 in it and the
+workflow's cache key bumped, because an updated release is invisible to a build
+still holding the old one.
+
+**An optional pilot.** A name for the logbook, stored in this browser, offered
+quietly from the front door and never asked for twice. There is no account, no
+server and no field that gates anything: a blank profile is a valid state, and
+whatever arrives from storage is shape-checked on read so a hand-edited value
+degrades to "no profile" rather than throwing in a render.
+
+**Verification.** Two gates join the suite, bringing it to **70**. The
+expedition gate grows from 14 checks to 19: the full survey now requires
+real proximity for samples *and* instrument deployment, the rover drives a
+complete instrument circuit on its own battery on all three bodies (measured
+1,136 to 1,139 m with 49% left), drive acceleration is checked against the
+world it is in, and undeployed or in-flight states cannot be driven. A new
+`verify-pilot` holds the profile to seven checks including one that reads the
+module's own source and fails if it ever grows a network call. Production
+browser play-throughs ran the whole loop with real key state: land, deploy,
+drive all three sites, collect both samples, return, record, dismiss the debrief
+and take off, with zero console errors and zero failed requests.
 
 ### Three experiences and a playable surface survey: 3 October 2026
 

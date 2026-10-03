@@ -6,8 +6,8 @@
 # procedural placeholder hulls. Downloading the originals in CI is out of the
 # question at that size.
 #
-# What is uploaded instead is the *pruned* catalogue: the 48 .glb and .gltf
-# files the generated manifest refers to, 152 MB against the 1.1 GB they are
+# What is uploaded instead is the *pruned* catalogue: the 56 .glb and .gltf
+# files the generated manifest refers to, 129 MB against the 1.1 GB they are
 # pruned out of, published once as a release asset and reused by every build.
 # The pruning happens during a build, so the archive is made from `dist` and not
 # from `public` — the latter still holds the .max and .blend originals and the
@@ -15,11 +15,13 @@
 #
 #   npm run build
 #   tar -czf models.tar.gz -C dist/models .
-#   gh release create models models.tar.gz --notes 'Pruned model catalogue'
+#   gh release upload models models.tar.gz --clobber
 #
-# Re-run it only when the catalogue changes. Without the asset the workflow
-# still succeeds and still deploys — every craft simply wears its placeholder,
-# which is the same fallback the app already has for a model that fails to load.
+# Re-run it only when the catalogue changes, and bump the cache key below when
+# you do: the cache is keyed on a suffix, so an updated asset is invisible to a
+# build that still holds the old one. Without the asset the workflow still
+# succeeds and still deploys — every craft simply wears its placeholder, which
+# is the same fallback the app already has for a model that fails to load.
 name: Deploy
 
 on:
@@ -68,7 +70,7 @@ jobs:
       - name: Verify
         run: npm run verify:all
 
-      # Keyed on the release, so the 140 MB is fetched once and then reused.
+      # Keyed on the release, so the 129 MB is fetched once and then reused.
       # Bump the suffix when the catalogue is republished under the same tag;
       # a new tag needs the download step's `models` changed with it.
       - name: Restore the model catalogue
@@ -76,7 +78,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: public/models
-          key: models-release-v1
+          key: models-release-v2
 
       - name: Fetch the model catalogue
         if: steps.models.outputs.cache-hit != 'true'
