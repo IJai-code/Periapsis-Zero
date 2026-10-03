@@ -3,6 +3,7 @@ import { live } from './live.js'
 import { mission, currentPhase, PHASE_IDS } from './mission.js'
 import { ship, deltaV } from './ship.js'
 import { INDEX } from './system.js'
+import { recordStory } from './story.js'
 
 /**
  * Flight programs and the wings a pilot earns.
@@ -468,6 +469,171 @@ export function armContract(def) {
 }
 
 /* ---------------------------------------------------------------- *
+ * The story
+ * ---------------------------------------------------------------- */
+
+/**
+ * Six flights, in order — the career of a pilot in miniature.
+ *
+ * A contract is someone else's idea of work; a preset is someone else's
+ * flight. What neither gives a newcomer is an *order*: the boards list
+ * everything at once, and the hardest thing in orbital mechanics has always
+ * been knowing what to learn next. The story is that order, told the way
+ * the programme itself was — orbit, then station, then high, then the
+ * crossing, then the far side, then down. Each chapter is a program in
+ * every mechanical sense: legs priced by the rocket equation, objectives
+ * evaluated from the live state, the same checklist riding the instruments.
+ * What makes it a story is only that each one unlocks the next, and that
+ * the briefs say what the flight is *for*.
+ *
+ * Every chapter arms with the Trainee wing — the computer flies the book
+ * parts, the pilot reads the checklist — because a story that demands
+ * mastery in chapter one is a story nobody finishes. The wings a pilot
+ * flies the chapters with are their own business; the ladder is still
+ * there, and `verify-programs` still holds every leg price against the
+ * stack, exactly as it does for the routes and the jobs.
+ */
+export const STORY = [
+  {
+    id: 'story-first-orbit',
+    name: 'First Orbit',
+    group: 'Story',
+    story: true,
+    brief: 'Everything before this was rehearsal. Clear the tower, ride the gravity turn, and come around the far side of the planet with the spacecraft still worth flying. Up is the easy part; sideways is what costs.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'earth-orbit',
+    wings: ['trainee', 'aviator', 'aldrin'],
+    legs: [{ name: 'Ascent to parking orbit', dv: 9_400 }],
+    objectives: [
+      { id: 'lift', label: 'Clear the tower', check: 'liftoff' },
+      { id: 'orbit', label: 'Arrive in orbit, whole', check: 'orbit' },
+    ],
+    order: 1,
+  },
+  {
+    id: 'story-rendezvous',
+    name: 'Rendezvous',
+    group: 'Story',
+    story: true,
+    brief: 'A station is a place with no address. Launch when the orbit says — catching up is flown at liftoff or not at all — and close to within a hundred kilometres of the one other thing moving up here with you.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'earth-orbit',
+    wings: ['trainee', 'aviator', 'aldrin'],
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Phasing burns', dv: 120 },
+    ],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'close', label: 'Close to within 100 km of the station', check: 'proximity', body: 'iss', km: 100 },
+    ],
+    order: 2,
+  },
+  {
+    id: 'story-alone',
+    name: 'Alone in the Sky',
+    group: 'Story',
+    story: true,
+    brief: 'Raise apoapsis a tenth of the way to the Moon and live up there for an orbit. From ten thousand kilometres the planet stops being a place and becomes a body — phase, terminator, weather — and the view is the instrument.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'earth-orbit',
+    wings: ['trainee', 'aviator', 'aldrin'],
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Raise the ellipse', dv: 2_400 },
+    ],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'high', label: 'Raise apoapsis past 10,000 km', check: 'apoapsis', km: 10_000 },
+    ],
+    order: 3,
+  },
+  {
+    id: 'story-crossing',
+    name: 'The Crossing',
+    group: 'Story',
+    story: true,
+    brief: 'The burn that commits you. Trans-lunar injection is minutes of thrust with no way to check the arithmetic twice; after it, the Moon does the navigating. Let its gravity take you into its reach.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'free-return',
+    wings: ['trainee', 'aviator', 'aldrin'],
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Trans-lunar injection', dv: 3_050 },
+      { name: 'Mid-course corrections', dv: 60 },
+    ],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'tli', label: 'Injected toward the Moon', check: 'tli' },
+      { id: 'soi', label: 'Into the Moon\'s reach', check: 'lunarSoi' },
+    ],
+    order: 4,
+  },
+  {
+    id: 'story-far-side',
+    name: 'Far Side',
+    group: 'Story',
+    story: true,
+    brief: 'Brake into lunar orbit where Earth cannot see you — behind the Moon, alone with the spacecraft, LOS gone for half an hour at a stretch. Photograph what no one on the ground can watch you photograph.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'lunar-orbit',
+    wings: ['trainee', 'aviator', 'aldrin'],
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Trans-lunar injection', dv: 3_050 },
+      { name: 'Lunar orbit insertion', dv: 890 },
+    ],
+    objectives: [
+      { id: 'tli', label: 'Injected toward the Moon', check: 'tli' },
+      { id: 'loi', label: 'In lunar orbit', check: 'lunarOrbit' },
+      { id: 'photo', label: 'Photograph the Moon from orbit', check: 'photograph' },
+    ],
+    order: 5,
+  },
+  {
+    /*
+     * The last chapter, and why it is one-way.
+     *
+     * The stack that carried the crossing cannot carry a ride home out of
+     * lunar orbit — the pricing is the Descent program's, verified against
+     * the vehicle's own numbers in `verify-programs`, and it closes with
+     * 670 m/s of margin for a hand-flown approach. That is not a limitation
+     * of the sim; it is why Apollo had a lander, learned here at the scale
+     * of a checklist instead of the scale of a programme. What replaces the
+     * ride home is the ending the presets never offered: press G on the
+     * surface and stand on it.
+     */
+    id: 'story-contact',
+    name: 'Contact',
+    group: 'Story',
+    story: true,
+    brief: 'The last ten kilometres by hand, down to the surface — one way, because the stack that brought you cannot bring you back. Set down gently, then press G and stand on it. That is the ending.',
+    vessel: 'apollo8',
+    sites: ['ksc', 'kourou', 'baikonur', 'vandenberg'],
+    target: 'lunar-descent',
+    wings: ['trainee', 'aviator', 'aldrin'],
+    legs: [
+      { name: 'Ascent to parking orbit', dv: 9_400 },
+      { name: 'Trans-lunar injection', dv: 3_050 },
+      { name: 'Lunar orbit insertion', dv: 890 },
+      { name: 'Powered descent', dv: 2_000 },
+    ],
+    objectives: [
+      { id: 'orbit', label: 'Reach a parking orbit', check: 'orbit' },
+      { id: 'tli', label: 'Injected toward the Moon', check: 'tli' },
+      { id: 'loi', label: 'In lunar orbit', check: 'lunarOrbit' },
+      { id: 'land', label: 'Set down on the Moon', check: 'landing' },
+    ],
+    order: 6,
+  },
+]
+
+/* ---------------------------------------------------------------- *
  * The programs
  * ---------------------------------------------------------------- */
 
@@ -660,6 +826,16 @@ export function tickProgram(dt, simDt = dt) {
       o.done = true
       o.doneAt = mission.t
     }
+  }
+
+  /*
+   * A story chapter is finished when its last objective latches — recorded
+   * the same tick it completes, from the same read of the sim the checklist
+   * trusts, and never from a flag the UI set. `recordStory` is idempotent,
+   * so the every-frame cost of a completed chapter is one array scan.
+   */
+  if (program.def.story && program.objectives.length && program.objectives.every((o) => o.done)) {
+    recordStory(program.def.id, mission.t)
   }
 }
 

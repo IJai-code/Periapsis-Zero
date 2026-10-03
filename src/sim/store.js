@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { WARP, WARP_LEVELS } from './warp.js'
 import { activeSite } from './launchsite.js'
-import { DEVICE, storedDevice } from './device.js'
+import { storedDevice } from './device.js'
 
 /* Re-exported so UI modules keep one import for store state and the ladder. */
 export { WARP, WARP_LEVELS }
@@ -30,14 +30,6 @@ function createStore(initial) {
     },
   }
 }
-
-/**
- * The side panels are sized for a desktop viewport. On anything narrower they
- * would cover most of the scene, so they start collapsed and the user opens
- * them deliberately.
- */
-const WIDE_ENOUGH_FOR_PANELS =
-  typeof window === 'undefined' || (window.innerWidth >= 1024 && DEVICE !== 'phone')
 
 export const uiStore = createStore({
   /**
@@ -110,12 +102,25 @@ export const uiStore = createStore({
   ambience: false,
   clouds: true,
   atmosphere: true,
-  panelOpen: WIDE_ENOUGH_FOR_PANELS,
+  /**
+   * The instrument rails start closed, on every viewport.
+   *
+   * They used to start open on desktop, which measured as "a cockpit": six
+   * stacked panels, two rails, and the scene in whatever was left — a first
+   * impression of furniture rather than of the Earth. What a flight actually
+   * needs in its first minute is the flight strip, the clock and the count;
+   * everything else is a question the pilot asks when they ask it. H (the
+   * instruments) and S (the setup drawer) open the rails deliberately, and
+   * both states persist for the session like any other view choice.
+   */
+  panelOpen: false,
+  /** The setup drawer — missions, contracts, pad, craft, display. */
+  setup: false,
   /** The planet's interior, and the two rates it puts on the craft's orbit. */
-  geophysics: true,
+  geophysics: false,
   observatory: true,
   assist: true, // RCS stability hold
-  lagrange: true,
+  lagrange: false,
   /**
    * Which catalogue model is bound to each craft, or null for the procedural
    * placeholder. Loading is driven by assignment rather than a bulk toggle: the
@@ -139,7 +144,6 @@ export const uiStore = createStore({
     hubble: 'hubble',
   },
   modelBusy: {},
-  shipPanel: true,
 
   /**
    * NASA imagery, loaded at startup rather than on request — there is no longer

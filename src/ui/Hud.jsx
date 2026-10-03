@@ -5,19 +5,14 @@ import { takePhotograph } from '../components/Photograph.jsx'
 import { requestedFocus, viewHref, viewName } from '../sim/shareView.js'
 import { TRANSIT } from '../gfx/transit.js'
 import { SearchBar } from './SearchBar.jsx'
-import { LaunchSite } from './LaunchSite.jsx'
 import { FlyHud } from './FlyHud.jsx'
 import { WalkHud, WalkPrompt } from './WalkHud.jsx'
 import { ProgramStrip } from './ProgramStrip.jsx'
-import { Geophysics } from './Geophysics.jsx'
+import { SetupDrawer } from './Setup.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
-import { Toggles } from './Toggles.jsx'
-import { ModelSelector } from './ModelSelector.jsx'
 import { ShipTelemetry } from './ShipTelemetry.jsx'
 import { NodePanel } from './NodePanel.jsx'
-import { Presets } from './Presets.jsx'
-import { Contracts } from './Contracts.jsx'
 import { CaptureStatus } from './CaptureStatus.jsx'
 import { BurnPanel } from './BurnPanel.jsx'
 import { LagrangeMarkers } from './LagrangeMarkers.jsx'
@@ -29,7 +24,6 @@ import { GoForLaunch } from './GoForLaunch.jsx'
 import { BroadcastHud } from './Broadcast.jsx'
 import { setUi, useUi, WARP_LEVELS, uiStore } from '../sim/store.js'
 import { live } from '../sim/live.js'
-import { SHIP } from '../sim/constants.js'
 import { prediction } from '../sim/predict.js'
 
 /**
@@ -94,9 +88,7 @@ function toggleMap() {
 /**
  * Whether the viewport is too narrow to carry two rails of panels.
  *
- * `store.js` already decides this once, at module load, to choose whether the
- * panels start open. That is the right default and the wrong thing to lay out
- * against: it never runs again, so a phone rotated into landscape, a window
+ * A phone rotated into landscape, a window
  * dragged wider, or a load that happened before the viewport settled all leave
  * the layout committed to a width it no longer has. Measured at 375 px with the
  * panels open, the two rails and the centre column produced **ten overlapping
@@ -121,6 +113,8 @@ function useNarrow() {
 
 export function Hud() {
   const open = useUi((s) => s.panelOpen)
+  /** The setup drawer: missions, contracts, pad, craft, display — one key, S. */
+  const setup = useUi((s) => s.setup)
   /**
    * On foot, the cockpit folds away.
    *
@@ -216,6 +210,7 @@ export function Hud() {
       if (e.key === ']')
         return setUi((s) => ({ warp: Math.min(WARP_LEVELS.length - 1, s.warp + 1) }))
       if (e.key.toLowerCase() === 'h') return setUi((s) => ({ panelOpen: !s.panelOpen }))
+      if (e.key.toLowerCase() === 's') return setUi((s) => ({ setup: !s.setup }))
       if (e.key.toLowerCase() === 'm') return toggleMap()
       // The feed and the instruments are two ways of looking at one flight.
       if (e.key.toLowerCase() === 'b') return setUi((s) => ({ broadcast: !s.broadcast, map: false }))
@@ -245,9 +240,6 @@ export function Hud() {
   const instruments = (
     <>
       <CaptureStatus />
-      {/* An armed program's checklist rides the instruments column: it is
-          the pilot's own plan, so it sits with the pilot's own instruments. */}
-      <ProgramStrip />
       <NodePanel />
       <Telemetry />
       {!map && <ShipTelemetry />}
@@ -306,6 +298,17 @@ export function Hud() {
         <div className="pointer-events-auto">
           <FlightStrip />
         </div>
+        {/*
+          The mission checklist rides the rail whether or not the panels are
+          open — an armed program is the flight's own plan, and a plan you have
+          to summon is a plan you fly past. It hides itself when nothing is
+          armed, and folds away on foot with the rest of the cockpit.
+        */}
+        {!onFoot && (
+          <div className="pointer-events-auto">
+            <ProgramStrip />
+          </div>
+        )}
         {/* What you have done here, and what this flight is about to give you. */}
         <div className="pointer-events-auto">
           <LogProgress />
@@ -320,26 +323,17 @@ export function Hud() {
             <SearchBar compact />
           </div>
         )}
-        {open && !onFoot && (
-          <div className="pointer-events-auto flex flex-col gap-3">
-            {/* Setting the flight up, not flying it: out of the way on the map. */}
-            {!map && <Presets />}
-            {/* Jobs a pilot takes — the board rides the missions, its own panel. */}
-            {!map && !SHIP.lunar && <Contracts />}
-            {/* Earth's pads; a lunar vessel's site is its own, fixed. */}
-            {!map && !SHIP.lunar && <LaunchSite />}
-            {/* Earth's interior, and gravity at an Earth pad: nothing to say on the Moon. */}
-            {!map && !SHIP.lunar && <Geophysics />}
-            {!map && <ModelSelector />}
-            <Toggles />
-            {/*
-              On a narrow screen the right-hand rail has nowhere to be, so it
-              folds in here and the whole instrument set becomes one scrolling
-              column. Rendered from the same elements rather than a second copy:
-              two layouts of one panel set is one edit away from disagreeing.
-            */}
-            {narrow && instruments}
-          </div>
+        {/*
+          The setup drawer, behind S or its button. Everything that is set
+          *around* a flight — where from, on what, doing which job — lives
+          here, and the rail it used to own belongs to the flight strip and
+          the checklist. On a narrow screen the right-hand rail folds in
+          beneath it, rendered from the same elements rather than a second
+          copy: two layouts of one panel set is one edit away from disagreeing.
+        */}
+        {setup && !onFoot && <SetupDrawer />}
+        {setup && narrow && open && !onFoot && (
+          <div className="pointer-events-auto flex flex-col gap-3">{instruments}</div>
         )}
       </div>
 
@@ -415,10 +409,19 @@ export function Hud() {
         <TimeControls />
         <div className="flex items-center gap-1">
           <button
+            onClick={() => setUi((s) => ({ setup: !s.setup }))}
+            className={`control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] uppercase transition-colors duration-300 outline-none focus-visible:text-ember lg:min-h-0 lg:py-2 ${
+              setup ? 'text-ember' : 'text-hud/35 hover:text-ember'
+            }`}
+          >
+            {setup ? 'close setup' : 'flight setup'} · s
+          </button>
+          <span className="h-4 w-px bg-hud/15" aria-hidden />
+          <button
             onClick={() => setUi((s) => ({ panelOpen: !s.panelOpen }))}
             className="control min-h-9 px-4 py-2.5 text-[9px] tracking-[0.2em] text-hud/35 uppercase transition-colors duration-300 outline-none hover:text-ember focus-visible:text-ember lg:min-h-0 lg:py-2"
           >
-            {open ? 'hide panels' : 'show panels'} · h
+            {open ? 'hide panels' : 'panels'} · h
           </button>
           <span className="h-4 w-px bg-hud/15" aria-hidden />
           <button

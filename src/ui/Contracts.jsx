@@ -50,7 +50,9 @@ export function Contracts() {
     selectSite(def.sites.includes(current) ? current : def.sites[0])
     armContract(def)
     resetMission()
-    setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: true })
+    // The setup drawer closes with the job taken — same hand-off the story
+    // makes: the setup is over, the checklist rides the instruments.
+    setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: true, setup: false })
   }
 
   return (

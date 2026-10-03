@@ -812,7 +812,8 @@ actually landed.
 | `[` `]`         | time warp down / up                                  |
 | `Enter`         | separate the burning stage                           |
 | Start countdown | releases the pad hold; the autopilot flies the ascent |
-| `h`             | hide the panels                                      |
+| `h`             | hide the panels (instruments rail)                    |
+| `s`             | the flight-setup drawer (missions, story, pad, craft)  |
 | click the path  | plan a burn at that instant                          |
 | drag a handle   | add delta-v along one axis of the orbital frame      |
 | `shift` `ctrl`  | fine / coarse while dragging a handle                 |
@@ -1149,6 +1150,25 @@ and it publishes its rules. Nothing shoots at anybody.
 
 The wings, budgets, contracts and deep links are held to by `verify-programs`;
 the ambience's place in the architecture by `verify-audio`.
+
+### The story
+
+Six flights, in order, in a drawer of their own at the top of the flight-setup
+drawer (press `S`): **First Orbit**, **Rendezvous**, **Alone in the Sky**, **The
+Crossing**, **Far Side**, **Contact** — the career of a pilot in miniature,
+told in the order the programme itself learned it. Each chapter unlocks when
+the one before it is *flown*: the record is written by the same tick that
+latches the last objective, off the live state, and kept in this browser. A
+chapter flies with the Trainee wing — the computer flies the book parts, the
+pilot reads the checklist — and the chapter's number and brief ride the
+checklist itself. The last chapter is honest about its ending: the stack that
+carried you there cannot carry you home, and that is not a limitation of the
+sim, it is why Apollo had a lander. Press `G` on the surface and stand on it.
+
+`verify-programs` holds the story chapters to everything it holds the routes
+and the jobs to — same budgets, same tables, same flown checks — plus a check
+that the chain is honest: gentlest wing first, every chapter saying what the
+flight is for.
 
 ## Flight planning
 

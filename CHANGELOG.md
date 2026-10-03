@@ -5,6 +5,77 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The clock catches up with the sky, and the cockpit keeps still — 2 October 2026
+
+Two reports, one redesign, and a story.
+
+**The clock catches up with the sky.** A pilot at midday local opened the page
+to a night side. The sim's clock was correct for the J2000 epoch it was pinned
+to — and nothing advanced that pin to now, so the terminator on screen was
+right for 1 January 2000 and wrong for every day since. The simulation now
+boots at real time (`sim/system.js`: `createSimulation(t)` takes the moment,
+`live.js` passes `NOW_T`), with Earth and the Moon placed at that instant by
+the same mean-element rates the Moon's own fit uses — carried from the J2000
+constants, so a gate's fixtures are byte-identical at t=0. And booting at now
+exposed a second, older bug the old boot had hidden: the Earth element's mean
+anomaly was 358.617° where J2000 says 357.517°, so the Sun in this sim had run
+1.9° hot since the first commit. With both fixed, the Sun measures 0.85° from
+the almanac, the Moon 0.8°, and the terminator agrees with mean solar time to
+7.6 minutes — inside the equation of time's own 16.4-minute swing. The claim
+is held by a new gate, `verify-clock` (7 checks), which embeds the USNO and
+truncated-Meeus almanac formulas itself and shares no code with the sim; the
+three flight fixtures and the Moon's mean fit were regenerated against the
+corrected system, and `verify-rails` was re-measured — its old 1.1° phase
+tolerance was the very error this entry retires, and the integrated and
+tabulated Earths now start 0.0007° apart. 68 gates.
+
+**The context that comes back.** A second pilot reported the graphics API
+"losing randomly regardless of platform." Random-looking context losses are
+near always memory pressure, and the browser restores the context on its own
+in almost every case — so the recovery now spends the governor's own levers
+on restoration: a first loss gives back a quarter of the pixels, two in one
+session is a pattern and gives back the dearest things first (the shadow map,
+then a third of the pixels), and the comfort refund earns them back only if
+the machine is genuinely fine. The dialog exists for the seconds in between,
+and no longer for longer.
+
+**A quieter cockpit.** The first impression was six stacked panels over two
+rails over the Earth — furniture, not a view. The instrument rails now start
+closed on every viewport: what a flight needs in its first minute is the
+flight strip, the clock and the count, and everything else is a question the
+pilot asks when they ask it. The six setup panels — missions, contracts, the
+pad, the craft catalogue, the planet's interior, the display switches — move
+behind one drawer (`S`, or its button in the control bar), composed rather
+than re-implemented; the mission checklist moves out of the panels and rides
+the rail on its own, whenever a program is armed, because a plan you have to
+summon is a plan you fly past; and the Lagrange markers and the planet's
+interior join the ambience as things a visitor asks for. `H` keeps its
+rail. The dead `shipPanel` flag is gone.
+
+**The governor learns to keep still.** The same report called it "crappy
+tweaking lag": the resolution governor, judging every 1.5-second window
+alone, stepped the pixel ratio down and back at the threshold's edge forever,
+and each step reallocated every render target — the visible hitch. It now
+asks for two consecutive windows of evidence before any comfort-path move
+(four seconds, not one and a half), ignores a third of a second after any
+lever change instead of three frames (the old window counted the machine's
+own reallocation into its next decision, which is how one step became
+three), and pays the same hold on an up-step that a down-step pays — the
+anti-oscillation clause. The panic path is unchanged: three 60-ms frames
+still get rescued instantly. `verify-ui-pace` holds the lever order and the
+refund order as before.
+
+**The story.** Six chapters, in order — First Orbit, Rendezvous, Alone in
+the Sky, The Crossing, Far Side, Contact — the career of a pilot in
+miniature. Each is a program in every mechanical sense: legs priced by the
+rocket equation, objectives evaluated from the live state, the checklist
+riding the rail. What makes it a story is that each chapter unlocks the one
+before it by having been *flown* — the record is written by `tickProgram`
+the tick the last objective latches, and kept in this browser — and that the
+briefs say what the flight is for. Every chapter arms at the Trainee wing;
+`verify-programs` holds the chapters to everything it holds the routes and
+the jobs to, plus a check that the chain is honest.
+
 ### The door opens outward — 1 October 2026
 
 Three things asked for by the first people to visit, and one thing they

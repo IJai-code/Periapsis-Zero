@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { subscribeUiTick } from './uiClock.js'
-import { program } from '../sim/programs.js'
+import { program, STORY } from '../sim/programs.js'
 
 /**
  * The program checklist, live.
@@ -44,6 +44,13 @@ export function ProgramStrip() {
 
   if (!armed || !program.def) return null
 
+  /*
+   * A story chapter rides the same strip as any program — the machinery is
+   * identical — but it carries its number and its brief, because a chapter
+   * is a place in a sequence and the pilot should feel where they stand.
+   */
+  const chapter = program.def.story ? STORY.findIndex((c) => c.id === program.def.id) + 1 : 0
+
   return (
     <div ref={root} className="panel w-52 rounded-sm p-3.5">
       <div className="mb-2.5 flex items-baseline justify-between border-b border-white/10 pb-2">
@@ -52,6 +59,14 @@ export function ProgramStrip() {
           —
         </span>
       </div>
+      {chapter > 0 && (
+        <div className="mb-2">
+          <div className="font-mono text-[9px] tracking-[0.24em] text-ember uppercase">
+            Chapter {chapter} of {STORY.length}
+          </div>
+          <p className="mt-1 text-[10px] leading-snug text-hud/50">{program.def.brief}</p>
+        </div>
+      )}
       <div className="space-y-2">
         {program.objectives.map((o) => (
           <div key={o.id} data-obj={o.id} className="text-[11px] text-white/40 transition-colors">
