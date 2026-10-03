@@ -5,6 +5,19 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The view hotbar: 2 October 2026
+
+**Ten keys, at last on screen.** The camera has always been cut with the
+number keys, and nothing in the interface ever listed them; the walk's own
+prompt admits as much. So they are a hotbar now, at the foot of the frame: ten
+slots, each wearing its key, each click the same cut the key makes, and the
+slot for the camera already on screen is lit so the bar also answers what
+am I looking at. The key map lives beside the slots and the keyboard handler
+reads that same table, so the keys and the bar cannot drift apart. On foot it
+stays up on purpose: down there the keyboard belongs to the feet, and the bar
+is the pointer's one way back to the sky. The rails' bottom clearances moved
+with it, the same measured arithmetic as before with one more row counted.
+
 ### The product gets doors across the top: 2 October 2026
 
 The game layer, in the shape of a game rather than a tool.

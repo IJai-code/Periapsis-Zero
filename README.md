@@ -804,8 +804,7 @@ actually landed.
 | Input           | Action                                              |
 | --------------- | --------------------------------------------------- |
 | drag / scroll   | orbit and zoom (damped)                              |
-| `1` `2` `3` `4` | camera lock: free · Sun · Earth · Moon               |
-| `0`             | stand on the ground by the pad, at eye height         |
+| `0`–`9`         | camera quick-cuts: ground · free · Sol · Terra · Luna · ship · chase · ISS · Hubble · fly |
 | `g`             | walk on foot / back to the ground camera              |
 | click a body    | lock onto it                                         |
 | `space`         | pause                                                |
@@ -829,6 +828,12 @@ open in a board window over the live scene rather than away from it (`Esc`
 closes it, and beginning a flight closes it the way the drawer closes), and
 tonight's notices and the contact list ride the right rail whether or not
 the panels are up.
+
+The number keys are also a view hotbar at the foot of the frame: ten slots,
+each wearing its key, one click to the same cut. The slot for the camera on
+screen is lit, so the bar is also the answer to "what am I looking at", and it
+stays up on foot, where the keyboard belongs to the feet and the bar is the
+pointer's way back to the sky.
 
 Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing

@@ -22,6 +22,7 @@ import { Commentary } from './Commentary.jsx'
 import { Mark } from './Mark.jsx'
 import { Nav } from './Nav.jsx'
 import { Boards } from './Boards.jsx'
+import { Hotbar, VIEW_KEYS } from './Hotbar.jsx'
 import { Contacts } from './Contacts.jsx'
 import { Notices } from './Notices.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
@@ -40,18 +41,10 @@ import { prediction } from '../sim/predict.js'
  */
 const FROM_THE_VEHICLE = new Set(['chase', 'pad', 'ground', 'fly', 'cinematic'])
 
-const FOCUS_KEYS = {
-  0: 'ground',
-  1: 'free',
-  2: 'sun',
-  3: 'earth',
-  4: 'moon',
-  5: 'ship',
-  6: 'chase',
-  7: 'iss',
-  8: 'hubble',
-  9: 'fly',
-}
+/*
+ * Where the number keys cut the camera lives in `Hotbar.jsx`, beside the slots
+ * that wear them: one table, so the keys and the bar cannot disagree.
+ */
 
 function EclipseBanner() {
   const [kind, setKind] = useState(null)
@@ -200,7 +193,7 @@ export function Hud() {
        * for, and a person walking is not flying the vehicle.
        */
       const onFoot = uiStore.get().focus === 'walk'
-      if (FOCUS_KEYS[e.key]) return setUi({ focus: FOCUS_KEYS[e.key] })
+      if (VIEW_KEYS[e.key]) return setUi({ focus: VIEW_KEYS[e.key] })
       // G for "go on foot", the walk is where the ground camera at 0 leads.
       if (e.key.toLowerCase() === 'g') {
         return setUi((s) => ({ focus: s.focus === 'walk' ? 'ground' : 'walk', map: false }))
@@ -263,13 +256,18 @@ export function Hud() {
       <Nav onMap={toggleMap} onLogbook={() => setLogbook(true)} />
       {!onFoot && <Boards />}
       {/*
-        The bottom clearance is 9rem on a phone and 7rem above it, and the
-        difference is the control bar's own height: its buttons are 36 px for a
-        thumb and 32 px for a pointer, which with the panel toggle under them
-        makes the bottom furniture 97 px tall on a phone against 7rem of
-        assumed clearance. Measured, the rail ran 17 px into it.
+        The bottom clearance, measured from the bottom stack up. The stack is
+        bottom-anchored and now four rows deep: the view hotbar (48 px) under
+        the button row (36 px on a phone, 32 above it) under the time panel
+        (52/48), with 8 px gaps and 16 px of bottom margin. That is 168 px on a
+        phone and 160 above it, so the rails stop 180/172 px short of the foot
+        with 12 px of slack: 14.5rem off the left rail's height on a phone and
+        14rem above it (the rail begins 3.25rem down), 17rem off the right.
+        Before the hotbar the same arithmetic gave 97 px of furniture
+        against 7rem of assumed clearance and the rail ran 17 px into it; these
+        are the same arithmetic, with the hotbar counted.
       */}
-      <div className="absolute top-[3.25rem] left-4 flex max-h-[calc(100vh-11.5rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-10.5rem)]">
+      <div className="absolute top-[3.25rem] left-4 flex max-h-[calc(100vh-14.5rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-14rem)]">
         {/*
           The wordmark and the view keys moved up into the menu bar, where the
           whole product can be read at once; what stays here is the rail's own
@@ -356,7 +354,7 @@ export function Hud() {
         cockpit's.
       */}
       {!narrow && !onFoot && (
-        <div className="pointer-events-auto absolute top-[6.25rem] right-4 flex max-h-[calc(100vh-13.5rem)] flex-col items-end gap-3 overflow-y-auto">
+        <div className="pointer-events-auto absolute top-[6.25rem] right-4 flex max-h-[calc(100vh-17rem)] flex-col items-end gap-3 overflow-y-auto">
           <Notices />
           <Contacts />
           {open && instruments}
@@ -460,6 +458,14 @@ export function Hud() {
             logbook
           </button>
         </div>
+        {/*
+          The view hotbar closes the frame the way a game's quick slots close
+          one: the number keys have always cut between cameras, and here they
+          are at last on screen. Under the button row rather than above it,
+          bottom-most like every hotbar ever drawn, and still up on foot,
+          where it is the one pointer path back to the sky.
+        */}
+        <Hotbar />
       </div>
       <Logbook open={logbook} onClose={() => setLogbook(false)} />
     </div>
