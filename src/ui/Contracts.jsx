@@ -52,7 +52,7 @@ export function Contracts() {
     resetMission()
     // The setup drawer closes with the job taken, same hand-off the story
     // makes: the setup is over, the checklist rides the instruments.
-    setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: true, setup: false })
+    setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: true, setup: false, boards: null })
   }
 
   return (

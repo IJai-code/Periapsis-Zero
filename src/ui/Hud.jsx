@@ -20,6 +20,10 @@ import { FlightStrip } from './FlightStrip.jsx'
 import { LogProgress, Logbook } from './Logbook.jsx'
 import { Commentary } from './Commentary.jsx'
 import { Mark } from './Mark.jsx'
+import { Nav } from './Nav.jsx'
+import { Boards } from './Boards.jsx'
+import { Contacts } from './Contacts.jsx'
+import { Notices } from './Notices.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
 import { BroadcastHud } from './Broadcast.jsx'
 import { setUi, useUi, WARP_LEVELS, uiStore } from '../sim/store.js'
@@ -251,44 +255,28 @@ export function Hud() {
     <LagrangeMarkers />
     <div className="pointer-events-none fixed inset-0 z-10 select-none">
       {/*
+        The shell: the menu bar across the top and the board window under it.
+        The menu is the doors rather than the flight, so it stays up even on
+        foot (the walk folds the instruments away, not the doors); the board
+        window is a panel like any other and folds with the cockpit.
+      */}
+      <Nav onMap={toggleMap} onLogbook={() => setLogbook(true)} />
+      {!onFoot && <Boards />}
+      {/*
         The bottom clearance is 9rem on a phone and 7rem above it, and the
         difference is the control bar's own height: its buttons are 36 px for a
         thumb and 32 px for a pointer, which with the panel toggle under them
         makes the bottom furniture 97 px tall on a phone against 7rem of
         assumed clearance. Measured, the rail ran 17 px into it.
       */}
-      <div className="absolute top-4 left-4 flex max-h-[calc(100vh-9rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-8rem)]">
+      <div className="absolute top-[3.25rem] left-4 flex max-h-[calc(100vh-11.5rem)] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-10.5rem)]">
+        {/*
+          The wordmark and the view keys moved up into the menu bar, where the
+          whole product can be read at once; what stays here is the rail's own
+          label, which is a fact about the flight rather than a brand.
+        */}
         <div className="pointer-events-auto">
-          <div className="flex items-center gap-2.5">
-            {/*
-              The mark rides the lockup, the same drawing the tab icon is,
-              generated into brand.js, so the corner and the browser chrome
-              agree by construction.
-            */}
-            <Mark size={22} />
-            <div className="font-display text-xl leading-none font-light tracking-[0.3em] text-hud/90">
-              PERIAPSIS ZERO
-            </div>
-            <button
-              onClick={() => setUi({ broadcast: true, map: false })}
-              title="Watch as a broadcast (b)"
-              className="control grid h-9 min-w-[3.75rem] place-items-center border border-hud/22 px-2 text-[9px] tracking-[0.2em] text-hud/50 uppercase transition-colors duration-300 outline-none hover:border-ember/70 hover:text-ember focus-visible:border-ember focus-visible:text-ember lg:h-7"
-            >
-              feed · b
-            </button>
-            <button
-              onClick={toggleMap}
-              title="Flight plan (m)"
-              className={`control grid h-9 min-w-[3.75rem] place-items-center border px-2 text-[9px] tracking-[0.2em] uppercase transition-colors duration-300 outline-none focus-visible:border-ember focus-visible:text-ember lg:h-7 ${
-                map
-                  ? 'border-ember bg-ember/18 text-ember'
-                  : 'border-hud/22 text-hud/50 hover:border-ember/70 hover:text-ember'
-              }`}
-            >
-              map · m
-            </button>
-          </div>
-          <div className="rule mt-1">{map ? 'Flight plan' : 'Instruments'}</div>
+          <div className="rule">{map ? 'Flight plan' : 'Instruments'}</div>
         </div>
         {/*
           The figures that change fastest, beside the ones that never do. Not
@@ -301,8 +289,10 @@ export function Hud() {
         {/*
           The mission checklist rides the rail whether or not the panels are
           open, an armed program is the flight's own plan, and a plan you have
-          to summon is a plan you fly past. It hides itself when nothing is
-          armed, and folds away on foot with the rest of the cockpit.
+          to summon is a plan you fly past. When nothing is armed it carries
+          the story's standing instead, where the pilot is in the six chapters
+          and the button for the next one. It folds away on foot with the rest
+          of the cockpit.
         */}
         {!onFoot && (
           <div className="pointer-events-auto">
@@ -314,9 +304,20 @@ export function Hud() {
           <LogProgress />
         </div>
         {/*
+          The game shell's two panels fold into the one column on a narrow
+          screen, rendered from the same components as the right rail so the
+          notices cannot disagree with themselves.
+        */}
+        {narrow && !onFoot && (
+          <div className="pointer-events-auto">
+            <Notices />
+            <Contacts />
+          </div>
+        )}
+        {/*
           On a narrow screen the search rides the left column, under the strip,
           because the right-hand corner it takes on a wide one is where the
-          brand row already is.
+          notices and the contacts already are.
         */}
         {narrow && (
           <div className="pointer-events-auto w-[min(22rem,calc(100vw-2rem))]">
@@ -342,14 +343,23 @@ export function Hud() {
         where a search sits: top right, above the instruments, always there.
       */}
       {!narrow && (
-        <div className="pointer-events-auto absolute top-4 right-4 z-20 w-[22rem]">
+        <div className="pointer-events-auto absolute top-[3.25rem] right-4 z-20 w-[22rem]">
           <SearchBar />
         </div>
       )}
 
-      {open && !narrow && !onFoot && (
-        <div className="pointer-events-auto absolute top-[4.25rem] right-4 max-h-[calc(100vh-11rem)] overflow-y-auto">
-          <div className="flex flex-col gap-3">{instruments}</div>
+      {/*
+        The right rail is the game shell's home: tonight's sky as notices,
+        the contact list under it, and the flight instruments under those when
+        the panels are up. The shell rides whether or not the panels are open
+        because it is the game's own furniture, and the instruments are the
+        cockpit's.
+      */}
+      {!narrow && !onFoot && (
+        <div className="pointer-events-auto absolute top-[6.25rem] right-4 flex max-h-[calc(100vh-13.5rem)] flex-col items-end gap-3 overflow-y-auto">
+          <Notices />
+          <Contacts />
+          {open && instruments}
         </div>
       )}
 

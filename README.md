@@ -823,6 +823,13 @@ actually landed.
 | `m`             | the map: pull back until the whole orbit is in frame  |
 | `/` or `⌘K`     | search: go anywhere by name                          |
 
+The product's doors also sit in a menu bar across the top: Flight, Story,
+Almanac, Contracts, Logbook, Setup, Map, Feed. Story, Almanac and Contracts
+open in a board window over the live scene rather than away from it (`Esc`
+closes it, and beginning a flight closes it the way the drawer closes), and
+tonight's notices and the contact list ride the right rail whether or not
+the panels are up.
+
 Locking flies the camera in over ~1.2s and then follows, translating the camera
 and the orbit target by the same vector each frame — so your zoom and viewing
 angle survive the body moving underneath you.
@@ -1153,15 +1160,17 @@ the ambience's place in the architecture by `verify-audio`.
 
 ### The story
 
-Six flights, in order, in a drawer of their own at the top of the flight-setup
-drawer (press `S`): **First Orbit**, **Rendezvous**, **Alone in the Sky**, **The
-Crossing**, **Far Side**, **Contact** — the career of a pilot in miniature,
+Six flights, in order, on a board of their own (Story in the menu bar, or the
+top of the flight-setup drawer behind `S`): **First Orbit**, **Rendezvous**,
+**Alone in the Sky**, **The Crossing**, **Far Side**, **Contact** — the career of a pilot in miniature,
 told in the order the programme itself learned it. Each chapter unlocks when
 the one before it is *flown*: the record is written by the same tick that
 latches the last objective, off the live state, and kept in this browser. A
 chapter flies with the Trainee wing — the computer flies the book parts, the
 pilot reads the checklist — and the chapter's number and brief ride the
-checklist itself. The last chapter is honest about its ending: the stack that
+checklist itself, which when nothing is armed carries the story's standing
+and the button for the next chapter instead of disappearing. The last
+chapter is honest about its ending: the stack that
 carried you there cannot carry you home, and that is not a limitation of the
 sim, it is why Apollo had a lander. Press `G` on the surface and stand on it.
 
@@ -1173,8 +1182,9 @@ flight is for.
 ### The Almanac
 
 Missions the sky writes. Every other board here lists work a person
-invented; the Almanac (`sim/almanac.js`, in the flight-setup drawer) is
-generated from the solar system as it actually stands at boot: the gap
+invented; the Almanac (`sim/almanac.js`, on its board and as tonight's
+notices on the rail) is generated from the solar system as it actually
+stands at boot: the gap
 between the vehicle and the station right now, how far out the Moon is this
 hour, whether an eclipse is in the sky at this moment. The numbers in the
 briefs are the numbers the integrator is flying, so the board read tomorrow

@@ -18,5 +18,5 @@ export function beginDef(def, wing = def.wings?.[0] ?? 'trainee') {
   selectSite(def.sites.includes(current) ? current : def.sites[0])
   armProgram(def, wing)
   resetMission()
-  setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: false, setup: false })
+  setUi({ paused: false, focus: 'ground', broadcast: false, panelOpen: false, setup: false, boards: null })
 }

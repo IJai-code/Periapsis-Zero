@@ -5,6 +5,44 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased — targeting 1.0.0
 
+### The product gets doors across the top: 2 October 2026
+
+The game layer, in the shape of a game rather than a tool.
+
+**The menu bar.** Every door in this product existed already and none of them
+were visible: the story, the Almanac and the contracts board lived inside the
+setup drawer, the logbook was a button in the bottom bar, the map and the feed
+were keys. There is one row across the top now, naming all of it: Flight,
+Story, Almanac, Contracts, Logbook, Setup, Map, Feed. Each label wears its key
+where one exists, so a shortcut is taught by the thing it replaces, and Flight
+is the way home: it closes whatever is open and leaves the pilot with the sky.
+The wordmark rode up into the row with them, and the rail below is the
+flight's alone.
+
+**The board window.** The three boards that are read rather than set (the
+story, the Almanac, the contracts) open over the live scene rather than away
+from it, the sky moving behind the board you are reading. Esc, the close label
+or Flight puts it away; beginning a flight closes it too, from the same path
+that closes the drawer, because beginning a flight is the moment the reading
+ends.
+
+**Tonight's sky, as notices.** The Almanac's briefs ride the right rail as
+event cards, measured at boot from the same state the board quotes,
+dismissible for the session, and taking one arms the same flight the board
+would. No sound, no badge, no pulse: just the sky, offering.
+
+**The contact list.** Range and range rate from the ship to Terra, the ISS,
+Hubble, Luna and Sol, written straight to the DOM on the readout pulse like
+every other live figure. The rows are fixed in order (a list that re-sorts as
+the ship moves is a list nobody can aim at) and clicking one sends the camera
+there. Cislunar in kilometres, beyond it in astronomical units, because
+149,600,000 km is a number nobody reads.
+
+**The tracker that stays.** The checklist used to disappear whenever nothing
+was armed, which is exactly when a new pilot asks what there is to do. It
+carries the story's standing now: where the pilot is in the six chapters and
+the button for the next one.
+
 ### The Moon's own theory, and a year that keeps the calendar: 2 October 2026
 
 Two accuracy claims, both root-caused rather than tuned.

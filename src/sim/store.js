@@ -64,6 +64,13 @@ export const uiStore = createStore({
   broadcast: false,
   /** Captions for the loop and the narration, in the broadcast. */
   captions: true,
+  /**
+   * The board window: which board is being read over the live scene — 'story',
+   * 'almanac' or 'contracts' — or null. The menu bar opens it and beginning a
+   * flight closes it, the same hand-off the setup drawer makes. See
+   * `ui/Boards.jsx`.
+   */
+  boards: null,
   focus: 'earth', // 'free' | 'fly' | 'sun' | 'earth' | 'moon' | ...
   /**
    * Opens paused, at real time.
