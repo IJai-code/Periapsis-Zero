@@ -4,7 +4,7 @@ import { ACESFilmicToneMapping } from 'three'
 import { ExpeditionScene } from '../components/ExpeditionScene.jsx'
 import { altitude, CAMPAIGN, createExpedition, deployRover, interact, INSTRUMENTS, launch, nearestInstrument, nearestSample, recordSurvey, REGIONS, roverDistance, SITES, VEHICLE } from '../sim/expedition.js'
 
-const BINDINGS = { KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right', KeyQ: 'turnLeft', KeyE: null, KeyZ: 'turnRight', KeyR: 'throttleUp', KeyF: 'throttleDown', ArrowLeft: 'lookLeft', ArrowRight: 'lookRight', ShiftLeft: 'sprint', ShiftRight: 'sprint', Space: 'jump' }
+const BINDINGS = { KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right', KeyQ: 'turnLeft', KeyE: null, KeyZ: 'turnRight', KeyR: 'throttleUp', KeyF: 'throttleDown', ArrowLeft: 'lookLeft', ArrowRight: 'lookRight', Space: 'jump' }
 const editable = (target) => target instanceof HTMLElement && (target.matches('input,textarea,select,button') || target.isContentEditable)
 
 export function Expedition({ id, campaign = false, onExit }) {
@@ -106,7 +106,7 @@ export function Expedition({ id, campaign = false, onExit }) {
           <Readout name="Odometer" value={session.rover.odometer.toFixed(0)} unit="m" />
           <Readout name="Instruments" value={`${session.instruments.length}`} unit={`of ${INSTRUMENTS.length}`} />
           <div className="fuel-readout"><span>Battery</span><strong>{Math.round(session.rover.battery * 100)}<small>%</small></strong><div><i style={{ width: `${session.rover.battery * 100}%` }} /></div></div>
-        </div> : <div className="eva-strip"><strong>Surface traverse</strong><span>{session.samples.length}/{SITES.length} samples · {session.instruments.length}/{INSTRUMENTS.length} instruments</span><span>WASD move · Shift run · Space jump · E rover · drag to look</span></div>}
+        </div> : <div className="eva-strip"><strong>Surface traverse</strong><span>{session.samples.length}/{SITES.length} samples · {session.instruments.length}/{INSTRUMENTS.length} instruments</span><span>WASD walk · Space jump · E rover · drag to look</span></div>}
         <div className="flight-actions">
           {aboard && <button className={session.assist ? 'action-button selected' : 'action-button'} onClick={assist} disabled={session.landed}>H / {session.assist ? 'Landing assist' : 'Manual control'}</button>}
           {context && <button className="action-button primary" onClick={action}>E / {context}</button>}

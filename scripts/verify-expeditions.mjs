@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks'
 import { altitude, CAMPAIGN, chapterUnlocked, createExpedition, deployRover, expeditionRecord, FIXED_STEP, INSTRUMENTS, interact, launch, nearestInstrument, recordSurvey, REGIONS, roverDistance, ROVER, SITES, stepExpedition, terrainFor, validateRecord, VEHICLE } from '../src/sim/expedition.js'
 import { buildExpeditionTerrain } from '../src/gfx/expeditionTerrain.js'
 import { experienceFromHash, expeditionHash } from '../src/sim/experiences.js'
+import { TAKEOFF, walkSpeed } from '../src/sim/walk.js'
 
 let checks = 0
 const check = (name, fn) => { fn(); console.log(`  ✓ ${name}`); checks++ }
@@ -255,8 +256,60 @@ check('surface jumps are gravity-driven and cannot collect airborne samples', ()
   const s = createExpedition('europa'); s.mode = 'eva'; s.walker.x = SITES[0].x; s.walker.z = SITES[0].z; s.walker.y = terrainFor(s.id).height(s.walker.x, s.walker.z)
   const floor = s.walker.y, keys = { jump: true }; let peak = floor
   for (let i = 0; i < 120 * 5; i++) { stepExpedition(s, keys); peak = Math.max(peak, s.walker.y); if (i === 5) assert.equal(interact(s), false) }
-  assert.ok(Math.abs(peak - floor - 2.5 ** 2 / (2 * REGIONS.europa.gravity)) < 0.03)
+  // The take-off speed is the walk model's (a 0.40 m standing jump on Earth), not a constant of this file.
+  assert.ok(Math.abs(peak - floor - TAKEOFF ** 2 / (2 * REGIONS.europa.gravity)) < 0.03)
   assert.ok(s.walker.ground); assert.equal(s.walker.y, floor)
+})
+/*
+ * One answer to "how fast can a person walk here".
+ *
+ * The expedition used to walk at a fixed 2.8 m/s (5.2 with Shift) on every
+ * world while the simulator's walk mode derived the gait limit from gravity:
+ * 1.21 m/s on the Moon. Both now step sim/walk.js, and this holds them to it.
+ * The walker is put on flat-enough ground far from the lander and held on W
+ * for long enough to reach steady state, from rest and from a standing start
+ * with a stale Shift key still held, which must make no difference.
+ */
+check('on foot, every world tops out at the walk model\'s gait limit sqrt(gL)', () => {
+  for (const id of ['moon', 'mars', 'europa']) {
+    const s = createExpedition(id); s.mode = 'eva'
+    const t = terrainFor(id)
+    // Find a start where 12 s of walking north stays on gentle ground.
+    let start = null
+    for (let x = -300; x <= 300 && !start; x += 24) {
+      for (let z = 300; z >= -300 && !start; z -= 24) {
+        let ok = true
+        for (let d = 0; d <= 20 && ok; d += 1) ok = Math.abs(t.height(x, z - d) - t.height(x, z - d + 1)) < 0.2
+        if (ok) start = [x, z]
+      }
+    }
+    assert.ok(start, `${id}: no gentle ground found for the walk check`)
+    Object.assign(s.walker, { x: start[0], z: start[1], y: t.height(start[0], start[1]), vx: 0, vy: 0, vz: 0, yaw: 0, ground: true })
+    const keys = { forward: true, sprint: true }
+    let fastest = 0
+    for (let i = 0; i < 120 * 6; i++) {
+      stepExpedition(s, keys)
+      fastest = Math.max(fastest, Math.hypot(s.walker.vx, s.walker.vz))
+    }
+    const limit = walkSpeed(REGIONS[id].gravity)
+    assert.ok(fastest <= limit + 1e-9, `${id}: walked at ${fastest.toFixed(3)} m/s, past the ${limit.toFixed(3)} m/s gait limit`)
+    assert.ok(fastest > limit * 0.999, `${id}: never reached the gait limit (${fastest.toFixed(3)} of ${limit.toFixed(3)})`)
+    if (id === 'moon') assert.equal(limit.toFixed(2), '1.21')
+  }
+})
+check('the feet push only as hard as friction allows, and not at all in the air', () => {
+  const s = createExpedition('moon'); s.mode = 'eva'
+  const t = terrainFor('moon')
+  Object.assign(s.walker, { x: 0, z: 200, y: t.height(0, 200), vx: 0, vy: 0, vz: 0, yaw: 0, ground: true })
+  stepExpedition(s, { forward: true })
+  // One fixed step from rest gains mu g dt, no more: 0.6 x 1.625 / 120.
+  const gain = Math.hypot(s.walker.vx, s.walker.vz)
+  assert.ok(Math.abs(gain - 0.6 * REGIONS.moon.gravity * FIXED_STEP) < 1e-9, `first step gained ${gain}`)
+  // Airborne, a held key changes nothing horizontal.
+  const air = createExpedition('moon'); air.mode = 'eva'
+  Object.assign(air.walker, { x: 0, z: 200, y: t.height(0, 200) + 1, vx: 0.5, vy: 1, vz: 0, yaw: 0, ground: false })
+  stepExpedition(air, { forward: true, left: true })
+  assert.equal(air.walker.vx, 0.5); assert.equal(air.walker.vz, 0)
 })
 check('mode links round-trip, invalid destinations fall home, and locked campaign links are guarded', () => {
   assert.deepEqual(experienceFromHash('#flight'), { mode: 'simulator' })

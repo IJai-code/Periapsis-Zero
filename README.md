@@ -4422,17 +4422,13 @@ publishes nothing and the previous deployment stays up — which makes
 
 Two things about a static host this one has to answer.
 
-**The site does not live at the root.** Pages serves a project under the
-repository's own name, so the build takes its base path from
-`PERIAPSIS_BASE`, which the workflow derives from `$GITHUB_REPOSITORY` rather
-than writing down — a rename moves the site and the build follows. Every asset
-the app fetches at runtime already goes through `import.meta.env.BASE_URL`, so
-one value covers the models, the textures and the Draco decoders alike. Checked
-rather than assumed: built with `PERIAPSIS_BASE=/periapsis-zero/`, served from
-that path and flown, every request resolves under it — `assets`, `textures`,
-`draco`, and the three `.glb` hulls — with nothing on the console. `npm run dev`
-is untouched, because the variable is absent there and the base falls back to
-`/`.
+**The site lives at the root.** It is served from the custom domain in
+`CNAME`, so `vite.config.js` sets `base: '/'` and the workflow passes nothing
+in. Every asset the app fetches at runtime goes through
+`import.meta.env.BASE_URL`, so that one value covers the models, the textures
+and the Draco decoders alike. (The workflow used to derive a project sub-path
+into `PERIAPSIS_BASE`; once the domain moved to the root the config stopped
+reading it, and the variable has been removed from the workflow.)
 
 **The meshes are not in the repository.** `public/models` is 1.1 GB and
 gitignored, so a build from a checkout alone would ship placeholder hulls. The

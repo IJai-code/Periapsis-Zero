@@ -1,6 +1,7 @@
 import { BODIES, G, G0 } from './constants.js'
 import { RAILS } from './rails.js'
 import { makeNoise } from '../gfx/noise.js'
+import { stepWalk } from './walk.js'
 
 export const REGIONS = {
   moon: { id: 'moon', name: 'Moon', site: 'The southern highlands', geology: 'Impact basins · airless regolith', seed: 1107, color: '#85817b', sky: '#030509', accent: '#e1d9c6', atmosphere: 0, parent: 'Earth', parentRadius: 6371000, parentDistance: 384400000 },
@@ -45,8 +46,11 @@ export const ROVER = { mass: 210, drive: 520, wheelbase: 2.1, track: 1.7, cleara
  * decision about where a measurement should live: a seismometer wants quiet
  * ground away from the lander's pumps, a magnetometer wants distance from the
  * vehicle's own field, and a heat probe wants undisturbed regolith. So they sit
- * 150 to 380 m out, which is a long walk at 2.8 m/s and a short drive at 3.4.
- * That gap is what the rover is for.
+ * 150 to 380 m out. On foot that is a long way: the walking gait tops out at
+ * sqrt(g L), 1.21 m/s on the Moon, 1.09 on Europa and 1.83 on Mars (see
+ * `sim/walk.js`), so the farthest instrument is more than five minutes' walk
+ * from the lander on the Moon. The rover covers it at 3.4. That gap is what
+ * the rover is for.
  */
 export const INSTRUMENTS = [
   { name: 'Seismometer', x: -210, z: 150, reading: 'Ambient seismic noise' },
@@ -55,6 +59,8 @@ export const INSTRUMENTS = [
 ]
 export const VEHICLE = { dryMass: 3600, fuel: 1500, thrust: 32000, isp: 310, clearance: 2.65, safeVertical: 3, safeHorizontal: 2.5, safeSlope: 0.28 }
 export const FIXED_STEP = 1 / 120
+/** Scratch for the walk step, so the fixed step allocates nothing. */
+const _foot = { east: 0, north: 0, up: 0, height: 0, onGround: true }
 export const REGION_LIMIT = 700
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x))
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t) }
@@ -124,7 +130,7 @@ export function terrainFor(id) {
 export function createExpedition(id = 'moon', campaign = false) {
   const region = REGIONS[id]
   if (!region) throw new Error(`Unknown expedition region: ${id}`)
-  return { id, campaign, mode: 'flight', x: 0, y: 180 + VEHICLE.clearance, z: 180, vx: 0, vy: -6, vz: -4, yaw: 0, pitch: 0, roll: 0, throttle: 0, fuel: VEHICLE.fuel, assist: true, landed: false, samples: [], delivered: false, message: 'Landing assist engaged. It uses your engines and propellant.', time: 0, touchdown: null, walker: { x: 0, y: 0, z: 0, vy: 0, yaw: 0, pitch: 0, ground: true }, rover: null, instruments: [], steps: 0 }
+  return { id, campaign, mode: 'flight', x: 0, y: 180 + VEHICLE.clearance, z: 180, vx: 0, vy: -6, vz: -4, yaw: 0, pitch: 0, roll: 0, throttle: 0, fuel: VEHICLE.fuel, assist: true, landed: false, samples: [], delivered: false, message: 'Landing assist engaged. It uses your engines and propellant.', time: 0, touchdown: null, walker: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, ground: true }, rover: null, instruments: [], steps: 0 }
 }
 export function altitude(s) { return Math.max(0, s.y - terrainFor(s.id).height(s.x, s.z) - VEHICLE.clearance) }
 export function nearestSample(s) {
@@ -163,7 +169,7 @@ export function interact(s) {
   if (s.mode === 'crashed') return false
   if (s.mode === 'flight' && s.landed) {
     const x = s.x + 7, z = s.z
-    Object.assign(s.walker, { x, z, y: terrainFor(s.id).height(x, z), vy: 0, yaw: 0, pitch: 0, ground: true })
+    Object.assign(s.walker, { x, z, y: terrainFor(s.id).height(x, z), vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, ground: true })
     s.mode = 'eva'; s.message = 'On the surface. Follow the survey bearings.'; return true
   }
   if (s.mode === 'eva') {
@@ -208,7 +214,7 @@ export function interact(s) {
       return true
     }
     if (Math.hypot(s.rover.x - s.x, s.rover.z - s.z) < 13) {
-      Object.assign(s.walker, { x: s.rover.x, z: s.rover.z, vy: 0, yaw: s.rover.yaw, pitch: 0, ground: true })
+      Object.assign(s.walker, { x: s.rover.x, z: s.rover.z, vx: 0, vy: 0, vz: 0, yaw: s.rover.yaw, pitch: 0, ground: true })
       s.walker.y = terrainFor(s.id).height(s.walker.x, s.walker.z)
       s.rover.vx = 0; s.rover.vz = 0; s.rover.speed = 0
       s.mode = 'eva'; s.message = 'On foot beside the rover.'; return true
@@ -228,19 +234,60 @@ export function stepExpedition(s, keys, dt = FIXED_STEP) {
   const region = REGIONS[s.id], terrain = terrainFor(s.id)
   s.time += dt; s.steps++
   if (s.mode === 'eva') {
+    /*
+     * On foot, by the simulator's own walking physics.
+     *
+     * This used to move the walker at a fixed 2.8 m/s (5.2 with Shift) and
+     * jump at 2.5 m/s on every world, while the simulator's walk mode derives
+     * the same things from a human body and the local gravity. On the Moon
+     * the two disagreed by more than a factor of two: a walking gait vaults
+     * over a straight leg and stays on the ground only while v^2/L < g, so the
+     * fastest walk there is sqrt(g L) = 1.21 m/s, which is why the Apollo
+     * crews hopped. Both modes now step `sim/walk.js`, so there is one answer.
+     *
+     * What that brings with it: speed is capped by the gait limit, the feet
+     * accelerate only as hard as friction allows (a sixth of the grip on the
+     * Moon), there is no steering in the air, and a jump leaves the ground at
+     * the 2.80 m/s a standing jump gives a person on Earth. There is no run:
+     * nothing in the walk model supports one faster than the gait limit, and a
+     * Shift key that went faster would be the old contradiction back.
+     */
     const w = s.walker
     const f = (keys.forward ? 1 : 0) - (keys.back ? 1 : 0), side = (keys.right ? 1 : 0) - (keys.left ? 1 : 0)
-    const length = Math.max(1, Math.hypot(f, side)), speed = keys.sprint ? 5.2 : 2.8
-    const dx = (Math.sin(w.yaw) * f + Math.cos(w.yaw) * side) * speed * dt / length
-    const dz = (-Math.cos(w.yaw) * f + Math.sin(w.yaw) * side) * speed * dt / length
-    if (Math.hypot(w.x + dx, w.z + dz) < REGION_LIMIT) {
-      const next = terrain.height(w.x + dx, w.z + dz)
-      if (next - w.y < 0.45) { w.x += dx; w.z += dz }
+    const wantX = Math.sin(w.yaw) * f + Math.cos(w.yaw) * side
+    const wantZ = -Math.cos(w.yaw) * f + Math.sin(w.yaw) * side
+    const jump = Boolean(keys.jump) && w.ground
+    if (jump) keys.jump = false
+    // The walk model's axes are east and north; here they are x and z. It is
+    // symmetric in the two, so the mapping is direct.
+    _foot.east = w.vx; _foot.north = w.vz; _foot.up = w.vy; _foot.height = w.y; _foot.onGround = w.ground
+    stepWalk(_foot, dt, region.gravity, wantX, wantZ, jump, -Infinity)
+    const nx = w.x + _foot.east * dt, nz = w.z + _foot.north * dt
+    let moved = false
+    if (Math.hypot(nx, nz) < REGION_LIMIT) {
+      const next = terrain.height(nx, nz)
+      // A ledge higher than 0.45 m stops the feet, as it did before.
+      if (next - _foot.height < 0.45) { w.x = nx; w.z = nz; moved = true }
     }
-    if (keys.jump && w.ground) { w.vy = 2.5; w.ground = false; keys.jump = false }
-    w.vy -= region.gravity * dt; w.y += w.vy * dt
+    // Walking into a ledge or the sector edge ends the stride; momentum does
+    // not carry through a wall.
+    w.vx = moved ? _foot.east : 0
+    w.vz = moved ? _foot.north : 0
+    w.vy = _foot.up; w.y = _foot.height
     const floor = terrain.height(w.x, w.z)
-    if (w.y <= floor) { w.y = floor; w.vy = 0; w.ground = true }
+    /*
+     * Walking downhill keeps the feet on the ground.
+     *
+     * Without this, every step down a slope left the walker a few millimetres
+     * above the new floor, which counts as airborne, and airborne feet cannot
+     * push. Measured on Europa's ridged plain the walker stalled at 0.77 m/s
+     * of its 1.09 limit, skipping down the slope one fixed step at a time. A
+     * walker that was on the ground and did not jump stays on it across a
+     * drop of up to 0.45 m, the same height the feet can step *up*; anything
+     * deeper is a ledge, and the walker goes over it ballistically.
+     */
+    const stick = w.ground && !jump && w.y - floor < 0.45
+    if (w.y <= floor || stick) { w.y = floor; if (w.vy < 0) w.vy = 0; w.ground = true } else w.ground = false
     return
   }
   if (s.mode === 'rover') {

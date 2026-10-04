@@ -130,8 +130,8 @@ function stampModules() {
  * — is already built on `import.meta.env.BASE_URL`, so the whole of it follows
  * this one value. The site is published to periapsiszero.dev, and a custom
  * domain serves from the root rather than from a project sub-path, so the
- * repository name has no business appearing in an asset URL. Written here
- * rather than derived: `PERIAPSIS_BASE` in the workflow no longer reaches this.
+ * repository name has no business appearing in an asset URL. Written here,
+ * not passed in: the deploy workflow sets nothing.
  */
 const base = '/'
 
