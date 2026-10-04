@@ -3,6 +3,12 @@ import { createRoot } from 'react-dom/client'
 import App from './ExperienceApp.jsx'
 import './index.css'
 import './ui/experiences.css'
+import { bootAccount, startAutoSync } from './sim/account.js'
+
+// Before the router reads the address: a sign-in link returns with the
+// session in the hash, which bootAccount takes and clears (sim/account.js).
+bootAccount()
+startAutoSync()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

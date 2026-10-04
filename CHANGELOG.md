@@ -5,6 +5,44 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Sign-in, a lint gate, and the vehicles redrawn from references: 4 October 2026
+
+**Sign in to keep progress** (optional). `src/sim/account.js` talks to a
+Supabase project over its HTTP API (no client library): an emailed sign-in
+link, or Google/GitHub/Apple/Discord when the project enables them (read from
+the project's settings, so no code changes). Surveys, the story, the logbook
+and the pilot name sync between devices and merge so that progress only grows.
+It is built in only when the repository sets `SUPABASE_URL` and
+`SUPABASE_PUBLISHABLE_KEY` as Actions variables; until then the site shows no
+sign-in at all. Tested end to end against a local stand-in for the endpoints
+(link request, return with a session by fresh load or same-tab hash, two
+devices' surveys merged with the better landing kept, the merge unlocking the
+right chapter, sign-out keeping progress); docs/accounts.md has the setup.
+
+**A lint gate.** ESLint, configured for mistakes rather than style
+(undefined names, same-scope use before definition, duplicate keys,
+unreachable code), runs in `verify:all` as `verify-lint`. Its first run found
+a duplicate key in verify-entry-guidance's result and a dead reference after
+`process.exit` in verify-approach.
+
+**Redrawn from references.** The lander's descent stage is now blanketed in
+quilted, crumpled gold foil with black louvred radiators and a silver deck,
+on gold-anodised truss legs with dark shock struts and braided harnesses; the
+rover has chunky chevron-tread tyres on five-spoke rims and a solar V mast.
+Europa's ground is broken ice plates, each tilted on its own; the story art
+gained Europa's ice peaks, Mars under a low, hazy, backlit sun, and regolith
+pushed up round the footpads. The physics numbers (footpads, clearance,
+engine exit, wheel radius and track) are unchanged and still gated. The
+modelling was done live in an open Blender over MCP; `pz.reset_scene` empties
+the open file rather than factory-resetting it (which would unload the MCP
+add-on), and bakes run headless.
+
+**A colour bug in the first bakes.** Ground and rock colour maps were
+normalised to a mean of 0.5 in sRGB-encoded values, which decode to about
+0.21 in linear light, so baked ground and rocks rendered at roughly half the
+brightness intended (the rock tints had been raised by eye to compensate).
+They are now normalised in linear light and the tints are back where they were.
+
 ### Slow machines, and art made in Blender: 4 October 2026
 
 **Slow machines.** The expeditions had no quality governor: every machine

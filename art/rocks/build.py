@@ -157,7 +157,7 @@ def main():
     # occlusion packed with a constant roughness the glTF way.
     c = sf._pixels(colour)[:, :3]
     covered = c.sum(axis=1) > 0.0
-    c = np.clip(c / c[covered].mean(axis=0) * 0.5, 0.0, 1.0)
+    c[covered] = sf.normalise_srgb(c[covered], 0.5)
     px = np.ones((size * size, 4), dtype=np.float32)
     px[:, :3] = c
     base = sf._image('rocks_base', size, data=False)

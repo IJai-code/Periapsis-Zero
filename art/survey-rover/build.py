@@ -34,7 +34,7 @@ R = SPEC['wheelRadius'] - GROUSER
 TRACK = SPEC['track']
 BASE = SPEC['wheelbase']
 CLEAR = SPEC['clearance']
-WHEEL_W = 0.2
+WHEEL_W = 0.28
 
 
 def args():
@@ -46,7 +46,7 @@ def materials():
         'hull': pz.material('rover_hull', '#d6d0bd', metallic=0.2, roughness=0.55),
         'frame': pz.material('rover_frame', '#9a9b97', metallic=0.85, roughness=0.35),
         'dark': pz.material('rover_dark', '#33393c', metallic=0.55, roughness=0.5),
-        'tyre': pz.material('rover_tyre', '#a7a399', metallic=0.75, roughness=0.42),
+        'tyre': pz.material('rover_tyre', '#2e2d2a', metallic=0.1, roughness=0.8),
         'solar': pz.material('rover_solar', '#1d2c46', metallic=0.45, roughness=0.22),
         'glass': pz.material('rover_glass', '#0f222c', metallic=0.2, roughness=0.08),
         'foil': pz.material('rover_foil', '#d6ae55', metallic=0.7, roughness=0.34),
@@ -55,31 +55,41 @@ def materials():
 
 
 def wheel(name, centre, m):
-    """A mesh wheel: a woven rim with grousers, a hub and spokes. Axle along X."""
+    """A chunky treaded tyre on a five-spoke rim. Axle along X.
+
+    The tyre is a lathed carcass with bulging sidewalls, and the tread is
+    chevron lugs standing GROUSER proud of it, so the rolling radius (to the
+    lug tips) is still the spec's 0.313 m that the drive model uses.
+    """
     parts = []
-    # Rim: a shallow drum, open at the sides like a woven-wire tyre.
-    rim = pz.lathe(f'{name}_rim', [(R * 0.96, -WHEEL_W / 2), (R, -WHEEL_W / 2 + 0.02),
-                                   (R, WHEEL_W / 2 - 0.02), (R * 0.96, WHEEL_W / 2)], 36, m['tyre'], smooth_angle=50)
+    hw = WHEEL_W / 2
+    carcass = pz.lathe(f'{name}_carcass', [
+        (R * 0.62, -hw + 0.01), (R * 0.82, -hw), (R * 0.95, -hw + 0.012), (R, -hw + 0.04),
+        (R, hw - 0.04), (R * 0.95, hw - 0.012), (R * 0.82, hw), (R * 0.62, hw - 0.01),
+    ], 48, m['tyre'], smooth_angle=60)
+    parts.append(carcass)
+    # Chevron lugs: two blocks a pitch, angled toward the middle, staggered.
+    pitch = 22
+    for k in range(pitch):
+        a = 2 * math.pi * k / pitch
+        for side in (-1, 1):
+            lug = pz.box(f'{name}_lug_{k}_{side:+d}', (GROUSER * 2, 0.045, hw * 0.92), (0, 0, 0), m['tyre'], chamfer=0.004)
+            twist = pz.Matrix.Rotation(side * 0.45, 4, 'X')
+            off = pz.Matrix.Translation((R, 0, side * hw * 0.48))
+            turn = pz.Matrix.Rotation(a + (math.pi / pitch if side > 0 else 0.0), 4, 'Z')
+            lug.data.transform(turn @ off @ twist)
+            parts.append(lug)
+    # The rim: a dished metal wheel inside the carcass, with five spokes.
+    rim = pz.lathe(f'{name}_rim', [(R * 0.6, -hw + 0.03), (R * 0.64, -hw + 0.05), (R * 0.64, hw - 0.05), (R * 0.6, hw - 0.03)],
+                   40, m['frame'], smooth_angle=40)
     parts.append(rim)
-    # Grousers: the cleats that give a metal wheel its grip.
-    for k in range(18):
-        a = 2 * math.pi * k / 18
-        g = pz.box(f'{name}_grouser_{k}', (2 * GROUSER, 0.018, WHEEL_W * 0.96), (0, 0, 0), m['tyre'])
-        g.data.transform(pz.Matrix.Translation((R * math.cos(a), R * math.sin(a), 0)) @ pz.Matrix.Rotation(a, 4, 'Z'))
-        parts.append(g)
-    # A dished web on the outer face, machined with six lightening holes'
-    # worth of relief: it is what makes a metal wheel read as a wheel from the
-    # side instead of a ring of cleats.
-    web = pz.lathe(f'{name}_web', [(0.085, WHEEL_W / 2 - 0.005), (R * 0.55, WHEEL_W / 2 - 0.03),
-                                   (R * 0.95, WHEEL_W / 2 - 0.012)], 36, m['frame'], smooth_angle=40)
-    parts.append(web)
-    hub = pz.lathe(f'{name}_hub', [(0.07, -0.07), (0.09, -0.04), (0.09, 0.04), (0.07, 0.07)], 16, m['frame'],
+    hub = pz.lathe(f'{name}_hub', [(0.06, -0.09), (0.085, -0.06), (0.085, 0.07), (0.05, 0.1)], 20, m['dark'],
                    cap_bottom=True, cap_top=True)
     parts.append(hub)
-    for k in range(6):
-        a = 2 * math.pi * k / 6
-        parts.append(pz.tube(f'{name}_spoke_{k}', (0.06 * math.cos(a), 0.06 * math.sin(a), 0),
-                             ((R * 0.93) * math.cos(a), (R * 0.93) * math.sin(a), 0), 0.012, m['frame'], segments=6))
+    for k in range(5):
+        a = 2 * math.pi * k / 5
+        parts.append(pz.box(f'{name}_spoke_{k}', (R * 0.56, 0.05, 0.03), (0, 0, 0), m['frame'], chamfer=0.006))
+        parts[-1].data.transform(pz.Matrix.Rotation(a, 4, 'Z') @ pz.Matrix.Translation((R * 0.33, 0, hw - 0.06)))
     # Built about Z; turn the axle onto X and move to the hub.
     turn = pz.Matrix.Rotation(math.pi / 2, 4, 'Y')
     for o in parts:
@@ -114,6 +124,15 @@ def body(m):
     pz.box('solar_deck', (1.4, 1.9, 0.035), (0, 0, top + 0.44), m['solar'], chamfer=0.006)
     for i in range(6):
         pz.box(f'deck_rib_{i}', (1.4, 0.012, 0.01), (0, -0.85 + i * 0.34, top + 0.462), m['frame'])
+    # A second power mast at the rear: two panels in a shallow V that can be
+    # turned to a low sun, the way the reference rovers carry them.
+    pz.tube('power_mast', (-0.25, -0.75, top + 0.44), (-0.25, -0.75, 1.55), 0.028, m['frame'], segments=10)
+    pz.box('power_hinge', (0.16, 0.12, 0.1), (-0.25, -0.75, 1.57), m['dark'], chamfer=0.012)
+    for side in (-1, 1):
+        wing = pz.box(f'power_wing_{side:+d}', (0.5, 0.46, 0.025), (0, 0, 0), m['solar'], chamfer=0.004)
+        frame = pz.box(f'power_wing_frame_{side:+d}', (0.52, 0.48, 0.015), (0, 0, -0.018), m['frame'])
+        for o in (wing, frame):
+            o.data.transform(pz.Matrix.Translation((-0.25 + side * 0.3, -0.75, 1.64)) @ pz.Matrix.Rotation(side * -0.32, 4, 'Y'))
     # Mast at the front with a stereo camera head.
     mast_base = (0.0, 0.92, top + 0.44)
     mast_top = (0.0, 0.92, 1.62)
@@ -172,7 +191,7 @@ def surfaces(m):
     sf.surface(m['hull'], 'paint', colour='#d6d0bd', panel=0.7, rough=0.5, dust_top=0.55)
     sf.surface(m['frame'], 'metal', colour='#a3a5a2', rough=0.34, dust_top=0.6)
     sf.surface(m['dark'], 'anodised', colour='#33393c', dust_top=0.6)
-    sf.surface(m['tyre'], 'mesh_tyre', dust_top=0.45)
+    sf.surface(m['tyre'], 'tread', dust_top=0.2)
     sf.surface(m['solar'], 'solar', cell=0.125)
     sf.surface(m['glass'], 'glass')
     sf.surface(m['foil'], 'foil', colour='#c9973c', dust_top=0.55)

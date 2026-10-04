@@ -21,7 +21,7 @@ way a texture artist would make it by hand, but from a script:
 
 Two WebP images a world, 1024 px (4 mm a texel):
 
-    <world>-detail.webp   colour detail, normalised so its mean is 0.5 linear;
+    <world>-detail.webp   colour detail, normalised so its linear mean is 0.5;
                           the terrain shader multiplies its palette by 2x this
     <world>-normal.webp   tangent space, +U along +x and +V along -z (three.js)
 
@@ -61,7 +61,7 @@ WORLDS = {
     'europa': {
         'seed': 37, 'rough_amp': 0.006, 'beta': 2.9,
         'soil': '#dfe5e6', 'soil_dark': '#c3cfd3', 'rock': ['#e9eef0', '#cdd8dc', '#b9c5ca'],
-        'pebbles': 70, 'big': 6, 'cracks': 14,
+        'pebbles': 50, 'big': 4, 'cracks': 26,
     },
 }
 
@@ -111,19 +111,30 @@ def heightfield(w, n):
         stain += (1 - ripple) * 0.35
 
     if w.get('cracks'):
-        # Cracks: the edges of a wrapped Voronoi pattern, cut a centimetre deep,
-        # their floors stained with the brown material that seeps up.
+        # Ice broken into plates: each Voronoi cell (wrapped) is a slab with
+        # its own height and tilt, the gaps between them cut a few
+        # centimetres deep; some gaps carry the brown material that seeps up.
         pts = rng.uniform(0, L, (w['cracks'], 2))
+        lift = rng.normal(0, 0.012, w['cracks'])
+        tilt = rng.normal(0, 0.03, (w['cracks'], 2))
+        brown = rng.random(w['cracks']) < 0.35
         d1 = np.full(h.shape, 1e9); d2 = np.full(h.shape, 1e9)
-        for cx, cy in pts:
+        owner = np.zeros(h.shape, dtype=np.int32)
+        dxo = np.zeros(h.shape); dyo = np.zeros(h.shape)
+        for k, (cx, cy) in enumerate(pts):
             dx, dy = wrapped(cx, cy)
             d = np.hypot(dx, dy)
-            d2 = np.where(d < d1, d1, np.minimum(d2, d))
+            closer = d < d1
+            d2 = np.where(closer, d1, np.minimum(d2, d))
+            owner = np.where(closer, k, owner)
+            dxo = np.where(closer, dx, dxo); dyo = np.where(closer, dy, dyo)
             d1 = np.minimum(d1, d)
-        edge = (d2 - d1)
-        crack = np.exp(-(edge / 0.012) ** 2)
-        h -= 0.012 * crack
-        stain += crack
+        edge = d2 - d1
+        slab = lift[owner] + tilt[owner, 0] * dxo + tilt[owner, 1] * dyo
+        gap = np.clip(1 - edge / 0.03, 0, 1) ** 1.5
+        h += slab * (1 - gap) - 0.03 * gap
+        stain += gap * np.where(brown[owner], 1.0, 0.0)
+        cavity += gap
     return h, cavity, stain
 
 
@@ -228,10 +239,13 @@ def soil_material(w):
     base = g.mixc(base, sf.rgb(w['soil_dark']), g.remap(grain, 0.35, 0.8, 0.0, 0.45))
     # Brighter fine grains, the glints of glass beads and fresh fragments.
     base = g.mixc(base, (0.85, 0.85, 0.85, 1.0), g.mul(g.remap(g.noise(v, 260.0, detail=1.0), 0.72, 0.85), 0.35))
-    base = g.mixc(base, sf.rgb(w['soil_dark']), g.mul(marks[0], 0.5))
     if w.get('cracks'):
-        base = g.mixc(base, sf.rgb('#7c4a32'), g.math('MINIMUM', g.mul(marks[1], 0.9), 1.0))
-    elif w.get('ripples'):
+        # Deep blue in the gaps, where light travels further through clean ice.
+        base = g.mixc(base, sf.rgb('#7fa3b8'), g.math('MINIMUM', g.mul(marks[0], 0.85), 1.0))
+        base = g.mixc(base, sf.rgb('#7c4a32'), g.math('MINIMUM', g.mul(marks[1], 0.8), 1.0))
+    else:
+        base = g.mixc(base, sf.rgb(w['soil_dark']), g.mul(marks[0], 0.5))
+    if w.get('ripples'):
         base = g.mixc(base, sf.rgb(w['soil_dark']), g.mul(marks[1], 0.6))
     bump = g.bump(grain, 0.25, 0.002)
     sf._finish(g, base, 0.0, 0.95, bump, None, None)
@@ -329,7 +343,7 @@ def bake_world(world, w, out_dir, size, fast):
     # Colour times a softened occlusion, then normalised to a 0.5 linear mean,
     # so the shader's palette sets the world's colour and this sets its texture.
     c = sf._pixels(colour)[:, :3] * (0.35 + 0.65 * sf._pixels(ao)[:, :1])
-    c = np.clip(c / c.mean(axis=0) * 0.5, 0.0, 1.0)
+    c = sf.normalise_srgb(c, 0.5)
     detail = sf._image(f'{world}-detail', size, data=False)
     px = np.ones((size * size, 4), dtype=np.float32)
     px[:, :3] = c

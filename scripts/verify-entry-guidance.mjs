@@ -138,7 +138,6 @@ function fly(ld) {
     peakCross: en.peakCrossRange,
     splashVert: en.splashdownVertical,
     dwell,
-    maxClimb,
     sawEntry,
     trace,
   }

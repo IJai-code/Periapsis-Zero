@@ -67,27 +67,43 @@ def materials():
         'solar': pz.material('solar', '#1d2c46', metallic=0.45, roughness=0.22),
         # The project's ember, the one warm accent on the vehicle.
         'ember': pz.material('ember', '#ff6b2c', metallic=0.0, roughness=0.6),
+        # Gold-anodised truss for the legs, silver film on the upper deck, and
+        # the braided harness that runs down each leg.
+        'truss': pz.material('truss', '#c8902c', metallic=0.85, roughness=0.38),
+        'silver': pz.material('silver_foil', '#d9d9d4', metallic=1.0, roughness=0.25),
+        'cable': pz.material('cable', '#5a4630', metallic=0.3, roughness=0.6),
     }
 
 
 def descent_stage(m):
     """Octagonal stage, structural rings, foil bays on the diagonals, four tanks."""
     circum = STAGE_APOTHEM / math.cos(math.pi / 8)
-    pz.prism('stage', circum, STAGE_Z0, STAGE_Z1, 8, m['hull'], chamfer=0.035)
+    # The whole stage is blanketed in gold multi-layer insulation, the way a
+    # descent stage actually flies: a film over the structure, puckered where
+    # it is taped down, never flat.
+    stage = pz.prism('stage', circum, STAGE_Z0, STAGE_Z1, 8, m['foil'], chamfer=0.035)
+    pz.subdivide(stage, 6)
+    pz.crinkle(stage, 0.014, 4.5, seed=3)
+    # A silver blanket over the upper deck, a little proud of the rim.
+    pz.prism('deck_blanket', circum + 0.03, STAGE_Z1 - 0.01, STAGE_Z1 + 0.03, 8, m['silver'], chamfer=0.01)
     ring = (STAGE_APOTHEM + 0.04) / math.cos(math.pi / 8)
     for z in (STAGE_Z0, STAGE_Z1 - 0.09):
         pz.prism(f'ring_{z:+.2f}', ring, z, z + 0.09, 8, m['dark'], chamfer=0.012)
 
     # Foil bays on the four diagonal faces: subdivided, then crinkled, because
     # multi-layer insulation is a film over a frame and is never flat.
+    # Black radiator panels on the diagonals, with louvres: the heat the crew
+    # module makes has to go somewhere, and this is where it is seen to go.
     for k in range(4):
         a = math.pi / 4 + k * math.pi / 2
-        bay = pz.box(f'bay_{k}', (1.15, 0.03, 1.7), (0, 0, 0), m['foil'])
-        pz.subdivide(bay, 18)
-        pz.crinkle(bay, 0.022, 6.0, seed=k + 1)
         rot = pz.Matrix.Rotation(a - math.pi / 2, 4, 'Z')
-        bay.data.transform(pz.Matrix.Translation((math.cos(a) * (STAGE_APOTHEM + 0.02),
-                                                  math.sin(a) * (STAGE_APOTHEM + 0.02), 0.0)) @ rot)
+        place = pz.Matrix.Translation((math.cos(a) * (STAGE_APOTHEM + 0.03),
+                                       math.sin(a) * (STAGE_APOTHEM + 0.03), 0.25)) @ rot
+        panel = pz.box(f'radiator_{k}', (1.0, 0.04, 0.95), (0, 0, 0), m['dark'], chamfer=0.01)
+        panel.data.transform(place)
+        for i in range(7):
+            fin = pz.box(f'radiator_{k}_louvre_{i}', (0.9, 0.05, 0.035), (0, 0.03, -0.38 + i * 0.125), m['frame'])
+            fin.data.transform(place @ pz.Matrix.Rotation(0.5, 4, 'X'))
 
     # Propellant tanks proud of the two side faces, two a side.
     for sx in (-1, 1):
@@ -131,6 +147,11 @@ def crew_module(m):
         pz.tube(f'handrail_{sx:+d}', (x, -0.9, 1.92), (x, 0.9, 1.92), 0.018, m['frame'])
         for y in (-0.9, 0.0, 0.9):
             pz.tube(f'handrail_post_{sx:+d}_{y:+.1f}', (sx * 1.3, y, 1.92), (x, y, 1.92), 0.014, m['frame'])
+    # A silver blanket wrapped round the cabin's lower half, below the
+    # window line: the thermal skirt that keeps the crew deck warm.
+    skirt = pz.box('cabin_blanket', (2.64, 2.54, 0.62), (0, 0, 1.06), m['silver'], chamfer=0.04)
+    pz.subdivide(skirt, 6)
+    pz.crinkle(skirt, 0.01, 5.0, seed=9)
     # Window with a frame, on the front (+Y).
     pz.box('window_frame', (1.82, 0.05, 0.72), (0, 1.262, 1.62), m['dark'], chamfer=0.015)
     pz.box('window', (1.66, 0.05, 0.58), (0, 1.282, 1.62), m['glass'], chamfer=0.01)
@@ -188,18 +209,36 @@ def legs(m):
         on_face = (STAGE_APOTHEM - 0.05) / math.sqrt(2)
         top = pz.Vector((sx * on_face, sy * on_face, -0.5))
         upper = pz.Vector((sx * on_face, sy * on_face, 0.75))
-        pz.tube(f'leg_{k}_primary', top, knee, 0.085, m['frame'], segments=14)
-        # The shock absorber: a fatter sleeve over part of the primary strut.
-        a = top.lerp(knee, 0.5)
-        b = top.lerp(knee, 0.82)
-        pz.tube(f'leg_{k}_sleeve', a, b, 0.125, m['dark'], segments=14)
-        pz.tube(f'leg_{k}_secondary', upper, knee, 0.05, m['frame'], segments=10)
+        pz.tube(f'leg_{k}_primary', top, knee, 0.085, m['truss'], segments=14)
+        # The shock absorber: a long dark cylinder over the lower primary
+        # strut, its crushable core inside, with a collar where it slides.
+        a = top.lerp(knee, 0.42)
+        b = top.lerp(knee, 0.9)
+        pz.tube(f'leg_{k}_sleeve', a, b, 0.13, m['dark'], segments=18)
+        pz.tube(f'leg_{k}_collar', a.lerp(b, -0.03), a.lerp(b, 0.05), 0.15, m['frame'], segments=18)
+        pz.tube(f'leg_{k}_secondary', upper, knee, 0.05, m['truss'], segments=10)
+        # The secondary strut is a truss, not a rod: a zigzag web between it
+        # and the primary.
+        for i in range(5):
+            t0, t1 = 0.12 + i * 0.16, 0.2 + i * 0.16
+            pz.tube(f'leg_{k}_web_{i}', top.lerp(knee, t0), upper.lerp(knee, t1), 0.018, m['truss'], segments=6)
+        # The harness: a braided cable wound loosely down the shock strut.
+        axis = (b - a)
+        side = axis.cross(pz.Vector((0, 0, 1))).normalized()
+        other = axis.normalized().cross(side)
+        points = []
+        for i in range(49):
+            t = i / 48
+            ang = t * math.tau * 2.25
+            points.append(a.lerp(b, t) + (side * math.cos(ang) + other * math.sin(ang)) * 0.155)
+        for i in range(48):
+            pz.tube(f'leg_{k}_cable_{i}', points[i], points[i + 1], 0.014, m['cable'], segments=6, caps=False)
         mid = top.lerp(knee, 0.42)
         tangent = pz.Vector((-sy, sx, 0)).normalized()
         base = pz.Vector((sx * on_face, sy * on_face, STAGE_Z0 + 0.08))
         for side in (-1, 1):
             foot = base + tangent * (0.5 * side)
-            pz.tube(f'leg_{k}_brace_{side:+d}', foot, mid, 0.035, m['frame'], segments=8)
+            pz.tube(f'leg_{k}_brace_{side:+d}', foot, mid, 0.035, m['truss'], segments=8)
             pz.sphere(f'leg_{k}_brace_mount_{side:+d}', foot, 0.06, m['dark'], segments=12, rings=6)
         for p_, r_ in ((top, 0.13), (upper, 0.09)):
             pz.sphere(f'leg_{k}_mount_{p_.z:+.2f}', p_, r_, m['dark'], segments=16, rings=8)
@@ -289,6 +328,9 @@ def surfaces(m):
     sf.surface(m['solar'], 'solar')
     sf.surface(m['ember'], 'flat', colour='#ff6b2c', rough=0.55, dust_top=DUST)
     sf.surface(pz.bpy.data.materials['dish'], 'paint', colour='#d8d4c4', panel=3.0, rough=0.45)
+    sf.surface(m['truss'], 'metal', colour='#c8902c', rough=0.36, brushed_axis=2, dust_top=DUST)
+    sf.surface(m['silver'], 'foil', silver=True)
+    sf.surface(m['cable'], 'flat', colour='#5a4630', metal=0.2, rough=0.6, dust_top=DUST)
 
 
 def main():

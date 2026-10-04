@@ -51,9 +51,29 @@ def bake_options(a, size):
     return {'size': size // 2, 'samples': 4, 'ao_samples': 24} if a['fast'] else {'size': size}
 
 
+def live():
+    """True when the script runs inside someone's open Blender (over MCP) rather than headless."""
+    return not bpy.app.background
+
+
 def reset_scene():
-    """An empty, metric scene, independent of whatever startup file exists."""
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+    """An empty, metric scene, independent of whatever startup file exists.
+
+    Headless, that is a factory reset. Inside an open Blender it is not: a
+    factory reset there would also switch off the add-ons, including the MCP
+    server the script is being run through. So a live session empties the
+    open file instead, every object and every datablock a build makes.
+    """
+    if live():
+        for collection in (bpy.data.objects, bpy.data.meshes, bpy.data.materials, bpy.data.images,
+                           bpy.data.lights, bpy.data.cameras, bpy.data.textures, bpy.data.curves):
+            for block in list(collection):
+                collection.remove(block)
+        for group in list(bpy.data.node_groups):
+            bpy.data.node_groups.remove(group)
+        _materials.clear()
+    else:
+        bpy.ops.wm.read_factory_settings(use_empty=True)
     units = bpy.context.scene.unit_settings
     units.system = 'METRIC'
     units.scale_length = 1.0

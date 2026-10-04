@@ -27,3 +27,7 @@ public/draco/
 art/**/*.blend
 art/**/*.blend1
 __pycache__/
+
+# Local environment, e.g. a Supabase project for testing sign-in (docs/accounts.md)
+.env.local
+.env.*.local

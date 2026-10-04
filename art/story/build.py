@@ -44,16 +44,17 @@ WORLDS = {
     },
     'mars': {
         'soil': '#b8693c', 'rock_tint': '#6b3f2c', 'relief': 4.0, 'far_relief': 30.0,
-        'sun': (225.0, 26.0), 'sun_power': 3.6, 'sky': ('#d6a982', '#6c5347'), 'exposure': 0.1,
+        'sun': (78.0, 9.0), 'sun_power': 4.6, 'sky': ('#e9b47c', '#6e4a38'), 'exposure': 0.35,
+        'haze': 0.0003, 'glow': '#ffcf8a',
         'camera': ((-9.0, -17.0, 1.8), (1.5, 4.0, 2.6), 30.0),
         'mesas': True,
     },
     'europa': {
         'soil': '#d9e1e2', 'rock_tint': '#b6c4c8', 'relief': 2.5, 'far_relief': 45.0,
         'sun': (205.0, 22.0), 'sun_power': 3.4, 'sky': None, 'exposure': 0.15,
-        'camera': ((-8.0, -17.5, 1.8), (2.0, 5.0, 4.2), 28.0),
-        'body': {'kind': 'jupiter', 'azimuth': -14.0, 'elevation': 9.0, 'diameter_deg': 12.0},
-        'ridges': True,
+        'camera': ((-13.0, -27.0, 1.8), (1.5, 4.0, 5.0), 42.0),
+        'peaks': True,
+        'body': {'kind': 'jupiter', 'azimuth': 9.0, 'elevation': 10.5, 'diameter_deg': 12.0},
     },
 }
 
@@ -135,7 +136,7 @@ def ground_material(w, world):
     palette = g.mixc(sf.rgb(w['soil']), (0, 0, 0, 1), g.remap(g.noise(g.coords(), 0.02, detail=5.0), 0.3, 0.75, 0.0, 0.25))
     base = g.mixc(palette, d, 1.0, blend='MULTIPLY')
     scale2 = g.node('ShaderNodeMix', data_type='RGBA', blend_type='MULTIPLY', clamp_result=False)
-    g.put(scale2.inputs[0], 1.0); g.put(scale2.inputs[6], base); g.put(scale2.inputs[7], (2.9, 2.9, 2.9, 1.0))
+    g.put(scale2.inputs[0], 1.0); g.put(scale2.inputs[6], base); g.put(scale2.inputs[7], (2.0, 2.0, 2.0, 1.0))
     nm = g.node('ShaderNodeNormalMap', uv_map='UVMap')
     g.put(nm.inputs['Color'], tex(normal, uv))
     nm.inputs['Strength'].default_value = 1.0
@@ -194,6 +195,76 @@ def butte(name, cx, cy, z0, radius, top, mat, seed):
     o.data.materials.append(mat)
 
 
+def ice_peaks(height_at, rng):
+    """Jagged ice massifs on the skyline: lathed cones, torn by noise, sharp at the top."""
+    m = bpy.data.materials.new('ice_peaks')
+    g = sf.Graph(m)
+    v = g.coords()
+    up = g.xyz(g.node('ShaderNodeNewGeometry').outputs['Normal'])[2]
+    base = g.mixc(sf.rgb('#a9c3d0'), sf.rgb('#f2f6f7'), g.remap(up, 0.2, 0.75))
+    base = g.mixc(base, sf.rgb('#8a6a55'), g.mul(g.remap(g.noise(v, 0.01, detail=5.0), 0.62, 0.8), 0.4))
+    bsdf = sf._finish(g, base, 0.0, 0.35, g.bump(g.noise(v, 0.08, detail=8.0), 0.6, 3.0), None, None)
+    bsdf.inputs['Subsurface Weight'].default_value = 0.15
+    for k in range(16):
+        a = math.radians(48 + k * 6.2 + rng.uniform(-2, 2))
+        dist = rng.uniform(900, 1700)
+        x, y = math.cos(a) * dist, math.sin(a) * dist
+        height = rng.uniform(140, 340)
+        radius = height * rng.uniform(0.7, 1.1)
+        profile = [(radius * f, height * (1 - f) ** 1.6) for f in (1.0, 0.8, 0.6, 0.42, 0.26, 0.12, 0.03)]
+        verts, faces, seg = [], [], 64
+        for j, (r, z) in enumerate(profile):
+            for i in range(seg):
+                t = math.tau * i / seg
+                p = Vector((math.cos(t), math.sin(t), z / height * 2))
+                jag = 1 + 0.35 * noise.noise(p * 2.5 + Vector((k * 3.1, 0, 0))) + 0.15 * noise.noise(p * 7 + Vector((0, k, 0)))
+                verts.append((x + math.cos(t) * r * jag, y + math.sin(t) * r * jag, height_at(0, 0) - 30 + z * (0.9 + 0.2 * jag)))
+        for j in range(len(profile) - 1):
+            for i in range(seg):
+                a0, a1 = j * seg + i, j * seg + (i + 1) % seg
+                faces.append((a0, a1, a1 + seg, a0 + seg))
+        me = bpy.data.meshes.new(f'peak_{k}')
+        me.from_pydata(verts, [], faces)
+        o = bpy.data.objects.new(f'peak_{k}', me)
+        bpy.context.scene.collection.objects.link(o)
+        o.data.materials.append(m)
+        disp = o.modifiers.new('torn', 'DISPLACE')
+        t = bpy.data.textures.new(f'peak_tex_{k}', 'VORONOI')
+        t.noise_scale = 40.0
+        disp.texture = t
+        disp.strength = 18.0
+        sub = o.modifiers.new('detail', 'SUBSURF'); sub.levels = 0; sub.render_levels = 2
+        o.modifiers.move(1, 0)
+
+
+def footpad_mounds(w, height_at, yaw_deg):
+    """Regolith pushed up round each footpad as it settled, darker where disturbed."""
+    m = bpy.data.materials.new('disturbed')
+    g = sf.Graph(m)
+    v = g.coords()
+    base = g.mixc(sf.rgb(w['soil']), (0, 0, 0, 1), g.add(0.35, g.mul(g.noise(v, 6.0, detail=6.0), 0.25)))
+    sf._finish(g, base, 0.0, 0.97, g.bump(g.noise(v, 18.0, detail=8.0), 0.8, 0.02), None, None)
+    yaw = math.radians(yaw_deg)
+    for k, (sx, sy) in enumerate(((1, 1), (-1, 1), (1, -1), (-1, -1))):
+        px, py = sx * 3.2, sy * 3.2
+        x = px * math.cos(yaw) - py * math.sin(yaw)
+        y = px * math.sin(yaw) + py * math.cos(yaw)
+        prof = [(0.95, 0.0), (0.75, 0.05), (0.58, 0.09), (0.5, 0.07), (0.3, 0.03), (0.0, 0.03)]
+        seg = 48
+        verts = [(x + math.cos(math.tau * i / seg) * r * (1 + 0.08 * noise.noise(Vector((i * 0.3, k, 0)))),
+                  y + math.sin(math.tau * i / seg) * r * (1 + 0.08 * noise.noise(Vector((i * 0.3, k, 0)))),
+                  height_at(x, y) + z) for r, z in prof for i in range(seg)]
+        faces = [(j * seg + i, j * seg + (i + 1) % seg, (j + 1) * seg + (i + 1) % seg, (j + 1) * seg + i)
+                 for j in range(len(prof) - 1) for i in range(seg)]
+        me = bpy.data.meshes.new(f'mound_{k}')
+        me.from_pydata(verts, [], faces)
+        for p in me.polygons:
+            p.use_smooth = True
+        o = bpy.data.objects.new(f'mound_{k}', me)
+        bpy.context.scene.collection.objects.link(o)
+        o.data.materials.append(m)
+
+
 # --------------------------------------------------------------------------
 # The sky
 # --------------------------------------------------------------------------
@@ -219,8 +290,43 @@ def sky(w):
     nt.links.new(ramp.outputs['Result'], mix.inputs[0])
     mix.inputs[6].default_value = sf.rgb(horizon)
     mix.inputs[7].default_value = sf.rgb(zenith)
-    nt.links.new(mix.outputs[2], bg.inputs['Color'])
+    colour = mix.outputs[2]
+    if w.get('glow'):
+        # The sky brightens toward a low sun: forward scattering by the dust.
+        az, el = (math.radians(a) for a in w['sun'])
+        sun = (math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))
+        dot = nt.nodes.new('ShaderNodeVectorMath'); dot.operation = 'DOT_PRODUCT'
+        nt.links.new(tc.outputs['Generated'], dot.inputs[0])
+        dot.inputs[1].default_value = sun
+        pw = nt.nodes.new('ShaderNodeMath'); pw.operation = 'POWER'
+        clamp = nt.nodes.new('ShaderNodeMath'); clamp.operation = 'MAXIMUM'
+        nt.links.new(dot.outputs['Value'], clamp.inputs[0]); clamp.inputs[1].default_value = 0.0
+        nt.links.new(clamp.outputs[0], pw.inputs[0]); pw.inputs[1].default_value = 24.0
+        add = nt.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.clamp_result = False
+        nt.links.new(pw.outputs[0], add.inputs[0])
+        nt.links.new(colour, add.inputs[6])
+        add.inputs[7].default_value = tuple(c * 6 for c in sf.rgb(w['glow'])[:3]) + (1.0,)
+        colour = add.outputs[2]
+    nt.links.new(colour, bg.inputs['Color'])
     bg.inputs['Strength'].default_value = 0.9
+    if w.get('haze'):
+        # Dust in the air, in a finite box round the scene. A world volume
+        # fills infinite space, so a sun at infinity never reaches the ground
+        # through it: the first Mars render was black.
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 150))
+        box = bpy.context.active_object
+        box.name = 'haze'
+        box.scale = (3200, 3200, 340)
+        hm = bpy.data.materials.new('haze')
+        hm.use_nodes = True
+        hnt = hm.node_tree
+        hnt.nodes.remove(hnt.nodes['Principled BSDF'])
+        vol = hnt.nodes.new('ShaderNodeVolumeScatter')
+        vol.inputs['Density'].default_value = w['haze']
+        vol.inputs['Anisotropy'].default_value = 0.6
+        vol.inputs['Color'].default_value = sf.rgb('#e8b07c')
+        hnt.links.new(vol.outputs['Volume'], hnt.nodes['Material Output'].inputs['Volume'])
+        box.data.materials.append(hm)
 
 
 def sky_body(w, camera):
@@ -330,6 +436,9 @@ def render_world(world, w, out_dir, fast):
 
     _, lander = import_glb('survey-lander')
     place(lander, (0.0, 0.0, height_at(0, 0) + 2.6), -20)
+    footpad_mounds(w, height_at, -20)
+    if w.get('peaks'):
+        ice_peaks(height_at, rng)
     _, rover = import_glb('survey-rover')
     place(rover, (8.5, -5.5, height_at(8.5, -5.5)), 35)
     kit, kit_roots = import_glb('survey-kit')
@@ -377,6 +486,11 @@ def render_world(world, w, out_dir, fast):
     scene.view_settings.exposure = w['exposure']
     scene.render.image_settings.file_format = 'WEBP'
     scene.render.image_settings.quality = 86
+    if pz.live():
+        # In an open Blender: leave the scene set up, looking through its
+        # camera, for whoever is watching to explore; the render is headless.
+        print(f'PZ-LIVE {world} scene built; not rendering in the open window')
+        return
     path = os.path.join(out_dir, f'story-{world}.webp')
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
@@ -385,10 +499,11 @@ def render_world(world, w, out_dir, fast):
 
 def main():
     a = pz.cli()
-    out_dir = a['out']
-    if not out_dir:
+    out_dir = a['out'] or ('' if pz.live() else None)
+    if out_dir is None:
         raise SystemExit('--out <directory> is required')
-    os.makedirs(out_dir, exist_ok=True)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     only = os.environ.get('PZ_WORLD')
     for world, w in WORLDS.items():
         if not only or world == only:

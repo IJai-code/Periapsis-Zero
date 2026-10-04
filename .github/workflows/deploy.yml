@@ -99,7 +99,14 @@ jobs:
       # vite.config.js sets `base: '/'` itself. Every asset the app fetches at
       # runtime is built on `import.meta.env.BASE_URL`, so that one value
       # covers all of them; nothing needs passing in from here.
+      # Sign-in (src/sim/account.js) is built in only when the repository has
+      # a Supabase project set as Actions variables; empty, the site has no
+      # sign-in and nothing else changes. The publishable key is public by
+      # design; the table's row-level security protects the data.
       - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
 
       # The gates above never open a page. This does: the built site in the

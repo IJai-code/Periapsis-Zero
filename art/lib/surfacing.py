@@ -115,6 +115,12 @@ class Graph:
         self.put(n.inputs[1], s if isinstance(s, (tuple, list)) else (s, s, s))
         return n.outputs[0]
 
+    def vadd(self, a, b):
+        n = self.node('ShaderNodeVectorMath', operation='ADD')
+        self.put(n.inputs[0], a)
+        self.put(n.inputs[1], b)
+        return n.outputs[0]
+
     def noise(self, v, scale, detail=4.0, rough=0.5, distortion=0.0, w=None):
         n = self.node('ShaderNodeTexNoise', noise_dimensions='4D' if w is not None else '3D')
         self.put(n.inputs['Vector'], v)
@@ -231,27 +237,40 @@ def paint(g, colour, dust_top=None, dust_colour='#8a8378', panel=1.1, rough=0.5,
     return _finish(g, base, metal, r, n, dust_top, dust_colour)
 
 
-def foil(g, colour='#c9973c', dust_top=None, dust_colour='#8a8378', silver=False):
-    """Multi-layer insulation: a metal film over a frame, crinkled, never flat.
+def foil(g, colour='#c9973c', dust_top=None, dust_colour='#8a8378', silver=False, quilt=0.42):
+    """Multi-layer insulation: metal film over a frame, quilted and crumpled.
 
-    Large soft wrinkles from a Voronoi field, sharp creases from its cell
-    edges, fine crumple from noise; the colour drifts between amber and brass
-    with the creases, and the roughness with it.
+    Three scales, the way the real blankets look in close-up photographs:
+    quilting where the layers are stitched or taped down every forty
+    centimetres or so (the film pillows between); crumple facets a few
+    centimetres across, each tilted a little differently so each catches the
+    light on its own; and sharp creases along the facet edges. The colour
+    shifts facet by facet between brass and amber, darker in the creases.
     """
     v = g.coords()
-    warp = g.add(v, g.scale(g.node('ShaderNodeTexNoise', {'Vector': v, 'Scale': 1.3}).outputs['Color'], 0.35))
-    cells = g.voronoi(warp, 5.5, 'F1', 'Distance')
-    creases = g.voronoi(warp, 5.5, 'DISTANCE_TO_EDGE', 'Distance')
-    crumple = g.noise(v, 22.0, detail=8.0, rough=0.6)
-    h = g.add(g.add(g.mul(cells, 0.6), g.mul(g.remap(creases, 0.0, 0.05, -0.4, 0.0), 1.0)), g.mul(crumple, 0.25))
-    tint = g.remap(g.add(cells, g.mul(crumple, 0.5)), 0.2, 0.9)
+    normal_geo = g.node('ShaderNodeNewGeometry').outputs['Normal']
+    seams = g.panels(v, normal_geo, quilt, 0.006)
+    jitter = g.scale(g.node('ShaderNodeTexNoise', {'Vector': v, 'Scale': 3.0}).outputs['Color'], 0.04)
+    p = g.vadd(v, jitter)
+    facets = g.voronoi(p, 4.5, 'F1', 'Distance')
+    cell = g.voronoi(p, 4.5, 'F1', 'Color')
+    creases = g.voronoi(p, 4.5, 'DISTANCE_TO_EDGE', 'Distance')
+    fine = g.voronoi(p, 11.0, 'DISTANCE_TO_EDGE', 'Distance')
+    shade = g.xyz(cell)[0]
+    pillow = g.mul(seams, -1.6)
+    soft = g.noise(v, 14.0, detail=6.0, rough=0.55)
+    h = g.add(g.add(g.mul(facets, 0.9), g.mul(g.remap(creases, 0.0, 0.08, -0.7, 0.0), 1.0)),
+              g.add(g.add(g.mul(g.remap(fine, 0.0, 0.05, -0.3, 0.0), 1.0), g.mul(soft, 0.12)), pillow))
+    crease_dark = g.remap(creases, 0.0, 0.05, 1.0, 0.0)
     if silver:
-        base = g.mixc(rgb('#d9d9d4'), rgb('#9fa1a0'), tint)
+        base = g.mixc(rgb('#dcdcd6'), rgb('#9c9e9c'), g.mul(shade, 0.7))
     else:
-        base = g.mixc(rgb(colour), rgb('#8f5f22'), g.mul(tint, 0.65))
-        base = g.mixc(base, rgb('#e6c47a'), g.mul(g.remap(crumple, 0.6, 0.8), 0.4))
-    rough = g.add(0.16, g.mul(tint, 0.22))
-    n = g.bump(h, 0.9, 0.02, g.bevel(0.006))
+        base = g.mixc(rgb(colour), rgb('#9a6a26'), g.mul(shade, 0.55))
+        base = g.mixc(base, rgb('#e8c77c'), g.mul(g.remap(shade, 0.8, 1.0), 0.4))
+    base = g.mixc(base, rgb('#4a3416' if not silver else '#5c5e5e'), g.mul(crease_dark, 0.35))
+    base = g.mixc(base, rgb('#3a3832'), g.mul(seams, 0.5))
+    rough = g.add(0.14, g.add(g.mul(shade, 0.16), g.mul(crease_dark, 0.2)))
+    n = g.bump(h, 0.4, 0.03, g.bevel(0.006))
     return _finish(g, base, 1.0, rough, n, dust_top, dust_colour)
 
 
@@ -341,6 +360,17 @@ def mesh_tyre(g, dust_top=None, dust_colour='#8a8378'):
     r = g.mixf(0.7, 0.38, weave)
     n = g.bump(weave, 0.6, 0.004, g.bevel(0.004))
     return _finish(g, base, g.mixf(0.2, 0.9, weave), r, n, dust_top, dust_colour)
+
+
+def tread(g, dust_top=None, dust_colour='#8a8378'):
+    """A tyre's compound: dark, matte, with fine sipes and scuffing, dust in every gap."""
+    v = g.coords()
+    sipes = g.voronoi(v, 60.0, 'DISTANCE_TO_EDGE', 'Distance')
+    scuff = g.noise(v, 25.0, detail=6.0)
+    base = g.mixc(rgb('#2e2d2a'), rgb('#55524c'), g.mul(g.remap(scuff, 0.5, 0.8), 0.6))
+    rough = g.add(0.72, g.mul(scuff, 0.15))
+    n = g.bump(g.add(g.remap(sipes, 0.0, 0.03, -1.0, 0.0), g.mul(scuff, 0.3)), 0.4, 0.002, g.bevel(0.005))
+    return _finish(g, base, 0.0, rough, n, dust_top, dust_colour)
 
 
 def flat(g, colour, metal=0.0, rough=0.5, dust_top=None, dust_colour='#8a8378'):
@@ -457,6 +487,20 @@ def _restore(undo):
         nt.nodes.remove(em)
 
 
+def normalise_srgb(c, mean=0.5):
+    """Scale sRGB-encoded colours so their *linear* mean per channel is `mean`.
+
+    An 8-bit sRGB image's pixels are sRGB-encoded, and a renderer decodes them
+    to linear light before using them. The first ground and rock bakes
+    normalised the encoded values to 0.5, which decodes to about 0.21, so a
+    detail map meant to average 1.0 after doubling averaged 0.43 and darkened
+    every surface it touched by half.
+    """
+    lin = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    lin = np.clip(lin / np.maximum(lin.mean(axis=0), 1e-6) * mean, 0.0, 1.0)
+    return np.where(lin <= 0.0031308, lin * 12.92, 1.055 * lin ** (1 / 2.4) - 0.055)
+
+
 def _pixels(img):
     a = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32)
     img.pixels.foreach_get(a)
@@ -471,6 +515,12 @@ def bake_asset(objects, name, size=2048, keep=(), samples=16, ao_samples=96):
     double-sided material moves to `_ds`; every other baked slot to `<name>`.
     """
     objects = [o for o in objects if o.type == 'MESH']
+    if not bpy.app.background:
+        # In an open Blender the procedural materials stay as they are, to be
+        # looked at live; the bake (minutes of Cycles that would freeze the
+        # window) happens in the headless build.
+        print('PZ-LIVE skipping the bake: procedural materials left in place')
+        return None, None
     baked = sorted({s.material for o in objects for s in o.material_slots
                     if s.material is not None and s.material.name not in keep}, key=lambda m: m.name)
     unwrap(objects)

@@ -172,6 +172,7 @@ const GATES = [
   ['verify-pilot', false],
   ['verify-art', false],
   ['verify-preset-clock', false],
+  ['verify-lint', false],
 ]
 
 const wanted = process.argv.slice(2)

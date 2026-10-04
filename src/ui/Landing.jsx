@@ -3,6 +3,7 @@ import { expeditionRecord, REGIONS, subscribeExpeditions } from '../sim/expediti
 import { logbookLine } from '../sim/logbook.js'
 import { hasProfile, pilotLabel, pilotProfile, saveProfile, subscribePilot } from '../sim/pilot.js'
 import { Mark } from './Mark.jsx'
+import { AccountButton } from './Account.jsx'
 
 /**
  * Where players report problems. GitHub's issue form, with a template that
@@ -29,7 +30,7 @@ export function Landing({ onEnter, onStory, onExpedition }) {
   const commit = () => { saveProfile({ name: draft, callsign: pilot.callsign }); setEditing(false) }
 
   return <main className="front-door">
-    <header className="mode-header"><div className="front-brand"><Mark size={24} /><span>PERIAPSIS ZERO</span></div><div className="mode-header-links"><a href={FEEDBACK_URL} target="_blank" rel="noreferrer">Send feedback ↗</a><button className="quiet-button" onClick={openProfile}>{label ? `Pilot / ${label}` : 'Add your name'}</button></div></header>
+    <header className="mode-header"><div className="front-brand"><Mark size={24} /><span>PERIAPSIS ZERO</span></div><div className="mode-header-links"><a href={FEEDBACK_URL} target="_blank" rel="noreferrer">Send feedback ↗</a><AccountButton /><button className="quiet-button" onClick={openProfile}>{label ? `Pilot / ${label}` : 'Add your name'}</button></div></header>
     <section className="front-hero"><span className="eyebrow">A space flight game in your browser</span><h1>Land on the Moon,<br /><span>Mars and Europa.</span></h1><p>Fly the lander down, walk and drive around, collect samples,<br className="desktop-break" /> and take off again. Real gravity, limited fuel.</p><div className="hero-actions"><button className="action-button primary" onClick={() => onExpedition('moon')}>Start on the Moon <span>↗</span></button><span>Takes about 10 minutes · Landing assist is on<br />Mouse and keyboard, or touch</span></div></section>
     <section className="mode-choices" aria-label="Choose your experience">
       <article className="mode-choice exploration"><div className="mode-choice-label"><span>01 / Expeditions</span><span>Free play</span></div><h2>Pick a world<br />and land.</h2><p>Land, explore on foot or by rover, set up instruments and fly home.</p><div className="world-preview" aria-hidden>{Object.values(REGIONS).map((r) => <img key={r.id} src={`${STILLS}${r.id}.webp`} alt="" loading="lazy" decoding="async" className={region === r.id ? 'shown' : ''} />)}</div><div className="world-picker" aria-label="Expedition destination">{Object.values(REGIONS).map((r) => <button key={r.id} aria-pressed={region === r.id} onClick={() => setRegion(r.id)} className={region === r.id ? 'selected' : ''}>{r.name}{record.surveys[r.id] && <span aria-label="Survey completed"> ✓</span>}</button>)}</div><button className="mode-launch" onClick={() => onExpedition(region)}>Explore {REGIONS[region].name}<span>→</span></button></article>

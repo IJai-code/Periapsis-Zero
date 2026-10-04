@@ -212,7 +212,7 @@ export function terrainMaterial(id) {
  * and a flat underside so they sit on the ground instead of balancing on it.
  * Returns a group of instanced meshes; disposal walks its children.
  */
-export const ROCK_TINT = { moon: '#857f77', mars: '#7a4632', europa: '#c4d0d4' }
+export const ROCK_TINT = { moon: '#6d6863', mars: '#6b3f2c', europa: '#b6c4c8' }
 function rockShape(seed) {
   const noise = makeNoise(seed)
   const g = new THREE.IcosahedronGeometry(1, 2)

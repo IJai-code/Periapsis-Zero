@@ -29,6 +29,9 @@ try {
     try {
       await page.goto(`${server.url}/`)
       await page.evaluate("localStorage.setItem('pz-expedition-howto-v1', '1')")
+      // The published pictures show the full-quality tier, whatever else the
+      // machine is busy with while they are taken (gfx/surfaceQuality.js).
+      await page.evaluate("localStorage.setItem('pz-surface-quality', 'high')")
       await page.goto(`${server.url}/#expedition/${id}`)
       if (!(await waitForLanding(page))) throw new Error(`${id}: the assist did not land`)
       await page.key('KeyG', 'g', 'g')

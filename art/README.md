@@ -71,6 +71,27 @@ A quick look while working on a surface:
 beauty shot of the result. Full bakes run on the CPU with a fixed seed so
 `--check` can compare bytes; the lander takes about four minutes.
 
+## Live, in an open Blender
+
+With the Blender MCP add-on running (scripts/blender-mcp.mjs), any build
+script can run inside the open window, so the model appears and changes as
+the script is edited. Run it through `blender_execute_python` with the
+modules reloaded:
+
+```python
+import sys
+for k in ['pz', 'surfacing']: sys.modules.pop(k, None)
+sys.argv = ['blender']
+path = '/Users/ishaan/Documents/SpxSim/art/survey-lander/build.py'
+exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})
+```
+
+In a live session `pz.reset_scene` empties the open file instead of a factory
+reset (which would unload the add-on itself), the bake is skipped so the
+procedural materials stay to be looked at, and the story script builds its
+scene and stops before rendering. The shipped files still come from the
+headless `npm run art:build`.
+
 ## Look at it
 
 Open `art/<id>/<id>.blend` in Blender after a build. Changes made there are

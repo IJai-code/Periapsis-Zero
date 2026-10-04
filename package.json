@@ -96,7 +96,8 @@
     "verify:ground": "node --expose-gc scripts/verify-ground-view.mjs",
     "verify:moon": "node --expose-gc scripts/verify-moon-frame.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "art:stills": "node scripts/stills.mjs"
+    "art:stills": "node scripts/stills.mjs",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",
@@ -112,6 +113,8 @@
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "7zip-bin": "^5.2.0",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
     "tailwindcss": "^4.0.0",
     "vite": "^7.0.0"
   }

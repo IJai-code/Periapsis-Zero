@@ -241,4 +241,3 @@ console.log('\n=== what this establishes ===')
 console.log('  FAIL  the craft never reached the lunar sphere of influence')
 console.log('\n  FAIL')
 process.exit(1)
-void rpFromConic

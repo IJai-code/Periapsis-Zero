@@ -199,3 +199,7 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .graphics-choice button { padding: 6px 10px; border: 1px solid var(--line); background: transparent; color: var(--paper); font: inherit; cursor: pointer; }
 .graphics-choice button.selected { border-color: var(--signal); color: var(--signal); }
 .graphics-choice small { flex-basis: 100%; margin-top: 4px; color: #f4e8cf80; font-size: 11px; }
+
+/* Account dialog (ui/Account.jsx), on the pilot dialog's frame. */
+.account-providers { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 16px; }
+.account-note { font-size: 12px; color: #ff6b2c; margin: 10px 0 0; }

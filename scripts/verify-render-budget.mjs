@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { boundedRatio, maxRatio, FRAME_PIXELS, PHOTO_PIXELS, FILM_PIXELS, FILM_EDGE, FILM_FPS, FILM_STEPS, FILM_MAX_BYTES, filmSize } from '../src/gfx/renderBudget.js'
+/* global document -- the stand-in this check installs on globalThis */
 
 let checks = 0
 const check = (label, fn) => { fn(); checks++; console.log(`  ✓ ${label}`) }
