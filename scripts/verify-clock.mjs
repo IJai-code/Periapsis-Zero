@@ -184,6 +184,21 @@ const nowState = buildInitialState(nowT)
 console.log(`  sub-solar longitude vs mean solar time: worst ${worstMin.toFixed(1)} min (equation of time amplitude 16.4)`)
 check('the terminator runs on real local solar time, to 20 min', worstMin < 20)
 
+/* 5 — the simulation's own clock. Check 4 reads the spin at the true instant
+   passed in by hand; the app reads it at whatever `live.sim.t` holds. Those
+   were different numbers: createSimulation(t) built the state for t and left
+   the clock at 0, so the live site drew today's Sun over Earth turned to its
+   J2000 hour, and dated the flight 1 January 2000. Held here from the sim's
+   own clock, and through a clone, which is what every projection flies. */
+{
+  const { createSimulation, simDate } = await import('../src/sim/system.js')
+  const sim = createSimulation(nowT)
+  const dated = simDate(sim).getTime()
+  check('a simulation built for now reads now on its own clock', Math.abs(sim.t - nowT) < 1e-6)
+  check('and dates itself today, not 1 January 2000', Math.abs(dated - (Date.UTC(2000, 0, 1, 12) + nowT * 1000)) < 1000)
+  check('and its copies carry the same instant', Math.abs(sim.clone().t - nowT) < 1e-6)
+}
+
 console.log('\n=== what this establishes ===')
 let pass = true
 for (const [label, ok] of checks) {

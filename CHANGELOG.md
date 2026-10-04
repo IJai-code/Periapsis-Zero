@@ -5,6 +5,55 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A pass for people who are new to it: 4 October 2026
+
+**Lag.** The stall people noticed in the simulator was the orbit trails
+seeding their history: each one integrated its whole past (most of a year for
+Earth's) inside one frame, three frames of 1.6 s, 1.6 s and 0.5 s on an M4
+when the trails first appeared. Seeding now spends 3 ms a frame and the line
+appears when its history is complete; the longest task in the first 16 s
+went from 1,599 ms to 554 ms (what remains is one-time scene setup: placing
+the trees around the pad, texture uploads, shader compiles).
+
+**Bugs.** Real-time boot left the simulation clock at J2000 while the sky
+was set for today, so Earth's spin, the Moon's frame and the date were all
+wrong, and every ground preset launched from the wrong hour and showed only
+stars (`verify-preset-clock`, new, fails without the fix by 9,772 days).
+Skipping a mission intro flew 147 million km for ten seconds; it now arrives.
+Europa's magnetometer sat on a 49 degree ridge wall: each world now has its
+own sample and instrument layout, measured against its ground and held to
+gentle slopes and a drivable line from the lander. The walker and rover no
+longer pass through the lander. The objective heading and the arrow could
+disagree; the step tracker lit finished steps as if they were current; the
+canvas wore a blue focus ring after a click; Apollo 8's countdown prompt
+followed the camera to the galactic centre.
+
+**Instruction.** A first-run how-to card (four steps, written separately for
+touch and keyboard), a guide arrow that says "to your left" rather than a
+compass bearing, a beacon over every target, and plain wording through the
+expedition, story, front page, broadcast captions and the simulator's tour.
+The device prompt is gone; the device is guessed and a one-line notice
+offers the other choices. A feedback link sits on the front page.
+
+**Graphics.** Surface: per-world ground materials with slope, strata on
+Mars (anti-aliased), fractures on Europa and fresh ejecta on the Moon;
+displaced, tinted rocks; a sky with the Sun at its true size, Earth and
+Jupiter in their skies, and lighting from behind the camera. Vehicles: a
+Blender-built rover with turning wheels and a Blender-built instrument kit.
+Pages: the story dossiers, front page and link preview now show stills taken
+from the game itself (`npm run art:stills`). Simulator: the sky at Sagittarius
+A* was clipped to cream because the sky curve is set for the Sun's
+neighbourhood; the bake now meters its draft and lowers the exposure where
+it would clip (from Earth nothing clips and the sky is unchanged, mean
+brightness 15.8 against 15.6 out of 255). Earth's year-long orbit trail no
+longer draws a straight line through the planet when the camera is close.
+
+**Checks.** `npm run smoke` opens six parts of the built site in Chrome and
+fails on any error; CI runs it before deploying. A planted exception fails
+it, and it passes on the software WebGL that CI uses. The settings drawer,
+boards, TV view and mission library load when first opened, taking the
+simulator chunk from 739 kB to 688 kB.
+
 ### The entry chunk, and what Safari gets to see: 3 October 2026
 
 The site's first download was 1.14 MB of JavaScript (322 kB gzipped) before a

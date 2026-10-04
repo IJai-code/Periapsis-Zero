@@ -65,7 +65,7 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
         // recorder measures the composite and may have stepped down a rung.
         if (film.step > 0) setFilmStatus(`Recording at ${film.width}×${film.height}, this machine's composite was dear at full size.`)
       } else {
-        setFilmStatus('Recording unavailable; the intro still plays.')
+        setFilmStatus('This browser cannot record video. The intro still plays.')
       }
     }
     setStage('flying')
@@ -205,13 +205,13 @@ export function MissionIntro({ preset, finalFocus, onBegin, onSkip }) {
               onClick={begin}
               className="control mt-9 border border-ember/70 px-7 py-3 font-mono text-[11px] tracking-[0.26em] text-ember uppercase transition-colors duration-300 hover:bg-ember/12"
             >
-              Begin the approach ▸
+              Play the intro ▸
             </button>
-            <button onClick={skip} className="control mx-auto mt-3 block px-4 py-2 text-[11px] text-hud/55 hover:text-ember">Enter mission without camera flight</button>
+            <button onClick={skip} className="control mx-auto mt-3 block px-4 py-2 text-[11px] text-hud/55 hover:text-ember">Skip to the mission</button>
             {filmSupported() && (
               <label className="mt-5 flex items-center justify-center gap-2 text-[11px] text-hud/60">
                 <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />
-                Keep this approach as a film · {filmCodec()}, 30 fps, up to 1080p
+                Save the intro as a video ({filmCodec()}, up to 1080p)
               </label>
             )}
             <div role="status" className="mt-2 text-[11px] text-ember">{filmStatus}</div>

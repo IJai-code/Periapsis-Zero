@@ -27,32 +27,39 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
   const clean = !boards && !setup && !map && !broadcast
   const board = (id) => () => setUi((s) => ({ boards: s.boards === id ? null : id }))
 
+  /*
+   * Plain words, and one door per thing. This row had eleven entries,
+   * including two that sounded alike and went to different places
+   * ("campaign" left the simulator for the surface story; "flight school"
+   * opened the simulator's own career), and a "mode select" that was the way
+   * home under another name. The surface campaign is reached from Home, which
+   * is now first and says what it is.
+   */
   const items = [
+    { id: 'home', label: '← home', on: false, go: () => { window.location.hash = '' } },
     {
       id: 'flight',
-      label: 'flight',
+      label: 'fly',
       on: clean,
       go: () => setUi({ boards: null, setup: false, map: false, broadcast: false }),
     },
     { id: 'library', label: 'missions', on: false, go: onLibrary },
-    { id: 'home', label: 'mode select', on: false, go: () => { window.location.hash = '' } },
-    { id: 'campaign', label: 'campaign', on: false, go: () => { window.location.hash = '#story' } },
-    { id: 'story', label: 'flight school', on: boards === 'story', go: board('story') },
-    { id: 'almanac', label: 'almanac', on: boards === 'almanac', go: board('almanac') },
+    { id: 'story', label: 'career', on: boards === 'story', go: board('story') },
+    { id: 'almanac', label: "today's sky", on: boards === 'almanac', go: board('almanac') },
     { id: 'contracts', label: 'contracts', on: boards === 'contracts', go: board('contracts') },
     { id: 'logbook', label: 'logbook', on: false, go: onLogbook },
-    {
-      id: 'setup',
-      label: 'setup · s',
-      on: setup,
-      go: () => setUi((s) => ({ setup: !s.setup, boards: null })),
-    },
     { id: 'map', label: 'map · m', on: map, go: onMap },
     {
       id: 'feed',
-      label: 'feed · b',
+      label: 'tv view · b',
       on: broadcast,
       go: () => setUi((s) => ({ broadcast: !s.broadcast, map: false })),
+    },
+    {
+      id: 'setup',
+      label: 'settings · s',
+      on: setup,
+      go: () => setUi((s) => ({ setup: !s.setup, boards: null })),
     },
   ]
 
@@ -70,7 +77,7 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
             key={it.id}
             onClick={it.go}
             aria-current={it.on ? 'page' : undefined}
-            className={`control shrink-0 rounded-sm px-2.5 py-1.5 text-[9px] tracking-[0.2em] uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/45 hover:text-ember'}`}
+            className={`control shrink-0 rounded-sm px-2.5 py-1.5 text-[10px] tracking-[0.16em] uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/60 hover:text-ember'}`}
           >
             {it.label}
           </button>

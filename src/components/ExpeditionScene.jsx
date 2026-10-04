@@ -4,7 +4,8 @@ import * as THREE from 'three'
 import { buildExpeditionTerrain, buildRocks, terrainMaterial } from '../gfx/expeditionTerrain.js'
 import { mulberry32 } from '../gfx/noise.js'
 import { useAuthored } from '../gfx/authored.js'
-import { FIXED_STEP, INSTRUMENTS, REGIONS, ROVER, SITES, terrainFor, stepExpedition, VEHICLE } from '../sim/expedition.js'
+import { NOISE_GLSL } from '../gfx/glsl/noise.js'
+import { FIXED_STEP, instrumentsFor, nextTarget, REGIONS, ROVER, sitesFor, terrainFor, stepExpedition, VEHICLE } from '../sim/expedition.js'
 
 export function ExpeditionScene({ session, controls, paused, scenic = false, onPulse }) {
   const ground = useMemo(() => buildExpeditionTerrain(session.id), [session.id])
@@ -18,6 +19,20 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
    * lander in it, so it never fetches the file.
    */
   const authoredLander = useAuthored('survey-lander', !scenic)
+  const authoredRover = useAuthored('survey-rover', !scenic)
+  const authoredKit = useAuthored('survey-kit', !scenic)
+  /*
+   * The authored rover's six wheels, found by name once it arrives. Each has
+   * its origin at the hub and its axle on X, so turning one node turns one
+   * wheel. The primitive rover's wheels were kept under string keys on an
+   * array, which forEach skips, so they never turned at all.
+   */
+  const roverWheels = useMemo(() => {
+    if (!authoredRover) return null
+    const list = []
+    for (let k = 0; k < 6; k++) { const w = authoredRover.scene.getObjectByName(`wheel_${k}`); if (w) list.push(w) }
+    return list
+  }, [authoredRover])
   // The plume hangs from the engine's exit plane, read off the model's own
   // nozzle_0 marker; -1.85 is the same plane on the primitive lander.
   const exitY = authoredLander?.points.nozzle_0?.y ?? -1.85
@@ -30,10 +45,12 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
     const boot = document.getElementById('boot')
     if (boot) { boot.classList.add('boot-done'); const timer = setTimeout(() => boot.remove(), 700); return () => clearTimeout(timer) }
   }, [])
-  useEffect(() => () => { ground.forEach((g) => g.dispose()); material.dispose(); rocks.geometry.dispose(); rocks.material.dispose() }, [ground, material, rocks])
+  useEffect(() => () => { ground.forEach((g) => g.dispose()); material.dispose(); rocks.userData.dispose?.() }, [ground, material, rocks])
   useEffect(() => {
-    scene.fog = region.atmosphere ? new THREE.Fog(region.sky, 1800, 14000) : null
-    scene.background = new THREE.Color(region.sky)
+    // Mars's haze is the colour of its own horizon, so distant mesas fade into
+    // the sky rather than into a flat brown. Airless worlds have no haze.
+    scene.fog = region.atmosphere ? new THREE.Fog(MARS_SKY.horizon, 1400, 16000) : null
+    scene.background = new THREE.Color(region.atmosphere ? MARS_SKY.horizon : '#020307')
     return () => { scene.fog = null; scene.background = null }
   }, [scene, region])
   useEffect(() => {
@@ -75,14 +92,20 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
     if (rover.current && s.rover) {
       const r = s.rover
       rover.current.visible = true
-      rover.current.position.set(r.x, r.y, r.z)
+      // r.y is the chassis underside, ROVER.clearance above the ground; the
+      // model's origin is the ground under it. The primitive rover was placed
+      // with its wheel bottoms at r.y and so drove 46 cm in the air.
+      rover.current.position.set(r.x, r.y - ROVER.clearance, r.z)
       // Chassis follows the ground's own slope rather than staying level.
       const terrain = terrainFor(s.id)
       const ahead = terrain.height(r.x + Math.sin(r.yaw) * 1.2, r.z - Math.cos(r.yaw) * 1.2)
       const behind = terrain.height(r.x - Math.sin(r.yaw) * 1.2, r.z + Math.cos(r.yaw) * 1.2)
       rover.current.rotation.set(Math.atan2(behind - ahead, 2.4), r.yaw, 0, 'YXZ')
-      const rollAngle = (s.mode === 'rover' ? r.speed : 0) * 0.9 * Math.min(delta, 0.05)
-      wheels.current.forEach((wheel) => { if (wheel) wheel.rotation.x += rollAngle })
+      // Rolling without slipping: the wheel turns through v / r radians a
+      // second, r being the radius to the cleat tips that touch the ground.
+      const roll = (s.mode === 'rover' ? r.speed : 0) * Math.min(delta, 0.05)
+      if (roverWheels) for (const wheel of roverWheels) wheel.rotation.x -= roll / ROVER_ROLLING_RADIUS
+      else for (const wheel of Object.values(wheels.current)) if (wheel) wheel.rotation.x += roll / 0.26
     }
     if (scenic) {
       scratch.position.set(360, 110, 370); scratch.target.set(-100, 220, -2200)
@@ -116,7 +139,7 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
       // Local shadow frustum follows the player, not a twelve-kilometre landscape.
       const focus = s.mode === 'rover' ? s.rover : s.mode === 'eva' ? s.walker : s
       const x = focus.x, z = focus.z
-      light.current.position.set(x - 300, 500, z - 700)
+      light.current.position.set(x + SUN_OFFSET[0], SUN_OFFSET[1], z + SUN_OFFSET[2])
       light.current.target.position.set(x, 0, z); light.current.target.updateMatrixWorld()
     }
     c.pulse += Math.min(delta, 0.1)
@@ -124,16 +147,20 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
   })
   return <>
     <Sky id={session.id} />
-    <hemisphereLight args={[region.atmosphere ? '#e6cab3' : '#9fa8b8', '#42372c', region.atmosphere ? 1.6 : 0.7]} />
-    <directionalLight ref={light} position={[-300, 500, -700]} intensity={3.3} color={region.atmosphere ? '#ffe1bc' : '#fff5df'} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-110} shadow-camera-right={110} shadow-camera-top={110} shadow-camera-bottom={-110} shadow-camera-near={1} shadow-camera-far={1600} shadow-bias={-0.0002} shadow-normalBias={0.12} />
+    {/* Fill light. Mars has a bright dusty sky overhead; the airless worlds
+        have a black one, so their fill comes from below, sunlight bounced off
+        the ground, which is what keeps a lander's shadowed side readable. */}
+    <hemisphereLight args={region.atmosphere ? ['#e9c9ab', '#5a3a28', 1.5] : ['#1a1c24', session.id === 'europa' ? '#8f9ba0' : '#6a645b', 1.15]} />
+    <directionalLight ref={light} position={SUN_OFFSET} intensity={3.3} color={region.atmosphere ? '#ffe1bc' : '#fff5df'} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-110} shadow-camera-right={110} shadow-camera-top={110} shadow-camera-bottom={-110} shadow-camera-near={1} shadow-camera-far={1600} shadow-bias={-0.0002} shadow-normalBias={0.12} />
     {ground.map((g, i) => <mesh key={i} geometry={g} material={material} receiveShadow />)}
     <primitive object={rocks} />
     {!scenic && <>
       <group ref={lander}>{authoredLander ? <primitive object={authoredLander.scene} dispose={null} /> : <SurveyLander />}<mesh ref={plume} position={[0, exitY - 1.45, 0]} visible={false}><coneGeometry args={[0.45, 3.2, 20]} /><meshBasicMaterial color="#98cfff" transparent opacity={0.65} depthWrite={false} /></mesh></group>
       <LandingZone />
-      <group ref={rover} visible={false}><SurfaceRover wheels={wheels} /></group>
-      {INSTRUMENTS.map((p, i) => <Instrument key={i} id={session.id} site={p} deployed={session.instruments.includes(i)} />)}
-      {SITES.map((p, i) => <Sample key={i} id={session.id} site={p} taken={session.samples.includes(i)} />)}
+      <Beacon session={session} />
+      <group ref={rover} visible={false}>{authoredRover ? <primitive object={authoredRover.scene} dispose={null} /> : <SurfaceRover wheels={wheels} />}</group>
+      {instrumentsFor(session.id).map((p, i) => <Instrument key={i} id={session.id} site={p} deployed={session.instruments.includes(i)} kit={authoredKit} node={KIT_NODE[p.name]} />)}
+      {sitesFor(session.id).map((p, i) => <Sample key={i} id={session.id} site={p} taken={session.samples.includes(i)} kit={authoredKit} />)}
     </>}
   </>
 }
@@ -188,9 +215,48 @@ function SurfaceRover({ wheels }) {
     {[-1, 1].map((sx) => <mesh key={sx} position={[sx * 0.62, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow><cylinderGeometry args={[0.06, 0.06, 1.9, 8]} /><meshStandardMaterial color="#b3ad99" metalness={0.5} /></mesh>)}
   </group>
 }
-/** A deployed package: a tripod, a drum, and a small dish. */
-function Instrument({ id, site, deployed }) {
+/** Which node of the survey kit each instrument is. */
+const KIT_NODE = { Seismometer: 'seismometer', Magnetometer: 'magnetometer', 'Heat probe': 'heat_probe' }
+/** The authored rover's rolling radius, to its cleat tips (art/survey-rover/spec.json). */
+const ROVER_ROLLING_RADIUS = 0.313
+
+/**
+ * One prop out of the survey kit, cloned for this site, with its own copy of
+ * the status light so one package can glow while the others wait. Ion when
+ * deployed, a dull unlit grey until then. The clone shares geometry with the
+ * kit; only the one material is its own.
+ */
+function useKitProp(kit, name, lit, litColour) {
+  const prop = useMemo(() => {
+    if (!kit) return null
+    const node = kit.scene.getObjectByName(name)
+    if (!node) return null
+    const copy = node.clone(true)
+    copy.position.set(0, 0, 0)
+    let status = null
+    copy.traverse((o) => {
+      if (!o.isMesh) return
+      o.castShadow = true; o.receiveShadow = true
+      const swap = (m) => (m && (m.name === 'status' || m.name === 'kit_ember') ? (status = m.clone()) : m)
+      o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material)
+    })
+    return { copy, status }
+  }, [kit, name])
+  useEffect(() => () => prop?.status?.dispose(), [prop])
+  useEffect(() => {
+    if (!prop?.status) return
+    const m = prop.status
+    if (lit) { m.color.set(litColour); m.emissive?.set(litColour); if ('emissiveIntensity' in m) m.emissiveIntensity = 1.6 }
+    else { m.color.set(litColour === '#2fd3ff' ? '#5a5d5f' : '#6b625a'); m.emissive?.set('#000000') }
+  }, [prop, lit, litColour])
+  return prop?.copy ?? null
+}
+
+/** A survey package: the authored model, or a tripod and drum until it loads. */
+function Instrument({ id, site, deployed, kit, node }) {
   const y = terrainFor(id).height(site.x, site.z)
+  const prop = useKitProp(kit, node, deployed, '#2fd3ff')
+  if (prop) return <group position={[site.x, y, site.z]}><primitive object={prop} /></group>
   return <group position={[site.x, y, site.z]}>
     <mesh position={[0, 0.5, 0]} castShadow><cylinderGeometry args={[0.22, 0.26, 1, 10]} /><meshStandardMaterial color={deployed ? '#9fd8c4' : '#b8b2a0'} metalness={0.45} roughness={0.5} /></mesh>
     <mesh position={[0, 1.05, 0]} castShadow><boxGeometry args={[0.4, 0.1, 0.4]} /><meshStandardMaterial color="#33454e" metalness={0.6} roughness={0.3} /></mesh>
@@ -198,44 +264,221 @@ function Instrument({ id, site, deployed }) {
     {[[-0.3, 0.28], [0.32, -0.2], [0.02, -0.36]].map(([x, z], i) => <mesh key={i} position={[x, 0.12, z]} rotation={[0, 0, x > 0 ? -0.4 : 0.4]}><cylinderGeometry args={[0.02, 0.02, 0.5, 6]} /><meshStandardMaterial color="#a8a294" /></mesh>)}
   </group>
 }
-function Sample({ id, site, taken }) {
+/**
+ * A sample site: the rock to collect, and a stake with a flag beside it. The
+ * flag is ember while the rock is waiting and goes grey once it is taken, so
+ * the field reads at a glance as done or not done.
+ */
+function Sample({ id, site, taken, kit }) {
   const height = terrainFor(id).height(site.x, site.z)
+  const stake = useKitProp(kit, 'stake', !taken, '#ff6b2c')
   return <group position={[site.x, height, site.z]}>
-    <mesh position={[0, 0.45, 0]} castShadow scale={[1.2, 0.7, 0.8]}><icosahedronGeometry args={[0.7, 1]} /><meshStandardMaterial color={id === 'europa' ? '#7a6b58' : '#50483e'} roughness={0.9} /></mesh>
-    <mesh position={[1.1, 0.65, 0]}><cylinderGeometry args={[0.018, 0.018, 1.3, 6]} /><meshStandardMaterial color="#c5c1b0" /></mesh>
-    <mesh position={[1.1, 1.3, 0]}><boxGeometry args={[0.18, 0.18, 0.18]} /><meshBasicMaterial color={taken ? '#576054' : '#edb76c'} /></mesh>
+    {!taken && <mesh position={[0, 0.3, 0]} castShadow scale={[1.0, 0.6, 0.75]}><icosahedronGeometry args={[0.7, 2]} /><meshStandardMaterial color={id === 'europa' ? '#7a6b58' : id === 'mars' ? '#5e3727' : '#50483e'} roughness={0.9} flatShading /></mesh>}
+    {stake ? <group position={[1.1, 0, 0]}><primitive object={stake} /></group> : <>
+      <mesh position={[1.1, 0.65, 0]}><cylinderGeometry args={[0.018, 0.018, 1.3, 6]} /><meshStandardMaterial color="#c5c1b0" /></mesh>
+      <mesh position={[1.1, 1.3, 0]}><boxGeometry args={[0.18, 0.18, 0.18]} /><meshBasicMaterial color={taken ? '#576054' : '#edb76c'} /></mesh>
+    </>}
   </group>
+}
+
+/**
+ * Where the Sun is, as a direction: the same one the shadow-casting light
+ * comes from (its position sits at this offset from whatever it follows).
+ *
+ * From the left and a little behind the cameras, 31 degrees up. It used to be
+ * ahead of them, so every shot looked into the light: the lander's camera-
+ * facing side was its shadowed one, shadows ran toward the viewer, and the
+ * planet in the sky showed its night side. Long shadows are kept; they now
+ * fall across the frame instead of out of it.
+ */
+const SUN_OFFSET = [-650, 460, 380]
+const SUN = new THREE.Vector3(...SUN_OFFSET).normalize()
+/** How far out the sky's furniture is drawn: inside the camera's far plane. */
+const SKY_RADIUS = 42000
+
+/** Mars's daytime sky, by eye from the rovers' own colour-calibrated frames. */
+const MARS_SKY = { horizon: '#d6a982', zenith: '#6c5347', glow: '#fff3df' }
+
+function skyMaterialFor() {
+  return new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {
+      uHorizon: { value: new THREE.Color(MARS_SKY.horizon) },
+      uZenith: { value: new THREE.Color(MARS_SKY.zenith) },
+      uGlow: { value: new THREE.Color(MARS_SKY.glow) },
+      uSun: { value: SUN },
+    },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `varying vec3 vDir; uniform vec3 uHorizon, uZenith, uGlow, uSun;
+      void main(){
+        float h = clamp(vDir.y, 0.0, 1.0);
+        vec3 col = mix(uHorizon, uZenith, pow(h, 0.55));
+        // Dust scatters forward: the sky brightens toward the Sun, tightly
+        // around it and broadly over the whole sunward half.
+        float c = max(dot(normalize(vDir), uSun), 0.0);
+        col += uGlow * (pow(c, 900.0) * 3.0 + pow(c, 40.0) * 0.35 + pow(c, 6.0) * 0.12);
+        // A little brighter right at the horizon, where the path through dust is longest.
+        col *= 1.0 + 0.18 * exp(-h * 18.0);
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  })
+}
+
+/** A soft radial glare for the Sun seen through a lens with no air in the way. */
+function glareTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256
+  const g = c.getContext('2d')
+  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128)
+  grad.addColorStop(0, 'rgba(255,252,244,1)')
+  grad.addColorStop(0.05, 'rgba(255,248,232,0.95)')
+  grad.addColorStop(0.16, 'rgba(255,236,206,0.28)')
+  grad.addColorStop(0.45, 'rgba(255,226,190,0.06)')
+  grad.addColorStop(1, 'rgba(255,220,180,0)')
+  g.fillStyle = grad; g.fillRect(0, 0, 256, 256)
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+/**
+ * The planet in the sky: Earth over the Moon, Jupiter over Europa.
+ *
+ * Both used to be a product of sines, which aliased into speckle at the size
+ * they are drawn and gave Jupiter ruler-straight stripes. These are built from
+ * simplex noise on the sphere: Jupiter's belts and zones are bands of latitude
+ * pushed about by turbulence, with the Great Red Spot in its southern belt;
+ * Earth is oceans, continents, ice caps and cloud, with a blue limb. Each is
+ * lit by the same Sun as the ground, so the phase you see is the real one for
+ * that geometry, and limb-darkened the way a gas giant is.
+ */
+function parentMaterialFor(id) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uSun: { value: SUN } },
+    vertexShader: `varying vec3 vN; varying vec3 vView;
+      void main(){ vN = normal; vec4 w = modelMatrix * vec4(position, 1.0); vView = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `${NOISE_GLSL}
+      varying vec3 vN; varying vec3 vView; uniform vec3 uSun;
+      void main(){
+        vec3 n = normalize(vN);
+        float ndl = dot(n, uSun);
+        float ndv = max(dot(n, normalize(vView)), 0.0);
+        vec3 col;
+        ${id === 'europa' ? `
+          float warp = snoise(n * 3.0) * 0.035 + snoise(vec3(n.x * 14.0, n.y * 4.0, n.z * 14.0)) * 0.012;
+          float lat = n.y + warp;
+          // Belts and zones of uneven width: two incommensurate frequencies.
+          float band = clamp(0.5 + 0.35 * sin(lat * 23.0) + 0.25 * sin(lat * 9.0 + 1.3) + 0.12 * sin(lat * 51.0), 0.0, 1.0);
+          vec3 zone = vec3(0.90, 0.85, 0.74), belt = vec3(0.62, 0.39, 0.23);
+          col = mix(belt, zone, smoothstep(0.35, 0.65, band));
+          col *= 0.92 + 0.16 * snoise(vec3(n.x * 6.0, lat * 40.0, n.z * 6.0));
+          // The Great Red Spot, in the southern equatorial belt.
+          vec3 grs = normalize(vec3(0.35, -0.38, 0.86));
+          float spot = smoothstep(0.985, 0.995, dot(n, grs) + (n.y + 0.38) * 0.02);
+          col = mix(col, vec3(0.72, 0.33, 0.22), spot * 0.85);
+          col = mix(col, vec3(0.55, 0.58, 0.62), smoothstep(0.78, 0.95, abs(n.y)));
+          col *= pow(ndv, 0.32);
+          float light = smoothstep(-0.06, 0.25, ndl) * (0.25 + 0.75 * max(ndl, 0.0));
+          gl_FragColor = vec4(col * (0.012 + light), 1.0);
+        ` : `
+          float land = snoise(n * 1.7) + snoise(n * 4.3) * 0.35;
+          vec3 ocean = vec3(0.03, 0.12, 0.28), ground = mix(vec3(0.22, 0.30, 0.14), vec3(0.47, 0.38, 0.24), smoothstep(-0.3, 0.6, snoise(n * 3.1)));
+          col = mix(ocean, ground, smoothstep(0.18, 0.28, land));
+          col = mix(col, vec3(0.92), smoothstep(0.82, 0.9, abs(n.y)));
+          float cloud = snoise(n * 3.2 + vec3(snoise(n * 6.0) * 0.6)) * 0.6 + snoise(n * 9.0) * 0.4;
+          col = mix(col, vec3(0.93), smoothstep(0.15, 0.6, cloud) * 0.85);
+          float light = max(ndl, 0.0);
+          col *= 0.02 + light;
+          col += vec3(0.25, 0.45, 0.9) * pow(1.0 - ndv, 3.0) * smoothstep(-0.2, 0.3, ndl) * 0.7;
+          gl_FragColor = vec4(col, 1.0);
+        `}
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  })
 }
 
 function Sky({ id }) {
   const region = REGIONS[id]
   const points = useMemo(() => {
-    const rand = mulberry32(601), a = new Float32Array(1800 * 3)
-    for (let i = 0; i < 1800; i++) {
-      const az = rand() * Math.PI * 2, y = rand(), r = Math.sqrt(1 - y * y) * 40000
-      a[i * 3] = Math.cos(az) * r; a[i * 3 + 1] = y * 40000; a[i * 3 + 2] = Math.sin(az) * r
+    const rand = mulberry32(601), a = new Float32Array(2400 * 3), c = new Float32Array(2400 * 3)
+    for (let i = 0; i < 2400; i++) {
+      const az = rand() * Math.PI * 2, y = rand() * 1.08 - 0.08, r = Math.sqrt(Math.max(0, 1 - y * y)) * SKY_RADIUS
+      a[i * 3] = Math.cos(az) * r; a[i * 3 + 1] = y * SKY_RADIUS; a[i * 3 + 2] = Math.sin(az) * r
+      // A few warm and cool stars among the white, and a spread of brightness.
+      const b = 0.35 + rand() ** 3 * 0.9, t = rand()
+      c[i * 3] = b * (t < 0.15 ? 1.0 : t > 0.88 ? 0.78 : 0.92); c[i * 3 + 1] = b * 0.9; c[i * 3 + 2] = b * (t < 0.15 ? 0.72 : t > 0.88 ? 1.0 : 0.88)
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a, 3)); return g
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a, 3)); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g
   }, [])
   useEffect(() => () => points.dispose(), [points])
-  const skyMaterial = useMemo(() => new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, uniforms: { top: { value: new THREE.Color('#403d41') }, bottom: { value: new THREE.Color('#d6ae86') } }, vertexShader: 'varying vec3 vSky; void main(){ vSky=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }', fragmentShader: 'varying vec3 vSky; uniform vec3 top; uniform vec3 bottom; void main(){ float h=clamp(normalize(vSky).y,0.0,1.0); gl_FragColor=vec4(mix(bottom,top,pow(h,0.6)),1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' }), [])
+  const skyMaterial = useMemo(skyMaterialFor, [])
   useEffect(() => () => skyMaterial.dispose(), [skyMaterial])
-  const parentMaterial = useMemo(() => new THREE.ShaderMaterial({ uniforms: { earth: { value: id === 'moon' ? 1 : 0 } }, vertexShader: 'varying vec3 vN; void main(){vN=normal;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', fragmentShader: `varying vec3 vN; uniform float earth; void main(){
-      float stripes=sin(vN.y*58.0+sin(vN.x*12.0)*0.7);
-      vec3 j=mix(vec3(0.38,0.23,0.14),vec3(0.85,0.73,0.56),0.5+stripes*0.35);
-      float land=sin(vN.x*12.0+sin(vN.y*8.0))*sin(vN.y*17.0+vN.z*5.0);
-      vec3 e=mix(vec3(0.04,0.18,0.33),vec3(0.19,0.28,0.16),smoothstep(0.1,0.25,land));
-      float cloud=sin(vN.y*43.0+sin(vN.x*21.0)*3.0)*sin(vN.z*37.0);
-      e=mix(e,vec3(0.8),smoothstep(0.45,0.72,cloud));
-      float light=max(0.025,dot(normalize(vN),normalize(vec3(-0.7,0.5,0.8))));
-      gl_FragColor=vec4(mix(j,e,earth)*light,1.0);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-    }` }), [id])
+  const parentMaterial = useMemo(() => parentMaterialFor(id), [id])
   useEffect(() => () => parentMaterial.dispose(), [parentMaterial])
+  const glare = useMemo(glareTexture, [])
+  useEffect(() => () => glare.dispose(), [glare])
   const distance = 35000, radius = region.parent ? distance * region.parentRadius / region.parentDistance : 0
+  const sunAt = SUN.clone().multiplyScalar(SKY_RADIUS * 0.95)
+  // The Sun's true angular radius at each world, drawn as a disc; the glare
+  // around it is what a camera sees, not part of the Sun.
+  const sunRadius = SKY_RADIUS * 0.95 * (id === 'europa' ? 0.00089 : id === 'mars' ? 0.00306 : 0.00465)
   return <>
-    {region.atmosphere ? <mesh material={skyMaterial}><sphereGeometry args={[50000, 32, 16]} /></mesh> : <points geometry={points}><pointsMaterial color="#dad8ce" size={17} sizeAttenuation fog={false} transparent opacity={0.75} /></points>}
-    {region.parent && <mesh position={[-4000, id === 'europa' ? 3000 : 1800, -35000]} material={parentMaterial}><sphereGeometry args={[radius, 48, 32]} /></mesh>}
+    {region.atmosphere
+      ? <mesh material={skyMaterial} renderOrder={-2}><sphereGeometry args={[SKY_RADIUS + 3000, 48, 24]} /></mesh>
+      : <>
+        <points geometry={points} renderOrder={-2}><pointsMaterial vertexColors size={16} sizeAttenuation fog={false} transparent opacity={0.9} depthWrite={false} /></points>
+        <mesh position={sunAt} renderOrder={-1}><sphereGeometry args={[Math.max(sunRadius, 60), 24, 12]} /><meshBasicMaterial color="#fff8ec" fog={false} toneMapped={false} /></mesh>
+        <sprite position={sunAt} scale={[sunRadius * 60, sunRadius * 60, 1]} renderOrder={-1}><spriteMaterial map={glare} blending={THREE.AdditiveBlending} depthWrite={false} fog={false} transparent opacity={0.85} /></sprite>
+      </>}
+    {region.parent && <mesh position={[-4000, id === 'europa' ? 3000 : 1800, -35000]} material={parentMaterial}><sphereGeometry args={[radius, 64, 40]} /></mesh>}
   </>
+}
+
+/**
+ * A column of light over wherever the player should go next.
+ *
+ * The objective used to be a compass bearing in a corner, and a person on
+ * foot on a grey plain cannot steer by "324 degrees". A beacon is the oldest
+ * answer there is: it reads from 600 m away, it says *there* without a word,
+ * and it is the same target the HUD's arrow points at because both ask
+ * `nextTarget` in sim/expedition.js. The beam fades upward so it marks a spot
+ * on the ground rather than standing like a pole, and it goes out when the
+ * player is standing in it.
+ */
+const BEAM_HEIGHT = 46
+const _goal = new Float64Array(2)
+const beamMaterial = () => new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `varying float vUp; void main() { vUp = position.y / ${BEAM_HEIGHT.toFixed(1)} + 0.5; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform float uTime; varying float vUp;
+    void main() {
+      float fade = pow(1.0 - clamp(vUp, 0.0, 1.0), 1.8);
+      float pulse = 0.82 + 0.18 * sin(uTime * 2.4 - vUp * 9.0);
+      gl_FragColor = vec4(vec3(1.0, 0.42, 0.17) * fade * pulse, fade * 0.55);
+    }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+})
+function Beacon({ session }) {
+  const group = useRef(), ring = useRef()
+  const material = useMemo(beamMaterial, [])
+  useEffect(() => () => material.dispose(), [material])
+  useFrame((state) => {
+    const g = group.current
+    if (!g) return
+    const s = session
+    const kind = s.mode === 'eva' || s.mode === 'rover' ? nextTarget(s, _goal) : null
+    const p = s.mode === 'rover' ? s.rover : s.walker
+    const close = kind ? Math.hypot(p.x - _goal[0], p.z - _goal[1]) < 3 : true
+    g.visible = Boolean(kind) && kind !== 'pad' && !close
+    if (!g.visible) return
+    g.position.set(_goal[0], terrainFor(s.id).height(_goal[0], _goal[1]), _goal[1])
+    material.uniforms.uTime.value = state.clock.elapsedTime
+    if (ring.current) ring.current.scale.setScalar(1 + 0.25 * Math.sin(state.clock.elapsedTime * 2.4))
+  })
+  return <group ref={group} visible={false}>
+    <mesh position={[0, BEAM_HEIGHT / 2, 0]} material={material} renderOrder={5}><cylinderGeometry args={[0.32, 0.55, BEAM_HEIGHT, 20, 1, true]} /></mesh>
+    <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} renderOrder={5}><ringGeometry args={[1.6, 1.85, 48]} /><meshBasicMaterial color="#ff6b2c" transparent opacity={0.8} depthWrite={false} /></mesh>
+  </group>
 }

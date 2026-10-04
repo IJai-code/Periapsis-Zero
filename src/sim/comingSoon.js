@@ -344,7 +344,7 @@ export const COMING_SOON = [
 ]
 
 /** What a made-up place is told. */
-export const NOT_REAL = 'Invented · not in this universe — try exploring something else'
+export const NOT_REAL = 'Made up, not in this universe. Try searching for something real.'
 
 /**
  * Recognised, and not real. Typing one of these gets the same nudge as typing

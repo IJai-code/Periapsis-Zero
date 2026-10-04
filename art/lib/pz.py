@@ -265,6 +265,29 @@ def join_meshes(name):
     return target
 
 
+def join(objects, name, origin=(0.0, 0.0, 0.0)):
+    """Join exactly these objects into one, named `name`, origin at `origin`.
+
+    `join_meshes` takes everything in the scene, which is right for a single
+    vehicle; a kit of separate props needs each prop joined on its own. The
+    origin is where the runtime will stand the prop, so the mesh is moved to
+    put that point at the object's origin.
+    """
+    objects = [o for o in objects if o is not None]
+    target = objects[0]
+    with bpy.context.temp_override(active_object=target, object=target,
+                                   selected_objects=objects, selected_editable_objects=objects):
+        bpy.ops.object.join()
+    target.name = name
+    target.data.name = name
+    o = Vector(origin)
+    target.data.transform(Matrix.Translation(-o))
+    target.location = o
+    with bpy.context.temp_override(active_object=target, object=target):
+        bpy.ops.object.material_slot_remove_unused()
+    return target
+
+
 def triangle_count(obj):
     return sum(len(p.vertices) - 2 for p in obj.data.polygons)
 

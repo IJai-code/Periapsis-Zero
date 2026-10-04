@@ -15,11 +15,10 @@ for (const region of Object.values(REGIONS)) {
 }
 
 export const CAMPAIGN = [
-  { id: 'moon', number: '01', title: 'A place to stand', role: 'Flight director', contact: 'Mara Voss', brief: 'The orbital images show two layers at the rim. We need to know whether the dark rock belongs to the impact or the plain underneath. Put the lander down, take both samples, then drive the rover out and set the three instruments where the ground is quiet.', stakes: 'This is the proving flight for a small survey crew. No rescue vehicle is stationed here. Keep the descent slow enough to leave again, and watch the rover battery on the far side of the circuit.', debrief: 'Two different rocks, one old surface. The dark fragment is basalt; the pale breccia records the impact. With the seismic, magnetic, and heat readings logged, your survey gives the next crew somewhere worth investigating.', samples: ['Rim breccia', 'Basalt fragment'] },
-  { id: 'mars', number: '02', title: 'The layers below', role: 'Field geologist', contact: 'Elias Chen', brief: 'The canyon walls preserve a sequence that orbit cannot resolve. Survey the exposed lower bed and the dust-covered outcrop, then take the rover out to place the instruments beyond the lander. The question is not whether Mars had water; it is what happened here, in this basin.', stakes: 'Mars gives you more gravity and less margin. The atmosphere is too thin to hold this vehicle up. Save propellant for the return to flight, and save battery for the drive back from the heat probe.', debrief: 'The lower bed and the upper outcrop do not share a composition. The basin changed before the dust arrived. The three instrument readings date that change from the ground itself. We have a sequence, not an answer yet. That is enough to plan the next traverse.', samples: ['Lower-bed sediment', 'Oxidized outcrop'] },
-  { id: 'europa', number: '03', title: 'Under the ice', role: 'Mission scientist', contact: 'Mara Voss', brief: 'The brown material follows a young fracture. Compare it with the clean ice beside the ridge, and set the instruments out where the surface is still undisturbed. Do not drill or claim an ocean sample; we are collecting what reached the surface.', stakes: 'Jupiter dominates the sky, but the ice under your boots is the useful evidence. Bring the paired samples and every instrument reading home to the vehicle.', debrief: 'The fracture material differs from the nearby ice, and the three readings show where the ridge is still restless. That makes this a candidate for a later instrument package, not proof of life. Your survey has given the team a defensible next step.', samples: ['Fracture deposit', 'Clean surface ice'] },
+  { id: 'moon', number: '01', title: 'A place to stand', role: 'Flight director', contact: 'Mara Voss', brief: 'Photos from orbit show two kinds of rock at this crater rim. We need to know if the dark rock came from the impact or from the ground underneath. Land, grab one sample of each, then drive the rover out and set up the three instruments.', stakes: 'This is the team\'s first real mission and there is no rescue ship nearby. Land gently, and keep an eye on the rover battery when you are far from the lander.', debrief: 'Two different rocks. The dark one is basalt from the old surface; the pale one was made by the impact. With the instrument readings logged, the next crew knows where to dig.', samples: ['Rim breccia', 'Basalt fragment'] },
+  { id: 'mars', number: '02', title: 'The layers below', role: 'Field geologist', contact: 'Elias Chen', brief: 'The canyon walls are layered like a cake, and the layers tell the story of this basin. Sample the lower rock bed and the dusty outcrop above it, then drive the rover out to set up the instruments.', stakes: 'Mars pulls more than twice as hard as the Moon, and the air is too thin to slow you down. Save fuel for the landing, and save rover battery for the drive back.', debrief: 'The two layers are made of different rock, so the basin changed before the dust arrived. The instrument readings will help date that change. Not the full answer yet, but enough to plan the next trip.', samples: ['Lower-bed sediment', 'Oxidized outcrop'] },
+  { id: 'europa', number: '03', title: 'Under the ice', role: 'Mission scientist', contact: 'Mara Voss', brief: 'A brown stain runs along a fresh crack in the ice. Sample it and the clean ice next to the ridge, then set up the instruments away from the lander. We are not drilling today, just collecting what has come up to the surface.', stakes: 'Jupiter fills the sky, but the ice under your boots is what matters. Bring both samples and every reading back to the lander.', debrief: 'The brown material is different from the clean ice, and the readings show the ridge is still moving. It is not proof of life, but it is a strong reason to come back with better instruments.', samples: ['Fracture deposit', 'Clean surface ice'] },
 ]
-export const SITES = [{ x: -28, z: -42 }, { x: 36, z: -64 }]
 
 /**
  * The surface rover, and why it is not a car.
@@ -52,11 +51,29 @@ export const ROVER = { mass: 210, drive: 520, wheelbase: 2.1, track: 1.7, cleara
  * from the lander on the Moon. The rover covers it at 3.4. That gap is what
  * the rover is for.
  */
-export const INSTRUMENTS = [
-  { name: 'Seismometer', x: -210, z: 150, reading: 'Ambient seismic noise' },
-  { name: 'Magnetometer', x: 180, z: -260, reading: 'Crustal field strength' },
-  { name: 'Heat probe', x: -140, z: -300, reading: 'Subsurface gradient' },
+const PACKAGES = [
+  { name: 'Seismometer', reading: 'Ambient seismic noise' },
+  { name: 'Magnetometer', reading: 'Crustal field strength' },
+  { name: 'Heat probe', reading: 'Subsurface gradient' },
 ]
+const place = (spots) => spots.map(([x, z], i) => ({ ...PACKAGES[i], x, z }))
+
+/**
+ * Where things are on each world. Every world used to share one layout, which
+ * put Europa's magnetometer on a 49 degree ridge wall; these were chosen by
+ * measuring the generated ground, and verify-expeditions holds every site to
+ * gentle ground and a drivable straight line from the lander.
+ */
+export const LAYOUTS = {
+  moon: { sites: [{ x: -28, z: -42 }, { x: 36, z: -64 }], instruments: place([[-210, 150], [180, -260], [-140, -300]]) },
+  mars: { sites: [{ x: 44, z: -30 }, { x: -20, z: -72 }], instruments: place([[-340, 60], [170, -100], [120, 330]]) },
+  europa: { sites: [{ x: -50, z: -26 }, { x: 30, z: 58 }], instruments: place([[320, -60], [-220, -270], [220, 270]]) },
+}
+/** The Moon's layout; every world has the same counts and package names. */
+export const SITES = LAYOUTS.moon.sites
+export const INSTRUMENTS = LAYOUTS.moon.instruments
+export const sitesFor = (id) => (LAYOUTS[id] ?? LAYOUTS.moon).sites
+export const instrumentsFor = (id) => (LAYOUTS[id] ?? LAYOUTS.moon).instruments
 export const VEHICLE = { dryMass: 3600, fuel: 1500, thrust: 32000, isp: 310, clearance: 2.65, safeVertical: 3, safeHorizontal: 2.5, safeSlope: 0.28 }
 export const FIXED_STEP = 1 / 120
 /** Scratch for the walk step, so the fixed step allocates nothing. */
@@ -130,13 +147,13 @@ export function terrainFor(id) {
 export function createExpedition(id = 'moon', campaign = false) {
   const region = REGIONS[id]
   if (!region) throw new Error(`Unknown expedition region: ${id}`)
-  return { id, campaign, mode: 'flight', x: 0, y: 180 + VEHICLE.clearance, z: 180, vx: 0, vy: -6, vz: -4, yaw: 0, pitch: 0, roll: 0, throttle: 0, fuel: VEHICLE.fuel, assist: true, landed: false, samples: [], delivered: false, message: 'Landing assist engaged. It uses your engines and propellant.', time: 0, touchdown: null, walker: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, ground: true }, rover: null, instruments: [], steps: 0 }
+  return { id, campaign, mode: 'flight', x: 0, y: 180 + VEHICLE.clearance, z: 180, vx: 0, vy: -6, vz: -4, yaw: 0, pitch: 0, roll: 0, throttle: 0, fuel: VEHICLE.fuel, assist: true, landed: false, samples: [], delivered: false, message: 'Landing assist is flying the descent for you. Press H to take over.', time: 0, touchdown: null, walker: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, ground: true }, rover: null, instruments: [], steps: 0 }
 }
 export function altitude(s) { return Math.max(0, s.y - terrainFor(s.id).height(s.x, s.z) - VEHICLE.clearance) }
 export function nearestSample(s) {
   if (s.mode !== 'eva') return null
   let hit = null, distance = Infinity
-  SITES.forEach((p, i) => { const d = Math.hypot(s.walker.x - p.x, s.walker.z - p.z); if (!s.samples.includes(i) && d < distance) { hit = i; distance = d } })
+  sitesFor(s.id).forEach((p, i) => { const d = Math.hypot(s.walker.x - p.x, s.walker.z - p.z); if (!s.samples.includes(i) && d < distance) { hit = i; distance = d } })
   return hit === null ? null : { index: hit, distance }
 }
 export function roverDistance(s) {
@@ -147,9 +164,92 @@ export function roverDistance(s) {
 export function nearestInstrument(s) {
   if (!s.rover || s.mode !== 'rover') return null
   let hit = null, distance = Infinity
-  INSTRUMENTS.forEach((p, i) => { const d = Math.hypot(s.rover.x - p.x, s.rover.z - p.z); if (!s.instruments.includes(i) && d < distance) { hit = i; distance = d } })
+  instrumentsFor(s.id).forEach((p, i) => { const d = Math.hypot(s.rover.x - p.x, s.rover.z - p.z); if (!s.instruments.includes(i) && d < distance) { hit = i; distance = d } })
   return hit === null ? null : { index: hit, distance }
 }
+/**
+ * What the feet and wheels cannot pass through, as circles on the ground.
+ *
+ * The lander's descent stage and its tanks fit inside 2.5 m of its centre
+ * (tanks at 1.9 m out, 0.57 m in radius); each footpad is half a metre across
+ * at 3.2 m out on a diagonal, turned with the lander's own yaw. The rover is
+ * 2.7 m long and 1.9 m wide, so 1.25 m from its centre covers it. The walker
+ * and the rover are given radii of their own, so a body stops at arm's length
+ * from a hull rather than with its eyes inside it. Before this, a walker could
+ * stroll straight through the lander's legs and stand inside its engine.
+ */
+export const SOLID = { landerBody: 2.5, footpad: 0.6, footpadAt: 3.2, rover: 1.25, walker: 0.3, roverSelf: 1.3 }
+
+/** Push (p.x, p.z) out of one circle, and cancel the velocity carrying it in. */
+function pushOut(p, cx, cz, radius) {
+  const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz)
+  if (d >= radius) return false
+  const nx = d > 1e-9 ? dx / d : 1, nz = d > 1e-9 ? dz / d : 0
+  p.x = cx + nx * radius; p.z = cz + nz * radius
+  const inward = p.vx * nx + p.vz * nz
+  if (inward < 0) { p.vx -= inward * nx; p.vz -= inward * nz }
+  return true
+}
+
+/** Keep a body (walker or rover) out of the landed vehicle, and the walker out of the rover. */
+function collide(s, p, selfRadius, includeRover) {
+  if (!s.landed) return
+  // The stage's circle and the footpads' overlap, so pushing out of one can
+  // push into another; a few passes settle it (measured: one pass left the
+  // rover 3.79 m from a 3.8 m boundary).
+  for (let pass = 0; pass < 4; pass++) collideOnce(s, p, selfRadius, includeRover)
+}
+function collideOnce(s, p, selfRadius, includeRover) {
+  pushOut(p, s.x, s.z, SOLID.landerBody + selfRadius)
+  const c = Math.cos(s.yaw), sn = Math.sin(s.yaw)
+  for (const lx of [-SOLID.footpadAt, SOLID.footpadAt]) for (const lz of [-SOLID.footpadAt, SOLID.footpadAt]) {
+    pushOut(p, s.x + lx * c + lz * sn, s.z - lx * sn + lz * c, SOLID.footpad + selfRadius)
+  }
+  if (includeRover && s.rover) pushOut(p, s.rover.x, s.rover.z, SOLID.rover + selfRadius)
+}
+
+/**
+ * Where the player should go next, as one rule the arrow and the beacon share.
+ *
+ * Writes the target's x, z into `out` and returns what it is: 'pad' during the
+ * descent, 'sample' and 'instrument' with their index in `TARGET.index`,
+ * 'rover' when the instruments are next and the player is on foot (they are
+ * too far to walk to, which is the rover's reason to exist), 'lander' when
+ * everything is aboard or the rover still has to be unloaded, and null when
+ * there is nowhere to go. Allocation-free, so the scene can ask every frame.
+ */
+export const TARGET = { kind: null, index: -1 }
+function aim(out, kind, x, z, index = -1) { out[0] = x; out[1] = z; TARGET.kind = kind; TARGET.index = index; return kind }
+export function nextTarget(s, out) {
+  TARGET.index = -1
+  if (s.mode === 'crashed') return aim(out, null, 0, 0)
+  if (s.mode === 'flight') return s.landed ? aim(out, null, s.x, s.z) : aim(out, 'pad', 0, 0)
+  const p = s.mode === 'rover' ? s.rover : s.walker
+  const sites = sitesFor(s.id), instruments = instrumentsFor(s.id)
+  const samplesLeft = s.samples.length < SITES.length
+  const instrumentsLeft = s.instruments.length < INSTRUMENTS.length
+  if (s.mode === 'eva' && samplesLeft || s.mode === 'rover' && samplesLeft && !instrumentsLeft) {
+    let best = -1, bestD = Infinity
+    for (let i = 0; i < SITES.length; i++) {
+      if (s.samples.includes(i)) continue
+      const d = Math.hypot(p.x - sites[i].x, p.z - sites[i].z)
+      if (d < bestD) { bestD = d; best = i }
+    }
+    return aim(out, 'sample', sites[best].x, sites[best].z, best)
+  }
+  if (instrumentsLeft) {
+    if (s.mode === 'eva') return s.rover ? aim(out, 'rover', s.rover.x, s.rover.z) : aim(out, 'lander', s.x, s.z)
+    let best = -1, bestD = Infinity
+    for (let i = 0; i < INSTRUMENTS.length; i++) {
+      if (s.instruments.includes(i)) continue
+      const d = Math.hypot(p.x - instruments[i].x, p.z - instruments[i].z)
+      if (d < bestD) { bestD = d; best = i }
+    }
+    return aim(out, 'instrument', instruments[best].x, instruments[best].z, best)
+  }
+  return aim(out, 'lander', s.x, s.z)
+}
+
 /** Lower the rover onto the surface beside the lander. It does not drive itself. */
 export function deployRover(s) {
   if (s.mode !== 'flight' || !s.landed || s.rover) return false
@@ -162,7 +262,7 @@ export function deployRover(s) {
    */
   const x = s.x + 11, z = s.z + 5
   s.rover = { x, y: terrainFor(s.id).height(x, z) + ROVER.clearance, z, vx: 0, vz: 0, yaw: Math.atan2(-x, -z), speed: 0, battery: 1, odometer: 0 }
-  s.message = 'Rover down. Walk to it and press E to drive.'
+  s.message = 'Rover unloaded. Walk up to it and press E to drive.'
   return true
 }
 export function interact(s) {
@@ -170,12 +270,12 @@ export function interact(s) {
   if (s.mode === 'flight' && s.landed) {
     const x = s.x + 7, z = s.z
     Object.assign(s.walker, { x, z, y: terrainFor(s.id).height(x, z), vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, ground: true })
-    s.mode = 'eva'; s.message = 'On the surface. Follow the survey bearings.'; return true
+    s.mode = 'eva'; s.message = 'You are outside. Follow the beacon to the first sample.'; return true
   }
   if (s.mode === 'eva') {
     const sample = nearestSample(s)
     if (sample && sample.distance <= 5 && s.walker.ground) {
-      s.samples.push(sample.index); s.message = `${CAMPAIGN.find((c) => c.id === s.id).samples[sample.index]} secured. Return both samples to the lander.`; return true
+      s.samples.push(sample.index); s.message = `${CAMPAIGN.find((c) => c.id === s.id).samples[sample.index]} collected.`; return true
     }
     /*
      * Two things can be boarded, and the rover parks well inside the lander's
@@ -196,13 +296,13 @@ export function interact(s) {
     const landerShare = toLander / 11
     const roverShare = toRover / 4.5
     if (s.rover && s.walker.ground && toRover < 4.5 && roverShare < landerShare) {
-      s.mode = 'rover'; s.message = 'Driving. W and S drive, A and D steer, E to step out.'; return true
+      s.mode = 'rover'; s.message = 'Driving. W/S to go, A/D to steer, E to get out.'; return true
     }
     if (s.walker.ground && toLander < 11) {
       s.mode = 'flight'
       const complete = s.samples.length === SITES.length && s.instruments.length === INSTRUMENTS.length
-      if (complete) { s.delivered = true; s.message = 'Survey complete. Samples and readings are aboard.' }
-      else s.message = `Back aboard. The survey needs ${SITES.length - s.samples.length} sample(s) and ${INSTRUMENTS.length - s.instruments.length} instrument(s).`
+      if (complete) { s.delivered = true; s.message = 'Survey complete. Press T when you are ready to take off.' }
+      else s.message = `Back aboard. Still needed: ${SITES.length - s.samples.length} sample(s) and ${INSTRUMENTS.length - s.instruments.length} instrument(s).`
       return true
     }
   }
@@ -210,21 +310,21 @@ export function interact(s) {
     const site = nearestInstrument(s)
     if (site && site.distance <= 6) {
       s.instruments.push(site.index)
-      s.message = `${INSTRUMENTS[site.index].name} deployed. ${INSTRUMENTS[site.index].reading} recorded.`
+      s.message = `${INSTRUMENTS[site.index].name} set up and recording.`
       return true
     }
     if (Math.hypot(s.rover.x - s.x, s.rover.z - s.z) < 13) {
       Object.assign(s.walker, { x: s.rover.x, z: s.rover.z, vx: 0, vy: 0, vz: 0, yaw: s.rover.yaw, pitch: 0, ground: true })
       s.walker.y = terrainFor(s.id).height(s.walker.x, s.walker.z)
       s.rover.vx = 0; s.rover.vz = 0; s.rover.speed = 0
-      s.mode = 'eva'; s.message = 'On foot beside the rover.'; return true
+      s.mode = 'eva'; s.message = 'Out of the rover.'; return true
     }
   }
   return false
 }
 export function launch(s) {
   if (!s.landed || s.mode !== 'flight' || s.fuel <= 0) return false
-  s.landed = false; s.assist = false; s.throttle = 0.7; s.vy = 0.5; s.y += 0.2; s.message = 'Ascent. Landing assist disengaged; you have the controls.'; return true
+  s.landed = false; s.assist = false; s.throttle = 0.7; s.vy = 0.5; s.y += 0.2; s.message = 'Lifting off. You have the controls: R/F for thrust, WASD to tilt.'; return true
 }
 
 /** Fixed-step SI dynamics. Assist requests thrust; it never writes position or touchdown. */
@@ -273,6 +373,10 @@ export function stepExpedition(s, keys, dt = FIXED_STEP) {
     // not carry through a wall.
     w.vx = moved ? _foot.east : 0
     w.vz = moved ? _foot.north : 0
+    // Solid hardware. A lunar jump clears the rover (2.4 m against its 1.8),
+    // so the rover only stops a walker who is near the ground; the lander is
+    // six metres tall and stops everyone.
+    collide(s, w, SOLID.walker, w.y - terrain.height(w.x, w.z) < 1.5)
     w.vy = _foot.up; w.y = _foot.height
     const floor = terrain.height(w.x, w.z)
     /*
@@ -317,6 +421,7 @@ export function stepExpedition(s, keys, dt = FIXED_STEP) {
       if (step < 1.1) { r.x = nx; r.z = nz; r.odometer += Math.hypot(r.vx, r.vz) * dt }
       else { r.vx *= 0.2; r.vz *= 0.2 }
     }
+    collide(s, r, SOLID.roverSelf, false)
     r.speed = Math.hypot(r.vx, r.vz)
     r.battery = Math.max(0, r.battery - ROVER.drain * (0.4 + r.speed / ROVER.maxSpeed))
     r.y = terrain.height(r.x, r.z) + ROVER.clearance
@@ -366,10 +471,10 @@ export function stepExpedition(s, keys, dt = FIXED_STEP) {
     s.touchdown = { vertical: Math.abs(s.vy), horizontal: Math.hypot(s.vx, s.vz), slope: terrain.slope(s.x, s.z), fuel: s.fuel }
     const safe = s.touchdown.vertical <= VEHICLE.safeVertical && s.touchdown.horizontal <= VEHICLE.safeHorizontal && s.touchdown.slope < VEHICLE.safeSlope
     s.y = floor; s.vx = 0; s.vy = 0; s.vz = 0; s.throttle = 0
-    if (safe) { s.landed = true; s.message = 'Contact. Engines safe. Press E to leave the lander.' }
-    else { s.mode = 'crashed'; s.message = 'Hard landing. Reduce vertical and horizontal speed before contact.' }
+    if (safe) { s.landed = true; s.message = 'Landed. Press E to step outside, or G to unload the rover.' }
+    else { s.mode = 'crashed'; s.message = 'You hit the ground too fast. Slow down more before touching down.' }
   }
-  if (Math.hypot(s.x, s.z) > REGION_LIMIT || s.y > 6000) { s.mode = 'crashed'; s.message = 'Outside the survey sector. Retry to return to the approach.' }
+  if (Math.hypot(s.x, s.z) > REGION_LIMIT || s.y > 6000) { s.mode = 'crashed'; s.message = 'You flew out of the survey area. Retry to start the approach again.' }
 }
 
 const SAVE_KEY = 'pz-expeditions-v1'

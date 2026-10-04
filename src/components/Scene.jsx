@@ -127,7 +127,7 @@ export function Scene({ textures }) {
       {CRAFT.target && <Craft id="target" />}
       <ShipControls />
 
-      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} visible={trails && !ground && !lunarChase && !presenting && !deep} />
+      <Trail body="earth" reference="sun" period={YEAR} span={0.98} points={520} nearFade={3e9} visible={trails && !ground && !lunarChase && !presenting && !deep} />
       {FLEET_TRAILS.map((t) => (
         <Trail
           key={t.body}

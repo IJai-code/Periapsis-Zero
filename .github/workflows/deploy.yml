@@ -102,6 +102,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The gates above never open a page. This does: the built site in the
+      # runner's own Chrome (software WebGL, no GPU), failing on any console
+      # error, uncaught exception or missing canvas, before anything deploys.
+      - name: Open the site in a browser
+        run: npm run smoke
+
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5

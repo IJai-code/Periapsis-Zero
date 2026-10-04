@@ -222,7 +222,7 @@ const base = [
   /* The missions, by name — choosing one opens it. */
   ...PRESETS.map((p) => ({
     id: `mission:${p.id}`,
-    name: p.title.replace(' · ', ' — '),
+    name: p.title.replace(' · ', ': '),
     aliases: [p.title, p.vessel, p.id.replace(/-/g, ' ')],
     kind: 'mission',
     hint: p.blurb,

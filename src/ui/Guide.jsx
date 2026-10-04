@@ -20,29 +20,26 @@ const STEPS = [
   {
     focus: 'sun',
     eyebrow: 'One star',
-    title: 'The solar system, integrated live',
+    title: 'The real solar system, right now',
     body:
-      'Everything you are about to see is computed, not drawn: eight bodies, one RK4 ' +
-      'integrator, an ephemeris corrected for Earth\u2019s 23.01\u00b0 tilt. The planet on ' +
-      'screen is where it actually is.',
+      'Every planet is where it really is today. Their motion is calculated live ' +
+      'from gravity, step by step, not played back from an animation.',
   },
   {
     focus: 'earth',
     eyebrow: 'One planet',
-    title: 'Earth, at true scale',
+    title: 'Earth, at true size',
     body:
-      'Real terrain heights under every pad, a PREM density model inside the planet, ' +
-      'and a gravity field with its J\u2082\u2013J\u2084 harmonics \u2014 the oblateness that precesses ' +
-      'every low orbit we fly.',
+      'Real ground heights under every launch pad, and Earth\u2019s slightly squashed ' +
+      'shape built into its gravity, which slowly turns every low orbit you fly.',
   },
   {
     focus: 'moon',
-    eyebrow: 'One coast',
-    title: 'The Moon, three days out',
+    eyebrow: 'One moon',
+    title: 'The Moon, three days away',
     body:
-      'Lunar terrain from LROC NAC and LOLA, and trajectories that are solved rather ' +
-      'than aimed: multi-burn captures, halo orbits, and return corridors run in ' +
-      'workers while you watch.',
+      'Moon terrain from NASA\u2019s lunar orbiters. The paths to it are calculated, ' +
+      'not drawn by hand: the burns into orbit, the halo orbits and the way home.',
   },
   {
     /*
@@ -53,19 +50,19 @@ const STEPS = [
      */
     focus: 'ground',
     eyebrow: 'One vehicle',
-    title: 'A hull you can stand next to',
+    title: 'A rocket you can stand next to',
     body:
-      'Stages, umbilicals, swing arms and flame trenches modelled down to the pad \u2014 ' +
-      'and the last minute of the count run as it was: the vents, the arms swinging ' +
-      'back, the water on the pad, the engines lit while the vehicle is held down.',
+      'The pad is modelled down to the swing arms and flame trench. The last minute ' +
+      'of the countdown runs as it really did: venting, the arms swinging back, water ' +
+      'on the pad, and the engines lit while the rocket is still held down.',
   },
   {
     focus: 'cinematic',
     eyebrow: 'Your turn',
     title: 'Fly one',
     body:
-      'Nine flights, each flown from the pad when it loads. Pick the one you want to ' +
-      'watch \u2014 or take the guided one from the pad, with the count at sixty.',
+      `${PRESETS.length} real missions, each starting on the pad. Pick one to watch, or ` +
+      'take the guided flight with the countdown at sixty seconds.',
   },
 ]
 

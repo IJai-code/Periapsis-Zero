@@ -1,0 +1,10 @@
+{
+  "id": "survey-kit",
+  "note": "The props a survey sets out, one node each, each with its origin on the ground point it stands on: the runtime clones a node by name and stands it at a site, so the layout in this file is only for looking at it. Runtime coordinates (three.js, Y-up, metres). Every prop must fit inside the envelope below; boundsMode 'within' checks containment, not equality.",
+  "bounds": { "min": [-4.6, 0.0, -1.0], "max": [4.6, 2.0, 1.0] },
+  "boundsMode": "within",
+  "budget": { "triangles": 30000, "bytes": 600000 },
+  "requiredEmpties": [],
+  "requiredNodes": ["seismometer", "magnetometer", "heat_probe", "stake"],
+  "doubleSided": []
+}

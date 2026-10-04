@@ -587,6 +587,10 @@ export class RK4NBody {
    */
   clone() {
     const copy = new RK4NBody(this.masses, this.state, this.massiveCount)
+    // The same instant as the original. A copy started at t = 0 is a state
+    // from now on a clock from J2000, and anything reading the clock —
+    // Earth's spin, the Moon's frame, the rails — disagrees with the bodies.
+    copy.t = this.t
     copy.testSoftening2 = this.testSoftening2
     copy.maxDt = this.maxDt
     // The same sky, or a projection would be drawn under different physics from

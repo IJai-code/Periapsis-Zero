@@ -20,7 +20,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { VEHICLE } from '../src/sim/expedition.js'
+import { ROVER, VEHICLE } from '../src/sim/expedition.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 let checks = 0
@@ -66,10 +66,12 @@ function survey(json) {
   const lo = [Infinity, Infinity, Infinity]
   const hi = [-Infinity, -Infinity, -Infinity]
   const points = {}
+  const nodes = {}
   let triangles = 0
   const visit = (index, parent) => {
     const node = json.nodes[index]
     const world = multiply(parent, local(node))
+    if (node.name) nodes[node.name] = apply(world, [0, 0, 0])
     if (node.mesh !== undefined) {
       for (const prim of json.meshes[node.mesh].primitives) {
         assert.ok((prim.mode ?? 4) === 4, 'only triangle lists are drawn')
@@ -87,7 +89,7 @@ function survey(json) {
     for (const child of node.children ?? []) visit(child, world)
   }
   for (const root of json.scenes[json.scene ?? 0].nodes) visit(root, identity())
-  return { lo, hi, points, triangles }
+  return { lo, hi, points, nodes, triangles }
 }
 
 const assets = readdirSync(join(ROOT, 'art')).filter((d) => existsSync(join(ROOT, 'art', d, 'spec.json')))
@@ -99,7 +101,7 @@ for (const id of assets) {
   assert.ok(existsSync(file), `${id}: public/authored/${id}.glb has not been built (npm run art:build -- ${id})`)
   assert.ok(existsSync(join(ROOT, 'art', id, 'build.py')), `${id}: no build script; the script is the source`)
   const { bytes, json } = readGlb(file)
-  const { lo, hi, points, triangles } = survey(json)
+  const { lo, hi, points, nodes, triangles } = survey(json)
 
   check(`${id}: a valid GLB inside its budget (${triangles.toLocaleString()} triangles, ${(bytes / 1024).toFixed(0)} kB)`, () => {
     assert.ok(triangles <= spec.budget.triangles, `${triangles} triangles against a budget of ${spec.budget.triangles}`)
@@ -109,8 +111,13 @@ for (const id of assets) {
     for (const ext of json.extensionsRequired ?? []) assert.equal(ext, 'KHR_draco_mesh_compression', `requires ${ext}`)
   })
 
-  check(`${id}: bounds match the spec within 1% of each extent`, () => {
+  check(`${id}: bounds ${spec.boundsMode === 'within' ? 'inside the spec envelope' : 'match the spec within 1% of each extent'}`, () => {
     for (let i = 0; i < 3; i++) {
+      if (spec.boundsMode === 'within') {
+        assert.ok(lo[i] >= spec.bounds.min[i] - 1e-3 && hi[i] <= spec.bounds.max[i] + 1e-3,
+          `axis ${'xyz'[i]} spans ${lo[i].toFixed(3)}..${hi[i].toFixed(3)}, outside ${spec.bounds.min[i]}..${spec.bounds.max[i]}`)
+        continue
+      }
       const extent = spec.bounds.max[i] - spec.bounds.min[i]
       const tol = extent * 0.01
       assert.ok(Math.abs(lo[i] - spec.bounds.min[i]) <= tol, `axis ${'xyz'[i]} min ${lo[i].toFixed(3)} vs spec ${spec.bounds.min[i]}`)
@@ -118,8 +125,9 @@ for (const id of assets) {
     }
   })
 
-  check(`${id}: every named point the runtime reads is present`, () => {
-    for (const name of spec.requiredEmpties) assert.ok(points[name], `missing empty ${name}`)
+  check(`${id}: every named point and part the runtime reads is present`, () => {
+    for (const name of spec.requiredEmpties ?? []) assert.ok(points[name], `missing empty ${name}`)
+    for (const name of spec.requiredNodes ?? []) assert.ok(nodes[name], `missing node ${name}`)
   })
 
   check(`${id}: only open shells are double-sided`, () => {
@@ -151,6 +159,33 @@ for (const id of assets) {
       // The camera behind a landed vehicle sits on +Z; the crew climbs down there.
       assert.ok(points.hatch[2] > 1.5 && points.ladder_base[2] > 1.5)
       assert.ok(Math.abs(points.ladder_base[1] - spec.footpadSoleY) <= 0.05, 'the ladder reaches the ground plane')
+    })
+  }
+
+  if (id === 'survey-rover') {
+    check('survey-rover: six wheels where ROVER puts them, on the ground', () => {
+      // The spec restates nothing the simulation already says.
+      assert.equal(spec.track, ROVER.track)
+      assert.equal(spec.wheelbase, ROVER.wheelbase)
+      assert.equal(spec.clearance, ROVER.clearance)
+      const hubs = [0, 1, 2, 3, 4, 5].map((k) => nodes[`wheel_${k}`])
+      for (const sx of [-1, 1]) for (const z of [-ROVER.wheelbase / 2, 0, ROVER.wheelbase / 2]) {
+        const want = [sx * ROVER.track / 2, spec.wheelRadius, z]
+        assert.ok(hubs.some((h) => Math.hypot(h[0] - want[0], h[1] - want[1], h[2] - want[2]) <= 0.01),
+          `no wheel hub at (${want.map((v) => v.toFixed(2))})`)
+      }
+      // The lowest point of the model is a wheel touching the ground.
+      assert.ok(Math.abs(lo[1]) <= 0.01, `lowest point ${lo[1].toFixed(3)} m, not the ground plane`)
+      // The mast camera is at the front, which is -Z in the runtime.
+      assert.ok(points.mast_camera[2] < -0.5)
+    })
+  }
+
+  if (id === 'survey-kit') {
+    check('survey-kit: every prop stands on its own origin, on the ground', () => {
+      for (const name of spec.requiredNodes) assert.ok(Math.abs(nodes[name][1]) <= 1e-6, `${name} origin is ${nodes[name][1]} m off the ground`)
+      const statusMaterials = (json.materials ?? []).filter((m) => m.name === 'status')
+      assert.equal(statusMaterials.length, 1, 'one material named status, for the game to recolour')
     })
   }
 }

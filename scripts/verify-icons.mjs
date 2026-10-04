@@ -131,15 +131,31 @@ else {
   try {
     const bytes = readFileSync(local)
     const png = bytes[0] === 0x89 && bytes[1] === 0x50
-    // IHDR width and height live at a fixed offset in every PNG.
-    const w = bytes.readUInt32BE(16)
-    const h = bytes.readUInt32BE(20)
+    const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8
+    let w = 0, h = 0
+    if (png) {
+      // IHDR width and height live at a fixed offset in every PNG.
+      w = bytes.readUInt32BE(16)
+      h = bytes.readUInt32BE(20)
+    } else if (jpeg) {
+      // A JPEG's size is in its start-of-frame segment; walk the markers to it.
+      for (let i = 2; i + 9 < bytes.length; ) {
+        if (bytes[i] !== 0xff) { i++; continue }
+        const marker = bytes[i + 1]
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          h = bytes.readUInt16BE(i + 5)
+          w = bytes.readUInt16BE(i + 7)
+          break
+        }
+        i += 2 + bytes.readUInt16BE(i + 2)
+      }
+    }
     const declaredW = Number(html.match(/property="og:image:width" content="(\d+)"/)?.[1])
     const declaredH = Number(html.match(/property="og:image:height" content="(\d+)"/)?.[1])
-    if (!png) fail(`og:image ${card}: not a PNG`)
+    if (!png && !jpeg) fail(`og:image ${card}: neither PNG nor JPEG, which every crawler reads`)
     else if (w !== declaredW || h !== declaredH)
       fail(`og:image is ${w}x${h} but the markup declares ${declaredW}x${declaredH}`)
-    else pass(`og:image → PNG ${w}x${h}, ${bytes.length} B, matching its declared size`)
+    else pass(`og:image → ${png ? 'PNG' : 'JPEG'} ${w}x${h}, ${bytes.length} B, matching its declared size`)
   } catch {
     fail(`og:image ${card}: missing on disk at ${local}`)
   }

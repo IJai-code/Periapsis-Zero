@@ -17,7 +17,7 @@ import { dominantBody } from '../sim/soi.js'
 import { nodeRevision, nodes } from '../sim/nodes.js'
 import { NodeEditor } from './NodeEditor.jsx'
 import { useUi } from '../sim/store.js'
-import { freeFall, underSky } from '../gfx/instruments.js'
+import { freeFall, onPad, underSky } from '../gfx/instruments.js'
 
 /**
  * Where the craft is going, drawn from the forward projection.
@@ -195,7 +195,7 @@ export function Trajectory() {
      * what a viewer reported as random lines around the sky. The apsis tags go
      * with it: they name a periapsis inside the planet.
      */
-    const meaningful = freeFall() && !underSky()
+    const meaningful = freeFall() && !underSky() && !onPad()
     g.visible = meaningful
     if (!meaningful) return
 

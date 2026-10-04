@@ -1,0 +1,19 @@
+{
+  "id": "survey-rover",
+  "note": "Runtime (three.js, Y-up, metres) coordinates. The origin is the ground plane under the chassis centre, which is where ExpeditionScene puts the rover (r.y is the terrain height). Front is -Z. Wheel hubs, track, wheelbase and clearance follow ROVER in src/sim/expedition.js; verify-art holds the file to them. Bounds are derived: half the track plus half the 0.2 m wheel; half the wheelbase plus the 0.313 m rolling radius; the mast head's top at 1.76 m. The body hangs at its 0.46 m clearance from the ground, not from the hubs.",
+  "wheelRadius": 0.313,
+  "track": 1.7,
+  "wheelbase": 2.1,
+  "clearance": 0.46,
+  "bounds": {
+    "min": [-0.95, 0.0, -1.363],
+    "max": [0.95, 1.76, 1.363]
+  },
+  "budget": {
+    "triangles": 80000,
+    "bytes": 2000000
+  },
+  "requiredEmpties": ["seat", "mast_camera"],
+  "requiredNodes": ["rover_body", "wheel_0", "wheel_1", "wheel_2", "wheel_3", "wheel_4", "wheel_5"],
+  "doubleSided": []
+}

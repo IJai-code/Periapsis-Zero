@@ -60,7 +60,7 @@ function height() {
 /** The lines, in the order a plate reads them. */
 export function captionLines() {
   const preset = requestedPreset()
-  const title = preset ? preset.title.replace(' · ', ' — ') : `${SHIP.name} · ${activeSite().name}`
+  const title = preset ? preset.title.replace(' · ', ': ') : `${SHIP.name} · ${activeSite().name}`
   const facts = [metLabel(mission.t), DATE.format(live.date)].filter(Boolean)
   const h = height()
   if (h) facts.push(h)

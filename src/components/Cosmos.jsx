@@ -329,7 +329,48 @@ function buildCosmos(gl) {
   const bhCam = new THREE.Vector3()
   const bhSize = new THREE.Vector2()
 
-  const cube = { at: new THREE.Vector3(1e9, 0, 0), next: 0, done: false, mix: 0, lastLo: new THREE.Vector3(1e9, 0, 0) }
+  const cube = { at: new THREE.Vector3(1e9, 0, 0), next: 0, done: false, mix: 0, lastLo: new THREE.Vector3(1e9, 0, 0), gain: 1, metered: false, meters: 0 }
+  /*
+   * The bake's exposure, metered from the draft the way a camera meters.
+   *
+   * SKY_CURVE is set for the sky as seen from the Sun, where the band is a
+   * faint thing against the dark. From inside the bulge the same stretch put
+   * every texel past white, so the galactic centre was a blank cream sky with
+   * a grey hole in it. After each draft bake the draft is read back (128 px a
+   * face, every fourth texel) and, if more than a sliver of it has clipped,
+   * the exposure comes down and the draft is baked again; once the sky is
+   * dim enough it is allowed back up, never past 1. From the solar
+   * neighbourhood nothing clips and the gain stays 1, so the home sky is the
+   * sky it was. The readback stalls the GPU once per new place, not per frame.
+   */
+  const _meter = new Uint8Array(CUBE_LO * CUBE_LO * 4)
+  function meterLo(renderer) {
+    let clipped = 0, total = 0, bright = 0
+    const gl = renderer.getContext()
+    const faces = renderer.properties.get(lo).__webglFramebuffer
+    if (!faces) return { clipped: 0, bright: 0 }
+    for (let f = 0; f < 6; f++) {
+      // three's readRenderTargetPixels expects one framebuffer a face; this
+      // target keeps one a mip level, so bind level 0 through the renderer's
+      // own state cache and read it directly.
+      const fb = Array.isArray(faces[f]) ? faces[f][0] : faces[f]
+      renderer.state.bindFramebuffer(gl.FRAMEBUFFER, fb)
+      gl.readPixels(0, 0, CUBE_LO, CUBE_LO, gl.RGBA, gl.UNSIGNED_BYTE, _meter)
+      for (let i = 0; i < _meter.length; i += 16) {
+        const m = Math.max(_meter[i], _meter[i + 1], _meter[i + 2])
+        if (m >= 250) clipped++
+        if (m >= 200) bright++
+        total++
+      }
+    }
+    return { clipped: clipped / total, bright: bright / total }
+  }
+  function nextGain(gain, { clipped, bright }) {
+    if (clipped > 0.005) return Math.max(gain * 0.35, 1e-4)
+    // Room to open up again: little of the sky is even near white.
+    if (gain < 1 && bright < 0.001) return Math.min(1, gain * 1.6)
+    return gain
+  }
   const mwCam = new THREE.Vector3()
   const gCam = new THREE.Vector3()
 
@@ -445,6 +486,8 @@ function buildCosmos(gl) {
         cube.next = 0
         cube.done = false
         cube.mix = 0
+        cube.metered = false
+        cube.meters = 0
       }
       // In daylight the band is not there to see — and that used to pause the
       // refinement outright, which froze the sky at the 128-texel draft for
@@ -459,13 +502,27 @@ function buildCosmos(gl) {
       if (!cube.done) {
         // The draft, refreshed as the camera moves — but not in daylight, where
         // the whole six-face march was spent on a sky nobody can see.
-        if (!hidden && cube.lastLo.distanceTo(mwCam) > CUBE_MOVE * 0.25) {
+        if (!hidden && (cube.lastLo.distanceTo(mwCam) > CUBE_MOVE * 0.25 || !cube.metered)) {
           camLo.position.copy(camera.position)
           camLo.updateMatrixWorld(true)
           mwSkyMat.uniforms.uSteps.value = Math.min(QUALITY.skySteps, 72)
           mwSkyMat.uniforms.uOctaves.value = 3
           wholeLo(renderer)
           cube.lastLo.copy(mwCam)
+          if (!cube.metered) {
+            const gain = nextGain(cube.gain, meterLo(renderer))
+            cube.meters++
+            if (gain !== cube.gain && cube.meters < 12) {
+              // A new exposure: the draft is re-baked next frame, and any
+              // sharp tiles made at the old one are started over.
+              cube.gain = gain
+              mwSkyMat.uniforms.uCurve.value.y = SKY_CURVE.y / gain
+              cube.next = 0
+              cube.done = false
+              cube.mix = 0
+            } else cube.metered = true
+            VIEW.skyGain = cube.gain
+          }
         }
         if (hidden) {
           // One tile every few frames: the sharp cube still arrives during the

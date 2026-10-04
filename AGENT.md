@@ -197,7 +197,10 @@ something.
 ```bash
 npm run dev            # Vite on :5173 (predev clears the stale dep cache)
 npm run build          # Production build into dist/
-npm run verify:all     # All 70 gates
+npm run verify:all     # All 72 gates
+npm run smoke          # Open the built site in headless Chrome; fail on any error
+npm run art:build -- <id> [--check]   # Build an authored model in Blender (or check it is byte-identical)
+npm run art:stills     # Photograph each world from the built game into public/stills
 npm run icons          # Regenerate favicon set, mark.svg, brand.js, boot splash
 npm run models:scan    # Regenerate gfx/modelsManifest.js from public/models
 ```
@@ -205,7 +208,10 @@ npm run models:scan    # Regenerate gfx/modelsManifest.js from public/models
 The browser pane in the desktop app stops compositing when hidden (`document.hidden`
 becomes true and rAF stops). For visual checks, drive headless Chrome over CDP
 with `--use-angle=metal`; it reports the real GPU. Timings from headless runs
-are not representative of user hardware.
+are not representative of user hardware. `scripts/lib/chrome.mjs` is that
+harness; read console errors through its `logs()`, which also carries the
+page's own `console.error` and uncaught exceptions (Log.entryAdded alone does
+not, and a harness that only read it once reported broken pages as clean).
 
 ---
 
@@ -350,17 +356,23 @@ hand-railed ladder, hatch frame, antenna dish with a feed, and the stripe.
 | --- | --- | --- |
 | 0 | Fold the expedition EVA onto `sim/walk.js`; remove the stale deploy variable | **Done** in `4320475` |
 | 1 | Survey lander, the pipeline (`art/`, `art.mjs`, `verify-art`) and its runtime swap | **Built**: 35,180 triangles, 9 materials, 182 kB; gate green; in the expedition with the primitive as fallback |
-| 2 | Surface rover (wheel empties drive spin and suspension), three instruments, sample cases | Same gate, rover budget |
-| 3 | Rock library for the three regions, replacing generated rock meshes | Instanced, inside the 2k-triangle budget |
+| 2 | Surface rover (wheel empties drive spin and suspension), three instruments, sample cases | **Built**: `survey-rover` (12,792 triangles, six named wheels on the rover's own track and wheelbase) and `survey-kit` (3,224 triangles: seismometer, magnetometer, heat probe, sample stake); `verify-art` holds both to `ROVER` and the ground |
+| 3 | Rock library for the three regions, replacing generated rock meshes | Rocks are now displaced, per-world tinted instanced shapes in `gfx/expeditionTerrain.js`; a Blender rock set remains optional |
 | 4 | Simulator close-ups that read as primitives: LC-39B structures, the LM at Tranquility | Measured against the existing pad geometry gates |
 | 5 | Expedition terrain beyond the 700 m regional patch | A design decision first (4.9) |
 
 ### 4.8 Known follow-ups
 
-- **Walking through the lander.** EVA collision follows the terrain only; the
-  walker can pass through legs and struts. True of the primitive lander too.
-  The footpad and leg positions are now named points in the file, so a
-  collision volume can be built from the model rather than restated.
+- **Walking through the lander.** Fixed: `SOLID` in `sim/expedition.js`
+  gives the body and four footpads circles, the walker and rover are pushed
+  out of them, and `verify-expeditions` checks it on two worlds.
+- **Stills.** `npm run art:stills` photographs each world from the built
+  game (and the simulator's Earth view) into `public/stills/`, used by the
+  story dossiers, the front page and the link preview. Re-run it after any
+  change to surface graphics; it needs Chrome and a GPU, so it is not in CI.
+- **Browser smoke test.** `npm run smoke` opens six parts of the built site in
+  headless Chrome and fails on any console error, uncaught exception or
+  missing canvas. CI runs it after the build, on software WebGL.
 - **Frame time.** On the reference M4 the expedition holds 16.7 ms with either
   lander (vsync-locked, headless Chrome on Metal); a visible-tab measurement
   on the MacBook Air itself is still owed.

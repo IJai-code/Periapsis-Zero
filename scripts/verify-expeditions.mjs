@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { performance } from 'node:perf_hooks'
-import { altitude, CAMPAIGN, chapterUnlocked, createExpedition, deployRover, expeditionRecord, FIXED_STEP, INSTRUMENTS, interact, launch, nearestInstrument, recordSurvey, REGIONS, roverDistance, ROVER, SITES, stepExpedition, terrainFor, validateRecord, VEHICLE } from '../src/sim/expedition.js'
+import { SOLID, altitude, CAMPAIGN, chapterUnlocked, createExpedition, deployRover, expeditionRecord, FIXED_STEP, INSTRUMENTS, instrumentsFor, interact, LAYOUTS, launch, nearestInstrument, recordSurvey, REGIONS, roverDistance, ROVER, SITES, sitesFor, stepExpedition, terrainFor, validateRecord, VEHICLE } from '../src/sim/expedition.js'
 import { buildExpeditionTerrain } from '../src/gfx/expeditionTerrain.js'
 import { experienceFromHash, expeditionHash } from '../src/sim/experiences.js'
 import { TAKEOFF, walkSpeed } from '../src/sim/walk.js'
@@ -83,10 +83,11 @@ check('survey requires real proximity, paired samples, deployed instruments, and
   assert.equal(interact(createExpedition('mars')), false)
   assert.ok(interact(s)); assert.equal(s.mode, 'eva')
   assert.equal(recordSurvey(s), false)
-  for (let i = 0; i < SITES.length; i++) {
+  const sites = sitesFor(s.id)
+  for (let i = 0; i < sites.length; i++) {
     Object.assign(s.walker, { x: 90, z: 0, ground: true })
     assert.equal(interact(s), false)
-    Object.assign(s.walker, { x: SITES[i].x, z: SITES[i].z, y: terrainFor(s.id).height(SITES[i].x, SITES[i].z), ground: true })
+    Object.assign(s.walker, { x: sites[i].x, z: sites[i].z, y: terrainFor(s.id).height(sites[i].x, sites[i].z), ground: true })
     assert.ok(interact(s)); assert.equal(s.delivered, false)
     assert.equal(interact(s), false)
   }
@@ -103,7 +104,7 @@ check('survey requires real proximity, paired samples, deployed instruments, and
   assert.equal(nearestInstrument(s), null, 'instruments are driven to, not walked to')
   assert.ok(roverDistance(s) < 1)
   assert.ok(interact(s)); assert.equal(s.mode, 'rover')
-  for (const [i, site] of INSTRUMENTS.entries()) {
+  for (const [i, site] of instrumentsFor(s.id).entries()) {
     Object.assign(s.rover, { x: 400, z: 400, vx: 0, vz: 0 })
     assert.equal(interact(s), false, 'an instrument deploys only where it is sited')
     Object.assign(s.rover, { x: site.x, z: site.z, vx: 0, vz: 0 })
@@ -120,6 +121,28 @@ check('survey requires real proximity, paired samples, deployed instruments, and
   assert.ok(recordSurvey(s))
   assert.equal(chapterUnlocked('europa'), false, 'free-play completion must not unlock story chapters')
 })
+check('every world has its own layout, on gentle ground the rover can drive straight to', () => {
+  const key = (l) => JSON.stringify([l.sites, l.instruments.map((p) => [p.x, p.z])])
+  const ids = Object.keys(REGIONS)
+  assert.equal(new Set(ids.map((id) => key(LAYOUTS[id]))).size, ids.length, 'no two worlds share a layout')
+  for (const id of ids) {
+    const t = terrainFor(id)
+    const { sites, instruments } = LAYOUTS[id]
+    assert.equal(sites.length, SITES.length); assert.equal(instruments.length, INSTRUMENTS.length)
+    assert.deepEqual(instruments.map((p) => p.name), INSTRUMENTS.map((p) => p.name))
+    for (const p of [...sites, ...instruments]) {
+      // Within 6 m of the marker: where you stand to pick up or deploy.
+      let local = 0
+      for (const [dx, dz] of [[0, 0], [6, 0], [-6, 0], [0, 6], [0, -6]]) local = Math.max(local, t.slope(p.x + dx, p.z + dz))
+      assert.ok(local < 0.2, `${id} site (${p.x}, ${p.z}) sits on a ${(Math.atan(local) * 180 / Math.PI).toFixed(0)} degree slope`)
+      let worst = 0
+      for (let k = 1; k <= 80; k++) worst = Math.max(worst, t.slope(p.x * k / 80, p.z * k / 80))
+      assert.ok(worst < 0.3, `${id}: the line to (${p.x}, ${p.z}) crosses a ${(Math.atan(worst) * 180 / Math.PI).toFixed(0)} degree slope`)
+    }
+    for (const p of sites) assert.ok(Math.hypot(p.x, p.z) < 110, `${id}: samples are a walk from the pad`)
+    for (const p of instruments) { const d = Math.hypot(p.x, p.z); assert.ok(d > 150 && d < 380, `${id}: instruments are a drive out (${d.toFixed(0)} m)`) }
+  }
+})
 for (const id of Object.keys(REGIONS)) {
   check(`${id}: the rover drives a full instrument circuit on its own battery`, () => {
     const s = createExpedition(id)
@@ -128,7 +151,7 @@ for (const id of Object.keys(REGIONS)) {
     assert.ok(deployRover(s))
     s.mode = 'rover'
     let distance = 0
-    for (const site of INSTRUMENTS) {
+    for (const site of instrumentsFor(id)) {
       const keys = {}
       for (let i = 0; i < 120 * 900; i++) {
         const r = s.rover
@@ -253,7 +276,7 @@ check('campaign progression is sequential and persisted records reject invalid f
   assert.equal(CAMPAIGN.length, 3); assert.equal(expeditionRecord().version, 1)
 })
 check('surface jumps are gravity-driven and cannot collect airborne samples', () => {
-  const s = createExpedition('europa'); s.mode = 'eva'; s.walker.x = SITES[0].x; s.walker.z = SITES[0].z; s.walker.y = terrainFor(s.id).height(s.walker.x, s.walker.z)
+  const s = createExpedition('europa'); s.mode = 'eva'; s.walker.x = sitesFor('europa')[0].x; s.walker.z = sitesFor('europa')[0].z; s.walker.y = terrainFor(s.id).height(s.walker.x, s.walker.z)
   const floor = s.walker.y, keys = { jump: true }; let peak = floor
   for (let i = 0; i < 120 * 5; i++) { stepExpedition(s, keys); peak = Math.max(peak, s.walker.y); if (i === 5) assert.equal(interact(s), false) }
   // The take-off speed is the walk model's (a 0.40 m standing jump on Earth), not a constant of this file.
@@ -310,6 +333,38 @@ check('the feet push only as hard as friction allows, and not at all in the air'
   Object.assign(air.walker, { x: 0, z: 200, y: t.height(0, 200) + 1, vx: 0.5, vy: 1, vz: 0, yaw: 0, ground: false })
   stepExpedition(air, { forward: true, left: true })
   assert.equal(air.walker.vx, 0.5); assert.equal(air.walker.vz, 0)
+})
+/*
+ * Solid hardware. Before this, a walker could stroll through the lander's
+ * legs and stand inside the engine bell, and the rover could drive through
+ * the descent stage. Both are held to the circles in SOLID.
+ */
+check('a walker cannot walk into the landed vehicle, nor a rover drive through it', () => {
+  for (const id of ['moon', 'mars']) {
+    const s = createExpedition(id)
+    const t = terrainFor(id)
+    // Land it: put it on the ground at the pad and mark it down.
+    Object.assign(s, { x: 0, z: 0, y: t.height(0, 0) + VEHICLE.clearance, vx: 0, vy: 0, vz: 0, landed: true, yaw: 0.4 })
+    s.mode = 'eva'
+    // Walk straight at the lander's centre from 12 m east, for 40 s.
+    Object.assign(s.walker, { x: 12, z: 0, y: t.height(12, 0), vx: 0, vy: 0, vz: 0, yaw: -Math.PI / 2, ground: true })
+    let closest = Infinity
+    for (let i = 0; i < 120 * 40; i++) { stepExpedition(s, { forward: true }); closest = Math.min(closest, Math.hypot(s.walker.x - s.x, s.walker.z - s.z)) }
+    assert.ok(closest >= SOLID.landerBody + SOLID.walker - 1e-6, `${id}: walker reached ${closest.toFixed(2)} m from the lander centre`)
+    // And between the legs on the diagonal, where a footpad stands.
+    const c = Math.cos(s.yaw), sn = Math.sin(s.yaw)
+    const padX = s.x + SOLID.footpadAt * c + SOLID.footpadAt * sn, padZ = s.z - SOLID.footpadAt * sn + SOLID.footpadAt * c
+    Object.assign(s.walker, { x: padX + 6, z: padZ, y: t.height(padX + 6, padZ), vx: 0, vy: 0, vz: 0, yaw: -Math.PI / 2, ground: true })
+    let nearPad = Infinity
+    for (let i = 0; i < 120 * 12; i++) { stepExpedition(s, { forward: true }); nearPad = Math.min(nearPad, Math.hypot(s.walker.x - padX, s.walker.z - padZ)) }
+    assert.ok(nearPad >= SOLID.footpad + SOLID.walker - 1e-6, `${id}: walker reached ${nearPad.toFixed(2)} m from a footpad`)
+    // Drive the rover straight at it too.
+    s.mode = 'rover'
+    s.rover = { x: 20, z: 0, y: t.height(20, 0) + ROVER.clearance, vx: 0, vz: 0, yaw: -Math.PI / 2, speed: 0, battery: 1, odometer: 0 }
+    let roverClosest = Infinity
+    for (let i = 0; i < 120 * 30; i++) { stepExpedition(s, { forward: true }); roverClosest = Math.min(roverClosest, Math.hypot(s.rover.x - s.x, s.rover.z - s.z)) }
+    assert.ok(roverClosest >= SOLID.landerBody + SOLID.roverSelf - 1e-6, `${id}: rover reached ${roverClosest.toFixed(2)} m`)
+  }
 })
 check('mode links round-trip, invalid destinations fall home, and locked campaign links are guarded', () => {
   assert.deepEqual(experienceFromHash('#flight'), { mode: 'simulator' })

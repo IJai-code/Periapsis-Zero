@@ -4,7 +4,7 @@ import { armHaloCaptureInBackground, currentPhase, mission } from './mission.js'
 import { director, updateDirector } from './director.js'
 import { ACTIVE_VESSEL } from './vessels.js'
 import { activeSite } from './launchsite.js'
-import { live } from './live.js'
+import { live, resetSimulation } from './live.js'
 import { nodes } from './nodes.js'
 import { WARP } from './warp.js'
 
@@ -356,6 +356,21 @@ export function startPreset(preset) {
    * its wing gates, and the broadcast flies a mission nobody planned.
    */
   disarmProgram()
+  /*
+   * Every preset runs on the epoch clock it was designed on.
+   *
+   * A preset's `launchHour` is a statement about the sky, measured at J2000:
+   * Apollo 8's 5 h is the Sun 38 degrees up over Kennedy, Apollo 11's
+   * 305.29 h is the Sun 21.8 degrees over Tranquility Base, Vandenberg's 144 h
+   * is an orbit that has to be raised before its window. When the page started
+   * booting at the real current time (2fd21cc), those hours began counting
+   * from *today* instead, so the two ground presets opened at night on a black
+   * pad and an unlit Moon, and the loiter preset waited on a different sky.
+   * Nothing caught it because the gates run under Node, where the boot instant
+   * is still J2000. The live clock is right for the sandbox; a preset is a
+   * scenario, so it puts the clock back where its numbers were measured.
+   */
+  resetSimulation(0)
   const arrived = preset.fromPad
     ? standOnPad(preset.launchHour ?? 0)
     : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })

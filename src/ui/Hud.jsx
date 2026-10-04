@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { subscribeUiTick } from './uiClock.js'
 import { Observatory } from './Observatory.jsx'
 import { takePhotograph } from '../components/Photograph.jsx'
@@ -7,8 +7,8 @@ import { TRANSIT } from '../gfx/transit.js'
 import { SearchBar } from './SearchBar.jsx'
 import { FlyHud } from './FlyHud.jsx'
 import { WalkHud, WalkPrompt } from './WalkHud.jsx'
+import { DeviceNotice } from './DeviceNotice.jsx'
 import { ProgramStrip } from './ProgramStrip.jsx'
-import { SetupDrawer } from './Setup.jsx'
 import { TimeControls } from './TimeControls.jsx'
 import { Telemetry } from './Telemetry.jsx'
 import { ShipTelemetry } from './ShipTelemetry.jsx'
@@ -21,15 +21,24 @@ import { LogProgress, Logbook } from './Logbook.jsx'
 import { Commentary } from './Commentary.jsx'
 import { Mark } from './Mark.jsx'
 import { Nav } from './Nav.jsx'
-import { Boards } from './Boards.jsx'
 import { Hotbar, VIEW_KEYS } from './Hotbar.jsx'
 import { Contacts } from './Contacts.jsx'
 import { Notices } from './Notices.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
-import { BroadcastHud } from './Broadcast.jsx'
+import { COSMIC } from '../sim/cosmic.js'
 import { setUi, useUi, WARP_LEVELS, uiStore } from '../sim/store.js'
 import { live } from '../sim/live.js'
 import { prediction } from '../sim/predict.js'
+
+/*
+ * Panels that open on demand load on demand: the settings drawer, the boards
+ * and the TV view are a few hundred milliseconds of parsing nobody needs
+ * before the first frame, so each is its own chunk, fetched the first time it
+ * opens.
+ */
+const SetupDrawer = lazy(() => import('./Setup.jsx').then((m) => ({ default: m.SetupDrawer })))
+const Boards = lazy(() => import('./Boards.jsx').then((m) => ({ default: m.Boards })))
+const BroadcastHud = lazy(() => import('./Broadcast.jsx').then((m) => ({ default: m.BroadcastHud })))
 
 /**
  * Camera modes the map cannot use.
@@ -112,6 +121,7 @@ export function Hud({ onLibrary }) {
   const open = useUi((s) => s.panelOpen)
   /** The setup drawer: missions, contracts, pad, craft, display, one key, S. */
   const setup = useUi((s) => s.setup)
+  const boardsOpen = useUi((s) => Boolean(s.boards))
   /**
    * On foot, the cockpit folds away.
    *
@@ -128,6 +138,7 @@ export function Hud({ onLibrary }) {
   // A photograph is of the scene, not of the instruments over it.
   const photo = useUi((s) => s.photo)
   const focus = useUi((s) => s.focus)
+  const deepSky = COSMIC[focus] !== undefined
   const [menu, setMenu] = useState(false)
   const pauseBeforeMenu = useRef(true)
   const [shared, setShared] = useState(false)
@@ -239,7 +250,7 @@ export function Hud({ onLibrary }) {
     top of it: a feed with panels printed over it is neither. The key handler
     above stays live in both, so the number keys cut between cameras here too.
   */
-  if (broadcast) return <><BroadcastHud />{modeMenu}</>
+  if (broadcast) return <><Suspense fallback={null}><BroadcastHud /></Suspense>{modeMenu}</>
 
   /*
    * While the shutter is open there is no interface: the panels are what a
@@ -270,7 +281,7 @@ export function Hud({ onLibrary }) {
         window is a panel like any other and folds with the cockpit.
       */}
       <Nav onMap={toggleMap} onLogbook={() => setLogbook(true)} onLibrary={onLibrary} />
-      {!onFoot && <Boards />}
+      {boardsOpen && !onFoot && <Suspense fallback={null}><Boards /></Suspense>}
       {/*
         The bottom clearance, measured from the bottom stack up. The stack is
         bottom-anchored and now four rows deep: the view hotbar (48 px) under
@@ -346,7 +357,7 @@ export function Hud({ onLibrary }) {
           beneath it, rendered from the same elements rather than a second
           copy: two layouts of one panel set is one edit away from disagreeing.
         */}
-        {setup && !onFoot && <SetupDrawer />}
+        {setup && !onFoot && <Suspense fallback={null}><SetupDrawer /></Suspense>}
         {setup && narrow && open && !onFoot && (
           <div className="pointer-events-auto flex flex-col gap-3">{instruments}</div>
         )}
@@ -400,10 +411,11 @@ export function Hud({ onLibrary }) {
       {/* Outside the panel toggle on purpose: it is the mode's own instructions,
           and a mode whose controls are only documented behind a hidden panel is
           a mode nobody finds. */}
-      <div className="absolute bottom-4 left-4">
+      <div className="absolute bottom-4 left-4 flex flex-col items-start gap-2">
         <FlyHud />
         <WalkHud />
         <WalkPrompt />
+        <DeviceNotice />
       </div>
 
       {/*
@@ -426,8 +438,10 @@ export function Hud({ onLibrary }) {
         means neither can reach the other however either one grows.
       */}
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
-        <GoForLaunch />
-        <Commentary />
+        {/* Twenty-six thousand light years out, a pad prompt is not about
+            anything on screen; both come back with the solar system. */}
+        {!deepSky && <GoForLaunch />}
+        {!deepSky && <Commentary />}
         <TimeControls />
         <div className="flex items-center gap-1">
           <button

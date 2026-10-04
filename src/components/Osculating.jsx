@@ -9,7 +9,7 @@ import { SAMPLES, packPolyline } from '../sim/predict.js'
 import { dominantBody, soiRadius } from '../sim/soi.js'
 import { INDEX } from '../sim/system.js'
 import { useUi } from '../sim/store.js'
-import { FREE_FALL_G, freeFall, underSky } from '../gfx/instruments.js'
+import { freeFall, onPad, underSky } from '../gfx/instruments.js'
 
 /**
  * The osculating conic: the orbit the craft would keep if every body but the
@@ -124,7 +124,7 @@ export function Osculating() {
        * conic to draw, and from inside a sky there is nowhere to draw it —
        * see gfx/instruments.js.
        */
-      g.visible = freeFall() && !underSky() && draw()
+      g.visible = freeFall() && !underSky() && !onPad() && draw()
     }
     g.position.copy(live.pos[body.current])
   }, -2)

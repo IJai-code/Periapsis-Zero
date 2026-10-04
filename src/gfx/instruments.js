@@ -1,5 +1,6 @@
 import { live } from '../sim/live.js'
 import { ship } from '../sim/ship.js'
+import { currentPhase } from '../sim/mission.js'
 
 /**
  * When the pilot's instruments belong in the frame, and when they are scratches
@@ -74,3 +75,15 @@ export const FREE_FALL_G = 0.1
 
 /** Is the craft falling freely, so that a conic about one body means anything? */
 export const freeFall = () => nonGravityG() < FREE_FALL_G
+
+/**
+ * Is the vehicle still held on its pad?
+ *
+ * A clamped vehicle is not on an orbit at all: projected ballistically from the
+ * pad its "path" dives into the planet at once, so the predicted line, its
+ * apsis tags and the osculating label all collapse onto the launch site and
+ * pile up as overlapping text in the middle of the planet. Measured on the
+ * simulator's opening view at T-10 s, the tags read "RP" and "OSCULATING"
+ * stacked over each other on Terra. There is nothing to draw until release.
+ */
+export const onPad = () => Boolean(currentPhase()?.clamped)

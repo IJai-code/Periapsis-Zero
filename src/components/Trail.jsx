@@ -19,6 +19,8 @@ import { underSky } from '../gfx/instruments.js'
  * interleaved buffers on every call, which is not something to do per frame.
  */
 const MIN_SAMPLES_PER_ORBIT = 16
+/** Milliseconds of backwards integration a trail may spend per frame while it seeds. */
+const SEED_BUDGET_MS = 3
 
 export function Trail({
   body,
@@ -57,6 +59,15 @@ export function Trail({
    * about what is happening.
    */
   inSky = false,
+  /**
+   * Fade the trail out when the camera is closer than this to its body, in
+   * metres. A heliocentric orbit seen from beside its own planet is a straight
+   * line drawn through the globe (the curve is a year across; from 30,000 km
+   * none of it bends), which reads as a glitch over the most-watched view in
+   * the product. Out past a few lunar distances the curve resolves and the
+   * trail returns. Zero leaves the trail on at every range.
+   */
+  nearFade = 0,
 }) {
   const size = useThree((s) => s.size)
   const group = useRef()
@@ -115,40 +126,60 @@ export function Trail({
   }, [line])
 
   // Seed the buffer by running a copy of the system *backwards*. The trail is
-  // therefore real integrated history from the first frame, not an empty line
-  // that takes a simulated year to draw itself in.
+  // therefore real integrated history from the first frame it shows, not an
+  // empty line that takes a simulated year to draw itself in.
+  //
+  // The history is integrated a few milliseconds per frame, not all at once.
+  // Earth's trail is most of a year, and integrating it in one go stalled the
+  // page for 1.6 s on an M4 the moment the trails came on (three trails, three
+  // stalls), which on slower machines was the lag people reported. Spread out,
+  // the same steps take a handful of frames and the line appears when its
+  // history is complete; nothing about the drawn path changes.
+  const seeding = useMemo(() => ({ clone: null, i: -1, t0: 0, a: new THREE.Vector3(), b: new THREE.Vector3() }), [])
   const seed = useCallback(() => {
-    const clone = live.sim.clone()
-    const a = new THREE.Vector3()
-    const b = new THREE.Vector3()
-    for (let i = points - 1; i >= 0; i--) {
+    if (!seeding.clone) {
+      seeding.clone = live.sim.clone()
+      seeding.i = points - 1
+      seeding.t0 = live.sim.t
+    }
+    const { clone, a, b } = seeding
+    const until = performance.now() + SEED_BUDGET_MS
+    while (seeding.i >= 0) {
+      const i = seeding.i
       readPosition(clone.state, INDEX[body], a)
       readPosition(clone.state, INDEX[reference], b)
       a.sub(b)
       buffer[i * 3] = a.x
       buffer[i * 3 + 1] = a.y
       buffer[i * 3 + 2] = a.z
-      clone.advance(-interval)
+      seeding.i--
+      if (seeding.i >= 0) clone.advance(-interval)
+      if (performance.now() > until) break
     }
+    if (seeding.i >= 0) return false
+    seeding.clone = null
     cursor.head = points - 1
-    cursor.last = live.sim.t
+    cursor.last = seeding.t0
     cursor.seeded = true
-  }, [body, reference, interval, points, buffer, cursor])
+    return true
+  }, [body, reference, interval, points, buffer, cursor, seeding])
 
   // Hidden presentation trails need no backwards integration at startup.
-  useEffect(() => { cursor.seeded = false }, [seed, cursor])
+  useEffect(() => { cursor.seeded = false; seeding.clone = null }, [seed, cursor, seeding])
 
   const rel = useMemo(() => new THREE.Vector3(), [])
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     group.current.position.copy(live.pos[reference])
+    const near = nearFade > 0 ? THREE.MathUtils.smoothstep(camera.position.distanceTo(live.pos[body]), nearFade * 0.4, nearFade) : 1
+    line.material.opacity = near
 
     // A trail can only sample once per frame, so under heavy time compression a
     // fast orbit collapses to a handful of points a quarter-revolution apart —
     // a jagged polygon that misrepresents the path rather than showing it. Below
     // roughly sixteen samples per revolution, draw nothing.
     const resolvable = live.simDtLastFrame * MIN_SAMPLES_PER_ORBIT <= period
-    const shown = visible && resolvable && (inSky || !underSky())
+    const shown = visible && resolvable && near > 0.01 && (inSky || !underSky())
     line.visible = shown
     // Hidden is not stopped: the ring keeps filling, so a trail that comes
     // back at 40 km comes back with the history it would have had.
@@ -161,7 +192,13 @@ export function Trail({
     // rather than drawing a chord across the gap. A merely large forward step is
     // normal at high time warp and just samples more coarsely.
     if (!cursor.seeded || elapsed < -interval || elapsed > interval * points) {
-      seed()
+      // A seed in progress that the clock has jumped away from starts over.
+      if (seeding.clone && (live.sim.t < seeding.t0 - interval || live.sim.t - seeding.t0 > interval * points)) seeding.clone = null
+      cursor.seeded = false
+      if (!seed()) {
+        line.visible = false
+        return
+      }
     } else if (elapsed >= interval) {
       cursor.head = (cursor.head + 1) % points
       rel.copy(live.pos[body]).sub(live.pos[reference])

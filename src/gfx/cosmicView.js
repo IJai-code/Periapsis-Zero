@@ -20,5 +20,7 @@ export const VIEW = {
   catalogueSky: 1,
   /** Photographic exposure for extended light, 1 inside the disc. */
   exposure: 1,
+  /** The sky bake's metered exposure: 1 from the Sun, lower where the band would clip. */
+  skyGain: 1,
   frame: 0,
 }

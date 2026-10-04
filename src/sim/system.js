@@ -236,6 +236,20 @@ export function createSimulation(t = 0) {
   const masses = BODY_ORDER.map((id) => BODIES[id]?.mass ?? 0)
   const sim = new RK4NBody(masses, buildInitialState(t), MASSIVE_COUNT)
   sim.epochMs = J2000_MS
+  /*
+   * The clock reads the instant the state was built for.
+   *
+   * It did not. `buildInitialState(t)` placed every body at `t` and the
+   * integrator's own clock stayed at 0, so the real-time boot drew today's sky
+   * on a clock reading 1 January 2000: Earth turned to its J2000 hour angle
+   * under today's Sun, the Moon's body frame faced its J2000 libration, the
+   * rails refreshed planets back toward J2000, and the date on screen said
+   * 2000. Measured: createSimulation for 3 October 2026 reported
+   * 2000-01-01T12:00Z. The clock gate checked the spin with the true instant
+   * passed in by hand, never with the instant the simulation itself carried,
+   * which is how a passing gate and a wrong sky coexisted.
+   */
+  sim.t = t
   // A craft can genuinely fly into a planet, unlike the planets themselves.
   // Softening only the test-particle tier keeps the 1/r^2 singularity from
   // producing NaN without touching the planetary solution.

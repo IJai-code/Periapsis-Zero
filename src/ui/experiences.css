@@ -76,11 +76,12 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .chapter-button.selected > span { color: var(--signal); }
 .campaign-save-note { font-size: 10px; line-height: 1.8; color: #f4e8cf; margin-top: 28px; }
 .chapter-dossier { border: 1px solid var(--line); background: #120b22; }
-.dossier-art { position: relative; height: 160px; overflow: hidden; background: radial-gradient(ellipse at 25% 100%, #f4e8cf45 0, #f4e8cf12 26%, transparent 62%), #120b22; }
-.dossier-art.mars { background: radial-gradient(ellipse at 30% 120%, #ff6b2c80 0, #ff6b2c30 40%, #120b22 88%); }
-.dossier-art.europa { background: repeating-linear-gradient(135deg, transparent 0 40px, #f4e8cf34 41px 44px, transparent 45px 81px), #120b22; }
-.dossier-art > span { position: absolute; right: 25px; bottom: -25px; font-family: var(--font-mono); font-size: 150px; line-height: 1; font-weight: 700; color: #f4e8cf12; }
-.dossier-orbit { position: absolute; width: 410px; height: 410px; border-radius: 50%; border: 1px solid #f4e8cf45; left: -30px; top: 28px; }
+.dossier-art { position: relative; height: 260px; overflow: hidden; background: #120b22; }
+/* A frame from the game itself (scripts/stills.mjs), faded into the dossier below it. */
+.dossier-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 62%; transition: filter .4s; }
+.dossier-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #120b2200 45%, #120b22 100%); }
+.dossier-art.locked img { filter: grayscale(.85) brightness(.55); }
+.dossier-art > span { position: absolute; z-index: 1; right: 25px; bottom: -18px; font-family: var(--font-mono); font-size: 96px; line-height: 1; font-weight: 700; color: #f4e8cf1c; }
 .dossier-content { padding: 32px 38px; }
 .dossier-content h2 { font-size: 36px; font-weight: 500; letter-spacing: -.04em; line-height: 1.15; margin: 12px 0 22px; }
 .briefing-contact { display: flex; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding-top: 20px; }
@@ -107,8 +108,9 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .objective-card { position: absolute; top: 110px; left: 28px; padding: 15px 18px; border-left: 2px solid var(--signal); background: #120b22c2; max-width: 360px; }
 .objective-card .eyebrow { color: var(--paper); font-size: 10px; }
 .objective-card p { font-size: 12px; line-height: 1.5; margin: 8px 0 16px; color: #ff6b2c; }
-.objective-stages { display: flex; gap: 18px; font-size: 10px; color: #f4e8cf; }
-.objective-stages .done { color: var(--signal); }
+.objective-stages { display: flex; gap: 18px; font-size: 10px; color: #f4e8cf73; list-style: none; margin: 0; padding: 0; }
+.objective-stages .done { color: #f4e8cfb3; }
+.objective-stages .now { color: var(--signal); }
 .surface-provenance { position: absolute; right: 28px; top: 110px; font-size: 9px; text-align: right; color: #f4e8cf; text-shadow: 0 1px 4px #120b22; }
 .surface-provenance span { display: block; margin-top: 5px; }
 .flight-dashboard { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); width: min(850px, calc(100% - 48px)); }
@@ -151,7 +153,7 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
   .front-hero { margin: 50px 22px 44px; } .front-hero h1 { font-size: 51px; } .front-hero p { font-size: 13px; } .hero-actions { gap: 15px; flex-wrap: wrap; } .hero-actions > span { font-size: 10px; } .desktop-break { display: none; }
   .mode-choices { grid-template-columns: 1fr; margin-inline: 22px; background: #120b22e6; } .mode-choice, .mode-choice:first-child { border-right: 0; border-bottom: 1px solid var(--line); padding: 25px 0; } .mode-choice:last-child { border-bottom: 0; } .mode-choice h2 { font-size: 28px; margin-top: 18px; } .mode-choice p { font-size: 12px; max-width: none; } .mode-choice-label > span:last-child { display: block; } .front-footer { margin-inline: 22px; font-size: 9px; }
   .campaign-layout { display: block; margin: 30px 22px; } .chapter-list h1 { font-size: 43px; } .chapter-list nav { display: flex; border-top: 0; gap: 5px; margin: 24px 0; } .chapter-button { padding: 13px 9px; gap: 8px; border: 1px solid var(--line); align-items: start; } .chapter-button > span:last-child { display: none; } .chapter-button strong { font-size: 11px; } .chapter-button small { font-size: 8px; line-height: 1.6; } .chapter-button > span { font-size: 9px; } .campaign-save-note { display: none; } .campaign-screen .mode-header > span:last-child { font-size: 9px; } .campaign-screen .mode-header > span:nth-child(2) { display: none; }
-  .dossier-art { height: 120px; } .dossier-content { padding: 24px 20px; } .dossier-content h2 { font-size: 31px; } .briefing-text { font-size: 13px; } .briefing-contact > span:last-child { display: none; } .chapter-start { flex-wrap: wrap; }
+  .dossier-art { height: 170px; } .dossier-content { padding: 24px 20px; } .dossier-content h2 { font-size: 31px; } .briefing-text { font-size: 13px; } .briefing-contact > span:last-child { display: none; } .chapter-start { flex-wrap: wrap; }
   .expedition-header { padding: 15px; gap: 14px; } .expedition-header h1 { font-size: 16px; } .expedition-header h1 span { display: none; } .expedition-header .eyebrow { font-size: 8px; } .expedition-header .region-tag { font-size: 9px; } .expedition-header button span { display: none; }
   .objective-card { left: 15px; top: 83px; padding: 12px 14px; max-width: calc(100% - 30px); } .objective-card .eyebrow { font-size: 9px; } .objective-card p { font-size: 11px; margin-bottom: 10px; } .surface-provenance { display: none; }
   .flight-dashboard { bottom: 15px; width: calc(100% - 30px); } .flight-instruments { grid-template-columns: repeat(4, 1fr); padding: 12px 0; } .flight-readout, .fuel-readout { padding: 0 9px; } .flight-readout > span, .fuel-readout > span { font-size: 8px; } .flight-readout strong, .fuel-readout strong { font-size: 16px; } .flight-readout small { font-size: 8px; margin-left: 3px; } .fuel-readout { border-right: 0; } .throttle-control { display: none; } .flight-actions { flex-wrap: wrap; gap: 6px; } .flight-actions .action-button { font-size: 10px; min-height: 40px; padding: 9px 12px; } .keyboard-hint { display: none; } .flight-message { font-size: 10px; text-align: left; margin-bottom: 9px; }
@@ -162,3 +164,31 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 }
 @media (pointer: coarse) and (min-width: 701px) { .touch-pilot { display: flex; position: absolute; bottom: 195px; left: 25px; right: 25px; justify-content: space-between; align-items: end; } .touch-direction > button { display: block; margin: 0 auto 4px; } .touch-direction > div { display: flex; gap: 4px; } .touch-pilot > div:last-child { display: flex; gap: 4px; } }
 @media (max-height: 500px) and (max-width: 950px) { .objective-card { top: 75px; padding: 8px 12px; } .objective-stages { display: none; } .objective-card p { margin: 5px 0; } .expedition-header { padding-block: 10px; } .flight-dashboard { width: min(580px, calc(100% - 170px)); bottom: 8px; } .flight-instruments { padding: 8px 0; } .flight-readout strong { font-size: 16px; } .flight-message { display: none; } .flight-actions { margin-top: 6px; } .touch-pilot { bottom: 12px; } .touch-pilot > div:last-child { flex-direction: column; } .surface-provenance, .keyboard-hint { display: none; } }
+
+/* Where to go next: an arrow relative to the way you face, not a compass bearing. */
+.objective-target { display: flex; gap: 14px; align-items: center; margin: 10px 0 14px; }
+.objective-target p { margin: 0; color: var(--paper); font-size: 13px; line-height: 1.45; }
+.objective-target strong { color: #ff6b2c; font-weight: 500; }
+.objective-arrow { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 1px solid #ff6b2c; border-radius: 50%; color: #ff6b2c; font-size: 22px; line-height: 1; transition: transform 120ms linear; }
+.objective-card p { color: var(--paper); font-size: 13px; }
+.keyboard-hint { font-size: 11px; }
+.eva-strip > span:last-child { font-size: 11px; }
+
+/* The first-run card. */
+.howto-steps { margin: 6px 0 18px; padding-left: 20px; display: grid; gap: 12px; font-size: 14px; line-height: 1.6; color: var(--paper); }
+.howto-steps strong { color: #ff6b2c; font-weight: 500; }
+.howto-steps em, .howto-note em { font-style: normal; color: var(--paper); border-bottom: 1px solid #f4e8cf55; }
+.howto-note { font-size: 13px !important; color: var(--muted) !important; }
+.expedition-modal kbd { display: inline-block; min-width: 1.6em; margin: 0 2px; padding: 0 5px; border: 1px solid #f4e8cf55; border-bottom-width: 2px; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; text-align: center; color: var(--paper); }
+.front-footer a { color: var(--signal); text-decoration: underline; text-underline-offset: 2px; }
+
+/* The canvas takes focus on click so keys reach it; it is not a control and wears no ring. */
+.expedition-screen canvas:focus, .expedition-screen canvas:focus-visible { outline: none; }
+
+/* Front page: the selected world, as the game draws it, and the story's three. */
+.world-preview { position: relative; height: 128px; margin: 4px 0 16px; overflow: hidden; border: 1px solid var(--line); background: #120b22; }
+.world-preview img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; opacity: 0; transition: opacity .35s; }
+.world-preview img.shown { opacity: 1; }
+.story-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; height: 128px; margin: 4px 0 16px; }
+.story-strip img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; border: 1px solid var(--line); }
+@media (max-width: 700px) { .world-preview, .story-strip { height: 96px; } }

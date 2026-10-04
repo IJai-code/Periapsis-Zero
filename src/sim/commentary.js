@@ -48,15 +48,15 @@ function raiseLine() {
   if (!lo.planned) return 'The flight computer is still working out whether this orbit will last.'
   if (!lo.needed) {
     return (
-      `This orbit outlives its wait on its own, ${hours(lo.lifetime)} of life against ` +
-      `${hours(lo.wait)} of waiting, so nothing needs to be done to it.`
+      `This orbit lasts ${hours(lo.lifetime)}, longer than the ${hours(lo.wait)} wait for ` +
+      `the Moon, so no burns are needed.`
     )
   }
   const dv = (lo.dv1 + lo.dv2).toFixed(1)
   return (
-    `This orbit would come down before its window opens: ${hours(lo.lifetime)} of life against ` +
-    `${hours(lo.wait)} of waiting. So the computer has planned two burns, ${dv} m/s in total, ` +
-    `to raise it just enough that it decays back to this altitude exactly as the window arrives.`
+    `This orbit would decay in ${hours(lo.lifetime)}, but the launch window to the Moon is ` +
+    `${hours(lo.wait)} away. So the computer has planned two small burns, ${dv} m/s in total, ` +
+    `to raise the orbit just enough to last until then.`
   )
 }
 
@@ -72,92 +72,79 @@ export const COMMENTARY = {
     const clock = t > 0 ? `T−${t.toFixed(1)} s. ` : 'Clamps released. '
     if (!mission.groundSequence) {
       return (
-        `${clock}On the pad, held down, with the world turning underneath. The launch window is ` +
-        `set by where the Moon will be when the vehicle arrives, not by where it is now.`
+        `${clock}On the pad, held down by clamps. The launch time is set by where the Moon will be ` +
+        `when the ship gets there, not where it is now.`
       )
     }
     switch (stageOfCount(mission.t)) {
       case 'ignition':
         return (
-          `${clock}Ignition, with the vehicle still held down. The engines come up to thrust ` +
-          `over a couple of seconds, and the hold-downs keep it on the pad until all of them ` +
-          `have: if one does not, it can still be shut down here, and nowhere after.`
+          `${clock}Ignition. The clamps hold the rocket down while the engines reach full thrust. ` +
+          `If one engine fails now, it can still be shut down safely.`
         )
       case 'deluge':
         return (
-          `${clock}Sound suppression. Water floods the pad and the flame trench, because the ` +
-          `noise of the engines reflecting off concrete is loud enough to damage the vehicle ` +
-          `it is launching. The water absorbs it; what comes off the trench next is steam.`
+          `${clock}Water floods the pad. Engine noise bouncing off the concrete is loud enough to ` +
+          `damage the rocket, and the water soaks it up. The white cloud you see next is steam.`
         )
       case 'arms':
         return (
-          `${clock}The swing arms are pulling back. They carried propellant, power and air to ` +
-          `the vehicle until a moment ago, and they have to be clear of it before it moves.`
+          `${clock}The tower's arms swing away. They fed the rocket fuel, power and air until now, ` +
+          `and must be clear before it moves.`
         )
       default:
         return (
-          `${clock}Fuelled and holding. The white plumes off the side are liquid oxygen boiling ` +
-          `away at −183 °C and being vented, cold enough that the vapour is heavier than air ` +
-          `and falls down the vehicle rather than rising off it.`
+          `${clock}Fuelled and waiting. The white vapour is liquid oxygen at −183 °C boiling off. ` +
+          `It is so cold it sinks down the side of the rocket instead of rising.`
         )
     }
   },
 
   LIFTOFF: () =>
-    'Full thrust against a vehicle that is mostly propellant. It climbs slowly at first because ' +
-    'it is heaviest at the moment it has the least speed to show for it.',
+    'Liftoff. The rocket is mostly fuel right now, so it is at its heaviest and climbs slowly. ' +
+    'It speeds up as the fuel burns away.',
 
   PITCH_KICK: () =>
-    'A few degrees off vertical, deliberately. Everything after this is the vehicle falling ' +
-    'around the planet rather than being held up by its engines.',
+    'The rocket tips a few degrees on purpose. From here it starts curving over toward orbit.',
 
   GRAVITY_TURN: () =>
-    `Thrust stays along the vehicle's own axis and gravity does the steering, the trajectory ` +
-    `bends by being pulled, not by being flown. Now ${km(live.elements.altitude)} up at ` +
-    `${(live.elements.speed / 1000).toFixed(2)} km/s.`,
+    `Gravity turn: gravity slowly bends the path over toward horizontal. ` +
+    `Now ${km(live.elements.altitude)} up at ${(live.elements.speed / 1000).toFixed(2)} km/s.`,
 
   STAGING: () =>
-    'The spent stage is dropped because carrying an empty tank costs the same as carrying a full ' +
-    'one. Every kilogram released here is a kilogram the next engine does not have to accelerate.',
+    'Staging. The empty stage drops away so the next engine has less weight to push.',
 
   MECO: () =>
-    'Engine cutoff. The vehicle is now on a ballistic arc, it will coast up to the top of that ' +
-    'arc with no thrust at all, because thrust spent at the bottom of an orbit is wasted.',
+    'Engine off. The ship now coasts up to the top of its arc with no thrust.',
 
   COAST_TO_APOAPSIS: () =>
-    `Falling upward. It reaches the top of the arc in ` +
-    `${hours(live.elements.timeToApoapsis)}, and the circularising burn happens there because ` +
-    `that is where the orbit is cheapest to change.`,
+    `Coasting up. It reaches the top of the arc in ${hours(live.elements.timeToApoapsis)}, ` +
+    `where one more burn will turn the arc into an orbit.`,
 
   CIRCULARISE: () =>
-    'Burning horizontally at the top of the arc. Without this the vehicle comes straight back ' +
-    'down, the arc it is on still has its low point inside the atmosphere.',
+    'Burning sideways at the top of the arc. Without this burn the ship would fall back into the ' +
+    'atmosphere.',
 
   COAST: () =>
-    `A closed parking orbit: ${km(live.elements.perigee)} at its lowest, ` +
-    `${km(live.elements.apogee)} at its highest. From here the mission waits for the geometry ` +
-    `rather than for the vehicle.`,
+    `In orbit: ${km(live.elements.perigee)} at the lowest point, ${km(live.elements.apogee)} at ` +
+    `the highest. Now it waits for the Moon to be in the right place.`,
 
   TLI_ALIGN: raiseLine,
 
   TLI_BURN: () =>
-    'Trans-lunar injection, the burn that stops this being an orbit of Earth. It happens on the ' +
-    'far side from the Moon, because a burn raises the opposite side of an orbit, and the ' +
-    'opposite side is where the Moon has to be met.',
+    'Trans-lunar injection: the big burn that sends the ship to the Moon. It fires on the far side ' +
+    'of Earth from the Moon, because a burn raises the opposite side of the orbit.',
 
   TRANS_LUNAR: () =>
-    `Coasting out, and slowing the whole way: ${(live.elements.speed / 1000).toFixed(3)} km/s now, ` +
-    `against 10.8 at the end of the burn. Earth's gravity is still the thing in charge, and it ` +
-    `will be for most of the crossing.`,
+    `Coasting to the Moon and slowing down: ${(live.elements.speed / 1000).toFixed(3)} km/s now, ` +
+    `down from 10.8 after the burn. Earth's gravity pulls it back most of the way.`,
 
   MCC_SOLVE: () =>
-    'Midcourse targeting. The injection was accurate to a few metres a second, and a few metres a ' +
-    'second three days from the Moon is a miss measured in thousands of kilometres, so the ' +
-    'computer is solving for the correction now, while it is still cheap.',
+    'Checking the aim. A tiny error now becomes a miss of thousands of kilometres at the Moon, ' +
+    'so the computer works out a small fix while it is still cheap.',
 
   MCC_BURN: () =>
-    'A small correction, made early on purpose. The same fix bought closer in would cost many ' +
-    'times as much, because the error has had less distance to grow into.',
+    'A small course correction. Fixing it early costs far less fuel than fixing it later.',
 
   /*
    * `live.lunarRange` is the vehicle's own distance to the Moon. The first
@@ -180,14 +167,12 @@ export const COMMENTARY = {
   },
 
   LOI_ALIGN: () =>
-    'Turning retrograde for lunar orbit insertion. The burn has to fire backwards along the path ' +
-    'to slow the vehicle enough for the Moon to keep it; miss the attitude and the vehicle simply ' +
-    'flies past and comes home.',
+    'Turning backwards to brake. The ship has to slow down enough for the Moon to capture it, ' +
+    'or it flies straight past.',
 
   LOI_BURN: () =>
-    'Braking into lunar orbit, on the far side, out of contact with Earth, which is where this ' +
-    'burn has always had to happen and why the real one was flown on the back of the Moon with ' +
-    'nobody listening.',
+    'Braking into lunar orbit behind the Moon, out of radio contact with Earth, just like the real ' +
+    'Apollo flights.',
 
   /*
    * `live.lunar`, not `live.elements`. The elements on `live` are geocentric,
@@ -198,76 +183,65 @@ export const COMMENTARY = {
    * anything once the Moon is the attractor.
    */
   LUNAR_ORBIT: () =>
-    `In orbit around the Moon: ${km(live.lunar.perigee)} by ${km(live.lunar.apogee)}. No ` +
-    `atmosphere, so nothing decays here, this orbit is stable in a way no low Earth orbit is.`,
+    `In orbit around the Moon: ${km(live.lunar.perigee)} by ${km(live.lunar.apogee)}. With no ` +
+    `air to drag on the ship, this orbit does not decay.`,
 
   TEI_ALIGN: () =>
-    'Turning for trans-Earth injection. The Moon has no atmosphere to help slow anything down, so ' +
-    'leaving costs very nearly what arriving did.',
+    'Turning for the burn home. Leaving the Moon costs about as much fuel as arriving did.',
 
   TEI_BURN: () =>
-    'Burning out of lunar orbit for home. From here the vehicle is on a trajectory that ends in ' +
-    "Earth's atmosphere, and the atmosphere does the rest of the braking for free.",
+    'Burning out of lunar orbit for home. Earth\'s atmosphere will do the rest of the braking.',
 
   TRANS_EARTH: () =>
-    'Falling home, accelerating the whole way. It arrives at the atmosphere at about 11 km/s, ' +
-    'the speed it left Earth with, given back.',
+    'Falling back to Earth and speeding up the whole way. It will hit the atmosphere at about ' +
+    '11 km/s.',
 
   EI_SOLVE: () =>
-    'Solving the entry corridor. Too shallow and the vehicle skips off the atmosphere back into ' +
-    'space; too steep and the deceleration is unsurvivable. The gap between those is about a ' +
-    'degree wide.',
+    'Aiming for the entry corridor. Too shallow and the capsule bounces off the atmosphere; too ' +
+    'steep and the crew could not survive the braking. The safe gap is about one degree wide.',
 
   EI_BURN: () =>
-    'Trimming the corridor. A few metres a second here is the difference between an entry and a ' +
-    'ricochet.',
+    'A small burn to fine-tune the entry angle.',
 
   SM_SEP: () =>
-    'The service module goes, because only the capsule has a heat shield. Everything that is not ' +
-    'behind that shield is about to stop existing.',
+    'The service module is let go. Only the capsule has a heat shield, so only the capsule comes ' +
+    'home.',
 
   RE_ENTRY: () =>
-    `Entry. ${(live.decelG).toFixed(1)} g and ` +
-    `${(live.totalFlux / 1e4).toFixed(0)} W/cm² on the shield, the vehicle is braking against ` +
-    `air, and the heat is the kinetic energy it is getting rid of.`,
+    `Re-entry: ${(live.decelG).toFixed(1)} g of braking and ` +
+    `${(live.totalFlux / 1e4).toFixed(0)} W/cm² of heat on the shield. The glow is the ship's speed ` +
+    `turning into heat.`,
 
   DROGUE: () =>
-    'Drogues out. They are small on purpose: opening a full canopy at this speed would tear it ' +
-    'off, so these slow the capsule to a speed the mains can survive.',
+    'Small drogue parachutes first. A big parachute would tear at this speed.',
 
   MAIN_CHUTES: () =>
-    'Mains. From here it is an ordinary fall at an ordinary speed, which after the last four ' +
-    'minutes is the whole point.',
+    'Main parachutes open. A gentle drop to the ocean from here.',
 
   SPLASHDOWN: () =>
-    'Down. The mission is over; the simulation keeps integrating, because that is what it does ' +
-    'whether or not anyone is flying.',
+    'Splashdown. Mission complete.',
 
   NODE_ALIGN: () => {
     const n = nodes.find((x) => !x.executed)
     return n
       ? `Turning for a planned burn: ${n.dv?.toFixed?.(1) ?? '·'} m/s, in ${hours(n.t - live.sim.t)}. ` +
-          'The computer orients first and lights the engine on the clock, not the other way round.'
+          'The ship turns to face the right way first, then fires on time.'
       : 'Turning for a planned burn.'
   },
 
   NODE_BURN: () =>
-    'Flying a planned burn. The engine is aimed at a fixed direction in space rather than along ' +
-    'the vehicle, so the delta-v arrives where the plan wanted it.',
+    'Flying a planned burn, pointed exactly where the plan needs it.',
 
   HALO_CAPTURE: () =>
-    'Capturing onto a halo orbit, a path that goes around a point where Earth and Moon balance, ' +
-    'rather than around either body. Nothing is holding it there but the two gravities and the ' +
-    'motion between them, which is why it has to be corrected.',
+    'Moving onto a halo orbit: a loop around a balance point between Earth and Moon, not around ' +
+    'either one. It needs small corrections to stay on it.',
 
   NRHO_COAST: () =>
-    'Coasting on the near-rectilinear halo orbit. It is nearly a straight line through perilune ' +
-    'and a long slow arc at the far end, which is what keeps the Gateway in sight of Earth almost ' +
-    'all the time.',
+    'Coasting on the Gateway\'s orbit: a quick swing past the Moon, then a long slow arc far out. ' +
+    'It keeps the station in view of Earth almost all the time.',
 
   NRHO_STATION_KEEP: () =>
-    'Station-keeping. A halo orbit is unstable, errors grow rather than average out, so it has ' +
-    'to be nudged back roughly once a revolution, for a handful of metres a second.',
+    'Station-keeping. This orbit is unstable, so it gets a small nudge about once per loop.',
 
   /* --- Eagle, from Tranquility Base to Columbia --- */
 
