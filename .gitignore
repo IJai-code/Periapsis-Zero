@@ -22,3 +22,7 @@ public/models/*
 # a procedural Moon. Committing the converted output makes the imagery
 # platform-independent and the repository genuinely self-contained.
 public/draco/
+
+# Built by art/*/build.py; the script is the source.
+art/**/*.blend
+art/**/*.blend1
