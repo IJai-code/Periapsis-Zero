@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import * as THREE from 'three'
-import { DRACOLoader, GLTFLoader } from 'three-stdlib'
+import { gltfLoader } from './gltf.js'
 import { MODEL_BY_ID } from './modelsManifest.js'
 
 /**
@@ -33,24 +33,8 @@ function isLoadableType(header) {
   return ACCEPTED_TYPES.has(header.split(';')[0].trim().toLowerCase())
 }
 
-/**
- * One shared loader, built lazily.
- *
- * 22 of the 48 catalogue entries declare KHR_draco_mesh_compression as
- * *required* — Hubble, JWST, the Shuttle, Cassini and Juno among them — so
- * without a Draco decoder attached, nearly half the fleet fails outright with
- * "No DRACOLoader instance provided". The decoder is served from public/draco/
- * rather than a CDN so the app keeps working with no network.
- */
-let loader = null
-
-function getLoader() {
-  if (loader) return loader
-  const draco = new DRACOLoader()
-  draco.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
-  loader = new GLTFLoader().setDRACOLoader(draco)
-  return loader
-}
+/** The page's one glTF loader, Draco attached: see gfx/gltf.js. */
+const getLoader = gltfLoader
 
 /**
  * Which way a model's nose points in its own file, where it breaks glTF's

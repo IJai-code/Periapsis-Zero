@@ -287,7 +287,7 @@ are small and are part of the product, so they are committed.
 - **Compression:** Draco geometry through Blender's own exporter, because the
   runtime already ships the Draco decoder. Textures, when an asset first needs
   them, ship as WebP; KTX2 needs a separate encoder that is not installed
-  (section 4.8).
+  (section 4.9).
 - **No baked lighting.** The scene's sun and the planet's sky light the asset.
 
 ### 4.5 Budgets (starting values; adjust against measurement)
@@ -305,8 +305,9 @@ pixels tall.
 
 ### 4.6 The first asset: survey lander
 
-Today it is 30-odd primitives in `SurveyLander` (`components/ExpeditionScene.jsx`).
-The Blender model must keep every dimension the physics and camera depend on.
+It was 30-odd primitives in `SurveyLander` (`components/ExpeditionScene.jsx`),
+which remains as the fallback while the file loads or if it fails. The Blender
+model keeps every dimension the physics and camera depend on.
 Measured from that component and `VEHICLE`, in three.js coordinates around the
 group origin:
 
@@ -348,13 +349,23 @@ hand-railed ladder, hatch frame, antenna dish with a feed, and the stripe.
 | Phase | Work | Status / exit |
 | --- | --- | --- |
 | 0 | Fold the expedition EVA onto `sim/walk.js`; remove the stale deploy variable | **Done** in `4320475` |
-| 1 | Survey lander, the pipeline (`art/`, `art.mjs`, `verify-art`) and its runtime swap | Section 4.6 criteria |
+| 1 | Survey lander, the pipeline (`art/`, `art.mjs`, `verify-art`) and its runtime swap | **Built**: 35,180 triangles, 9 materials, 182 kB; gate green; in the expedition with the primitive as fallback |
 | 2 | Surface rover (wheel empties drive spin and suspension), three instruments, sample cases | Same gate, rover budget |
 | 3 | Rock library for the three regions, replacing generated rock meshes | Instanced, inside the 2k-triangle budget |
 | 4 | Simulator close-ups that read as primitives: LC-39B structures, the LM at Tranquility | Measured against the existing pad geometry gates |
-| 5 | Expedition terrain beyond the 700 m regional patch | A design decision first (4.8) |
+| 5 | Expedition terrain beyond the 700 m regional patch | A design decision first (4.9) |
 
-### 4.8 Open decisions
+### 4.8 Known follow-ups
+
+- **Walking through the lander.** EVA collision follows the terrain only; the
+  walker can pass through legs and struts. True of the primitive lander too.
+  The footpad and leg positions are now named points in the file, so a
+  collision volume can be built from the model rather than restated.
+- **Frame time.** On the reference M4 the expedition holds 16.7 ms with either
+  lander (vsync-locked, headless Chrome on Metal); a visible-tab measurement
+  on the MacBook Air itself is still owed.
+
+### 4.9 Open decisions
 
 1. **Textures:** WebP from Blender is available now. KTX2 (GPU-compressed,
    kinder to memory and to context loss) needs an encoder such as `toktx` or

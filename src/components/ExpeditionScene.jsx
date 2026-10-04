@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { buildExpeditionTerrain, buildRocks, terrainMaterial } from '../gfx/expeditionTerrain.js'
 import { mulberry32 } from '../gfx/noise.js'
+import { useAuthored } from '../gfx/authored.js'
 import { FIXED_STEP, INSTRUMENTS, REGIONS, ROVER, SITES, terrainFor, stepExpedition, VEHICLE } from '../sim/expedition.js'
 
 export function ExpeditionScene({ session, controls, paused, scenic = false, onPulse }) {
@@ -10,6 +11,16 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
   const material = useMemo(() => terrainMaterial(session.id), [session.id])
   const rocks = useMemo(() => buildRocks(session.id), [session.id])
   const region = REGIONS[session.id]
+  /*
+   * The survey lander, built in Blender from art/survey-lander/build.py. Until
+   * it is in, and for good if it fails to load, the primitive SurveyLander
+   * below stands in. The front door's backdrop shares this scene with no
+   * lander in it, so it never fetches the file.
+   */
+  const authoredLander = useAuthored('survey-lander', !scenic)
+  // The plume hangs from the engine's exit plane, read off the model's own
+  // nozzle_0 marker; -1.85 is the same plane on the primitive lander.
+  const exitY = authoredLander?.points.nozzle_0?.y ?? -1.85
   const lander = useRef(), plume = useRef(), light = useRef(), rover = useRef(), wheels = useRef([])
   const clock = useRef({ accumulated: 0, pulse: 0, yaw: 0, pitch: 0.24, distance: 28 })
   const scratch = useMemo(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3(), look: new THREE.Vector3() }), [])
@@ -118,7 +129,7 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
     {ground.map((g, i) => <mesh key={i} geometry={g} material={material} receiveShadow />)}
     <primitive object={rocks} />
     {!scenic && <>
-      <group ref={lander}><SurveyLander /><mesh ref={plume} position={[0, -3.3, 0]} visible={false}><coneGeometry args={[0.45, 3.2, 20]} /><meshBasicMaterial color="#98cfff" transparent opacity={0.65} depthWrite={false} /></mesh></group>
+      <group ref={lander}>{authoredLander ? <primitive object={authoredLander.scene} dispose={null} /> : <SurveyLander />}<mesh ref={plume} position={[0, exitY - 1.45, 0]} visible={false}><coneGeometry args={[0.45, 3.2, 20]} /><meshBasicMaterial color="#98cfff" transparent opacity={0.65} depthWrite={false} /></mesh></group>
       <LandingZone />
       <group ref={rover} visible={false}><SurfaceRover wheels={wheels} /></group>
       {INSTRUMENTS.map((p, i) => <Instrument key={i} id={session.id} site={p} deployed={session.instruments.includes(i)} />)}

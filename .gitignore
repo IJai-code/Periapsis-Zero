@@ -26,3 +26,4 @@ public/draco/
 # Built by art/*/build.py; the script is the source.
 art/**/*.blend
 art/**/*.blend1
+__pycache__/

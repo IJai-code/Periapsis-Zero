@@ -1,0 +1,57 @@
+# Authored art
+
+Models for Periapsis Zero, built by scripts that drive Blender. The script is
+the source of truth; the `.blend` beside it is output, regenerated on every
+build and ignored by Git. The shipped file lands in `public/authored/<id>.glb`.
+AGENT.md, section 4, has the full conventions.
+
+## Build
+
+```bash
+npm run art:build -- survey-lander
+```
+
+Runs `art/survey-lander/build.py` in headless Blender (factory settings, so no
+local preference changes the result), writes `public/authored/survey-lander.glb`
+and `art/survey-lander/survey-lander.blend`. Blender is found at `$BLENDER` or
+`/Applications/Blender.app`.
+
+```bash
+npm run art:build -- survey-lander --check
+```
+
+Rebuilds into a temporary folder and fails unless the bytes match the shipped
+file: the build is deterministic, and this is how you prove it.
+
+```bash
+npm run verify:art
+```
+
+Holds every shipped asset to its `spec.json`: budget, bounds, the named points
+the runtime reads, which materials are double-sided, and (for the lander) that
+it stands where the physics says it stands. Needs no Blender, so it runs in CI.
+
+## Look at it
+
+Open `art/<id>/<id>.blend` in Blender after a build. Changes made there are
+lost on the next build, by design: change `build.py` (or `spec.json`) instead.
+When an asset needs hand-sculpted detail a script cannot reproduce, its `.blend`
+becomes a tracked source; that decision is open in AGENT.md, 4.9.
+
+## Layout
+
+```
+lib/pz.py                 helpers every asset shares (units, axes, materials,
+                          meshes from explicit geometry, empties, export)
+<asset>/build.py          the source
+<asset>/spec.json         dimensions the build, the runtime and the gate share,
+                          in the runtime's coordinates (three.js, Y-up, metres)
+```
+
+## Conventions in one breath
+
+One Blender unit is a metre. Author Z-up; the export delivers Y-up, so a
+three.js point (x, y, z) is Blender (x, -z, y) and a vehicle's front, three.js
+-Z, is Blender +Y. Principled BSDF only. Materials are single-sided unless
+`double_sided=True` (open shells only). Named empties for every point the
+runtime reads. Draco compression, because the page already ships the decoder.
