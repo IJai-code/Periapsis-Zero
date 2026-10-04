@@ -20,7 +20,7 @@ import {
   updateStepCeiling,
 } from '../sim/mission.js'
 import { wingHolds } from '../sim/programs.js'
-import { isLanded } from '../sim/mission.js'
+import { applyLandedHold, isLanded } from '../sim/mission.js'
 import { setUi, uiStore, useUi, WARP, WARP_LEVELS } from '../sim/store.js'
 import * as nodeApi from '../sim/nodes.js'
 import * as predictApi from '../sim/predict.js'

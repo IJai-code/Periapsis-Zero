@@ -1,0 +1,10 @@
+{
+  "id": "rocks",
+  "note": "Six stones for the instanced rock field, each at the origin about a metre across with a flat underside at y = -0.28; baked colour (normalised to 0.5), ORM and normal in one atlas. src/gfx/expeditionTerrain.js applyRockSet swaps them in.",
+  "boundsMode": "within",
+  "bounds": { "min": [-1.2, -0.29, -1.2], "max": [1.2, 1.2, 1.2] },
+  "budget": { "triangles": 2400, "bytes": 1200000 },
+  "requiredNodes": ["rock_0", "rock_1", "rock_2", "rock_3", "rock_4", "rock_5"],
+  "doubleSided": [],
+  "textured": true
+}

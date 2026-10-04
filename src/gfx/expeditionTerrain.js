@@ -59,11 +59,48 @@ export const GROUND = {
  * distance, and it fades out by a few hundred metres, where it would only
  * shimmer.
  */
+/**
+ * Ground detail baked in Blender (art/ground/build.py): a 4 m tile of each
+ * world's real small-scale ground, its pebbles, craterlets, ripples or
+ * cracks, as a colour-detail map (mean 0.5 linear, so 2x it is a multiplier
+ * around 1) and a normal map (+U along +x, +V along -z). Sampled at two
+ * scales, the second rotated, so the repeat does not show; faded out with
+ * distance, where it would only shimmer. Until the files arrive, uDetail is 0
+ * and the ground is drawn as it was without them.
+ */
+const DETAIL_TILE = 4
+const DETAIL_TILE_B = 17.3
+const DETAIL_TURN = 0.6
+function detailTextures(id, uniforms, material) {
+  if (typeof document === 'undefined') return []
+  const base = import.meta.env.BASE_URL ?? '/'
+  const loader = new THREE.TextureLoader()
+  let pending = 2
+  // A scene drawn on demand (the front page) is told, so it draws again.
+  const ready = () => { if (--pending === 0) { uniforms.uDetail.value = 1; material.dispatchEvent({ type: 'detailready' }) } }
+  const load = (name, colour) => {
+    const t = loader.load(`${base}authored/ground/${id}-${name}.webp`, ready)
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    t.colorSpace = colour ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    t.anisotropy = 8
+    return t
+  }
+  const detail = load('detail', true)
+  const normal = load('normal', false)
+  uniforms.uDetailMap.value = detail
+  uniforms.uDetailNormal.value = normal
+  return [detail, normal]
+}
+
 export function terrainMaterial(id) {
   const look = GROUND[id] ?? GROUND.moon
   const material = new THREE.MeshStandardMaterial({ roughness: 0.94, metalness: 0 })
   const lin = (hex) => new THREE.Color(hex)
+  const detailUniforms = { uDetailMap: { value: null }, uDetailNormal: { value: null }, uDetail: { value: 0 } }
+  const textures = detailTextures(id, detailUniforms, material)
+  material.addEventListener('dispose', () => textures.forEach((t) => t.dispose()))
   material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, detailUniforms)
     shader.uniforms.uDust = { value: lin(look.dust) }
     shader.uniforms.uRock = { value: lin(look.rock) }
     shader.uniforms.uAccent = { value: lin(look.accent) }
@@ -77,6 +114,13 @@ export function terrainMaterial(id) {
       varying vec3 vUpN;
       uniform vec3 uDust, uRock, uAccent;
       uniform float uBump;
+      uniform sampler2D uDetailMap, uDetailNormal;
+      uniform float uDetail;
+      const float DETAIL_TILE = ${DETAIL_TILE.toFixed(1)};
+      const float DETAIL_TILE_B = ${DETAIL_TILE_B.toFixed(1)};
+      const mat2 DETAIL_TURN = mat2(${Math.cos(DETAIL_TURN).toFixed(6)}, ${Math.sin(DETAIL_TURN).toFixed(6)}, ${(-Math.sin(DETAIL_TURN)).toFixed(6)}, ${Math.cos(DETAIL_TURN).toFixed(6)});
+      vec2 detailA(vec3 p) { return vec2(p.x, -p.z) / DETAIL_TILE; }
+      vec2 detailB(vec3 p) { return DETAIL_TURN * vec2(p.x, -p.z) / DETAIL_TILE_B + 0.37; }
       float gHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float gNoise(vec2 p) { vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(gHash(i),gHash(i+vec2(1,0)),f.x),mix(gHash(i+vec2(0,1)),gHash(i+vec2(1,1)),f.x),f.y); }
       float gFbm(vec2 p) { return gNoise(p) * 0.5 + gNoise(p * 2.13 + 7.1) * 0.27 + gNoise(p * 4.61 + 3.3) * 0.15 + gNoise(p * 9.7 + 1.9) * 0.08; }
@@ -107,12 +151,25 @@ export function terrainMaterial(id) {
         col = mix(col, uAccent, fresh * (1.0 - rocky) * 0.5);` : ''}
         float fine = gNoise(vGround.xz * 0.65) * 0.5 + gNoise(vGround.xz * 3.5) * 0.25;
         float near = 1.0 - smoothstep(70.0, 700.0, length(vViewPosition));
+        #ifdef PZ_RELIEF
+        // The Blender-baked ground, where it is close enough to resolve.
+        float close = (1.0 - smoothstep(60.0, 260.0, length(vViewPosition))) * uDetail;
+        vec3 detail = texture2D(uDetailMap, detailA(vGround)).rgb * 2.0;
+        detail *= mix(vec3(1.0), texture2D(uDetailMap, detailB(vGround)).rgb * 2.0, 0.45);
+        col *= mix(vec3(1.0), detail, close * (1.0 - rocky * 0.4));
+        near *= 1.0 - close;
+        #endif
         diffuseColor.rgb = col * vFactor.r * mix(1.0, 0.76 + fine * 0.6, near);
       }
     `).replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // Derivative bump (Mikkelsen 2010, as three's perturbNormalArb), in metres.
+        // Off on the lowest quality tiers (gfx/surfaceQuality.js).
+        #ifdef PZ_RELIEF
         float near = 1.0 - smoothstep(18.0, 240.0, length(vViewPosition));
+        #else
+        float near = 0.0;
+        #endif
         if (near > 0.0) {
           float h = (gFbm(vGround.xz * 0.9) - 0.5) * 2.0 + (gNoise(vGround.xz * 6.0) - 0.5) * 0.35;
           h *= uBump * near;
@@ -122,10 +179,28 @@ export function terrainMaterial(id) {
           vec3 grad = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2);
           normal = normalize(abs(det) * normal - grad);
         }
+        #ifdef PZ_RELIEF
+        // The baked normal map, two scales blended (UDN), in the frame of
+        // the drawn surface: U along world +x, V along world -z.
+        float close = (1.0 - smoothstep(25.0, 160.0, length(vViewPosition))) * uDetail;
+        if (close > 0.0) {
+          vec3 a = texture2D(uDetailNormal, detailA(vGround)).xyz * 2.0 - 1.0;
+          vec3 b = texture2D(uDetailNormal, detailB(vGround)).xyz * 2.0 - 1.0;
+          b.xy = transpose(DETAIL_TURN) * b.xy;
+          vec3 t = normalize(vec3((a.xy + b.xy * 0.5) * close, a.z));
+          vec3 up = normalize(vUpN);
+          vec3 T = normalize(vec3(1.0, 0.0, 0.0) - up * up.x);
+          vec3 Tv = normalize((viewMatrix * vec4(T, 0.0)).xyz);
+          Tv = normalize(Tv - normal * dot(Tv, normal));
+          vec3 Bv = cross(normal, Tv);
+          normal = normalize(Tv * t.x + Bv * t.y + normal * t.z);
+        }
+        #endif
       }
     `)
   }
-  material.customProgramCacheKey = () => `survey-ground-v2-${id}`
+  material.defines = { PZ_RELIEF: '' }
+  material.customProgramCacheKey = () => `survey-ground-v3-${id}-${'PZ_RELIEF' in material.defines}`
   return material
 }
 
@@ -137,7 +212,7 @@ export function terrainMaterial(id) {
  * and a flat underside so they sit on the ground instead of balancing on it.
  * Returns a group of instanced meshes; disposal walks its children.
  */
-export const ROCK_TINT = { moon: '#6d6863', mars: '#6b3f2c', europa: '#b6c4c8' }
+export const ROCK_TINT = { moon: '#857f77', mars: '#7a4632', europa: '#c4d0d4' }
 function rockShape(seed) {
   const noise = makeNoise(seed)
   const g = new THREE.IcosahedronGeometry(1, 2)
@@ -156,7 +231,9 @@ function rockShape(seed) {
 export function buildRocks(id, count = 1300) {
   const rand = mulberry32(REGIONS[id].seed + 20), terrain = terrainFor(id)
   const group = new THREE.Group()
-  const shapes = [0, 1, 2, 3].map((k) => rockShape(REGIONS[id].seed * 7 + k * 31))
+  // Six shapes, one for each stone in the Blender-built set (art/rocks), which
+  // replaces them when it arrives (applyRockSet below).
+  const shapes = [0, 1, 2, 3, 4, 5].map((k) => rockShape(REGIONS[id].seed * 7 + k * 31))
   const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.93, metalness: 0, flatShading: true })
   const base = new THREE.Color(ROCK_TINT[id] ?? ROCK_TINT.moon), tint = new THREE.Color()
   const per = Math.ceil(count / shapes.length)
@@ -180,6 +257,9 @@ export function buildRocks(id, count = 1300) {
   // Only the slots actually filled are drawn; an unfilled slot is an identity
   // matrix, a one-metre rock at the origin.
   meshes.forEach((mesh, k) => { mesh.count = Math.ceil((count - k) / meshes.length) })
+  // The filled counts, so a quality tier can draw a fraction of each (the
+  // placement order is random, so dropping the tail thins evenly).
+  group.userData.full = meshes.map((mesh) => mesh.count)
   for (const mesh of meshes) {
     mesh.instanceMatrix.needsUpdate = true
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
@@ -188,4 +268,33 @@ export function buildRocks(id, count = 1300) {
   }
   group.userData.dispose = () => { shapes.forEach((g) => g.dispose()); material.dispose() }
   return group
+}
+
+/**
+ * Swap the Blender-baked stones (art/rocks/build.py) into a rock group made by
+ * `buildRocks`: same placements, same per-instance tints, new geometry and a
+ * material with baked colour, normal and occlusion. The baked colour is
+ * normalised to a 0.5 mean, so the material colour doubles it back.
+ */
+export function applyRockSet(group, authored) {
+  if (!authored || group.userData.authored) return
+  let material = null
+  group.children.forEach((mesh, k) => {
+    const node = authored.scene.getObjectByName(`rock_${k}`)
+    const source = node?.isMesh ? node : node?.children?.find((c) => c.isMesh)
+    if (!source) return
+    if (!material) {
+      material = source.material.clone()
+      material.color.setScalar(2)
+      material.flatShading = false
+    }
+    mesh.geometry = source.geometry
+    mesh.material = material
+    mesh.computeBoundingSphere()
+  })
+  if (material) {
+    const dispose = group.userData.dispose
+    group.userData.dispose = () => { dispose?.(); material.dispose() }
+    group.userData.authored = true
+  }
 }

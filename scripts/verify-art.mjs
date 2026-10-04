@@ -92,11 +92,63 @@ function survey(json) {
   return { lo, hi, points, nodes, triangles }
 }
 
+/** A WebP's pixel size, from whichever of its three bitstream headers it carries. */
+function webpSize(b) {
+  assert.equal(b.toString('ascii', 0, 4), 'RIFF', 'not a RIFF container')
+  assert.equal(b.toString('ascii', 8, 12), 'WEBP', 'not a WebP')
+  const kind = b.toString('ascii', 12, 16)
+  if (kind === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff]
+  if (kind === 'VP8L') { const v = b.readUInt32LE(21); return [(v & 0x3fff) + 1, ((v >>> 14) & 0x3fff) + 1] }
+  if (kind === 'VP8X') return [b.readUIntLE(24, 3) + 1, b.readUIntLE(27, 3) + 1]
+  throw new Error(`unknown WebP chunk ${kind}`)
+}
+const powerOfTwo = (n) => n > 0 && (n & (n - 1)) === 0
+
+/**
+ * The baked textures inside a GLB (art/lib/surfacing.py): WebP, power-of-two
+ * square sizes no larger than 2048, and every textured material carrying the
+ * full set, so no part is drawn half-baked.
+ */
+function textures(b, json) {
+  const binAt = 20 + b.readUInt32LE(12)
+  const bin = b.subarray(binAt + 8)
+  const sizes = (json.images ?? []).map((img) => {
+    const view = json.bufferViews[img.bufferView]
+    assert.equal(img.mimeType, 'image/webp', `${img.name}: ${img.mimeType}, not WebP`)
+    return webpSize(bin.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength))
+  })
+  for (const [w, h] of sizes) {
+    assert.ok(powerOfTwo(w) && w === h && w <= 2048, `a ${w}x${h} texture; square powers of two up to 2048 only`)
+  }
+  for (const m of json.materials ?? []) {
+    const pbr = m.pbrMetallicRoughness ?? {}
+    if (!pbr.baseColorTexture) continue
+    assert.ok(pbr.metallicRoughnessTexture && m.normalTexture && m.occlusionTexture, `${m.name}: textured but missing ORM or normal`)
+  }
+  return sizes
+}
+
 const assets = readdirSync(join(ROOT, 'art')).filter((d) => existsSync(join(ROOT, 'art', d, 'spec.json')))
 assert.ok(assets.length > 0, 'no authored assets found under art/')
 
 for (const id of assets) {
   const spec = JSON.parse(readFileSync(join(ROOT, 'art', id, 'spec.json'), 'utf8'))
+  if (spec.outputDir) {
+    // A texture set (art/ground): files, sizes and a byte budget.
+    check(`${id}: ${spec.outputs.length} WebP files at ${Array.isArray(spec.size) ? spec.size.join(' x ') : `${spec.size} px square`}, inside the budget`, () => {
+      let total = 0
+      for (const name of spec.outputs) {
+        const path = join(ROOT, 'public', spec.outputDir, name)
+        assert.ok(existsSync(path), `${name} has not been built (npm run art:build -- ${id})`)
+        const b = readFileSync(path)
+        total += b.length
+        const want = Array.isArray(spec.size) ? spec.size : [spec.size, spec.size]
+        assert.deepEqual(webpSize(b), want, `${name} is not ${want.join(' x ')} px`)
+      }
+      assert.ok(total <= spec.budget.bytes, `${total} bytes against a budget of ${spec.budget.bytes}`)
+    })
+    continue
+  }
   const file = join(ROOT, 'public', 'authored', `${id}.glb`)
   assert.ok(existsSync(file), `${id}: public/authored/${id}.glb has not been built (npm run art:build -- ${id})`)
   assert.ok(existsSync(join(ROOT, 'art', id, 'build.py')), `${id}: no build script; the script is the source`)
@@ -108,8 +160,16 @@ for (const id of assets) {
     assert.ok(bytes <= spec.budget.bytes, `${bytes} bytes against a budget of ${spec.budget.bytes}`)
     // Draco because the runtime already ships the decoder; nothing else
     // required, so nothing else needs a loader the page does not have.
-    for (const ext of json.extensionsRequired ?? []) assert.equal(ext, 'KHR_draco_mesh_compression', `requires ${ext}`)
+    // WebP textures because three.js reads EXT_texture_webp natively.
+    for (const ext of json.extensionsRequired ?? []) assert.ok(['KHR_draco_mesh_compression', 'EXT_texture_webp'].includes(ext), `requires ${ext}`)
   })
+
+  if (spec.textured) {
+    check(`${id}: baked textures are WebP, square powers of two, a full set per material`, () => {
+      const sizes = textures(readFileSync(file), json)
+      assert.ok(sizes.length >= 3, `${sizes.length} textures; a baked asset carries colour, ORM and normal`)
+    })
+  }
 
   check(`${id}: bounds ${spec.boundsMode === 'within' ? 'inside the spec envelope' : 'match the spec within 1% of each extent'}`, () => {
     for (let i = 0; i < 3; i++) {

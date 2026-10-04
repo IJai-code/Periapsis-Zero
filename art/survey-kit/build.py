@@ -27,18 +27,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'lib'))
 
 import pz  # noqa: E402
+import surfacing as sf  # noqa: E402
 
 SPEC = json.load(open(os.path.join(HERE, 'spec.json')))
 LAYOUT = {'seismometer': -3.3, 'magnetometer': -1.1, 'heat_probe': 1.1, 'stake': 3.3}
 
 
 def args():
-    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    out = {'out': None, 'blend': None}
-    for i, a in enumerate(argv):
-        if a in ('--out', '--blend') and i + 1 < len(argv):
-            out[a[2:]] = argv[i + 1]
-    return out
+    return pz.cli()
 
 
 def materials():
@@ -131,8 +127,19 @@ def main():
     m = materials()
     objs = [seismometer(m), magnetometer(m), heat_probe(m), stake(m)]
     print(f'PZ-TRIANGLES {sum(pz.triangle_count(o) for o in objs)}')
+    # Each prop stands with its origin on the ground: dust on the feet.
+    sf.surface(m['hull'], 'paint', colour='#d8d2bf', panel=0.5, rough=0.5, dust_top=0.22)
+    sf.surface(m['frame'], 'metal', colour='#a3a5a2', rough=0.34, dust_top=0.22)
+    sf.surface(m['dark'], 'anodised', colour='#33393c', dust_top=0.22)
+    sf.surface(m['foil'], 'foil', colour='#c9973c', dust_top=0.22)
+    sf.surface(m['solar'], 'solar', cell=0.1)
+    # The status lamp and the stake's flag stay their own materials: the
+    # runtime clones them to light them (ExpeditionScene, useKitProp).
+    sf.bake_asset(objs, 'kit', keep=('status', 'kit_ember'), **pz.bake_options(a, 1024))
     if a['blend']:
         pz.save_blend(a['blend'])
+    if a['preview']:
+        sf.preview(a['preview'], objs)
     if a['out']:
         pz.export_glb(a['out'])
         print(f'PZ-WROTE {a["out"]}')

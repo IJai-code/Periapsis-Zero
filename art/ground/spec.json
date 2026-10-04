@@ -1,0 +1,9 @@
+{
+  "id": "ground",
+  "note": "Ground detail textures, one pair a world, written into public/authored/ground/. The terrain shader (src/gfx/expeditionTerrain.js) tiles them every 4 m with +U along +x and +V along -z.",
+  "outputDir": "authored/ground",
+  "outputs": ["moon-detail.webp", "moon-normal.webp", "mars-detail.webp", "mars-normal.webp", "europa-detail.webp", "europa-normal.webp"],
+  "tileMetres": 4,
+  "size": 1024,
+  "budget": { "bytes": 4500000 }
+}

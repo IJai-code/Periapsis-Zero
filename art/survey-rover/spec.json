@@ -15,5 +15,6 @@
   },
   "requiredEmpties": ["seat", "mast_camera"],
   "requiredNodes": ["rover_body", "wheel_0", "wheel_1", "wheel_2", "wheel_3", "wheel_4", "wheel_5"],
-  "doubleSided": []
+  "doubleSided": [],
+  "textured": true
 }

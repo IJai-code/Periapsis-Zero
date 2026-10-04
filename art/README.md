@@ -31,6 +31,46 @@ Holds every shipped asset to its `spec.json`: budget, bounds, the named points
 the runtime reads, which materials are double-sided, and (for the lander) that
 it stands where the physics says it stands. Needs no Blender, so it runs in CI.
 
+## Surfaces: procedural in Blender, baked for the web
+
+`lib/surfacing.py` builds what each material is made of as a Blender shader
+graph (nothing downloaded): crinkled multi-layer foil, painted panels with
+seams and grime, brushed aluminium, solar cells with busbars, a heat-tinted
+niobium nozzle, woven-wire wheels, and dust that thins upward from the ground.
+Cycles then bakes every material on an asset into one atlas:
+
+| Image    | Contents                                                    |
+| -------- | ----------------------------------------------------------- |
+| `base`   | colour, sRGB (baked through emission: the diffuse pass is black for metal) |
+| `orm`    | occlusion R, roughness G, metalness B (glTF's packing)      |
+| `normal` | tangent space: crinkle, seams, grain, Cycles-rounded edges  |
+
+and swaps the asset's materials for one glTF material (plus a `_ds` twin for
+open shells). The images ship inside the `.glb` as WebP. A vehicle that was
+nine materials is now one draw call each for one- and two-sided parts.
+
+Three other kinds of asset use the same machinery:
+
+- `rocks/`: six stones, each built at 82,000 faces and at 320, the first
+  baked onto the second (selected to active), for the instanced rock field.
+- `ground/`: a real 4 m patch of each world's ground (periodic heightfield,
+  craterlets, ripples or cracks, half-buried 3D pebbles) baked onto a flat
+  tile as `public/authored/ground/<world>-detail.webp` and `-normal.webp`.
+- `story/`: the story page's chapter art, path traced in Cycles from the
+  shipped models, rock set and ground textures. Not bit-reproducible, so
+  `--check` skips it; `verify:art` still holds its files and budget.
+
+A quick look while working on a surface:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+  --python art/survey-lander/build.py -- --fast --preview /tmp/lander.png
+```
+
+`--fast` bakes at half size with few samples; `--preview` renders a Cycles
+beauty shot of the result. Full bakes run on the CPU with a fixed seed so
+`--check` can compare bytes; the lander takes about four minutes.
+
 ## Look at it
 
 Open `art/<id>/<id>.blend` in Blender after a build. Changes made there are
@@ -43,6 +83,7 @@ becomes a tracked source; that decision is open in AGENT.md, 4.9.
 ```
 lib/pz.py                 helpers every asset shares (units, axes, materials,
                           meshes from explicit geometry, empties, export)
+lib/surfacing.py          shader recipes, the UV atlas, the bake, the glTF material
 <asset>/build.py          the source
 <asset>/spec.json         dimensions the build, the runtime and the gate share,
                           in the runtime's coordinates (three.js, Y-up, metres)
@@ -52,6 +93,6 @@ lib/pz.py                 helpers every asset shares (units, axes, materials,
 
 One Blender unit is a metre. Author Z-up; the export delivers Y-up, so a
 three.js point (x, y, z) is Blender (x, -z, y) and a vehicle's front, three.js
--Z, is Blender +Y. Principled BSDF only. Materials are single-sided unless
+-Z, is Blender +Y. Principled BSDF only, baked to textures before export. Materials are single-sided unless
 `double_sided=True` (open shells only). Named empties for every point the
 runtime reads. Draco compression, because the page already ships the decoder.

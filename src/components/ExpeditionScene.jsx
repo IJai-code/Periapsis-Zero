@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { buildExpeditionTerrain, buildRocks, terrainMaterial } from '../gfx/expeditionTerrain.js'
+import { applyRockSet, buildExpeditionTerrain, buildRocks, terrainMaterial } from '../gfx/expeditionTerrain.js'
 import { mulberry32 } from '../gfx/noise.js'
 import { useAuthored } from '../gfx/authored.js'
+import { buildSurfaceEnvironment } from '../gfx/surfaceEnvironment.js'
+import { governSurface, resetSurfaceGovernor, subscribeSurfaceQuality, surfaceQuality } from '../gfx/surfaceQuality.js'
 import { NOISE_GLSL } from '../gfx/glsl/noise.js'
 import { FIXED_STEP, instrumentsFor, nextTarget, REGIONS, ROVER, sitesFor, terrainFor, stepExpedition, VEHICLE } from '../sim/expedition.js'
 
@@ -21,6 +23,15 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
   const authoredLander = useAuthored('survey-lander', !scenic)
   const authoredRover = useAuthored('survey-rover', !scenic)
   const authoredKit = useAuthored('survey-kit', !scenic)
+  // The stones, baked in Blender (art/rocks); the front page's backdrop uses them too.
+  const invalidate = useThree((s) => s.invalidate)
+  const authoredRocks = useAuthored('rocks')
+  useEffect(() => { applyRockSet(rocks, authoredRocks); invalidate() }, [rocks, authoredRocks, invalidate])
+  useEffect(() => {
+    const redraw = () => invalidate()
+    material.addEventListener('detailready', redraw)
+    return () => material.removeEventListener('detailready', redraw)
+  }, [material, invalidate])
   /*
    * The authored rover's six wheels, found by name once it arrives. Each has
    * its origin at the hub and its axle on X, so turning one node turns one
@@ -40,12 +51,51 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
   const clock = useRef({ accumulated: 0, pulse: 0, yaw: 0, pitch: 0.24, distance: 28 })
   const scratch = useMemo(() => ({ position: new THREE.Vector3(), target: new THREE.Vector3(), look: new THREE.Vector3() }), [])
   const { camera, gl, scene } = useThree()
+  /*
+   * What this machine can draw (gfx/surfaceQuality.js). Pixels, shadow map,
+   * surface relief and rock count follow the tier; the frame loop below feeds
+   * the governor that picks it. The front page's backdrop is drawn on demand,
+   * not every frame, so it takes the tier without voting on it.
+   */
+  const quality = useSyncExternalStore(subscribeSurfaceQuality, surfaceQuality)
+  useEffect(() => {
+    // The pixel ratio is the Canvas's own prop (Expedition.jsx, ScenicBackdrop.jsx):
+    // R3F reapplies that prop on every render, so a setDpr here would not hold.
+    const l = light.current
+    if (l) {
+      l.castShadow = quality.shadows
+      if (l.shadow.mapSize.x !== quality.shadow) {
+        l.shadow.mapSize.set(quality.shadow, quality.shadow)
+        l.shadow.map?.dispose()
+        l.shadow.map = null
+      }
+    }
+    const relief = 'PZ_RELIEF' in material.defines
+    if (relief !== quality.relief) {
+      if (quality.relief) material.defines.PZ_RELIEF = ''
+      else delete material.defines.PZ_RELIEF
+      material.needsUpdate = true
+    }
+    rocks.children.forEach((mesh, k) => { mesh.count = Math.ceil((rocks.userData.full?.[k] ?? mesh.count) * quality.rocks) })
+  }, [quality, material, rocks])
+  useEffect(() => { resetSurfaceGovernor() }, [session.id])
 
   useEffect(() => {
     const boot = document.getElementById('boot')
     if (boot) { boot.classList.add('boot-done'); const timer = setTimeout(() => boot.remove(), 700); return () => clearTimeout(timer) }
   }, [])
   useEffect(() => () => { ground.forEach((g) => g.dispose()); material.dispose(); rocks.userData.dispose?.() }, [ground, material, rocks])
+  useEffect(() => {
+    // Reflections: the world's own ground, sky and Sun (gfx/surfaceEnvironment.js).
+    // The ground keeps its own look; only what is meant to shine reflects.
+    // Off on the low tiers: image lighting on every material is the dearest
+    // thing a software renderer draws (gfx/surfaceQuality.js).
+    if (!quality.reflections) return undefined
+    const env = buildSurfaceEnvironment(gl, session.id, SUN)
+    scene.environment = env.texture
+    material.envMapIntensity = 0
+    return () => { scene.environment = null; env.dispose() }
+  }, [gl, scene, session.id, material, quality.reflections])
   useEffect(() => {
     // Mars's haze is the colour of its own horizon, so distant mesas fade into
     // the sky rather than into a flat brown. Airless worlds have no haze.
@@ -70,6 +120,7 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
   }, [gl, session, paused, scenic])
 
   useFrame((_, delta) => {
+    if (!scenic) governSurface(delta * 1000)
     const c = clock.current, s = session, keys = controls.current
     if (!paused && !scenic) {
       c.accumulated += Math.min(delta, 0.1)
@@ -151,7 +202,7 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
         have a black one, so their fill comes from below, sunlight bounced off
         the ground, which is what keeps a lander's shadowed side readable. */}
     <hemisphereLight args={region.atmosphere ? ['#e9c9ab', '#5a3a28', 1.5] : ['#1a1c24', session.id === 'europa' ? '#8f9ba0' : '#6a645b', 1.15]} />
-    <directionalLight ref={light} position={SUN_OFFSET} intensity={3.3} color={region.atmosphere ? '#ffe1bc' : '#fff5df'} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-110} shadow-camera-right={110} shadow-camera-top={110} shadow-camera-bottom={-110} shadow-camera-near={1} shadow-camera-far={1600} shadow-bias={-0.0002} shadow-normalBias={0.12} />
+    <directionalLight ref={light} position={SUN_OFFSET} intensity={3.3} color={region.atmosphere ? '#ffe1bc' : '#fff5df'} castShadow={quality.shadows} shadow-mapSize={[quality.shadow, quality.shadow]} shadow-camera-left={-110} shadow-camera-right={110} shadow-camera-top={110} shadow-camera-bottom={-110} shadow-camera-near={1} shadow-camera-far={1600} shadow-bias={-0.0002} shadow-normalBias={0.12} />
     {ground.map((g, i) => <mesh key={i} geometry={g} material={material} receiveShadow />)}
     <primitive object={rocks} />
     {!scenic && <>
@@ -160,7 +211,7 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
       <Beacon session={session} />
       <group ref={rover} visible={false}>{authoredRover ? <primitive object={authoredRover.scene} dispose={null} /> : <SurfaceRover wheels={wheels} />}</group>
       {instrumentsFor(session.id).map((p, i) => <Instrument key={i} id={session.id} site={p} deployed={session.instruments.includes(i)} kit={authoredKit} node={KIT_NODE[p.name]} />)}
-      {sitesFor(session.id).map((p, i) => <Sample key={i} id={session.id} site={p} taken={session.samples.includes(i)} kit={authoredKit} />)}
+      {sitesFor(session.id).map((p, i) => <Sample key={i} id={session.id} site={p} taken={session.samples.includes(i)} kit={authoredKit} rocks={authoredRocks} />)}
     </>}
   </>
 }
@@ -269,11 +320,27 @@ function Instrument({ id, site, deployed, kit, node }) {
  * flag is ember while the rock is waiting and goes grey once it is taken, so
  * the field reads at a glance as done or not done.
  */
-function Sample({ id, site, taken, kit }) {
+/** The sample itself: a darker stone than the field around it, so it reads as the one to pick up. */
+const SAMPLE_TINT = { moon: '#50483e', mars: '#5e3727', europa: '#7a6b58' }
+
+function Sample({ id, site, taken, kit, rocks }) {
   const height = terrainFor(id).height(site.x, site.z)
   const stake = useKitProp(kit, 'stake', !taken, '#ff6b2c')
+  // One of the Blender-baked stones (art/rocks) when it is in, tinted; the
+  // faceted placeholder until then.
+  const stone = useMemo(() => {
+    const source = rocks?.scene.getObjectByName('rock_3')
+    const mesh = source?.isMesh ? source : source?.children?.find((c) => c.isMesh)
+    if (!mesh) return null
+    const material = mesh.material.clone()
+    material.color.set(SAMPLE_TINT[id] ?? SAMPLE_TINT.moon).multiplyScalar(2)
+    return { geometry: mesh.geometry, material }
+  }, [rocks, id])
+  useEffect(() => () => stone?.material.dispose(), [stone])
   return <group position={[site.x, height, site.z]}>
-    {!taken && <mesh position={[0, 0.3, 0]} castShadow scale={[1.0, 0.6, 0.75]}><icosahedronGeometry args={[0.7, 2]} /><meshStandardMaterial color={id === 'europa' ? '#7a6b58' : id === 'mars' ? '#5e3727' : '#50483e'} roughness={0.9} flatShading /></mesh>}
+    {!taken && (stone
+      ? <mesh position={[0, 0.2, 0]} castShadow receiveShadow scale={[0.7, 0.6, 0.6]} geometry={stone.geometry} material={stone.material} />
+      : <mesh position={[0, 0.3, 0]} castShadow scale={[1.0, 0.6, 0.75]}><icosahedronGeometry args={[0.7, 2]} /><meshStandardMaterial color={SAMPLE_TINT[id] ?? SAMPLE_TINT.moon} roughness={0.9} flatShading /></mesh>)}
     {stake ? <group position={[1.1, 0, 0]}><primitive object={stake} /></group> : <>
       <mesh position={[1.1, 0.65, 0]}><cylinderGeometry args={[0.018, 0.018, 1.3, 6]} /><meshStandardMaterial color="#c5c1b0" /></mesh>
       <mesh position={[1.1, 1.3, 0]}><boxGeometry args={[0.18, 0.18, 0.18]} /><meshBasicMaterial color={taken ? '#576054' : '#edb76c'} /></mesh>

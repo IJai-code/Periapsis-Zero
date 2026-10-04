@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
 import { ExpeditionScene } from '../components/ExpeditionScene.jsx'
 import { altitude, CAMPAIGN, createExpedition, deployRover, interact, INSTRUMENTS, launch, nearestInstrument, nearestSample, nextTarget, recordSurvey, REGIONS, roverDistance, SITES, TARGET, VEHICLE } from '../sim/expedition.js'
+import { setSurfaceMode, subscribeSurfaceQuality, surfaceQuality } from '../gfx/surfaceQuality.js'
 
 const BINDINGS = { KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right', KeyQ: 'turnLeft', KeyE: null, KeyZ: 'turnRight', KeyR: 'throttleUp', KeyF: 'throttleDown', ArrowLeft: 'lookLeft', ArrowRight: 'lookRight', Space: 'jump' }
 const HOWTO_KEY = 'pz-expedition-howto-v1'
@@ -26,6 +27,7 @@ export function Expedition({ id, campaign = false, onExit }) {
   // A phone has no E key: on touch the buttons and the how-to name what to tap.
   const [touch] = useState(() => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)
   const keyed = (letter) => (touch ? '' : `${letter} / `)
+  const quality = useSyncExternalStore(subscribeSurfaceQuality, surfaceQuality)
   const closeHowTo = () => { try { localStorage.setItem(HOWTO_KEY, '1') } catch { /* private mode: shows again next time */ } setHowTo(false) }
   const saved = useRef(false)
   const region = REGIONS[id], chapter = CAMPAIGN.find((c) => c.id === id)
@@ -112,7 +114,7 @@ export function Expedition({ id, campaign = false, onExit }) {
   const current = kind === 'instrument' ? 2 : stages.findIndex(([, done]) => !done)
 
   return <div className="expedition-screen">
-    <Canvas shadows frameloop={hidden ? 'never' : 'always'} dpr={[1, 1.5]} gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, powerPreference: 'high-performance' }} camera={{ position: [0, 220, 230], fov: 55, near: 0.1, far: 90000 }}>
+    <Canvas shadows frameloop={hidden ? 'never' : 'always'} dpr={Math.min(window.devicePixelRatio || 1, quality.dpr)} gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, powerPreference: 'high-performance' }} camera={{ position: [0, 220, 230], fov: 55, near: 0.1, far: 90000 }}>
       <ExpeditionScene key={`${id}/${attempt}`} session={session} controls={controls} paused={paused || hidden || debrief || howTo} onPulse={pulse} />
     </Canvas>
     <div className="expedition-overlay">
@@ -175,6 +177,7 @@ export function Expedition({ id, campaign = false, onExit }) {
       <section><span className="eyebrow">{debrief ? 'Survey complete' : session.mode === 'crashed' ? 'Crashed' : 'Paused'}</span><h2 id="expedition-dialog-title">{debrief ? chapter.title : session.mode === 'crashed' ? 'That landing did not hold.' : 'Paused'}</h2><p>{debrief ? chapter.debrief : session.mode === 'crashed' ? session.message : 'Everything is stopped, including your fuel.'}</p>
         {session.touchdown && <div className="debrief-stats"><span>Contact speed <strong>{session.touchdown.vertical.toFixed(2)} m/s</strong></span><span>Fuel remaining <strong>{Math.round(session.fuel)} kg</strong></span></div>}
         <div className="modal-actions">{session.mode !== 'crashed' && <button autoFocus className="action-button primary" onClick={() => { setPaused(false); setDebrief(false) }}>{debrief ? 'Keep exploring' : 'Resume'}</button>}<button autoFocus={session.mode === 'crashed'} className="action-button" onClick={retry}>Try again</button>{!debrief && session.mode !== 'crashed' && <button className="action-button" onClick={() => { setPaused(false); setHowTo(true) }}>How to play</button>}<button className="action-button" onClick={onExit}>{campaign ? 'Back to the story' : 'Home'}</button></div>
+        {!debrief && session.mode !== 'crashed' && <div className="graphics-choice" role="group" aria-label="Graphics quality"><span>Graphics</span>{[['auto', `Auto${quality.mode === 'auto' ? ` (${quality.name})` : ''}`], ['high', 'High'], ['low', 'Low']].map(([mode, label]) => <button key={mode} aria-pressed={quality.mode === mode} className={quality.mode === mode ? 'selected' : ''} onClick={() => setSurfaceMode(mode)}>{label}</button>)}<small>Auto lowers detail if your device is struggling.</small></div>}
       </section>
     </div>}
   </div>

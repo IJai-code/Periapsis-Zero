@@ -77,8 +77,8 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .campaign-save-note { font-size: 10px; line-height: 1.8; color: #f4e8cf; margin-top: 28px; }
 .chapter-dossier { border: 1px solid var(--line); background: #120b22; }
 .dossier-art { position: relative; height: 260px; overflow: hidden; background: #120b22; }
-/* A frame from the game itself (scripts/stills.mjs), faded into the dossier below it. */
-.dossier-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 62%; transition: filter .4s; }
+/* The chapter's briefing photograph, path traced in Blender from the game's own assets (art/story), faded into the dossier below it. */
+.dossier-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 36%; transition: filter .4s; }
 .dossier-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #120b2200 45%, #120b22 100%); }
 .dossier-art.locked img { filter: grayscale(.85) brightness(.55); }
 .dossier-art > span { position: absolute; z-index: 1; right: 25px; bottom: -18px; font-family: var(--font-mono); font-size: 96px; line-height: 1; font-weight: 700; color: #f4e8cf1c; }
@@ -192,3 +192,10 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .story-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; height: 128px; margin: 4px 0 16px; }
 .story-strip img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; border: 1px solid var(--line); }
 @media (max-width: 700px) { .world-preview, .story-strip { height: 96px; } }
+
+/* Pause menu: graphics quality. */
+.graphics-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--paper); }
+.graphics-choice > span { margin-right: 6px; color: #f4e8cfb3; }
+.graphics-choice button { padding: 6px 10px; border: 1px solid var(--line); background: transparent; color: var(--paper); font: inherit; cursor: pointer; }
+.graphics-choice button.selected { border-color: var(--signal); color: var(--signal); }
+.graphics-choice small { flex-basis: 100%; margin-top: 4px; color: #f4e8cf80; font-size: 11px; }

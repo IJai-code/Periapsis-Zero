@@ -9,7 +9,7 @@
  * not paintings of it, so they can only promise what a player will see. Re-run
  * this whenever the surface graphics change; the files are committed.
  *
- * Then the simulator's Earth view, for the front page's third card.
+ * With --simulator, also the simulator's Earth view for the front page's third card.
  *
  * Needs Chrome and a GPU, so it is an authoring step, not a CI one.
  */
@@ -54,9 +54,11 @@ try {
       page.close()
     }
   }
-  // The simulator's Earth view, everything but the canvas hidden.
-  const page = await launch({ width: 1600, height: 900 })
-  try {
+  // The simulator's Earth view, everything but the canvas hidden. Only with
+  // --simulator: it is the real sky at the moment of capture, so whether Earth
+  // shows its day side depends on the hour, and a good frame is worth keeping.
+  const page = process.argv.includes('--simulator') ? await launch({ width: 1600, height: 900 }) : null
+  if (page) try {
     await page.goto(`${server.url}/#flight`)
     await wait(9000)
     await page.key('Digit3', '3', '3')

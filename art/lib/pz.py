@@ -35,6 +35,22 @@ from mathutils import Matrix, Vector
 # Scene
 # --------------------------------------------------------------------------
 
+def cli():
+    """The build's arguments: --out, --blend, --preview <png>, and --fast (a quick, small bake)."""
+    import sys
+    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+    out = {'out': None, 'blend': None, 'preview': None, 'fast': '--fast' in argv}
+    for i, a in enumerate(argv):
+        if a in ('--out', '--blend', '--preview') and i + 1 < len(argv):
+            out[a[2:]] = argv[i + 1]
+    return out
+
+
+def bake_options(a, size):
+    """Bake size and samples: the shipped quality, or a quick look with --fast."""
+    return {'size': size // 2, 'samples': 4, 'ao_samples': 24} if a['fast'] else {'size': size}
+
+
 def reset_scene():
     """An empty, metric scene, independent of whatever startup file exists."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -308,6 +324,10 @@ def export_glb(path):
         export_draco_position_quantization=14,
         export_draco_normal_quantization=10,
         export_draco_texcoord_quantization=12,
+        # Baked textures (art/lib/surfacing.py) ship as WebP: a quarter of
+        # PNG's size, and three.js reads EXT_texture_webp natively.
+        export_image_format='WEBP',
+        export_image_quality=88,
     )
 
 

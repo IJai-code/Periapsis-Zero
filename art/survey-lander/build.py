@@ -30,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'lib'))
 
 import pz  # noqa: E402
+import surfacing as sf  # noqa: E402
 
 SPEC = json.load(open(os.path.join(HERE, 'spec.json')))
 
@@ -46,12 +47,7 @@ THROAT_Z, THROAT_R = -1.05, 0.33
 
 
 def args():
-    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-    out = {'out': None, 'blend': None}
-    for i, a in enumerate(argv):
-        if a in ('--out', '--blend') and i + 1 < len(argv):
-            out[a[2:]] = argv[i + 1]
-    return out
+    return pz.cli()
 
 
 def materials():
@@ -277,6 +273,24 @@ def antenna(m):
             v.co.z = 2.25
 
 
+# Dust reaches about 0.9 m up from the soles: footpads, the feet of the legs,
+# the nozzle's lip. Blender z here is height above the vehicle's origin.
+DUST = SOLE_Z + 0.9
+
+
+def surfaces(m):
+    """What each material is made of (art/lib/surfacing.py), before the bake."""
+    sf.surface(m['hull'], 'paint', colour='#d8d4c4', panel=0.55, rough=0.5, dust_top=DUST)
+    sf.surface(m['frame'], 'metal', colour='#a3a5a2', rough=0.32, dust_top=DUST)
+    sf.surface(m['dark'], 'anodised', colour='#363b3e', dust_top=DUST)
+    sf.surface(m['foil'], 'foil', colour='#c9973c', dust_top=DUST)
+    sf.surface(m['engine'], 'nozzle', throat_z=THROAT_Z, exit_z=EXIT_Z)
+    sf.surface(m['glass'], 'glass')
+    sf.surface(m['solar'], 'solar')
+    sf.surface(m['ember'], 'flat', colour='#ff6b2c', rough=0.55, dust_top=DUST)
+    sf.surface(pz.bpy.data.materials['dish'], 'paint', colour='#d8d4c4', panel=3.0, rough=0.45)
+
+
 def main():
     a = args()
     pz.reset_scene()
@@ -289,6 +303,8 @@ def main():
     antenna(m)
 
     body = pz.join_meshes('survey_lander')
+    surfaces(m)
+    sf.bake_asset([body], 'lander', **pz.bake_options(a, 2048))
 
     # The points the runtime reads, in Blender coordinates.
     pz.empty('nozzle_0', (0, 0, EXIT_Z))
@@ -303,6 +319,8 @@ def main():
     print(f'PZ-MATERIALS {len(body.data.materials)}')
     if a['blend']:
         pz.save_blend(a['blend'])
+    if a['preview']:
+        sf.preview(a['preview'], [body])
     if a['out']:
         pz.export_glb(a['out'])
         print(f'PZ-WROTE {a["out"]}')

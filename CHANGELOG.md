@@ -5,6 +5,50 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Slow machines, and art made in Blender: 4 October 2026
+
+**Slow machines.** The expeditions had no quality governor: every machine
+drew up to 1.5 device pixels per CSS pixel with a 2048 shadow map, measured
+at 2.3 frames a second on a software renderer standing in for a weak laptop.
+`gfx/surfaceQuality.js` now steps pixels, shadows, surface relief,
+reflections and rock count down on measured frame time (time-based windows,
+so a slow machine is rescued in seconds; three long frames in a row count as
+its pace rather than as stalls), remembers the tier per browser, and offers
+Auto, High and Low in the pause menu. On the same stand-in the expedition
+now runs at 10.7 frames a second at the lowest tier, with the new art in it;
+a fast machine stays at High and 60. The front page's backdrop is a still and
+is now drawn on demand: 3 frames a second became an idle 60 on the stand-in.
+
+**Two bugs nothing had caught.** A scan for undefined names found
+`applyLandedHold` called without an import in `Driver.jsx` (a piloted lunar
+landing threw every frame) and `uiStore` used without an import in
+`CameraRig.jsx` (in free flight and on foot, every key press threw before it
+was recorded). Both from 1 to 3 October; both fixed.
+
+**Surfaces baked in Blender.** `art/lib/surfacing.py` builds materials as
+Blender shader graphs (crinkled foil, painted panels with seams and grime,
+brushed aluminium, solar cells, a heat-tinted nozzle, woven-wire wheels, dust
+rising from the ground), and Cycles bakes them into colour, ORM and normal
+atlases shipped as WebP inside each `.glb`. The lander (2048 px, 1.5 MB),
+rover and instrument kit are retextured, each now one material a side. Base
+colour is baked through emission, because the diffuse pass is black for
+metal. Reflections come from a per-world environment (ground, sky, Sun) built
+once with PMREM. The kit and rock bakes rebuild byte-identical.
+
+**Rocks and ground.** `art/rocks`: six stones built at 82,000 faces and
+baked onto 320-triangle meshes, swapped into the 1,300-rock instanced field
+and the collectible samples. `art/ground`: a real 4 m patch of each world's
+ground (a periodic heightfield with craterlets, wind ripples or cracks, and
+hundreds of half-buried 3D pebbles) baked to a seamless detail and normal
+tile, blended into the terrain shader at two scales and faded with distance
+(1.2 MB for all three worlds; only the visited one loads).
+
+**Story art.** `art/story` path traces each chapter's briefing photograph in
+Cycles from the shipped models, rock set and ground textures: Earth (NASA's
+Blue Marble) over the Moon, layered buttes under a dusty Martian sky, Jupiter
+at its true twelve degrees over Europa. The front page keeps stills captured
+from the game itself, refreshed with the new art.
+
 ### A pass for people who are new to it: 4 October 2026
 
 **Lag.** The stall people noticed in the simulator was the orbit trails

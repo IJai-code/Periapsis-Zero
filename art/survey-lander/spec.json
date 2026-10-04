@@ -10,5 +10,6 @@
   "bounds": { "min": [-3.7, -2.6, -3.7], "max": [3.7, 3.75, 3.7] },
   "budget": { "triangles": 150000, "bytes": 3000000 },
   "requiredEmpties": ["nozzle_0", "hatch", "ladder_base", "footpad_0", "footpad_1", "footpad_2", "footpad_3", "sample_bay", "rover_mount"],
-  "doubleSided": ["engine", "dish"]
+  "doubleSided": ["lander_ds"],
+  "textured": true
 }

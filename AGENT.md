@@ -357,7 +357,10 @@ hand-railed ladder, hatch frame, antenna dish with a feed, and the stripe.
 | 0 | Fold the expedition EVA onto `sim/walk.js`; remove the stale deploy variable | **Done** in `4320475` |
 | 1 | Survey lander, the pipeline (`art/`, `art.mjs`, `verify-art`) and its runtime swap | **Built**: 35,180 triangles, 9 materials, 182 kB; gate green; in the expedition with the primitive as fallback |
 | 2 | Surface rover (wheel empties drive spin and suspension), three instruments, sample cases | **Built**: `survey-rover` (12,792 triangles, six named wheels on the rover's own track and wheelbase) and `survey-kit` (3,224 triangles: seismometer, magnetometer, heat probe, sample stake); `verify-art` holds both to `ROVER` and the ground |
-| 3 | Rock library for the three regions, replacing generated rock meshes | Rocks are now displaced, per-world tinted instanced shapes in `gfx/expeditionTerrain.js`; a Blender rock set remains optional |
+| 2b | Baked surfaces: procedural Blender materials baked to colour, ORM and normal atlases (`art/lib/surfacing.py`) | **Built**: lander, rover and kit retextured; one material per side; WebP inside the `.glb`; reflections from a per-world environment (`gfx/surfaceEnvironment.js`) |
+| 3 | Rock library for the three regions, replacing generated rock meshes | **Built**: `art/rocks`, six stones baked from 82k-face sculpts onto 320-triangle meshes, swapped into the instanced field and the samples |
+| 3b | Ground detail | **Built**: `art/ground`, a 4 m tile per world baked from real geometry, blended into the terrain shader at two scales |
+| 3c | Story chapter art | **Built**: `art/story`, Cycles renders from the shipped assets for the story dossiers |
 | 4 | Simulator close-ups that read as primitives: LC-39B structures, the LM at Tranquility | Measured against the existing pad geometry gates |
 | 5 | Expedition terrain beyond the 700 m regional patch | A design decision first (4.9) |
 
@@ -373,6 +376,11 @@ hand-railed ladder, hatch frame, antenna dish with a feed, and the stripe.
 - **Browser smoke test.** `npm run smoke` opens six parts of the built site in
   headless Chrome and fails on any console error, uncaught exception or
   missing canvas. CI runs it after the build, on software WebGL.
+- **Slow machines.** The expeditions have a quality governor
+  (`gfx/surfaceQuality.js`): pixel ratio, shadow map, surface relief and rock
+  count step down on measured frame time, the result is remembered per
+  browser, and the pause menu offers Auto, High and Low. The front page's
+  backdrop is drawn on demand, not every frame.
 - **Frame time.** On the reference M4 the expedition holds 16.7 ms with either
   lander (vsync-locked, headless Chrome on Metal); a visible-tab measurement
   on the MacBook Air itself is still owed.

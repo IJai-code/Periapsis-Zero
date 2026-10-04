@@ -6,5 +6,6 @@
   "budget": { "triangles": 30000, "bytes": 600000 },
   "requiredEmpties": [],
   "requiredNodes": ["seismometer", "magnetometer", "heat_probe", "stake"],
-  "doubleSided": []
+  "doubleSided": [],
+  "textured": true
 }

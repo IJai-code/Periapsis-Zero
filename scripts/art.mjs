@@ -40,9 +40,14 @@ if (!existsSync(BLENDER)) {
   process.exit(2)
 }
 
-const shipped = join(ROOT, 'public', 'authored', `${id}.glb`)
+// Most assets are one .glb. A texture set (art/ground) names an output
+// directory and its files in spec.json instead, and is handed that directory.
+const specPath = join(ROOT, 'art', id, 'spec.json')
+const spec = existsSync(specPath) ? JSON.parse(readFileSync(specPath, 'utf8')) : {}
+const dirAsset = Boolean(spec.outputDir)
+const shipped = dirAsset ? join(ROOT, 'public', spec.outputDir) : join(ROOT, 'public', 'authored', `${id}.glb`)
 const scratch = check ? mkdtempSync(join(tmpdir(), 'pz-art-')) : null
-const out = check ? join(scratch, `${id}.glb`) : shipped
+const out = check ? join(scratch, dirAsset ? spec.outputDir : `${id}.glb`) : shipped
 const blend = check ? join(scratch, `${id}.blend`) : join(ROOT, 'art', id, `${id}.blend`)
 
 const run = spawnSync(BLENDER, ['-b', '--factory-startup', '--python-exit-code', '1', '--python', script, '--', '--out', out, '--blend', blend], {
@@ -52,15 +57,26 @@ const run = spawnSync(BLENDER, ['-b', '--factory-startup', '--python-exit-code',
 })
 const lines = `${run.stdout}\n${run.stderr}`.split('\n')
 for (const line of lines) if (line.startsWith('PZ-') || /Error|Traceback|^\s+File /.test(line)) console.log(line)
-if (run.status !== 0 || !existsSync(out)) {
+if (run.status !== 0) {
   console.error(`blender exited ${run.status}; nothing written`)
   process.exit(1)
 }
 
-if (check) {
-  const same = existsSync(shipped) && readFileSync(shipped).equals(readFileSync(out))
-  rmSync(scratch, { recursive: true, force: true })
-  console.log(same ? `${id}: rebuilt byte-identical to public/authored/${id}.glb` : `${id}: rebuild DIFFERS from the shipped file`)
-  process.exit(same ? 0 : 1)
+const files = dirAsset ? spec.outputs.map((f) => [join(out, f), join(shipped, f)]) : [[out, shipped]]
+const missing = files.filter(([made]) => !existsSync(made)).map(([made]) => made)
+if (missing.length) {
+  console.error(`blender did not write: ${missing.join(', ')}`)
+  process.exit(1)
 }
-console.log(`${id}: ${readFileSync(out).length.toLocaleString()} bytes -> public/authored/${id}.glb`)
+if (check && spec.reproducible === false) {
+  rmSync(scratch, { recursive: true, force: true })
+  console.log(`${id}: rendered, but path tracing is not bit-reproducible, so there is nothing to compare`)
+  process.exit(0)
+}
+if (check) {
+  const differ = files.filter(([made, ship]) => !existsSync(ship) || !readFileSync(ship).equals(readFileSync(made)))
+  rmSync(scratch, { recursive: true, force: true })
+  console.log(differ.length ? `${id}: rebuild DIFFERS from the shipped file(s): ${differ.map(([, s]) => s).join(', ')}` : `${id}: rebuilt byte-identical to what ships`)
+  process.exit(differ.length ? 1 : 0)
+}
+for (const [made] of files) console.log(`${id}: ${readFileSync(made).length.toLocaleString()} bytes -> ${made.replace(ROOT + '/', '')}`)
