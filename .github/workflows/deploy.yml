@@ -106,6 +106,7 @@ jobs:
       # runner's own Chrome (software WebGL, no GPU), failing on any console
       # error, uncaught exception or missing canvas, before anything deploys.
       - name: Open the site in a browser
+        timeout-minutes: 8
         run: npm run smoke
 
       - uses: actions/configure-pages@v6

@@ -74,8 +74,15 @@ export async function launch({ width = 1280, height = 800 } = {}) {
       msg.error ? rej(new Error(msg.error.message)) : res(msg.result)
     } else if (msg.method) events.push(msg)
   }
-  const send = (method, params = {}) =>
-    new Promise((res, rej) => { const n = ++id; pending.set(n, { res, rej }); ws.send(JSON.stringify({ id: n, method, params })) })
+  // Every call has a deadline: a renderer pegged by software WebGL can sit on
+  // a request indefinitely, and a check that waits forever is not a check.
+  const send = (method, params = {}, ms = 60000) =>
+    new Promise((res, rej) => {
+      const n = ++id
+      const timer = setTimeout(() => { pending.delete(n); rej(new Error(`${method} did not answer within ${ms / 1000} s`)) }, ms)
+      pending.set(n, { res: (v) => { clearTimeout(timer); res(v) }, rej: (e) => { clearTimeout(timer); rej(e) } })
+      ws.send(JSON.stringify({ id: n, method, params }))
+    })
 
   await send('Page.enable')
   await send('Runtime.enable')
@@ -116,9 +123,20 @@ export async function launch({ width = 1280, height = 800 } = {}) {
 
 /** Serve `dist` with Vite's preview server on a port; returns a stop function. */
 export async function preview(port = 4180) {
-  const child = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: ['ignore', 'pipe', 'pipe'] })
+  // Vite's own entry, run by this Node: through `npx` the kill below reached
+  // npx and not the server it started, whose open pipes then held the parent
+  // alive after every check had passed (a CI step that never ended).
+  const taken = await fetch(`http://localhost:${port}/`).then(() => true, () => false)
+  if (taken) throw new Error(`port ${port} already answers; stop that server so this checks the current build`)
+  const vite = join(process.cwd(), 'node_modules', 'vite', 'bin', 'vite.js')
+  const child = spawn(process.execPath, [vite, 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore' })
+  // If the port is taken the server exits at once; answering on that port is
+  // then someone else's server, and checking it would check the wrong build.
+  let exited = false
+  child.on('exit', () => { exited = true })
   for (let i = 0; i < 100; i++) {
-    try { if ((await fetch(`http://localhost:${port}/`)).ok) return { url: `http://localhost:${port}`, stop: () => child.kill() } } catch { /* starting */ }
+    if (exited) throw new Error(`vite preview could not start on port ${port}; is something else using it?`)
+    try { if ((await fetch(`http://localhost:${port}/`)).ok && !exited) return { url: `http://localhost:${port}`, stop: () => child.kill() } } catch { /* starting */ }
     await wait(150)
   }
   child.kill()

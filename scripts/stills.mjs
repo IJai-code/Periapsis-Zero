@@ -72,3 +72,4 @@ try {
 } finally {
   server.stop()
 }
+process.exit(0)

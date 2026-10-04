@@ -69,3 +69,5 @@ if (failed) {
   process.exit(1)
 }
 console.log(`${PAGES.length} pages load in a browser with no errors.`)
+// Explicitly: a stray child or socket must not keep a passing check running.
+process.exit(0)
