@@ -8,7 +8,7 @@ import { play } from '../audio.js'
 /** The flight HUD. Re-rendered ten times a second from the game object. */
 export function Hud({ game: g, touch, onOverlay }) {
   const p = g.player
-  const place = g.deep ?? PLACES[g.place]
+  const place = g.deep ?? PLACES[g.place] ?? g.placeDef
   return <div className="gm-hud">
     <header className="hud-where">
       <h1>{place?.name ?? 'Deep space'}</h1>

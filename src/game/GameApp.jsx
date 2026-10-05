@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp } from './core/game.js'
+import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp, spawnRaiders, setDestination, startTransfer, addHeat } from './core/game.js'
 import * as THREE from 'three'
 import { bindDesktop, createControls, isTouch } from './ui/controls.js'
 import { duck, engineLevel, pauseSound, play, startSound } from './audio.js'
@@ -34,6 +34,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   const [overlay, setOverlay] = useState(null) // 'map' | 'log' | 'pause' | null
   const [touch] = useState(isTouch)
   const [quality, setQuality] = useState(() => { try { return localStorage.getItem(QUALITY_KEY) ?? 'high' } catch { return 'high' } })
+  const chooseQuality = useCallback((q) => { setQuality(q); try { localStorage.setItem(QUALITY_KEY, q) } catch { /* fine */ } }, [])
   const [placeKey, setPlaceKey] = useState('')
   const overlayRef = useRef(overlay)
   overlayRef.current = overlay
@@ -49,6 +50,9 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       window.__pzLook = (x, y, z) => { const g = game.current, p = g.player; p.q.setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, new THREE.Vector3(x, y, z), worldUp(g, new THREE.Vector3()))); p.vel.set(0, 0, 0); p.ctrl.throttle = 0 }
       window.__pzGo = (place, x = 0, y = 300, z = 4200) => { const g = game.current; g.mode = 'flight'; g.docked = null; loadPlace(g, place); g.player.pos.set(x, y, z); g.player.vel.set(0, 0, 0) }
       window.__pzV = (x, y, z) => new THREE.Vector3(x, y, z)
+      window.__pzRaid = (n = 3, d = 900) => { const g = game.current, p = g.player; const at = new THREE.Vector3(0, 0, -d).applyQuaternion(p.q).add(p.pos); const list = spawnRaiders(g, n, at, 'show', { mode: 'attack' }); for (const e of list) e.ai.target = p.id; g.target = list[0].id; return list.length }
+      window.__pzHeat = (n = 2) => addHeat(game.current, n, 'contraband')
+      window.__pzTransfer = (dest) => { const g = game.current; setDestination(g, dest); return startTransfer(g, dest) }
     }
     setPlaceKey(`${game.current.place}:${Date.now()}`)
     setPhase('play')
@@ -98,9 +102,26 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   }, [phase])
 
   useEffect(() => { pauseSound(overlay === 'pause') }, [overlay])
-  useEffect(() => { try { localStorage.setItem(QUALITY_KEY, quality) } catch { /* fine */ } }, [quality])
 
-  const onFrame = useCallback((g, camera) => { if (markers.current) updateMarkers(markers.current, g, camera, controls.current) }, [])
+  // Automatic quality: if the first seconds of flight run slower than about
+  // 25 frames a second, drop to the fast settings (lower resolution, no
+  // bloom, fewer stars), once, and say so. A choice made in settings wins.
+  const perf = useRef({ t0: 0, frames: 0, done: false })
+  const onFrame = useCallback((g, camera) => {
+    if (markers.current) updateMarkers(markers.current, g, camera, controls.current)
+    const pf = perf.current
+    if (pf.done || g.mode !== 'flight') return
+    const now = performance.now()
+    if (!pf.t0) { pf.t0 = now; return }
+    pf.frames++
+    if (now - pf.t0 > 4000) {
+      pf.done = true
+      const fps = pf.frames / ((now - pf.t0) / 1000)
+      let chosen = null
+      try { chosen = localStorage.getItem(QUALITY_KEY) } catch { /* none */ }
+      if (fps < 25 && !chosen) { setQuality('low'); g.emit({ type: 'toast', text: 'Switched to fast graphics for this machine. Change it in Menu, Settings.' }) }
+    }
+  }, [])
 
   if (phase === 'new') return <NewPilot onBegin={(name) => { deleteSave(); begin(newSave(name)) }} onExit={onExit} />
   const g = game.current
@@ -123,7 +144,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       {touch && g.mode === 'flight' && !overlay && <Touch controls={controls.current} game={g} onOverlay={setOverlay} />}
       {overlay === 'map' && <MapView game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {overlay === 'log' && <Log game={g} touch={touch} onClose={() => setOverlay(null)} />}
-      {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={setQuality} controls={controls.current}
+      {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current}
         onResume={() => setOverlay(null)} onQuit={() => { autosave(g); onExit?.() }} />}
       {g.mode === 'flight' && !touch && !controls.current.mouse.locked && !overlay && <div className="gm-takestick">Click the view to take the stick</div>}
     </>}

@@ -16,15 +16,13 @@
 import { launch, preview, wait } from './lib/chrome.mjs'
 
 const PAGES = [
-  { name: 'front page', hash: '', canvas: true, text: 'Land anywhere in the solar system' },
-  { name: 'campaign', hash: '#campaign', canvas: true, text: 'Station Zero', settle: 30000 },
-  { name: 'old story link, now the campaign', hash: '#story', canvas: true, text: 'Station Zero', settle: 30000 },
-  { name: 'Moon landing', hash: '#land/moon', canvas: true, text: 'Moon' },
-  { name: 'Venus landing (air, heat timer)', hash: '#land/venus', canvas: true, text: 'Venus' },
-  { name: 'Io landing (lava)', hash: '#land/io', canvas: true, text: 'Io' },
+  { name: 'title screen', hash: '', canvas: false, text: 'Periapsis' },
+  { name: 'new game', hash: '#play', canvas: false, text: 'Who is flying', setup: "localStorage.removeItem('pz-game-v1')" },
+  { name: 'the game, from a save (docked at Hearth)', hash: '#play', canvas: true, text: 'Hearth Station', settle: 20000, setup: "localStorage.setItem('pz-game-v1', JSON.stringify({version:1,pilot:{name:'Smoke'},credits:5000,debt:40000,ship:{hull:'kestrel',up:{},hp:1,prop:150000,cargo:{}},home:'hearth',time:0,heat:0,story:{active:'arrival',step:0,done:[],choice:null,offered:[]},jobs:[],flags:{},stats:{kills:0,earned:0,jobs:0,trips:0,deaths:0,fines:0}}))" },
+  { name: 'old campaign link, now the game', hash: '#campaign', canvas: true, text: 'Hearth Station', settle: 20000, setup: "localStorage.setItem('pz-game-v1', JSON.stringify({version:1,pilot:{name:'Smoke'},credits:5000,debt:40000,ship:{hull:'kestrel',up:{},hp:1,prop:150000,cargo:{}},home:'hearth',time:0,heat:0,story:{active:'arrival',step:0,done:[],choice:null,offered:[]},jobs:[],flags:{},stats:{kills:0,earned:0,jobs:0,trips:0,deaths:0,fines:0}}))" },
+  { name: 'Moon landing (simulator)', hash: '#land/moon', canvas: true, text: 'Moon' },
   { name: 'Titan landing (haze, lake)', hash: '#land/titan', canvas: true, text: 'Titan' },
-  { name: 'Halley landing (hopper)', hash: '#land/halley', canvas: true, text: 'Halley' },
-  { name: 'simulator', hash: '#flight', canvas: true, text: 'PERIAPSIS ZERO', settle: 15000 },
+  { name: 'simulator', hash: '#sim', canvas: true, text: 'PERIAPSIS ZERO', settle: 15000 },
 ]
 /**
  * Messages that are the environment talking, not the site. Each is a browser
@@ -45,7 +43,8 @@ try {
     try {
       await page.goto(`${server.url}/`)
       // Skip the first-run cards so the mission actually runs.
-      await page.evaluate("localStorage.setItem('pz-surface-howto-v1', '1'); localStorage.setItem('pz-campaign-intro-v1', '1')")
+      await page.evaluate("localStorage.setItem('pz-surface-howto-v1', '1')")
+      if (p.setup) await page.evaluate(p.setup)
       await page.goto(`${server.url}/${p.hash}`)
       await wait(p.settle ?? 9000)
       const state = await page.evaluate(`({ canvas: !!document.querySelector('canvas'), text: document.body.innerText })`)

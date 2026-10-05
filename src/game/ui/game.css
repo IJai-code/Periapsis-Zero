@@ -310,6 +310,8 @@
 .tc-top { position: absolute; top: 76px; right: 18px; display: flex; gap: 6px; }
 .tc-top button { padding: 10px 14px; border: 1px solid #f4e8cf33; border-radius: 8px; background: #120b22b3; font-size: 13px; }
 .is-touch .hud-tactical { display: none; }
+.is-touch .hud-objective { max-width: 44vw; left: 40%; }
+.is-touch .tc-top { top: 96px; }
 .is-touch .hud-cluster { left: auto; right: auto; transform: none; left: 50%; translate: -50% 0; bottom: 14px; scale: .8; transform-origin: bottom center; }
 .is-touch .hud-prompt { bottom: 260px; }
 

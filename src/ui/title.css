@@ -9,7 +9,7 @@
 .tt-bar nav button, .tt-bar nav a, .tt-bar .quiet-button { padding: 0; border: none; background: none; color: #f4e8cfcc; text-decoration: none; }
 .tt-bar nav button:hover, .tt-bar nav a:hover { color: #ff6b2c; }
 .tt-hero { position: relative; z-index: 1; max-width: 1180px; min-height: calc(100vh - 70px); display: flex; flex-direction: column; justify-content: center; padding: 20px clamp(16px, 4vw, 56px) 60px; }
-.tt-hero h1 { margin: 0; font: 400 clamp(64px, 11vw, 150px)/0.86 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: #f4e8cf; text-shadow: 0 6px 40px #000; }
+.tt-hero h1 { margin: 0; font: 400 clamp(46px, 11.5vw, 150px)/0.86 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: #f4e8cf; text-shadow: 0 6px 40px #000; }
 .tt-tag { max-width: 34ch; margin: 22px 0 30px; font-size: clamp(17px, 1.8vw, 22px); line-height: 1.5; color: #f4e8cfe0; text-shadow: 0 2px 16px #000; }
 .tt-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
 .tt-play, .tt-second { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 18px 28px; border-radius: 6px; text-align: left; transition: transform .15s, filter .15s; }

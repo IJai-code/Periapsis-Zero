@@ -127,4 +127,27 @@ check('the ambience still gates on a gesture', () => {
   assert.ok(at > 0 && ctor > at, 'the AudioContext must be constructed inside setAmbience, after the gesture arrives')
 })
 
+check('the game has its music: the owner\'s track, real, looped, and only the game loads it', () => {
+  const path = join(ROOT, 'public/audio/lexin-space-ambient-sci-fi.mp3')
+  assert.ok(existsSync(path), 'the game track is missing')
+  const bytes = readFileSync(path)
+  const id3 = bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33
+  const sync = bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0
+  assert.ok((id3 || sync) && bytes.length > 2e6, 'the game track is not the supplied MP3')
+  const audio = readFileSync(join(ROOT, 'src/game/audio.js'), 'utf8')
+  assert.ok(audio.includes('lexin-space-ambient-sci-fi.mp3') && /loop\s*=\s*true/.test(audio), 'the game does not loop the track')
+  assert.ok(/export function startSound/.test(audio) && /setMusic/.test(audio) && /setSfx/.test(audio) && /setMuted/.test(audio), 'music and effects each need their own control')
+  // The simulator stays silent: nothing outside src/game reaches the game's sound.
+  const found = []
+  const walk = (dir) => {
+    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = join(dir, e.name).replaceAll('\\', '/')
+      if (e.isDirectory()) walk(rel)
+      else if (/\.(js|jsx)$/.test(e.name) && /from\s+'[^']*audio\.js'/.test(readFileSync(join(ROOT, rel), 'utf8'))) found.push(rel)
+    }
+  }
+  walk('src')
+  for (const f of found) assert.ok(f.startsWith('src/game/'), `${f} imports the game's sound`)
+})
+
 console.log(`verify-audio: ${n} checks — the bed is real, the flight path is silent, the generated score stays gone`)

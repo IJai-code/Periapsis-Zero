@@ -267,7 +267,14 @@ function stepTransfer(g, dt) {
     stepShip(p, dt, g.time)
     p.vel.multiplyScalar(0.96)
     g.anim.t += dt
-    if (g.anim.t >= g.anim.dur) { g.mode = 'transfer'; tr.phase = 'burn'; g.emit({ type: 'burn' }); p.q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), tr.dir) }
+    if (g.anim.t >= g.anim.dur) {
+      g.mode = 'transfer'; tr.phase = 'burn'
+      // Out of the place and into the dark: nothing local comes along.
+      g.place = 'transit'; g.placeDef = { name: 'In transit', where: `Bound for ${PLACES[tr.dest].name}`, region: 1e12 }
+      g.ships = [p]; g.stations = []; g.rocks = []; g.rings = []; g.beacons = []; g.canisters = []; g.markers = []; g.target = null
+      g.emit({ type: 'burn' })
+      p.q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), tr.dir)
+    }
     return
   }
   tr.t += dt / tr.real

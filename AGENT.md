@@ -4,21 +4,30 @@ Working notes for anyone, human or agent, who changes Periapsis Zero. It says
 what the codebase is today, the rules that keep it honest, and the engineering
 plan for raising the web product with Blender-authored art.
 
-Last reviewed: 4 October 2026, on `main`.
+Last reviewed: 5 October 2026, on `main`.
 
 ---
 
 ## 1. What the product is now
 
-Periapsis Zero started as a true-scale solar-system simulator. It is now one
-product with two ways in, and both are the simulator:
+Periapsis Zero started as a true-scale solar-system simulator. It is now a
+game, with the simulator beside it:
 
-| Route | Experience | What it is |
-| --- | --- | --- |
-| `/` | Front door | `src/ui/Landing.jsx` over a live Mars backdrop (`ScenicBackdrop.jsx`): the pitch, the two modes, a gallery of every landable world (Blender renders, `public/stills/world-<id>.webp`), how a mission goes. |
-| `#campaign` (old `#story`) | Campaign: Station Zero | The simulator with `ui/CampaignPanel.jsx` over it. Twelve worlds in order (`CAMPAIGN_ORDER`), each a landing, a survey and a lift-off, scored in stars; science buys upgrades; after nine surveys the finale picks the station's site. Rules in `sim/campaign.js`. |
-| `#flight` | Simulator | The N-body simulator: Apollo and Artemis presets, mission library, planner, contracts, Almanac, walk mode. The top bar's **Land** menu, or **Land on X** with a landable world in focus, drops onto that world's surface. |
-| `#land/<world>` (old `#expedition/<id>`) | A landing | The simulator, straight onto one of 13 worlds' surfaces (`sim/worlds.js`). |
+| Route | What it is |
+| --- | --- |
+| `/` | The game's title screen (`src/ui/Title.jsx`): continue, new game, a link to the simulator. Phones get a notice and the simulator. |
+| `#play` (old `#campaign`, `#story`) | The game (`src/game/GameApp.jsx`). Design: docs/game-design.md. |
+| `#sim`, `#flight` | The N-body simulator: Apollo and Artemis presets, planner, Almanac, walk mode, and a Land menu. |
+| `#land/<world>` | The simulator, straight onto one of 13 worlds' surfaces (`sim/worlds.js`). |
+
+**The game** is `src/game`: `core/` is pure JavaScript, testable in Node
+(world, ships, flight, combat, ai, heat, economy, story, game), `scene/` is
+the R3F view (sky with real stars and true-angular-size Earth and Moon,
+ships, stations, effects, camera), `ui/` the interface (HUD, station menus,
+map, comms, banners, pause, touch). `scripts/lib/gameBot.mjs` is a scripted
+pilot; `verify-game` uses it to play the whole story. In development,
+`window.__game`, `__pzGo`, `__pzLook`, `__pzRaid`, `__pzHeat` and
+`__pzTransfer` stage scenes for checks and screenshots.
 
 A surface mission (`ui/Surface.jsx` over `components/ExpeditionScene.jsx`,
 physics in `sim/expedition.js`) is the same in every mode: land on the pad

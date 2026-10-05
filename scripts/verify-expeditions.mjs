@@ -329,13 +329,16 @@ check('rendered terrain is the collision surface, its rings meet without cracks,
   }
 })
 
-check('links: #land/<world> lands there, #campaign and old #story are the campaign, old expedition links still land, junk goes home', () => {
+check('links: #play is the game, #sim and #flight the simulator, #land/<world> a landing; old campaign and story links go to the game; junk goes home', () => {
+  assert.deepEqual(experienceFromHash(''), { mode: 'home' })
+  assert.deepEqual(experienceFromHash('#play'), { mode: 'play' })
+  assert.deepEqual(experienceFromHash('#sim'), { mode: 'simulator' })
   assert.deepEqual(experienceFromHash('#flight'), { mode: 'simulator' })
-  assert.deepEqual(experienceFromHash('#campaign'), { mode: 'campaign' })
-  assert.deepEqual(experienceFromHash('#story'), { mode: 'campaign' })
+  assert.deepEqual(experienceFromHash('#campaign'), { mode: 'play' })
+  assert.deepEqual(experienceFromHash('#story'), { mode: 'play' })
   for (const id of LANDABLE) assert.deepEqual(experienceFromHash(landHash(id)), { mode: 'land', id })
   assert.deepEqual(experienceFromHash('#expedition/mars'), { mode: 'land', id: 'mars' })
-  assert.deepEqual(experienceFromHash('#expedition/europa/campaign'), { mode: 'campaign' })
+  assert.deepEqual(experienceFromHash('#expedition/europa/campaign'), { mode: 'play' })
   assert.deepEqual(experienceFromHash('#land/jupiter'), { mode: 'home' })
   assert.deepEqual(experienceFromHash('#nonsense'), { mode: 'home' })
   assert.throws(() => landHash('jupiter'))

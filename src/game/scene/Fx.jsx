@@ -19,7 +19,7 @@ export function Fx({ game }) {
 
 function Bolts({ game }) {
   const mesh = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(0.35, 0.35, 1, 6, 1)
+    const geo = new THREE.CylinderGeometry(0.22, 0.22, 1, 6, 1)
     geo.rotateX(Math.PI / 2)
     const m = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ toneMapped: false }), 512)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
@@ -38,7 +38,7 @@ function Bolts({ game }) {
       const sp = _v.length()
       _o.position.set(b.x[i], b.y[i], b.z[i])
       _o.lookAt(_v.add(_o.position))
-      _o.scale.set(1, 1, Math.min(40, sp * 0.012))
+      _o.scale.set(1, 1, Math.min(12, sp * 0.005))
       _o.updateMatrix()
       mesh.setMatrixAt(n, _o.matrix)
       _c.copy(TEAM_BOLT[b.team[i]] ?? TEAM_BOLT.civil).multiplyScalar(4)

@@ -49,7 +49,7 @@ export function Station({ game: g, touch, onLaunch, onOverlay }) {
     </section>
     <div className="st-launch">
       <ShipCard g={g} />
-      <button className="st-go" onClick={onLaunch}>Launch<kbd className="gk">{touch ? '' : 'Enter'}</kbd></button>
+      <button className="st-go" onClick={onLaunch}>Launch{!touch && <kbd className="gk">Enter</kbd>}</button>
     </div>
   </div>
 }

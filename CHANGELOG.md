@@ -5,6 +5,60 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Periapsis Zero becomes a game: 5 October 2026
+
+The site is now a game, and the simulator is a tool beside it. The front
+page is the game's title screen; the simulator is a link (and works on
+phones, which the game does not try to).
+
+**The game** (src/game, design in docs/game-design.md). 2091: you arrive at
+Hearth Station, Earth-Moon L1, with a tired Kestrel and forty thousand
+credits owed to a fixer called Rook. An open world between the real Earth and
+Moon: Hearth, Harbor in low Earth orbit, the Drift and its pirate rock the
+Shackle, Gateway in the lunar halo orbit, and Shackleton over the south pole.
+
+- **Story.** Act One, eight missions with Mara Voss, Rook, Commander Chen and
+  the Warden, a choice that splits it, and a finale over the lunar pole.
+  The first mission teaches every control one at a time.
+- **Flight.** Newtonian six-axis flight with flight assist (off is pure
+  momentum), boost, mouse aim with the ship lagging the cursor, a lead marker
+  for bolts that take time to arrive.
+- **Travel.** Real torch-drive transfers at 0.3 g: burn, flip at the
+  midpoint, brake. Hours of ship time pass in seconds and the game clock moves
+  on. The Hollow can pull you out of the drive.
+- **Wanted.** Five chevrons. Patrol scans find contraband (not in a Mule's
+  hidden compartment); a hail you can stop for or run from; cutters that
+  attack the nearest of them and search where they last saw you; running
+  cold (no thrust, no boost, no guns) cuts the range they see you at to
+  1.8 km; a drive inhibitor; fines; the Shackle docks you hot.
+- **A living place.** Freighter traffic, patrols, raider packs, a job board
+  that changes daily (courier, haul, salvage, bounty, race, landing survey,
+  smuggling), a market with prices that move, three ships to buy, five
+  upgrades, repair and propellant.
+- **Landing.** Shackleton's descent corridor hands over to the surface game.
+- **Sound.** The owner's track as the game's music, looped and ducked under
+  dialogue, plus synthesised effects with their own volume and a mute.
+- **Devices.** Keyboard and mouse; tablets get touch controls (stick,
+  throttle, fire, boost, target, a context action button); phones are told the
+  game needs a bigger screen and pointed at the simulator. Graphics drop to a
+  fast tier on their own if the first seconds of flight run slow.
+
+**Blender.** Twelve models built in code and baked (art/lib/craft.py): the
+Kestrel, Mule and Lance, the Hollow raider, the Warden, the Compact cutter,
+a container freighter, salvage canisters, and Hearth, Harbor, Gateway and
+the Shackle. Cycles portraits of everyone on the comms, shipyard hull shots
+and the title key art (art/game-art).
+
+**Gates.** verify-game: L1 from the masses, brachistochrone transfers flown
+and timed, flight assist and momentum, an exact lead-point intercept, heat
+and scans and fines, the market, jobs, saves, the shipyard, and the whole
+story played through on both branches by a scripted pilot. verify-audio
+holds the game's music. The smoke test opens the title, a new game, a saved
+game in its 3D view, landings and the simulator.
+
+**Removed.** The campaign added last round (its panel, rules and gate):
+the game's story replaces it. The simulator's Land menu stays.
+
 ### One game on the real solar system: 4 October 2026
 
 The site was three modes that did not explain themselves (a simulator, three
