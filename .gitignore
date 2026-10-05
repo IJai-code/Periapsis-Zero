@@ -32,11 +32,5 @@ __pycache__/
 .env.local
 .env.*.local
 
-# Godot opened this folder once and wrote its own files; they are not part of the site.
-.godot/
-/android/
-*.import
-project.godot
-
 # Local scratch scripts for checks.
 scripts/scratch/
