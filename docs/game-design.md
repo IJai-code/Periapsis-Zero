@@ -72,6 +72,9 @@ price.
 - **Rook**, the fixer at the Shackle. Holds your debt. Friendly about it.
 - **Commander Elias Chen**, Lunar Compact patrol. Patient, and he remembers.
 - **The Hollow**, raiders out of the Drift, led by someone called the Warden.
+- **Ines Okafor**, factor for the Ceres Line, the shipping company that moves
+  into the lanes once the Hollow are gone. Generous, and lying.
+- **Vex**, Rook's gun. Flies with you on Rook's side of the story.
 
 ## Act One: Periapsis
 
@@ -86,6 +89,31 @@ price.
 7. **The Raid** (with Chen) or **The Convoy** (with Rook).
 8. **Periapsis.** The Warden runs for the Moon; the chase ends at the lowest
    point of the orbit.
+
+## Act Two: Apoapsis
+
+Both sides of the choice come back together: Chen is on your side either way,
+and on Rook's side Vex flies with you too.
+
+9. **New Money.** The Ceres Line asks for you by name: escort the freighter
+   Providence out of Harbor through two raider packs. If she is destroyed, the
+   mission fails and can be taken again.
+10. **Ghost Signal.** Okafor wants a dead tug's flight recorder from the
+    Drift. Hold still beside the wreck to pull it; "Hollow" raiders with Ceres
+    transponders come for it. Take it to Mara, not to Okafor.
+11. **The Loop.** Run the Harbor Loop in under two minutes to be invited
+    close to Okafor's yacht, the Meridian, and tag it with Mara's tracker.
+12. **Apoapsis.** The Ceres Line goes for Gateway: two waves of strike craft
+    and the Meridian, against Chen's wing and Gateway's patrol.
+
+After the finale the open world carries on: jobs, trade, ships, upgrades.
+
+## The hangar
+
+Docked, the ship sits on a pad inside the station's bay (art/game-hangar,
+built in art/lib/craft.py): robot arms, catwalks, crates, a crane, lamps, and
+the door open on the sky with Earth or the Moon beyond it. The bay is level
+with the nearest world, so launching leaves with the horizon square.
 
 ## Devices
 

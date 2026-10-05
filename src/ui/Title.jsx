@@ -23,7 +23,7 @@ function phone() {
 }
 
 const FEATURES = [
-  { img: 'shot-story.webp', title: 'A story with people in it', text: 'Mara runs the docks. Rook holds your debt. Commander Chen wants the Hollow, and he knows what you did at Gateway. Eight missions, one choice that splits them.' },
+  { img: 'shot-story.webp', title: 'A story with people in it', text: 'Mara runs the docks. Rook holds your debt. Commander Chen wants the Hollow, and he knows what you did at Gateway. Then the Ceres Line comes. Two acts, thirteen missions, one choice that splits them.' },
   { img: 'shot-flight.webp', title: 'Fly it yourself', text: 'Six-axis thrusters and momentum you have to kill. Flight assist holds the velocity you ask for; turn it off and it is you and Newton.' },
   { img: 'shot-heat.webp', title: 'Wanted', text: 'Carry the wrong cargo past a patrol scan and the Lunar Compact comes for you. Break their sight, run cold, or run for the Shackle.' },
   { img: 'shot-transfer.webp', title: 'The real Earth and Moon', text: 'Hearth at L1, Harbor in low orbit, Gateway over the lunar pole. Transfers are true torch-drive brachistochrones: burn, flip at the midpoint, brake.' },
@@ -58,7 +58,7 @@ export function Title({ onPlay, onNew, onSimulator }) {
           <span>Continue</span>
           <small>{save.pilot.name} · ₡ {Math.round(save.credits).toLocaleString()}{save.story?.active ? ' · mission in progress' : ''}</small>
         </button>}
-        {!confirmNew ? <button className={save ? 'tt-second' : 'tt-play'} onClick={() => (save ? setConfirmNew(true) : onNew())}><span>New game</span>{!save && <small>About eight story missions, and an open world after</small>}</button>
+        {!confirmNew ? <button className={save ? 'tt-second' : 'tt-play'} onClick={() => (save ? setConfirmNew(true) : onNew())}><span>New game</span>{!save && <small>Two acts of story, and an open world after</small>}</button>
           : <div className="tt-confirm"><p>Start over? Your current pilot will be replaced.</p><button className="tt-second" onClick={onNew}>Start a new game</button><button className="tt-link" onClick={() => setConfirmNew(false)}>Keep my pilot</button></div>}
       </div>}
       <p className="tt-devices">Computer: keyboard and mouse · Tablet: touch controls · Free, nothing to install</p>

@@ -17,10 +17,15 @@ export function createPilot(name = 'Bot', save = null) {
   const c = { actions: [], throttleRate: 0, throttleSet: null, strafeX: 0, strafeY: 0, pitch: 0, yaw: 0, roll: 0, boost: false, fire: false, aim: null }
   const log = []
   const bot = { g, c, log, steps: 0 }
+  // The last few things that hurt you, for the report when something does not come home.
+  const hurt = []
+  const emit = g.emit
+  g.emit = (ev) => { if (ev.player && (ev.type === 'hit' || ev.type === 'bump')) { hurt.push({ t: g.time, who: ev.type === 'bump' ? 'collision' : (g.byId(ev.by)?.label ?? 'unknown') + (process.env.STORY_DEBUG ? ` [${g.byId(ev.by)?.tag}/${g.byId(ev.by)?.team}]` : '') }); if (hurt.length > 12) hurt.shift() } return emit(ev) }
+  const hurtBy = () => [...new Set(hurt.filter((h) => g.time - h.t < 20).map((h) => h.who))].join(', ')
   const step = (n = 1) => { for (let i = 0; i < n; i++) { stepGame(g, c); bot.steps++ } }
   const until = (cond, seconds, why) => {
     const limit = seconds * 60
-    for (let i = 0; i < limit; i++) { if (cond()) return true; if (g.mode === 'dead') throw new Error(`destroyed while ${why} (${g.place})`); step() }
+    for (let i = 0; i < limit; i++) { if (cond()) return true; if (g.mode === 'dead') throw new Error(`destroyed while ${why} (${g.place}, heat ${g.heat.level}, hit by ${hurtBy()})`); step() }
     if (cond()) return true
     throw new Error(`timed out ${why} after ${seconds} s (${g.place}, mode ${g.mode}, objective: ${g.objective?.text})`)
   }
@@ -169,6 +174,38 @@ export function createPilot(name = 'Bot', save = null) {
       if (!near && !g.heat.seen) { c.aim = null; c.pitch = c.yaw = 0 }
       return false
     }, seconds, 'losing the heat')
+    clear()
+  }
+
+  /**
+   * Run the Harbor Loop until `done()`: ring to ring, fast where the next
+   * ring is ahead and slow where the line bends, the way a racer brakes for a
+   * corner. The race resets itself on a slow lap; this keeps going.
+   */
+  bot.race = (done, seconds = 600) => {
+    clear()
+    until(() => {
+      if (done()) return true
+      const r = g.race
+      if (!r) { c.throttleSet = 0; return false }
+      const ring = g.rings[r.next], after = g.rings[r.next + 1]
+      const p = g.player
+      const to = ring.clone().sub(p.pos)
+      const d = to.length()
+      to.normalize()
+      // In the last 800 m, lean the nose toward the ring after: the turn starts before the gate.
+      const aim = to.clone()
+      if (after) aim.addScaledVector(after.clone().sub(ring).normalize(), Math.max(0, 1 - d / 800) * 0.6).normalize()
+      c.aim = aim
+      const sp = p.vel.length()
+      const off = _w.copy(p.vel).normalize().dot(to)
+      const bend = after ? Math.max(0, after.clone().sub(ring).normalize().dot(to)) : 1
+      const corner = 40 + 100 * bend
+      const vmax = Math.sqrt(corner * corner + 2 * p.stats.accel * d)
+      c.throttleSet = off < 0.97 && sp > 120 ? 0.3 : sp > vmax ? 0.2 : 1
+      c.boost = off > 0.995 && d > 1200 && p.boost > 0.25
+      return false
+    }, seconds, 'racing the Harbor Loop')
     clear()
   }
 

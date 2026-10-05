@@ -64,12 +64,13 @@ Three other kinds of asset use the same machinery:
   Not bit-reproducible, so `--check` skips it; `verify:art` still holds its
   files and budget.
 
-- `game-*/`: the game's ships and stations, all built by `lib/craft.py`
+- `game-*/`: the game's ships, stations and the docking bay (`game-hangar`), all built by `lib/craft.py`
   (hulls lofted from chamfered sections and subdivided, wings and fins
   extruded, engines lathed) and baked like the vehicles; lights and engine
   glow stay emissive. `PZ_NOBAKE=1` with `--preview` renders a quick look.
 - `game-art/`: Cycles renders for the game: key art, shipyard hulls,
-  comms portraits, into `public/game/`.
+  comms portraits, into `public/game/`. `PZ_ONLY=portrait:okafor,vex`
+  renders just those faces.
 
 A quick look while working on a surface:
 

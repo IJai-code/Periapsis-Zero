@@ -4,7 +4,10 @@ import { makeShip } from './flight.js'
 import { shipStats } from './ships.js'
 
 /**
- * The story: Act One, "Periapsis".
+ * The story, in two acts. Act One, "Periapsis": a debt, a choice between a
+ * fixer and a patrol commander, and the Warden at the lunar south pole.
+ * Act Two, "Apoapsis": the Ceres Line moves into the lanes the Hollow left,
+ * and is not what it says it is.
  *
  * A mission is a list of steps; each step has an objective line, an
  * optional place it happens in (until you are there, the objective is to
@@ -21,6 +24,8 @@ export const CHARACTERS = {
   chen: { name: 'Cmdr. Elias Chen', role: 'Lunar Compact patrol', tone: 'ion' },
   warden: { name: 'The Warden', role: 'The Hollow', tone: 'ember' },
   hollow: { name: 'Hollow raider', role: 'Open channel', tone: 'ember' },
+  okafor: { name: 'Ines Okafor', role: 'Factor, the Ceres Line', tone: 'ion' },
+  vex: { name: 'Vex', role: 'Rook\'s gun', tone: 'ember' },
   patrol: { name: 'Compact patrol', role: 'Lunar Compact', tone: 'ion' },
   control: { name: 'Station control', role: 'Traffic', tone: 'ion' },
 }
@@ -180,11 +185,13 @@ export const STORY = [
       {
         text: (g) => `Destroy the convoy\'s escort (${kills(g, 'm:escort')} of 2)${jam(g)}`, place: 'hearth',
         enter: (g) => {
-          if (!g.story.jamUntil) { g.story.jamUntil = g.time + 90; g.say('rook', 'I have jammed their distress call. You have ninety seconds before Hearth\'s patrol hears a thing.') }
+          if (!g.story.jamUntil) { g.story.jamUntil = g.time + 150; g.say('rook', 'I have jammed their distress call. You have two and a half minutes before Hearth\'s patrol hears a thing.') }
+          // Rook does not send you alone.
+          if (!alive(g, 'm:vex').length && !g.story.s.vexLost) { spawn(g, 'raider', 'ally', g.player.pos.clone().add(V(220, 60, 400)), 'm:vex', { mode: 'escort', slot: 1, home: 'escort', skill: 0.75 }, 'Vex'); g.say('vex', 'Vex. Rook\'s gun. I take the left cutter, you take the right.') }
           if (!g.story.s.barge) {
             const b = spawn(g, 'freighter', 'compact', V(-2500, 300, 6000), 'm:barge', { mode: 'route', points: [V(-9000, 2000, 24000)], leg: 0, onEnd: 'hold', speed: 0.35, passive: true }, 'Compact supply barge')
             g.story.s.barge = b.id
-            for (let i = 0; i < 2 - kills(g, 'm:escort'); i++) spawn(g, 'cutter', 'compact', V(-2400 + i * 300, 450, 5800), 'm:escort', { mode: 'follow', lead: b.id, slot: i, home: 'follow', skill: 0.65 }, 'Convoy escort')
+            for (let i = 0; i < 2 - kills(g, 'm:escort'); i++) spawn(g, 'cutter', 'compact', V(-2400 + i * 300, 450, 5800), 'm:escort', { mode: 'follow', lead: b.id, slot: i, home: 'follow', skill: 0.5 }, 'Convoy escort')
           }
         },
         ship: (g) => alive(g, 'm:escort')[0]?.id, done: (g) => kills(g, 'm:escort') >= 2,
@@ -237,9 +244,182 @@ export const STORY = [
     outroFor: (g) => (g.story.choice === 'rook'
       ? [['chen', 'That is the Warden done. And Rook, I think, is about to have a very bad day.'], ['rook', 'Friend! I heard. I never doubted you. The debt? Paid. All of it. Let us never speak of it.']]
       : [['chen', 'That is the Warden. Clean work.'], ['chen', 'And Rook\'s ledger came out of the Shackle this morning. You owe nobody anything. Fly what you like.']]),
-    epilogue: 'Act One complete. The Hollow are broken, the debt is gone, and the lanes are yours. More is coming.',
+    epilogue: 'Act One complete. The Hollow are broken and the debt is gone. Mara has news at Hearth: Act Two, Apoapsis, begins there.',
+  },
+
+  /* ---------------------------------------------------------------- *
+   * Act Two: Apoapsis
+   * ---------------------------------------------------------------- */
+  {
+    id: 'new-money', title: 'New Money', giver: 'mara', at: 'hearth', after: 'periapsis', pitch: 'The Ceres Line wants an escort out of Harbor, and asked for you by name.',
+    reward: { credits: 12000 }, quiet: true,
+    intro: [['mara', 'The Warden is a week dead and the lanes have never been busier. The Ceres Line bought Harbor\'s docking rights on Monday. Bought them.'], ['mara', 'Now they want an escort for a medical freighter out of Harbor, and they asked for you by name. Go and find out why.']],
+    steps: [
+      { text: 'Transfer to Harbor', place: 'harbor', done: (g) => g.place === 'harbor' },
+      {
+        text: 'Meet the Ceres freighter Providence', place: 'harbor',
+        enter: (g) => ward(g, V(900, 120, -1300)),
+        at: (g) => g.byId(g.story.s.ward)?.pos ?? null, ship: (g) => g.story.s.ward, done: (g) => { const w = g.byId(g.story.s.ward); return Boolean(w) && dist(g, w.pos) < 900 },
+        fail: lostWard,
+        finish: (g) => {
+          g.story.s.goal = driveFrom(g, g.byId(g.story.s.ward).pos)
+          ward(g)
+          g.say('okafor', 'Ines Okafor, the Ceres Line. Providence carries the only antiviral stock this side of the Moon. Get her to the drive point.')
+        },
+      },
+      {
+        text: (g) => { const w = g.byId(g.story.s.ward); return `Escort the Providence to the drive point (hull ${w ? Math.round(w.hull / w.stats.hull * 100) : 0}%)` }, place: 'harbor',
+        // After a respawn she is back where the escort left her, under way.
+        enter: (g) => { ward(g, V(700, 100, -900)); if (!g.story.s.wave1) { g.story.s.wave1 = true; packOn(g, 3, 'm:pack', V(3000, 700, -3800)) } },
+        at: (g) => g.story.s.goal ?? null, ship: (g) => alive(g, 'm:pack')[0]?.id ?? g.story.s.ward,
+        done: (g) => {
+          const w = g.byId(g.story.s.ward)
+          if (!w) return false
+          // Two more come from behind once she is halfway and the first pack is down.
+          if (!g.story.s.wave2 && w.pos.distanceTo(g.story.s.goal) < 4200 && !alive(g, 'm:pack').length) { g.story.s.wave2 = true; packOn(g, 2, 'm:pack', V(-2600, -500, 3200)); g.say('hollow', 'Ceres freighter. Nothing personal.') }
+          return w.ai.leg >= 1 && !alive(g, 'm:pack').length
+        },
+        fail: lostWard,
+        finish: (g) => { const w = g.byId(g.story.s.ward); if (w) w.ai = { mode: 'route', points: [w.pos.clone().add(V(0, 0, -30000))], leg: 0, onEnd: 'despawn', speed: 1, passive: true } },
+      },
+      { text: 'Dock at Harbor', place: 'harbor', at: () => port('harbor'), done: (g) => g.story.s.docked === 'harbor' },
+    ],
+    outro: [['okafor', 'Providence is through. The Ceres Line pays its debts, pilot.'], ['mara', 'Funny thing. Providence went into the drive and never came out anywhere I can see. Okafor will have more work for you. Take it, and keep your eyes open.']],
+  },
+  {
+    id: 'ghost-signal', title: 'Ghost Signal', giver: 'okafor', at: 'harbor', after: 'new-money', pitch: 'A Ceres tug went silent in the Drift. Okafor wants its recorder.',
+    reward: { credits: 6000 },
+    intro: [['okafor', 'A Ceres tug, the Halcyon, went silent in the Drift two days ago. Her flight recorder is company property.'], ['okafor', 'Find her, pull the recorder, bring it to me. Discretion is worth fourteen thousand.']],
+    steps: [
+      { text: 'Transfer to the Drift', place: 'drift', done: (g) => g.place === 'drift' },
+      {
+        text: 'Find the derelict Halcyon', place: 'drift', at: () => HALCYON,
+        enter: (g) => { if (!alive(g, 'm:halcyon').length) { const e = spawn(g, 'freighter', 'civil', HALCYON.clone(), 'm:halcyon', { mode: 'hold', passive: true }, 'Halcyon (derelict)'); e.q.setFromEuler(new THREE.Euler(0.6, 2.1, 1.1)); e.hull = e.stats.hull * 0.2; e.shield = 0; e.derelict = true } },
+        ship: (g) => alive(g, 'm:halcyon')[0]?.id, done: (g) => dist(g, HALCYON) < 600,
+      },
+      {
+        text: (g) => `Hold within 150 m and nearly still to pull the recorder (${Math.round(Math.min(1, pull(g) / 6) * 100)}%)`, place: 'drift', at: () => HALCYON,
+        say: [['okafor', 'The recorder is in her spine. Hold close and still; the clamps do the rest.']],
+        done: (g) => {
+          const s = g.story.s
+          if (dist(g, HALCYON) < 150 && g.player.vel.length() < 25) { if (s.pullFrom == null) s.pullFrom = g.time } else s.pullFrom = null
+          return pull(g) >= 6
+        },
+        finish: (g) => { g.story.s.recorder = true; g.say('mara', 'Before you hand that to anyone, play it. I am patching it through to Hearth now.') },
+      },
+      {
+        text: (g) => `Raiders with Hollow paint: destroy them (${kills(g, 'm:ambush')} of 3)`, place: 'drift',
+        enter: (g) => { const n = 3 - kills(g, 'm:ambush'); if (n > 0 && !alive(g, 'm:ambush').length) { raiders(g, n, g.player.pos.clone().add(V(-2600, 500, 2400)), 'm:ambush', 'attack', 0.5); g.say('mara', 'Three contacts. Hollow paint, but their transponders say Ceres Line security. Somebody wants that recorder back.') } },
+        ship: (g) => alive(g, 'm:ambush')[0]?.id, done: (g) => kills(g, 'm:ambush') >= 3,
+      },
+      { text: 'Take the recorder to Mara at Hearth, not to Okafor', place: 'hearth', at: () => port('hearth'), done: (g) => g.story.s.docked === 'hearth' },
+    ],
+    outro: [['mara', 'The Halcyon was not hit by the Hollow. Her recorder logged Ceres Line security codes on the ships that killed her.'], ['mara', 'And the Providence filed no manifest. The Ceres Line is arming somebody. Six thousand from me; it is not fourteen, but it is clean. Chen needs to hear this.']],
+  },
+  {
+    id: 'loop', title: 'The Loop', giver: 'chen', at: 'hearth', after: 'ghost-signal', pitch: 'Get close to Okafor\'s yacht at Harbor. The way in is a race.',
+    reward: { credits: 10000 }, quiet: true,
+    intro: [['chen', 'Okafor\'s yacht, the Meridian, sits at Harbor. She runs the Harbor Loop for sport, and the fast ones get invited aboard.'], ['chen', 'Run the Loop in under two minutes. Then get within a hundred and fifty metres of the Meridian, and Mara\'s tracker does the rest.']],
+    steps: [
+      { text: 'Transfer to Harbor', place: 'harbor', done: (g) => g.place === 'harbor' },
+      {
+        text: (g) => (g.race?.start != null ? `Harbor Loop: ring ${g.race.next + 1} of ${g.rings.length}` : 'Harbor Loop: fly through the first ring to start the clock') + (g.story.s.best ? ` · best ${g.story.s.best.toFixed(1)} s` : ''), place: 'harbor',
+        enter: (g) => { if (!g.race) { g.race = { next: 0, start: null }; g.emit({ type: 'race-ready' }) } },
+        at: (g) => g.rings[g.race?.next ?? 0] ?? null, done: (g) => (g.story.s.best ?? Infinity) <= LOOP_PAR,
+      },
+      {
+        text: 'Fly within 150 m of the Meridian', place: 'harbor',
+        enter: (g) => { if (!alive(g, 'm:meridian').length) { const e = spawn(g, 'warden', 'civil', MERIDIAN.clone(), 'm:meridian', { mode: 'hold', passive: true }, 'Meridian (Ceres Line)'); e.stats = { ...e.stats, guns: 0 } } },
+        at: () => MERIDIAN, ship: (g) => alive(g, 'm:meridian')[0]?.id, done: (g) => dist(g, MERIDIAN) < 150,
+        finish: (g) => { g.say('okafor', 'You fly beautifully, pilot. When Chen is finished with you, come and work for me.'); g.say('mara', 'Tracker is on her hull. Come home.') },
+      },
+      { text: 'Back to Hearth', place: 'hearth', at: () => port('hearth'), done: (g) => g.story.s.docked === 'hearth' },
+    ],
+    events: {
+      'race-done': (g, ev) => {
+        const s = g.story.s
+        s.best = Math.min(s.best ?? Infinity, ev.time)
+        if (ev.time > LOOP_PAR) { g.say('chen', `${ev.time.toFixed(1)} seconds. Not fast enough to be interesting. Go again.`); g.race = { next: 0, start: null } } else g.say('okafor', `${ev.time.toFixed(1)} seconds. Who taught you to fly like that?`)
+      },
+    },
+    outro: [['mara', 'The tracker is live. The Meridian just left Harbor with six strike craft behind her, on a vector for Gateway.'], ['chen', 'Gateway. The Ceres Line wants the Compact\'s only station at the Moon. Not today.']],
+  },
+  {
+    id: 'apoapsis', title: 'Apoapsis', giver: 'chen', at: 'hearth', after: 'loop', pitch: 'The Ceres Line is going for Gateway. Meet them there.',
+    reward: { credits: 40000 }, quiet: true,
+    introFor: (g) => [['chen', 'Six strike craft and the Meridian, against my wing, Gateway\'s patrol, and you.'], ...(g.story.choice === 'rook' ? [['vex', 'Rook says this one is on the house. Do not get used to it.']] : []), ['chen', 'Apoapsis: the highest point of the orbit, where you are slowest. That is where they think we are. Let us show them.']],
+    steps: [
+      { text: 'Transfer to Gateway', place: 'gateway', done: (g) => g.place === 'gateway' },
+      {
+        text: (g) => `Defend Gateway: destroy the Ceres strike craft (${kills(g, 'm:strike')} of 6)`, place: 'gateway',
+        enter: (g) => {
+          if (!alive(g, 'm:wing').length) for (let i = 0; i < 3; i++) spawn(g, 'wing', 'ally', g.player.pos.clone().add(V(-200 + i * 200, 80, 600)), 'm:wing', { mode: 'escort', slot: i, home: 'escort', skill: 0.7 }, i === 0 ? 'Cmdr. Chen' : 'Compact wingman')
+          if (g.story.choice === 'rook' && !alive(g, 'm:vex').length) spawn(g, 'raider', 'ally', g.player.pos.clone().add(V(300, -60, 500)), 'm:vex', { mode: 'escort', slot: 3, home: 'escort', skill: 0.75 }, 'Vex')
+          const left = Math.min(3, 6 - kills(g, 'm:strike') - alive(g, 'm:strike').length)
+          if (left > 0 && !alive(g, 'm:strike').length) { strike(g, left); g.say('chen', 'Here they come. Weapons free.') }
+        },
+        ship: (g) => alive(g, 'm:strike')[0]?.id,
+        done: (g) => {
+          // The second three come in when the first are down.
+          if (kills(g, 'm:strike') >= 3 && !alive(g, 'm:strike').length && kills(g, 'm:strike') < 6) { strike(g, 6 - kills(g, 'm:strike')); g.say('mara', 'Second wave, coming round the Moon\'s limb.') }
+          return kills(g, 'm:strike') >= 6
+        },
+      },
+      {
+        text: 'Destroy the Meridian', place: 'gateway', ship: (g) => alive(g, 'm:flag')[0]?.id,
+        enter: (g) => {
+          if (!alive(g, 'm:flag').length && !kills(g, 'm:flag')) {
+            spawn(g, 'warden', 'hollow', g.player.pos.clone().add(V(3200, 600, -3400)), 'm:flag', { mode: 'attack', target: g.player.id, skill: 0.75, brave: true, range: 12000 }, 'Meridian')
+            g.say('okafor', 'Pilot. I offered you a job. This is the other offer.')
+          }
+        },
+        done: (g) => kills(g, 'm:flag') >= 1,
+      },
+      { text: 'Dock at Gateway', place: 'gateway', at: () => port('gateway'), done: (g) => g.story.s.docked === 'gateway' },
+    ],
+    outro: [['chen', 'The Meridian is scrap and Okafor is in a Compact cell. The Ceres Line\'s charter is revoked as of this hour.'], ['mara', 'Drinks at Hearth. All of them. And pilot: thank you.']],
+    epilogue: 'The story is complete. The Hollow are gone, the Ceres Line is finished, and you owe nobody anything. The lanes, the job board, the market and every station are yours.',
   },
 ]
+const HALCYON = V(-5200, -600, 4200)
+const LOOP_PAR = 120
+const MERIDIAN = V(2600, 500, -2200)
+/**
+ * The Providence: found where she is, or brought in at an offset from you
+ * (a fresh place after a transfer or a respawn); under way once there is a goal.
+ */
+function ward(g, offset) {
+  const s = g.story.s
+  let w = g.byId(s.ward)
+  if ((!w || !w.alive) && offset) {
+    w = spawn(g, 'freighter', 'ally', g.player.pos.clone().add(offset), 'm:ward', { mode: 'hold', passive: true }, 'Providence')
+    w.stats = { ...w.stats, shield: 1400 }; w.shield = 1400
+    s.ward = w.id
+    // Brought back after a respawn: a fresh course from here.
+    if (s.goal) s.goal = driveFrom(g, w.pos)
+  }
+  if (w && s.goal) w.ai = { mode: 'route', points: [s.goal.clone()], leg: 0, onEnd: 'hold', speed: 0.6, passive: true }
+}
+/** The drive point: 8 km on, directly away from the station, so her course never crosses it. */
+function driveFrom(g, from) {
+  const st = g.stations[0]
+  const away = st ? from.clone().sub(st.at).setY(0) : V(1, 0, -1)
+  if (away.lengthSq() < 1) away.set(1, 0, -1)
+  return from.clone().addScaledVector(away.normalize(), 8000).add(V(0, 900, 0))
+}
+function lostWard(g) { return kills(g, 'm:ward') > 0 ? 'The Providence was destroyed.' : null }
+const pull = (g) => (g.story.s.pullFrom == null ? 0 : g.time - g.story.s.pullFrom)
+/** Raiders that go for the escorted ship as well as for you. */
+function packOn(g, n, tag, offset) {
+  const w = g.byId(g.story.s.ward)
+  raiders(g, n, (w?.pos ?? g.player.pos).clone().add(offset), tag, 'attack', 0.5)
+  if (w) alive(g, tag).slice(-n).forEach((e, i) => { if (i % 3 === 0) e.ai.target = w.id })
+}
+/** The Ceres strike craft: raider hulls in company grey, flying for pay. */
+function strike(g, n) {
+  raiders(g, n, g.player.pos.clone().add(V(4200, 700, -4600)), 'm:strike', 'attack', 0.55)
+  for (const e of alive(g, 'm:strike')) e.label = 'Ceres strike craft'
+}
 const BY_ID = Object.fromEntries(STORY.map((m) => [m.id, m]))
 export const mission = (id) => BY_ID[id]
 const val = (x, g) => (typeof x === 'function' ? x(g) : x)
@@ -327,6 +507,8 @@ export function storyTick(g) {
     if (!s.said?.[g.story.step]) { s.said = { ...s.said, [g.story.step]: true }; for (const [who, text] of step.say ?? []) g.say(who, text) }
   }
   if (step.choice) { g.choice = step.choice; } else g.choice = null
+  const why = here && step.fail?.(g)
+  if (why) return storyFail(g, why)
   if (here && step.done(g)) {
     step.finish?.(g)
     g.story.step++

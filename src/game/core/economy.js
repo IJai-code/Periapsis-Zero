@@ -98,7 +98,7 @@ function makeJob(type, from, day, i, time) {
       return { id, type, from, to: from, place: 'drift', n, title: `Bounty: ${n} Hollow raiders`, brief: `A raider pack is working the Drift. Destroy ${n}. Paid on proof, here.`, reward: n * 1900, deadline: time + 2 * 86400, legal: true }
     }
     case 'race': {
-      return { id, type, from, to: from, place: 'harbor', par: 95, title: 'The Harbor Loop', brief: 'Eight rings round Harbor, against the clock. Under 95 seconds pays; under 75 pays double.', reward: 4000, deadline: time + 86400, legal: true }
+      return { id, type, from, to: from, place: 'harbor', par: 120, title: 'The Harbor Loop', brief: 'Eight rings round Harbor, against the clock: seventeen kilometres and seven corners. Under two minutes pays; under a hundred seconds pays double.', reward: 4000, deadline: time + 86400, legal: true }
     }
     case 'survey': {
       return { id, type, from, to: from, place: 'shackleton', title: 'Survey at Shackleton', brief: 'Land at the south pole, collect three samples, set a station, lift off. The ice consortium pays by the star.', reward: 5000, deadline: time + 3 * 86400, legal: true }

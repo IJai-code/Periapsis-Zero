@@ -151,6 +151,21 @@ def lathe_z(name, profile, mat, x=0.0, y=0.0, seg=24, cap0=False, cap1=False, sm
     return _finish(pz._object(name, verts, faces, mat), smooth)
 
 
+def lathe_y(name, profile, mat, x=0.0, y=0.0, z=0.0, seg=24, smooth=40):
+    """Revolve (radius, height) pairs about a vertical line through (x, z), from height y."""
+    verts = []
+    for r, h in profile:
+        for i in range(seg):
+            a = 2 * math.pi * i / seg
+            verts.append(T(x + r * math.cos(a), y + h, z + r * math.sin(a)))
+    faces = []
+    for j in range(len(profile) - 1):
+        for i in range(seg):
+            a, b = j * seg + i, j * seg + (i + 1) % seg
+            faces.append((a, b, b + seg, a + seg))
+    return _finish(pz._object(name, verts, faces, mat), smooth)
+
+
 def box(name, size, centre, mat, chamfer=0.0):
     """An axis-aligned box in the runtime's frame."""
     sx, sy, sz = size
@@ -533,9 +548,109 @@ def shackle():
     return m, 30.0
 
 
+# --------------------------------------------------------------------------
+# The hangar: where a docked ship sits, inside any station.
+# --------------------------------------------------------------------------
+
+def robot_arm(m, name, x, z, facing, reach=1.0):
+    """An industrial arm on a turntable: base, shoulder, upper arm, forearm, tool."""
+    y0 = -6.0
+    lathe_y(f'{name}_base', [(0, 0), (2.2, 0), (2.2, 0.6), (1.6, 1.0), (1.4, 2.2), (0, 2.2)], m['dark'], x, y0, z)
+    sx, sz = math.sin(facing), math.cos(facing)
+    shoulder = (x, y0 + 3.2, z)
+    elbow = (x + sx * 4.5 * reach, y0 + 9.5, z + sz * 4.5 * reach)
+    wrist = (x + sx * 9.0 * reach, y0 + 7.2, z + sz * 9.0 * reach)
+    tool = (x + sx * 10.2 * reach, y0 + 5.6, z + sz * 10.2 * reach)
+    box(f'{name}_turret', (2.6, 2.4, 2.6), shoulder, m['accent'], chamfer=0.2)
+    tube(f'{name}_upper', shoulder, elbow, 0.75, m['accent'], seg=12)
+    tube(f'{name}_upper2', shoulder, elbow, 0.45, m['dark'], seg=8)
+    pz.sphere(f'{name}_elbow', tuple(T(*elbow)), 1.0, m['dark'], segments=16, rings=8)
+    tube(f'{name}_fore', elbow, wrist, 0.55, m['accent'], seg=12)
+    pz.sphere(f'{name}_wrist', tuple(T(*wrist)), 0.7, m['dark'], segments=16, rings=8)
+    tube(f'{name}_tool', wrist, tool, 0.3, m['metal'], seg=10)
+    light(m, f'{name}_tip', tool, 0.35, 'ion')
+    tube(f'{name}_cable', (x - 0.8, y0 + 1, z), elbow, 0.12, m['dark'], seg=6)
+
+
+def hangar():
+    """The bay a docked ship sits in. Runtime frame: the ship at the origin
+    nose to -Z, the open door 45 m ahead at z = -45, the floor at y = -6."""
+    m = palette('#5c6066', '#34333c', '#e8b22c', dark='#1d1c24', lights='#fff1d8')
+    W, H0, H1, L0, L1 = 36.0, -6.0, 26.0, -45.0, 46.0
+    # Shell: floor, walls, ceiling, back wall.
+    box('floor', (2 * W, 0.6, L1 - L0), (0, H0 - 0.3, (L0 + L1) / 2), m['trim'])
+    # Deck plates: seams every 6 m.
+    for k in range(1, 12):
+        box(f'seamx{k}', (0.12, 0.04, L1 - L0), (-W + k * 6, H0 + 0.01, (L0 + L1) / 2), m['dark'])
+    for k in range(1, 15):
+        box(f'seamz{k}', (2 * W, 0.04, 0.12), (0, H0 + 0.01, L0 + k * 6), m['dark'])
+    for s in (-1, 1):
+        box(f'wall{s}', (0.8, H1 - H0, L1 - L0), (s * W, (H0 + H1) / 2, (L0 + L1) / 2), m['hull'])
+        # Ribs, catwalk and railing along each wall.
+        for k in range(9):
+            z = L0 + 6 + k * 10.5
+            box(f'rib{s}{k}', (1.6, H1 - H0, 1.2), (s * (W - 0.8), (H0 + H1) / 2, z), m['trim'])
+            light(m, f'wlamp{s}{k}', (s * (W - 1.7), 12, z), 0.6, 'lights')
+        box(f'catwalk{s}', (4.0, 0.3, L1 - L0 - 4), (s * (W - 2.5), 6.0, (L0 + L1) / 2), m['metal'])
+        tube(f'rail{s}', (s * (W - 4.4), 7.2, L0 + 2), (s * (W - 4.4), 7.2, L1 - 2), 0.08, m['accent'], seg=6)
+        for k in range(12):
+            z = L0 + 4 + k * 7.6
+            tube(f'post{s}{k}', (s * (W - 4.4), 6.1, z), (s * (W - 4.4), 7.2, z), 0.06, m['metal'], seg=6)
+        box(f'strip{s}', (0.3, 0.4, L1 - L0 - 6), (s * (W - 0.6), 18.0, (L0 + L1) / 2), m['ion'])
+        # Consoles under the catwalk, lit.
+        for k in range(3):
+            z = -20 + k * 18
+            box(f'console{s}{k}', (2.2, 2.4, 4.0), (s * (W - 3.2), H0 + 1.2, z), m['trim'], chamfer=0.15)
+            box(f'screen{s}{k}', (0.1, 1.2, 3.2), (s * (W - 4.35), H0 + 2.0, z), m['ion'])
+    box('ceiling', (2 * W, 0.6, L1 - L0), (0, H1 + 0.3, (L0 + L1) / 2), m['hull'])
+    box('back', (2 * W, H1 - H0, 0.8), (0, (H0 + H1) / 2, L1), m['hull'])
+    # The blast door at the back, framed in light.
+    box('blastdoor', (22, 18, 0.6), (0, H0 + 9, L1 - 0.6), m['trim'])
+    for s in (-1, 1):
+        box(f'doorlight{s}', (0.5, 18, 0.5), (s * 11.3, H0 + 9, L1 - 0.8), m['lights'])
+    box('doorlightTop', (23, 0.5, 0.5), (0, H0 + 18.2, L1 - 0.8), m['lights'])
+    # Ceiling gantry beams, light panels, and a crane rail.
+    for k in range(6):
+        z = L0 + 8 + k * 15
+        box(f'beam{k}', (2 * W, 1.6, 1.4), (0, H1 - 1.0, z), m['trim'])
+        box(f'panel{k}', (14, 0.25, 3.0), (0, H1 - 1.9, z + 6), m['lights'])
+    for s in (-1, 1):
+        box(f'craneRail{s}', (1.0, 1.0, L1 - L0), (s * 14, H1 - 2.6, (L0 + L1) / 2), m['metal'])
+    box('crane', (30, 1.4, 2.2), (0, H1 - 3.4, 18), m['accent'])
+    tube('craneHook', (0, H1 - 4, 18), (0, H1 - 11, 18), 0.12, m['metal'], seg=6)
+    # The door frame: a heavy lip, hazard stripes, and lights round the opening.
+    for s in (-1, 1):
+        box(f'jamb{s}', (4.0, H1 - H0, 3.0), (s * (W - 2), (H0 + H1) / 2, L0 + 1.5), m['trim'])
+        for k in range(8):
+            box(f'hazard{s}{k}', (0.6, 1.4, 3.1), (s * (W - 0.2), H0 + 1.6 + k * 3.6, L0 + 1.5), m['accent'] if k % 2 else m['dark'])
+    box('lintel', (2 * W, 3.0, 3.0), (0, H1 - 1.5, L0 + 1.5), m['trim'])
+    for k in range(10):
+        light(m, f'doorlamp{k}', (-W + 4 + k * (2 * W - 8) / 9, H1 - 3.2, L0 + 1.0), 0.7, 'lights')
+    # The pad: a ring of light under the ship, and painted lanes to the door.
+    lathe_y('pad', [(0, 0.15), (13.4, 0.15), (13, 0)], m['trim'], 0, H0 + 0.02, 0, seg=64)
+    lathe_y('padring', [(12.2, 0.2), (12.8, 0.2)], m['ion'], 0, H0 + 0.05, 0, seg=64)
+    for s in (-1, 1):
+        box(f'lane{s}', (0.6, 0.05, 30), (s * 7, H0 + 0.03, L0 + 16), m['accent'])
+        for k in range(6):
+            light(m, f'lanelamp{s}{k}', (s * 7, H0 + 0.1, L0 + 4 + k * 5), 0.3, 'ion')
+    # Robot arms either side, reaching in, as in every good hangar.
+    robot_arm(m, 'armL', -21, 4, math.radians(80))
+    robot_arm(m, 'armR', 21, -6, math.radians(-100))
+    robot_arm(m, 'armB', -16, 30, math.radians(140), reach=0.8)
+    # Cargo, fuel, clutter.
+    for i, (x, z, n) in enumerate([(24, 26, 3), (-27, -22, 2), (26, -30, 2), (-24, 36, 3)]):
+        for k in range(n):
+            box(f'crate{i}{k}', (4.2, 3.2, 4.2), (x + (k % 2) * 0.6, H0 + 1.6 + k * 3.25, z + (k % 2) * 0.4), m['accent'] if (i + k) % 2 else m['trim'], chamfer=0.15)
+    for k in range(3):
+        lathe_y(f'tank{k}', [(0, 0), (2.0, 0.2), (2.2, 1.2), (2.2, 7.0), (2.0, 8.0), (0, 8.2)], m['metal'], 30, H0, 6 + k * 5.2)
+        tube(f'fuelline{k}', (30, H0 + 7.6, 6 + k * 5.2), (W - 0.4, H0 + 7.6, 6 + k * 5.2), 0.22, m['dark'], seg=8)
+    tube('fuelhose', (W - 3, H0 + 0.25, 11), (12, H0 + 0.25, 4), 0.2, m['dark'], seg=8)
+    return m, 2.5
+
+
 BUILDERS = {
     'kestrel': kestrel, 'mule': mule, 'lance': lance, 'raider': raider, 'warden': warden, 'cutter': cutter,
-    'freighter': freighter, 'canister': canister, 'hearth': hearth, 'harbor': harbor, 'gateway': gateway, 'shackle': shackle,
+    'freighter': freighter, 'canister': canister, 'hangar': hangar, 'hearth': hearth, 'harbor': harbor, 'gateway': gateway, 'shackle': shackle,
 }
 
 
@@ -564,7 +679,7 @@ def build(kind):
         if a['preview']:
             sf.preview(a['preview'], meshes, size=(900, 560), samples=24, ground='#15131c', azimuth=-35, elevation=22)
         return
-    size = 2048 if kind in ('hearth', 'harbor', 'shackle', 'freighter', 'gateway') else 1024
+    size = 2048 if kind in ('hearth', 'harbor', 'shackle', 'freighter', 'gateway', 'hangar') else 1024
     sf.bake_asset(meshes, kind, keep=KEEP, **pz.bake_options(a, size))
     for i, p in enumerate(nozzles):
         pz.empty(f'nozzle_{i}', tuple(p))

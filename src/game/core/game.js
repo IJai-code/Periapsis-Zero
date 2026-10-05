@@ -170,13 +170,26 @@ function spawnTraffic(g, st, outbound) {
  * Docking, launching, transfers
  * ------------------------------------------------------------------ */
 
+/**
+ * How a ship sits in a station's bay: nose out along the port, level with
+ * the nearest world below, so the hangar's deck is a floor and the launch
+ * leaves with the horizon square.
+ */
+const _bm = new THREE.Matrix4(), _bu = new THREE.Vector3(), _b0 = new THREE.Vector3()
+export function berthQuat(g, st, out) {
+  worldUp(g, _bu).addScaledVector(st.port.axis, -_bu.dot(st.port.axis))
+  if (_bu.lengthSq() < 1e-3) _bu.set(0, 1, 0).addScaledVector(st.port.axis, -st.port.axis.y)
+  _bm.lookAt(_b0, st.port.axis, _bu.normalize())
+  return out.setFromRotationMatrix(_bm)
+}
+
 function parkAtPort(g, stationId) {
   const st = STATIONS[stationId], p = g.player
   // Held in the berth's clamps at the mouth of the bay.
   p.pos.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
   p.vel.set(0, 0, 0); p.w.set(0, 0, 0)
   // Nose out of the bay, ready to launch.
-  p.q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), st.port.axis)
+  berthQuat(g, st, p.q)
   p.ctrl.throttle = 0
 }
 
@@ -403,6 +416,7 @@ function stepAnim(g, dt) {
   if (g.mode === 'docking') {
     _v.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
     p.pos.lerpVectors(a.from, _v, s)
+    // In nose first, turned round in the bay (the cut hides the turn).
     _q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), _w.copy(st.port.axis).negate())
     p.q.slerpQuaternions(a.q0, _q, s)
     p.vel.set(0, 0, 0)
@@ -415,7 +429,7 @@ function stepAnim(g, dt) {
     }
   } else {
     p.pos.copy(st.port.at).addScaledVector(st.port.axis, BERTH + 420 * s)
-    p.q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), st.port.axis)
+    berthQuat(g, st, p.q)
     p.vel.copy(st.port.axis).multiplyScalar(140 * (1 - f) + 20)
     if (f >= 1) { g.mode = 'flight'; g.anim = null; p.ctrl.throttle = 0.15; g.emit({ type: 'undocked', station: a.st }) }
   }
@@ -717,7 +731,7 @@ function settleJobs(g, station) {
     if (j.type === 'smuggle' && (c.chips ?? 0) >= j.n) { c.chips -= j.n; pay = j.reward }
     if (j.type === 'salvage' && (c.salvage ?? 0) >= j.n) { c.salvage -= j.n; pay = j.reward }
     if (j.type === 'bounty' && j.kills >= j.n) pay = j.reward
-    if (j.type === 'race' && j.best != null && j.best <= j.par) pay = j.best <= 75 ? j.reward * 2 : j.reward
+    if (j.type === 'race' && j.best != null && j.best <= j.par) pay = j.best <= 100 ? j.reward * 2 : j.reward
     if (j.type === 'survey' && j.stars) pay = Math.round(j.reward * (0.5 + 0.5 * j.stars))
     if (!pay) continue
     for (const k of Object.keys(c)) if (!c[k]) delete c[k]

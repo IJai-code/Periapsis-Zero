@@ -11,15 +11,54 @@ import { instance, MATERIALS, onModelsChange, preload, roughRock } from './model
 export function Props({ game, placeKey }) {
   const g = game.current
   const [version, bump] = useState(0)
-  useEffect(() => { preload(['hearth', 'harbor', 'gateway', 'shackle', 'canister']); return onModelsChange(() => bump((n) => n + 1)) }, [])
+  useEffect(() => { preload(['hearth', 'harbor', 'gateway', 'shackle', 'canister', 'hangar']); return onModelsChange(() => bump((n) => n + 1)) }, [])
   if (!g) return null
   return <group key={placeKey}>
-    {g.stations.map((st) => <Station key={`${st.id}:${version}`} st={st} />)}
+    <Hangar key={`hangar:${version}`} game={game} />
+    <StationsOutside game={game}>{g.stations.map((st) => <Station key={`${st.id}:${version}`} st={st} />)}</StationsOutside>
     {g.rocks.length > 0 && <Rocks rocks={g.rocks} />}
     <Canisters game={game} />
     {g.rings.length > 0 && <Rings game={game} />}
     {g.beacons.map((b, i) => <Corridor key={i} at={b.at} />)}
   </group>
+}
+
+/**
+ * The bay a docked ship sits in, round the player at the berth: lit by its
+ * own lamps, the door open on the sky. The stations outside are hidden
+ * meanwhile (the bay is inside one) and the sun is dimmed to what spills in.
+ */
+// Height of each hull's keel above its centre, so it sits just off the pad.
+const KEEL = { kestrel: 2.9, mule: 3.0, lance: 1.2 }
+function Hangar({ game }) {
+  const ref = useRef()
+  const obj = useMemo(() => instance('hangar').object, [])
+  const sun = useRef(null)
+  useFrame(({ scene }) => {
+    const g = game.current, h = ref.current
+    if (!g || !h) return
+    const inside = g.mode === 'docked'
+    h.visible = inside
+    if (!sun.current) sun.current = scene.getObjectByName('sun')
+    if (sun.current) sun.current.intensity = inside ? 0.9 : 3.2
+    if (!inside) return
+    h.position.copy(g.player.pos)
+    h.quaternion.copy(g.player.q)
+    obj.position.y = 6 - (KEEL[g.ship.hull] ?? 2.9)
+  })
+  return <group ref={ref} visible={false}>
+    <primitive object={obj} />
+    <pointLight position={[0, 16, 6]} color="#fff1d8" intensity={4200} distance={130} decay={2} />
+    <pointLight position={[-22, 12, -24]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
+    <pointLight position={[22, 12, 26]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
+    <pointLight position={[0, 2, -40]} color="#9fe6ff" intensity={700} distance={60} decay={2} />
+  </group>
+}
+
+function StationsOutside({ game, children }) {
+  const ref = useRef()
+  useFrame(() => { if (ref.current && game.current) ref.current.visible = game.current.mode !== 'docked' })
+  return <group ref={ref}>{children}</group>
 }
 
 function Station({ st }) {

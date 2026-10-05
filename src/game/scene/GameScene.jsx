@@ -26,7 +26,7 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
     <Loop game={game} controls={controls} paused={paused} onFrame={onFrame} />
     <ambientLight intensity={0.06} color="#9fb4ff" />
     <hemisphereLight intensity={0.12} color="#b8c8ff" groundColor="#2a1a12" />
-    <directionalLight position={SUN_DIR.clone().multiplyScalar(1e4)} intensity={3.2} color="#fff4e2" />
+    <directionalLight name="sun" position={SUN_DIR.clone().multiplyScalar(1e4)} intensity={3.2} color="#fff4e2" />
     <Suspense fallback={null}>
       <Sky game={game} quality={quality} />
     </Suspense>
@@ -72,17 +72,19 @@ function placeCamera(g, c, cam, rig, dt, t) {
   const r = p.radius
   const k = 1 - Math.exp(-dt * 6)
   if (g.mode === 'docked' || g.mode === 'surface') {
-    // Standing off the berth: the ship in front, the station's face and its
-    // lit bay behind, swinging slowly so the light moves over the hull.
-    rig.orbit += dt * 0.04
-    const st = STATIONS[g.docked ?? g.home]
-    const out = st ? st.port.axis : _f.set(0, 0, 1)
-    const a = Math.sin(rig.orbit) * 0.6
-    _v.copy(out).multiplyScalar(r * 3.4).add(_t.set(Math.sin(a) * r * 2.6 + r * 2.4, r * 1.5, 0)).add(p.pos)
+    // In the bay: behind and beside the ship, looking past it to the open
+    // door and the sky, swinging slowly so the lamps move over the hull.
+    // The bay's frame is the ship's (it sits level, nose to the door).
+    rig.orbit += dt * 0.05
+    const az = 0.62 + Math.sin(rig.orbit) * 0.42
+    const d = Math.min(r * 3.1, 30)
+    _v.set(Math.sin(az) * d, r * 0.5 + 3.5, Math.cos(az) * d).applyQuaternion(p.q).add(p.pos)
     cam.position.lerp(_v, rig.init ? k * 0.5 : 1)
-    cam.up.set(0, 1, 0)
+    _up.set(0, 1, 0).applyQuaternion(p.q)
+    cam.up.copy(_up)
     // Look at the ship, a little to its left so the menu does not cover it.
-    _t.copy(p.pos).add(_up.set(-r * 0.9, r * 0.1, 0))
+    _f.copy(p.pos).sub(cam.position).normalize().cross(_up).normalize()
+    _t.copy(p.pos).addScaledVector(_f, -r * 0.9).addScaledVector(_up, -r * 0.1)
     cam.lookAt(_t)
     rig.init = true
     return

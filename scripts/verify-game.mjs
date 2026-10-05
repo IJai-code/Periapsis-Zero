@@ -198,21 +198,60 @@ function playStory(choice) {
       b.c.fire = false; b.collect('m:convoy'); b.dock('shackle')
     },
     periapsis: () => { b.transfer('shackleton'); b.flyTo(V3(3000, -400, -6000), 3000, 1000, 200); b.until(() => g.story.step >= 2, 30, 'the Warden'); b.fightAll(() => true, 600); b.step(60) },
+    // Act Two.
+    'new-money': () => {
+      b.transfer('harbor')
+      b.flyTo(() => (g.story.step >= 2 ? null : g.byId(g.story.s.ward)?.pos), 800, 400)
+      const pack = (e) => e.alive && e.tag === 'm:pack'
+      b.until(() => {
+        if (g.story.step >= 3 || !g.story.active) return true
+        // The ones on her first.
+        const onHer = (e) => pack(e) && e.ai?.target === g.story.s.ward
+        if (g.ships.some(onHer)) { b.fightAll(onHer, 120, true); return false }
+        if (g.ships.some(pack)) { b.fightAll(pack, 120, true); return false }
+        // Ride along with her, off her flank.
+        const w = g.byId(g.story.s.ward)
+        if (w) { const d = w.pos.clone().add(V3(0, 200, 0)).sub(g.player.pos); b.c.aim = d.clone().normalize(); b.c.throttleSet = d.length() > 600 ? 0.8 : 0.1 }
+        return false
+      }, 600, 'escorting the Providence')
+      if (!g.story.active) throw new Error('mission failed: the Providence was lost')
+      b.dock('harbor')
+    },
+    'ghost-signal': () => {
+      b.transfer('drift')
+      const over = V3(-5200, -500, 4200)
+      b.flyTo(over, 110, 12, 400)
+      b.c.throttleSet = 0
+      b.until(() => g.story.step >= 3, 30, 'pulling the recorder')
+      b.fightTag('m:ambush'); b.dock('hearth')
+    },
+    loop: () => {
+      b.transfer('harbor')
+      b.race(() => g.story.step >= 2)
+      b.flyTo(V3(2600, 560, -2200), 40, 60); b.until(() => g.story.step >= 3, 10, 'tagging the Meridian')
+      b.dock('hearth')
+    },
+    apoapsis: () => {
+      b.transfer('gateway')
+      b.until(() => { if (g.story.step >= 2) return true; b.fightTag('m:strike', 200); b.step(30); return false }, 900, 'defending Gateway')
+      b.fightTag('m:flag', 400); b.dock('gateway')
+    },
   }
-  const order = ['arrival', 'honest-work', 'scrap', 'friend', 'down-low', 'chen', choice === 'chen' ? 'raid' : 'convoy', 'periapsis']
+  const order = ['arrival', 'honest-work', 'scrap', 'friend', 'down-low', 'chen', choice === 'chen' ? 'raid' : 'convoy', 'periapsis', 'new-money', 'ghost-signal', 'loop', 'apoapsis']
   for (const id of order) {
     for (let attempt = 1; ; attempt++) {
       try {
         if (id !== 'arrival') {
-          if (id === 'chen') { for (const u of ['shields', 'armor', 'guns']) buyUpgrade(g, u) }
-          b.dock(giverStation(id)); take(id)
+          // Spend on the ship between acts, as anyone would.
+          if (id === 'chen' || id === 'new-money') { for (const u of ['shields', 'armor', 'guns', 'shields', 'armor', 'guns']) buyUpgrade(g, u) }
+          b.dock(giverStation(id)); if (g.story.active !== id) take(id)
         }
         missions[id]()
         b.until(() => g.story.done.includes(id), 20, `finishing ${id}`)
         break
       } catch (e) {
-        if (!/destroyed|failed|timed out/.test(e.message) || attempt >= 3) throw new Error(`${id}, attempt ${attempt}: ${e.message}`)
-        deaths++
+        if (!/destroyed|failed|timed out|could not start/.test(e.message) || attempt >= 3) throw new Error(`${id}, attempt ${attempt}: ${e.message}`)
+        deaths++; if (process.env.STORY_DEBUG) console.log(`    retry ${id} ${attempt}: ${e.message}`)
         if (g.mode === 'dead') respawn(g)
         if (g.story.active) { b.c.actions.push('noop') }
         b.step(10)
@@ -225,7 +264,7 @@ function playStory(choice) {
 for (const choice of ['chen', 'rook']) {
   check(`the story plays through to the end with ${choice === 'chen' ? 'Commander Chen' : 'Rook'}`, () => {
     const { g, deaths } = playStory(choice)
-    assert.equal(g.story.done.length, 8, g.story.done.join(','))
+    assert.equal(g.story.done.length, STORY.length - 1, g.story.done.join(','))
     assert.equal(g.debt, 0, 'the finale clears the debt')
     assert.equal(g.story.choice, choice)
     console.log(`    ${(g.time / 3600).toFixed(1)} game hours, ${g.stats.trips} transfers, ${g.stats.kills} kills, ${deaths} retries, ₡ ${Math.round(g.credits).toLocaleString()}`)

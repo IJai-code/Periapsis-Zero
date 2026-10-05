@@ -29,8 +29,9 @@ export function Sky({ game, quality }) {
   ])
   useMemo(() => { for (const t of [day, night, cloudTex, moonColor]) t.colorSpace = THREE.SRGBColorSpace; for (const t of [day, night, cloudTex, moonColor, moonNormal, spec]) t.anisotropy = 4 }, [day, night, cloudTex, moonColor, moonNormal, spec])
 
-  const earthMat = useMemo(() => earthMaterial(day, night, spec), [day, night, spec])
-  const cloudMat = useMemo(() => cloudMaterial(cloudTex), [cloudTex])
+  const octaves = quality === 'low' ? 3 : 6
+  const earthMat = useMemo(() => earthMaterial(day, night, spec, octaves), [day, night, spec, octaves])
+  const cloudMat = useMemo(() => cloudMaterial(cloudTex, octaves), [cloudTex, octaves])
   const atmoMat = useMemo(() => atmosphereMaterial(), [])
   const moonMat = useMemo(() => new THREE.MeshStandardMaterial({ map: moonColor, normalMap: moonNormal, normalScale: new THREE.Vector2(1.4, 1.4), roughness: 0.96, metalness: 0 }), [moonColor, moonNormal])
   const sphere = useMemo(() => new THREE.SphereGeometry(1, 128, 96), [])
@@ -192,24 +193,59 @@ function milkyWay() {
 const LOG_V = `
   #include <common>
   #include <logdepthbuf_pars_vertex>`
-function earthMaterial(day, night, spec) {
+/**
+ * Detail below the imagery. The maps are 4096 (land) and 1024 (cloud) texels
+ * round the equator, so from Harbor's 420 km one cloud texel spans a hundred
+ * pixels: a soft haze. Value-noise octaves on the unit sphere add the
+ * structure the maps cannot hold, and each octave fades out as it shrinks
+ * below a pixel (by its screen footprint), so from far off nothing shimmers.
+ */
+const NOISE = `
+  float hash3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+  float vnoise(vec3 x) {
+    vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+  }
+  // Octaves from frequency F0 up, each half the amplitude; 'foot' is the
+  // pixel's size on the unit sphere. Returns about 0..1, centred on 0.5.
+  float fbmAA(vec3 p, float F0, float foot) {
+    float sum = 0.0, amp = 0.5, F = F0;
+    for (int i = 0; i < OCTAVES; i++) {
+      float keep = 1.0 - smoothstep(0.2, 0.5, foot * F);
+      sum += amp * mix(0.5, vnoise(p * F + float(i) * 7.31), keep);
+      amp *= 0.5; F *= 2.03;
+    }
+    return sum / (1.0 - pow(0.5, float(OCTAVES)));
+  }`
+function earthMaterial(day, night, spec, octaves) {
   return new THREE.ShaderMaterial({
+    defines: { OCTAVES: octaves },
     uniforms: { uDay: { value: day }, uNight: { value: night }, uSpec: { value: spec }, uSun: { value: new THREE.Vector3() } },
-    vertexShader: `varying vec3 vN; varying vec3 vW; varying vec2 vUv; ${LOG_V}
-      void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz;
+    vertexShader: `varying vec3 vN; varying vec3 vW; varying vec2 vUv; varying vec3 vP; ${LOG_V}
+      void main() { vUv = uv; vP = position; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w;
         #include <logdepthbuf_vertex>
       }`,
-    fragmentShader: `varying vec3 vN; varying vec3 vW; varying vec2 vUv; uniform sampler2D uDay, uNight, uSpec; uniform vec3 uSun;
+    fragmentShader: `varying vec3 vN; varying vec3 vW; varying vec2 vUv; varying vec3 vP; uniform sampler2D uDay, uNight, uSpec; uniform vec3 uSun;
       #include <logdepthbuf_pars_fragment>
+      ${NOISE}
       void main() {
         #include <logdepthbuf_fragment>
         vec3 N = normalize(vN), V = normalize(cameraPosition - vW);
         float ndl = dot(N, uSun);
         float lit = smoothstep(-0.08, 0.22, ndl);
-        vec3 dayc = texture2D(uDay, vUv).rgb * (0.01 + 0.62 * max(ndl, 0.0));
-        vec3 nightc = texture2D(uNight, vUv).rgb * vec3(1.0, 0.82, 0.55) * (1.0 - lit) * 1.4;
         float ocean = texture2D(uSpec, vUv).r;
+        float foot = length(fwidth(vP));
+        // Land: terrain-scale light and dark from 50 km down to a few km.
+        float n = fbmAA(vP, 200.0, foot);
+        vec3 albedo = texture2D(uDay, vUv).rgb;
+        albedo *= mix(1.0, 0.7 + 0.6 * n, (1.0 - ocean) * 0.85);
+        // The sea: a faint swell of colour so it is not one flat blue.
+        albedo *= mix(1.0, 0.9 + 0.2 * n, ocean);
+        // Daylight scattered back up by the air: the sea seen from orbit is lighter than its albedo.
+        vec3 dayc = albedo * (0.01 + 0.62 * max(ndl, 0.0)) + vec3(0.025, 0.055, 0.11) * max(ndl, 0.0);
+        vec3 nightc = texture2D(uNight, vUv).rgb * vec3(1.0, 0.82, 0.55) * (1.0 - lit) * 1.4 * (0.6 + 0.8 * n);
         vec3 H = normalize(uSun + V);
         float glint = pow(max(dot(N, H), 0.0), 120.0) * ocean * lit * 0.9;
         float fres = pow(1.0 - max(dot(N, V), 0.0), 2.5);
@@ -218,21 +254,31 @@ function earthMaterial(day, night, spec) {
       }`,
   })
 }
-function cloudMaterial(tex) {
+function cloudMaterial(tex, octaves) {
   return new THREE.ShaderMaterial({
+    defines: { OCTAVES: octaves },
     uniforms: { uClouds: { value: tex }, uSun: { value: new THREE.Vector3() } },
-    vertexShader: `varying vec3 vN; varying vec2 vUv; ${LOG_V}
-      void main() { vUv = uv; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+    vertexShader: `varying vec3 vN; varying vec2 vUv; varying vec3 vP; ${LOG_V}
+      void main() { vUv = uv; vP = position; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
         #include <logdepthbuf_vertex>
       }`,
-    fragmentShader: `varying vec3 vN; varying vec2 vUv; uniform sampler2D uClouds; uniform vec3 uSun;
+    fragmentShader: `varying vec3 vN; varying vec2 vUv; varying vec3 vP; uniform sampler2D uClouds; uniform vec3 uSun;
       #include <logdepthbuf_pars_fragment>
+      ${NOISE}
       void main() {
         #include <logdepthbuf_fragment>
-        float c = texture2D(uClouds, vUv).r;
+        // Cover is the map's alpha (its colour is white wherever it is clear).
+        float c0 = smoothstep(0.004, 0.42, texture2D(uClouds, vUv).a);
+        float foot = length(fwidth(vP));
+        // The map says where the weather is; the noise says what it looks
+        // like up close: thin cloud eaten into billows, thick cloud textured.
+        float n = fbmAA(vP, 260.0, foot);
+        float near = 1.0 - smoothstep(0.0015, 0.012, foot);
+        float c = mix(c0, clamp((c0 - 0.55 * (1.0 - n) * (1.0 - c0 * 0.6)) * 1.5, 0.0, 1.0), near);
         float ndl = dot(normalize(vN), uSun);
         float lit = smoothstep(-0.1, 0.3, ndl);
-        gl_FragColor = vec4(vec3(0.02 + 0.68 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)), c * (0.25 + 0.75 * lit) * 0.6);
+        vec3 col = vec3(0.02 + 0.72 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)) * mix(1.0, 0.72 + 0.4 * n, near);
+        gl_FragColor = vec4(col, c * (0.25 + 0.75 * lit) * 0.92);
       }`,
     transparent: true, depthWrite: false,
   })

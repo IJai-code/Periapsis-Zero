@@ -143,6 +143,18 @@ const STAND_INS = {
     g.add(cyl(1.7, 1.7, 0.6, M.ion, 12, 'y', 0, 1.6))
     return { object: g, nozzles: [] }
   },
+  hangar() {
+    // The bay, inside out: deck, walls and roof facing in, the door open to -Z.
+    const g = new THREE.Group()
+    const shell = new THREE.MeshStandardMaterial({ color: '#4a4d54', roughness: 0.7, metalness: 0.3, side: THREE.BackSide })
+    // The -Z face is the sixth material slot: an invisible one is the open door.
+    const door = new THREE.MeshBasicMaterial({ visible: false })
+    const room = new THREE.Mesh(new THREE.BoxGeometry(72, 32, 91), [shell, shell, shell, shell, shell, door]); room.position.set(0, 10, 0.5)
+    g.add(room)
+    g.add(box(72, 0.4, 91, M.dark, 0, -6.2, 0.5))
+    for (const s of [-1, 1]) g.add(box(0.3, 0.4, 85, M.ion, s * 35.4, 12, 0.5))
+    return { object: g, nozzles: [] }
+  },
 }
 
 /** A lumpy asteroid: an icosphere with layered noise, flattened in places. */
@@ -174,7 +186,7 @@ function gltf() {
   return loader
 }
 /** Which kinds have a Blender model, and its file (art/game-*, baked and exported by npm run art:build). */
-export const AUTHORED = Object.fromEntries(['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle'].map((k) => [k, `authored/game-${k}.glb`]))
+export const AUTHORED = Object.fromEntries(['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hangar', 'hearth', 'harbor', 'gateway', 'shackle'].map((k) => [k, `authored/game-${k}.glb`]))
 AUTHORED.wing = AUTHORED.cutter
 export function registerAuthored(map) { Object.assign(AUTHORED, map) }
 

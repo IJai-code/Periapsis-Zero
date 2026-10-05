@@ -1,0 +1,10 @@
+{
+  "id": "game-hangar",
+  "note": "The docking bay a ship sits in at any station: runtime frame (three.js, Y up, metres). The ship sits at the origin, nose to -Z; the open door is at z = -45 and the deck at y = -6. Built by art/lib/craft.py. Bounds are an envelope, not an exact size.",
+  "bounds": { "min": [-40, -8, -48], "max": [40, 30, 48] },
+  "boundsMode": "within",
+  "budget": { "triangles": 60000, "bytes": 3200000 },
+  "requiredEmpties": [],
+  "doubleSided": [],
+  "textured": true
+}

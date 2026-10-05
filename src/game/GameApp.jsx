@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp, spawnRaiders, setDestination, startTransfer, addHeat } from './core/game.js'
+import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp, spawnRaiders, setDestination, startTransfer, addHeat, requestDock } from './core/game.js'
 import * as THREE from 'three'
 import { bindDesktop, createControls, isTouch } from './ui/controls.js'
 import { duck, engineLevel, pauseSound, play, startSound } from './audio.js'
@@ -52,6 +52,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       window.__pzV = (x, y, z) => new THREE.Vector3(x, y, z)
       window.__pzRaid = (n = 3, d = 900) => { const g = game.current, p = g.player; const at = new THREE.Vector3(0, 0, -d).applyQuaternion(p.q).add(p.pos); const list = spawnRaiders(g, n, at, 'show', { mode: 'attack' }); for (const e of list) e.ai.target = p.id; g.target = list[0].id; return list.length }
       window.__pzHeat = (n = 2) => addHeat(game.current, n, 'contraband')
+      window.__pzDock = () => requestDock(game.current)
       window.__pzTransfer = (dest) => { const g = game.current; setDestination(g, dest); return startTransfer(g, dest) }
     }
     setPlaceKey(`${game.current.place}:${Date.now()}`)

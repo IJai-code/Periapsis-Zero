@@ -5,6 +5,28 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Act Two, the hangar, and Earth up close: 5 October 2026
+
+- **Act Two, "Apoapsis".** Four new missions after the Warden: an escort out
+  of Harbor, a derelict's flight recorder in the Drift, the Harbor Loop as a
+  way in, and a two-wave defence of Gateway against the Ceres Line. Two new
+  characters, Ines Okafor and Vex, with portraits rendered in Blender. The
+  story is now thirteen missions, and the ending no longer says "more is
+  coming". `npm run verify:game` plays both branches through all of it.
+- **The hangar.** Docked, the ship sits on a lit pad inside the station's bay
+  between robot arms, catwalks and cargo, with the door open on the sky
+  (art/game-hangar, 7,920 triangles). Ships now berth level with the nearest
+  world.
+- **Earth up close.** The cloud map's cover is in its alpha channel; the game
+  read its colour, which is white nearly everywhere, and drew an overcast haze
+  over the whole planet. It reads the cover now, and noise octaves below the
+  imagery give clouds and land structure at Harbor's 420 km, each fading out
+  as it shrinks below a pixel so nothing shimmers from far off.
+- **Balance.** The convoy's escorts fly at skill 0.5 instead of 0.65, the jam
+  lasts 150 s instead of 90, and Vex flies with you. The Harbor Loop is
+  17 km and seven corners: its par is now two minutes (double pay under
+  100 s), measured against a scripted racing line that does 110 s.
+
 ### Periapsis Zero becomes a game: 5 October 2026
 
 The site is now a game, and the simulator is a tool beside it. The front

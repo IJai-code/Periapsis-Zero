@@ -14,7 +14,7 @@ export function Log({ game: g, touch, onClose }) {
       <h3>Story</h3>
       {active ? <article className="st-card active"><div><span className="st-eyebrow">In progress</span><h2>{active.title}</h2><p><Hint text={g.objective?.text} touch={touch} /></p><button className="st-ghost" onClick={() => abandonStory(g)}>Abandon</button></div></article>
         : next.length ? next.map((m) => <p key={m.id} className="log-next"><strong>{m.title}</strong>: see {CHARACTERS[m.giver].name} at {STATIONS[m.at].name}.</p>)
-          : <p className="st-empty">{g.story.done.length ? 'Act One complete.' : 'Nothing yet.'}</p>}
+          : <p className="st-empty">{g.story.done.includes('apoapsis') ? 'The story is complete.' : 'Nothing yet.'}</p>}
       <h3>Jobs ({g.jobs.length} of 3)</h3>
       {g.jobs.length === 0 && <p className="st-empty">No jobs. Dock anywhere and read the job board.</p>}
       {g.jobs.map((j) => <article key={j.id} className={`st-job mine ${j.legal ? '' : 'grey'}`}>

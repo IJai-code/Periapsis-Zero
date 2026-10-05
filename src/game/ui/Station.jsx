@@ -86,7 +86,7 @@ function Missions({ g, st, touch, offersHere, act }) {
     })}
     {!active && !offersHere.length && <p className="st-empty">Nobody here has story work for you right now.</p>}
     {elsewhere.length > 0 && <div className="st-elsewhere"><h3>Waiting elsewhere</h3>{elsewhere.map((m) => <p key={m.id}><Portrait who={m.giver} /><span><strong>{m.title}</strong> · {CHARACTERS[m.giver].name} at {STATIONS[m.at].name}</span></p>)}</div>}
-    {g.story.done.includes('periapsis') && <p className="st-empty">Act One is complete. The lanes are yours; the job board never closes.</p>}
+    {g.story.done.includes('apoapsis') && <p className="st-empty">The story is complete. The lanes are yours; the job board never closes.</p>}
   </div>
 }
 const rewardText = (r) => [r.credits && `₡ ${r.credits.toLocaleString()}`, r.debt && `₡ ${r.debt.toLocaleString()} off your debt`, r.clearDebt && 'your debt cleared'].filter(Boolean).join(' · ') || 'No pay. Something better.'

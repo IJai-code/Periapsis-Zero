@@ -280,6 +280,9 @@ PEOPLE = {
     'hollow': {'skin': '#4a3a32', 'shell': '#5a1e1e', 'stripe': '#2b2420', 'visor': (1.0, 0.25, 0.1), 'rim': (1.0, 0.3, 0.15), 'bg': (0.05, 0.01, 0.01), 'scuffed': True},
     'patrol': {'skin': '#8a6a52', 'shell': '#eef0f2', 'stripe': '#1f3a4e', 'visor': (0.1, 0.4, 0.9), 'rim': (0.2, 0.8, 1.0), 'bg': (0.01, 0.04, 0.07)},
     'control': {'skin': '#a07a62', 'shell': '#5c6066', 'stripe': '#2fd3ff', 'visor': (0.6, 0.9, 1.0), 'rim': (0.4, 0.8, 1.0), 'bg': (0.02, 0.04, 0.06), 'antenna': True},
+    # Act Two: the Ceres Line's factor, in company black and gold, and Rook's gun.
+    'okafor': {'skin': '#6b4532', 'shell': '#1f1d24', 'stripe': '#c9973c', 'visor': (0.95, 0.75, 0.3), 'rim': (1.0, 0.8, 0.4), 'bg': (0.06, 0.045, 0.02), 'antenna': True},
+    'vex': {'skin': '#9a6f55', 'shell': '#ff6b2c', 'stripe': '#23222a', 'visor': (0.2, 0.9, 0.7), 'rim': (0.3, 1.0, 0.7), 'bg': (0.02, 0.05, 0.04), 'scuffed': True},
 }
 
 
@@ -403,6 +406,11 @@ def main():
     out = a['out'] or os.path.join(ROOT, 'public', 'game')
     os.makedirs(out, exist_ok=True)
     only = os.environ.get('PZ_ONLY')
+    # PZ_ONLY=portraits, hulls or keyart; or portrait:<who>,<who> for a few faces.
+    if only and only.startswith('portrait:'):
+        for who in only.split(':', 1)[1].split(','):
+            portrait(who, os.path.join(out, f'portrait-{who}.webp'))
+        return
     if not only or only == 'portraits':
         for who in PEOPLE:
             portrait(who, os.path.join(out, f'portrait-{who}.webp'))
