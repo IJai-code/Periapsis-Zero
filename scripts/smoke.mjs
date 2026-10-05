@@ -17,8 +17,8 @@ import { launch, preview, wait } from './lib/chrome.mjs'
 
 const PAGES = [
   { name: 'front page', hash: '', canvas: true, text: 'Land anywhere in the solar system' },
-  { name: 'campaign', hash: '#campaign', canvas: true, text: 'Station Zero', settle: 15000 },
-  { name: 'old story link, now the campaign', hash: '#story', canvas: true, text: 'Station Zero', settle: 15000 },
+  { name: 'campaign', hash: '#campaign', canvas: true, text: 'Station Zero', settle: 30000 },
+  { name: 'old story link, now the campaign', hash: '#story', canvas: true, text: 'Station Zero', settle: 30000 },
   { name: 'Moon landing', hash: '#land/moon', canvas: true, text: 'Moon' },
   { name: 'Venus landing (air, heat timer)', hash: '#land/venus', canvas: true, text: 'Venus' },
   { name: 'Io landing (lava)', hash: '#land/io', canvas: true, text: 'Io' },

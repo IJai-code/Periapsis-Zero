@@ -30,7 +30,7 @@ export default function ExperienceApp() {
   if (experience.mode !== 'home') {
     // One simulator for all three: keyed so that switching between free flight
     // and the campaign remounts its interface, not its solar system.
-    return <Suspense fallback={<div className="mode-loading">Preparing the solar system…</div>}><Simulator key={experience.mode === 'campaign' ? 'campaign' : 'free'} campaign={experience.mode === 'campaign'} /></Suspense>
+    return <Suspense fallback={<div className="mode-loading">{experience.mode === 'campaign' ? 'Station Zero: preparing the solar system…' : 'Preparing the solar system…'}</div>}><Simulator key={experience.mode === 'campaign' ? 'campaign' : 'free'} campaign={experience.mode === 'campaign'} /></Suspense>
   }
   return <div className="fixed inset-0 bg-black">
     <Suspense fallback={null}><ScenicBackdrop session={scenic} controls={controls} visible={visible} /></Suspense>
