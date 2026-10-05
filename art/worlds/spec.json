@@ -1,0 +1,9 @@
+{
+  "id": "worlds",
+  "note": "A photograph of every world you can land on, for the front page's gallery and the campaign's briefings: path traced in Cycles from the shipped models, rock set and each world's baked ground tile. Not bit-reproducible (GPU path tracing), so it is not held to --check; verify-art holds its files, sizes and budget.",
+  "outputDir": "stills",
+  "outputs": ["world-moon.webp", "world-mars.webp", "world-phobos.webp", "world-mercury.webp", "world-venus.webp", "world-io.webp", "world-europa.webp", "world-ganymede.webp", "world-callisto.webp", "world-titan.webp", "world-pluto.webp", "world-halley.webp", "world-deimos.webp"],
+  "size": [1280, 720],
+  "budget": { "bytes": 3200000 },
+  "reproducible": false
+}

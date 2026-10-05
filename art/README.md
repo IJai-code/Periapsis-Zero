@@ -56,9 +56,13 @@ Three other kinds of asset use the same machinery:
 - `ground/`: a real 4 m patch of each world's ground (periodic heightfield,
   craterlets, ripples or cracks, half-buried 3D pebbles) baked onto a flat
   tile as `public/authored/ground/<world>-detail.webp` and `-normal.webp`.
-- `story/`: the story page's chapter art, path traced in Cycles from the
-  shipped models, rock set and ground textures. Not bit-reproducible, so
-  `--check` skips it; `verify:art` still holds its files and budget.
+  Nine tiles serve thirteen worlds (`tile` in `src/sim/worlds.js`); one bake
+  takes about ten minutes on the CPU, so `PZ_WORLD=io` builds one.
+- `worlds/`: a photograph of each of the thirteen landable worlds, path traced
+  in Cycles from the shipped models, rock set and that world's ground tile, on
+  a landscape of its own geology with its parent planet at its true size.
+  Not bit-reproducible, so `--check` skips it; `verify:art` still holds its
+  files and budget.
 
 A quick look while working on a surface:
 

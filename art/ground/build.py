@@ -63,6 +63,42 @@ WORLDS = {
         'soil': '#dfe5e6', 'soil_dark': '#c3cfd3', 'rock': ['#e9eef0', '#cdd8dc', '#b9c5ca'],
         'pebbles': 50, 'big': 4, 'cracks': 26,
     },
+    # Dark carbonaceous rubble, battered by craterlets (Phobos, Deimos, Halley).
+    'phobos': {
+        'seed': 41, 'rough_amp': 0.014, 'beta': 2.5,
+        'soil': '#5e5852', 'soil_dark': '#47423d', 'rock': ['#3f3b37', '#57514b', '#2f2c29'],
+        'pebbles': 300, 'big': 14, 'craterlets': 30,
+    },
+    # Basalt slabs, broken and baked (Venera 13's panoramas).
+    'venus': {
+        'seed': 53, 'rough_amp': 0.008, 'beta': 2.3,
+        'soil': '#7a5d3e', 'soil_dark': '#5a4430', 'rock': ['#4c3b2c', '#3a2e24', '#5e4a37'],
+        'pebbles': 120, 'big': 10, 'cracks': 18, 'gap': '#2e241c', 'seep': '#b9844a',
+    },
+    # Cooled lava crust, sulfur frost settled in the joints.
+    'io': {
+        'seed': 61, 'rough_amp': 0.007, 'beta': 2.6,
+        'soil': '#d4c06a', 'soil_dark': '#a8913e', 'rock': ['#5a4a2c', '#3d3220', '#6e5a34'],
+        'pebbles': 60, 'big': 5, 'cracks': 22, 'gap': '#4a3a1e', 'seep': '#b4492a',
+    },
+    # Old dark ice with bright fresh fragments, furrowed (Ganymede, Callisto).
+    'ganymede': {
+        'seed': 71, 'rough_amp': 0.009, 'beta': 2.5,
+        'soil': '#9a9387', 'soil_dark': '#77716a', 'rock': ['#5d574f', '#d8dcdc', '#7a746b'],
+        'pebbles': 160, 'big': 8, 'ripples': True, 'ripple_n': 5, 'ripple_h': 0.02,
+    },
+    # Rounded ice cobbles on organic sand, as Huygens saw it.
+    'titan': {
+        'seed': 83, 'rough_amp': 0.006, 'beta': 2.8,
+        'soil': '#7a5a34', 'soil_dark': '#5c4426', 'rock': ['#a69a86', '#8e8574', '#b8ad98'],
+        'pebbles': 140, 'big': 16, 'round': True,
+    },
+    # Nitrogen ice, cracked into plates, tholin in the gaps.
+    'pluto': {
+        'seed': 97, 'rough_amp': 0.006, 'beta': 2.9,
+        'soil': '#ddd1c2', 'soil_dark': '#c4b5a2', 'rock': ['#c2b19c', '#b9a690', '#d8ccbd'],
+        'pebbles': 30, 'big': 3, 'cracks': 14, 'gap': '#a89480', 'seep': '#8a4f36',
+    },
 }
 
 
@@ -105,9 +141,9 @@ def heightfield(w, n):
         # Wind ripples: about 28 cm crest to crest, wandering, a centimetre high.
         warp = np.real(np.fft.ifft2(np.fft.fft2(rng.normal(size=(n, n))) * (kk < 0.9) ))
         warp = warp / warp.std() * 0.35
-        phase = 2 * math.pi * (X * math.cos(0.4) + Y * math.sin(0.4)) / L * 14 + warp * 3
+        phase = 2 * math.pi * (X * math.cos(0.4) + Y * math.sin(0.4)) / L * w.get('ripple_n', 14) + warp * 3
         ripple = 0.5 + 0.5 * np.sin(phase)
-        h += 0.011 * ripple ** 1.6
+        h += w.get('ripple_h', 0.011) * ripple ** 1.6
         stain += (1 - ripple) * 0.35
 
     if w.get('cracks'):
@@ -169,7 +205,7 @@ def ground_mesh(w, h, cavity, stain, step):
     return obj
 
 
-def rock_mesh(name, seed, size, height_at):
+def rock_mesh(name, seed, size, height_at, rounded=False):
     """A broken stone: a displaced icosphere, flattened where it sits, half buried."""
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=3, radius=1.0)
@@ -177,6 +213,10 @@ def rock_mesh(name, seed, size, height_at):
     for v in bm.verts:
         p = v.co.copy()
         k = 0.78 + 0.3 * noise.noise(p * 1.4 + off) + 0.1 * noise.noise(p * 3.7 + off) + 0.04 * noise.noise(p * 9.0 + off)
+        if rounded:
+            # Tumbled by rivers: smooth, no fracture planes.
+            v.co = p * (0.85 + 0.18 * noise.noise(p * 1.1 + off))
+            continue
         # Fracture planes: stone breaks flat.
         for a in range(3):
             nrm = Vector((math.sin(seed * 3.1 + a * 2.1), math.cos(seed * 1.7 + a * 1.3), math.sin(seed + a)))
@@ -204,7 +244,7 @@ def scatter(w, rng, height_at, mats):
         rot = rng.uniform(0, math.tau, 3)
         sink = rng.uniform(0.25, 0.5)
         mat = mats[int(rng.integers(len(mats)))]
-        base, _ = rock_mesh(f'rock_{i}', int(rng.integers(1, 10_000)), size, height_at)
+        base, _ = rock_mesh(f'rock_{i}', int(rng.integers(1, 10_000)), size, height_at, w.get('round', False))
         base.data.materials.append(mat)
         for ox in (-L, 0.0, L):
             for oy in (-L, 0.0, L):
@@ -241,8 +281,8 @@ def soil_material(w):
     base = g.mixc(base, (0.85, 0.85, 0.85, 1.0), g.mul(g.remap(g.noise(v, 260.0, detail=1.0), 0.72, 0.85), 0.35))
     if w.get('cracks'):
         # Deep blue in the gaps, where light travels further through clean ice.
-        base = g.mixc(base, sf.rgb('#7fa3b8'), g.math('MINIMUM', g.mul(marks[0], 0.85), 1.0))
-        base = g.mixc(base, sf.rgb('#7c4a32'), g.math('MINIMUM', g.mul(marks[1], 0.8), 1.0))
+        base = g.mixc(base, sf.rgb(w.get('gap', '#7fa3b8')), g.math('MINIMUM', g.mul(marks[0], 0.85), 1.0))
+        base = g.mixc(base, sf.rgb(w.get('seep', '#7c4a32')), g.math('MINIMUM', g.mul(marks[1], 0.8), 1.0))
     else:
         base = g.mixc(base, sf.rgb(w['soil_dark']), g.mul(marks[0], 0.5))
     if w.get('ripples'):

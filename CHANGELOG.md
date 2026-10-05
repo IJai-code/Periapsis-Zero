@@ -5,6 +5,63 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### One game on the real solar system: 4 October 2026
+
+The site was three modes that did not explain themselves (a simulator, three
+expeditions, a story) with no end goal. It is now one product with two ways
+in, and both are the simulator.
+
+**Land anywhere.** Thirteen worlds: the Moon, Mars, Phobos, Deimos, Mercury,
+Venus, Io, Europa, Ganymede, Callisto, Titan, Pluto and Halley's Comet
+(`src/sim/worlds.js`), each with gravity from its mass and radius (within 4%
+of NASA's figures), its own air (Venus 65 kg/m^3, Titan 5.3, Mars 0.020), its
+own geology and its parent planet in the sky at its true size. From the
+simulator: the top bar's **Land** menu, or **Land on X** with a world in
+focus. From anywhere: `#land/<world>`.
+
+**Campaign: Station Zero.** Twelve worlds in order, each a landing, a survey
+and a lift-off, about five to eight minutes. Scored out of about 3,000 (the
+landing, the finds, the time) for up to three stars; science buys engine,
+tank, rover and scanner upgrades; after nine surveys the finale chooses where
+the station goes. Rules and record in `src/sim/campaign.js`.
+
+**Faster, clearer play.** One set of controls everywhere (W A S D, Space,
+E use, Q scan, Shift time warp, F walk or rover, T lift off, H assist). The
+assist flies you in; the rover rolls out on its own; a guidance arrow, a
+radar and an objectives list say where to go next; hidden finds wait in
+search zones for the scanner. Phobos, Deimos and Halley are too small for a
+rover, so the lander hops, holding itself down with a cold-gas thruster the
+way Philae was meant to. Venus gives eight minutes before the heat wins.
+
+**Solid ground.** Walkers and rovers collide with every boulder taller than
+a step, the lander, its footpads and the rover, on all thirteen worlds
+(`verify-expeditions` drives into the largest boulder on each).
+
+**Mars looks like Mars.** The buttes were cylinders in ruled stripes. They
+now have spurs and alcoves in plan, a caprock, a cliff with benches where
+hard beds stand out, gullies, and talus aprons; the beds are uneven, wander,
+and show only where dust has not draped them. The far terrain rings are
+finer (32 m and 128 m) so the shapes resolve.
+
+**The front page** has one pitch, two choices (campaign with your progress,
+or the simulator), a gallery of every world to land on directly, three steps
+on how a mission goes, and one feedback link rather than two. It reflows
+from phone to wide desktop without truncating.
+
+**Blender.** Six new ground tiles (Phobos rubble, Venus basalt slabs, Io's
+lava crust with sulfur in the joints, Ganymede's furrowed ice, Titan's
+rounded cobbles on organic sand, Pluto's nitrogen-ice plates), and a path
+traced photograph of every world (`art/worlds`) for the gallery and the
+briefings.
+
+**Gates.** `verify-expeditions` is rewritten for the new engine: the assist
+lands on every world, a scripted player (`scripts/lib/surfaceBot.mjs`)
+completes a full mission on every world, plus the physics (freefall, Venus
+terminal velocity, gait limit, friction, rover stall), collisions, layout,
+scanner, guidance and scoring. `verify-campaign` holds the campaign's rules.
+The smoke test opens the campaign and landings on Moon, Venus, Io, Titan and
+Halley.
+
 ### Sign-in, a lint gate, and the vehicles redrawn from references: 4 October 2026
 
 **Sign in to keep progress** (optional). `src/sim/account.js` talks to a

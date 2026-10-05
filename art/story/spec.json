@@ -1,9 +1,0 @@
-{
-  "id": "story",
-  "note": "Chapter art for the story page, path traced in Cycles from the shipped models, rock set and ground textures. Not bit-reproducible (GPU path tracing), so it is not held to --check; verify-art holds its files, sizes and budget.",
-  "outputDir": "stills",
-  "outputs": ["story-moon.webp", "story-mars.webp", "story-europa.webp"],
-  "size": [1600, 900],
-  "budget": { "bytes": 900000 },
-  "reproducible": false
-}

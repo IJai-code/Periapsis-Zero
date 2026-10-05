@@ -143,10 +143,10 @@ export async function preview(port = 4180) {
   throw new Error('vite preview did not start')
 }
 
-/** Wait until the expedition reports a landing, or give up after `ms`. */
+/** Wait until a surface mission reports touchdown, or give up after `ms`. */
 export async function waitForLanding(page, ms = 60000) {
   for (let t = 0; t < ms; t += 1000) {
-    if (/Landed\. Press E/.test(await page.evaluate('document.body.innerText'))) return true
+    if (/Down\. /.test(await page.evaluate('document.body.innerText'))) return true
     await wait(1000)
   }
   return false

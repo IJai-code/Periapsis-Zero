@@ -26,6 +26,7 @@ import { Contacts } from './Contacts.jsx'
 import { Notices } from './Notices.jsx'
 import { GoForLaunch } from './GoForLaunch.jsx'
 import { COSMIC } from '../sim/cosmic.js'
+import { WORLDS } from '../sim/worlds.js'
 import { setUi, useUi, WARP_LEVELS, uiStore } from '../sim/store.js'
 import { live } from '../sim/live.js'
 import { prediction } from '../sim/predict.js'
@@ -39,6 +40,7 @@ import { prediction } from '../sim/predict.js'
 const SetupDrawer = lazy(() => import('./Setup.jsx').then((m) => ({ default: m.SetupDrawer })))
 const Boards = lazy(() => import('./Boards.jsx').then((m) => ({ default: m.Boards })))
 const BroadcastHud = lazy(() => import('./Broadcast.jsx').then((m) => ({ default: m.BroadcastHud })))
+const CampaignPanel = lazy(() => import('./CampaignPanel.jsx').then((m) => ({ default: m.CampaignPanel })))
 
 /**
  * Camera modes the map cannot use.
@@ -117,7 +119,7 @@ function useNarrow() {
   return narrow
 }
 
-export function Hud({ onLibrary }) {
+export function Hud({ onLibrary, campaign = false }) {
   const open = useUi((s) => s.panelOpen)
   /** The setup drawer: missions, contracts, pad, craft, display, one key, S. */
   const setup = useUi((s) => s.setup)
@@ -139,6 +141,8 @@ export function Hud({ onLibrary }) {
   const photo = useUi((s) => s.photo)
   const focus = useUi((s) => s.focus)
   const deepSky = COSMIC[focus] !== undefined
+  // Any world with ground to stand on can be landed on from here.
+  const landable = Boolean(WORLDS[focus])
   const [menu, setMenu] = useState(false)
   const pauseBeforeMenu = useRef(true)
   const [shared, setShared] = useState(false)
@@ -243,13 +247,16 @@ export function Hud({ onLibrary }) {
     return () => { window.removeEventListener('keydown', escape); setUi({ experienceMenu: false }) }
   }, [])
 
-  const modeMenu = menu && <div className="sim-mode-menu" role="dialog" aria-modal="true" aria-label="Simulator menu"><section><span className="eyebrow">Simulator paused</span><h2>Where next?</h2><button autoFocus className="action-button primary" onClick={() => { setUi({ experienceMenu: false, paused: pauseBeforeMenu.current }); setMenu(false) }}>Resume flight</button><button className="action-button" onClick={() => { window.location.hash = '#story' }}>Survey campaign</button><button className="action-button" onClick={() => { window.location.hash = '' }}>Mode select</button></section></div>
+  const modeMenu = menu && <div className="sim-mode-menu" role="dialog" aria-modal="true" aria-label="Simulator menu"><section><span className="eyebrow">Simulator paused</span><h2>Where next?</h2><button autoFocus className="action-button primary" onClick={() => { setUi({ experienceMenu: false, paused: pauseBeforeMenu.current }); setMenu(false) }}>Resume flight</button><button className="action-button" onClick={() => { window.location.hash = campaign ? '#flight' : '#campaign' }}>{campaign ? 'Free simulator' : 'Campaign'}</button><button className="action-button" onClick={() => { window.location.hash = '' }}>Home</button></section></div>
 
   /*
     The broadcast replaces the whole instrument layout rather than sitting on
     top of it: a feed with panels printed over it is neither. The key handler
     above stays live in both, so the number keys cut between cameras here too.
   */
+  // The campaign is the simulator with a goal: its own panel instead of the
+  // cockpit, the menu bar for the way out, and the solar system behind both.
+  if (campaign) return <><div className="pointer-events-none fixed inset-0 z-10 select-none"><Nav campaign onMap={toggleMap} onLogbook={() => setLogbook(true)} onLibrary={onLibrary} /></div><Suspense fallback={null}><CampaignPanel /></Suspense>{modeMenu}</>
   if (broadcast) return <><Suspense fallback={null}><BroadcastHud /></Suspense>{modeMenu}</>
 
   /*
@@ -440,7 +447,8 @@ export function Hud({ onLibrary }) {
       <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
         {/* Twenty-six thousand light years out, a pad prompt is not about
             anything on screen; both come back with the solar system. */}
-        {!deepSky && <GoForLaunch />}
+        {landable && <button type="button" onClick={() => setUi({ surface: { world: focus, mode: 'free' } })} className="control panel pointer-events-auto flex items-center gap-3 border border-ember/60 px-5 py-2.5 font-mono text-[11px] tracking-[0.2em] text-ember uppercase outline-none hover:bg-ember/15 focus-visible:bg-ember/15">↓ Land on {WORLDS[focus].name}</button>}
+        {!deepSky && !landable && <GoForLaunch />}
         {!deepSky && <Commentary />}
         <TimeControls />
         <div className="flex items-center gap-1">

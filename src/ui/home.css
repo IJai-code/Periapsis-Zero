@@ -1,0 +1,41 @@
+/* The front page (ui/Landing.jsx). Sized so nothing truncates: text wraps,
+   cards reflow, and every block has a minimum readable width. */
+.home { --paper: #f4e8cf; --muted: #ff6b2c; --ink: #120b22; --line: #f4e8cf30; --signal: #ff6b2c; position: absolute; inset: 0; z-index: 2; overflow-y: auto; color: #f4e8cf; font-family: var(--font-sans, 'Inter', system-ui, sans-serif); background: linear-gradient(180deg, #120b2299 0%, #120b2266 38%, #120b22f2 70%, #120b22 100%); }
+.home-bar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding: 16px clamp(16px, 4vw, 56px); background: #120b22b3; backdrop-filter: blur(8px); border-bottom: 1px solid #f4e8cf1a; }
+.home-brand { display: flex; align-items: center; gap: 10px; font-size: 13px; letter-spacing: .3em; font-weight: 600; }
+.home-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: 13px; }
+.home-links a, .home-link, .home-links .quiet-button { color: #ff6b2c; background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-decoration: none; }
+.home-links a:hover, .home-link:hover, .home-links .quiet-button:hover { text-decoration: underline; }
+.home-eyebrow { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: #ff6b2c; }
+
+.home-hero { max-width: 1180px; margin: 0 auto; padding: clamp(48px, 10vh, 120px) clamp(16px, 4vw, 56px) 40px; }
+.home-hero h1 { margin: 14px 0 18px; max-width: 14ch; font-size: clamp(40px, 7vw, 92px); line-height: .98; font-weight: 700; letter-spacing: -.045em; }
+.home-hero > p { max-width: 58ch; font-size: clamp(15px, 1.6vw, 19px); line-height: 1.6; color: #f4e8cfd9; margin: 0 0 30px; }
+.home-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; max-width: 760px; }
+.home-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 20px 22px; text-align: left; color: #f4e8cf; background: #120b22d9; border: 1px solid #f4e8cf33; border-radius: 6px; cursor: pointer; font: inherit; transition: border-color .2s, transform .2s; }
+.home-mode:hover, .home-mode:focus-visible { border-color: #ff6b2c; transform: translateY(-2px); outline: none; }
+.home-mode.primary { background: #ff6b2c; border-color: #ff6b2c; color: #120b22; }
+.home-mode.primary:hover, .home-mode.primary:focus-visible { border-color: #f4e8cf; }
+.home-mode-label { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; opacity: .8; }
+.home-mode strong { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.home-mode-detail { font-size: 13px; line-height: 1.45; opacity: .85; }
+.home-hero .home-hint { margin: 18px 0 0; font-size: 13px; color: #f4e8cf99; }
+
+.home-worlds, .home-how { max-width: 1180px; margin: 0 auto; padding: 40px clamp(16px, 4vw, 56px); }
+.home-section-head h2, .home-how h2 { margin: 0 0 6px; font-size: clamp(22px, 2.6vw, 30px); font-weight: 600; letter-spacing: -.02em; }
+.home-section-head p { margin: 0 0 20px; color: #f4e8cfb3; font-size: 14px; line-height: 1.5; }
+.home-worlds ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.home-world { display: block; width: 100%; padding: 0; text-align: left; color: #f4e8cf; background: #1a1230; border: 1px solid #f4e8cf24; border-radius: 6px; overflow: hidden; cursor: pointer; font: inherit; transition: border-color .2s, transform .2s; }
+.home-world:hover, .home-world:focus-visible { border-color: #ff6b2c; transform: translateY(-2px); outline: none; }
+.home-world img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #0c0818; }
+.home-world-text { display: block; padding: 12px 14px 14px; }
+.home-world-text strong { display: block; font-size: 17px; font-weight: 600; }
+.home-world-text span { display: block; margin-top: 3px; font-size: 13px; line-height: 1.4; color: #f4e8cfcc; }
+.home-world-text small { display: block; margin-top: 6px; font-size: 11px; color: #ff6b2c; letter-spacing: .04em; }
+
+.home-how ol { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; counter-reset: step; }
+.home-how li { counter-increment: step; padding: 18px; background: #1a1230; border: 1px solid #f4e8cf1f; border-radius: 6px; font-size: 14px; line-height: 1.55; color: #f4e8cfd9; }
+.home-how li::before { content: '0' counter(step); display: block; margin-bottom: 8px; font: 600 12px ui-monospace, monospace; color: #ff6b2c; }
+.home-how strong { color: #f4e8cf; }
+
+.home-foot { max-width: 1180px; margin: 0 auto; padding: 30px clamp(16px, 4vw, 56px) 48px; display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: 12px; color: #f4e8cf80; border-top: 1px solid #f4e8cf14; }

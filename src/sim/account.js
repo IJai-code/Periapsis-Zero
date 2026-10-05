@@ -22,12 +22,18 @@
  * signing in, which is the one thing a player must be able to trust.
  */
 
-const URL_ = (import.meta.env?.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
+/*
+ * The project address, cleaned: the first https:// URL in whatever the build
+ * was given. A value pasted from a formatted page arrives as a Markdown link,
+ * `[https://x.supabase.co](https://x.supabase.co)`, which is how the first
+ * configured deploy received it.
+ */
+const URL_ = ((import.meta.env?.VITE_SUPABASE_URL ?? '').match(/https:\/\/[^\s\])]+/)?.[0] ?? '').replace(/\/$/, '')
 const KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
 export const accountsEnabled = Boolean(URL_ && KEY)
 
 /** The browser-stored records an account carries. Device settings stay local. */
-export const SYNCED = ['pz-expeditions-v1', 'pz-story', 'periapsis.logbook.v1', 'pz-pilot-v1']
+export const SYNCED = ['pz-campaign-v2', 'pz-story', 'periapsis.logbook.v1', 'pz-pilot-v1', 'pz-expeditions-v1']
 const SESSION_KEY = 'pz-account-v1'
 const PUSHED_KEY = 'pz-account-pushed'
 

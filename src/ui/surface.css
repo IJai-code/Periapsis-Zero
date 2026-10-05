@@ -1,0 +1,100 @@
+/* The surface mission (ui/Surface.jsx). Four colours: void, bone, ember, ion. */
+.sv-screen { position: fixed; inset: 0; background: #020307; color: #f4e8cf; font-family: var(--font-sans, 'Inter', system-ui, sans-serif); z-index: 40; }
+.sv-screen canvas:focus, .sv-screen canvas:focus-visible { outline: none; }
+.sv-hud { position: absolute; inset: 0; pointer-events: none; }
+.sv-hud button, .sv-radar, .sv-objectives, .sv-touch, .sv-top { pointer-events: auto; }
+.sv-hud button { font: inherit; }
+
+.sv-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 18px; padding: 14px 20px; background: linear-gradient(180deg, #120b22cc, #120b2200); pointer-events: none; }
+.sv-top > * { pointer-events: auto; }
+.sv-quiet { background: #120b22b3; border: 1px solid #f4e8cf2e; color: #f4e8cf; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+.sv-quiet:hover { border-color: #ff6b2c; color: #ff6b2c; }
+.sv-title span { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: #ff6b2c; }
+.sv-title h1 { margin: 2px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.sv-title small { font-size: 13px; font-weight: 400; color: #f4e8cfb3; }
+.sv-gravity { margin-left: auto; font-size: 12px; color: #f4e8cfb3; }
+.sv-gravity strong { color: #f4e8cf; font-weight: 600; }
+
+.sv-objectives { position: absolute; top: 76px; left: 20px; width: 300px; padding: 14px 16px; background: #120b22d9; border: 1px solid #f4e8cf1f; border-left: 3px solid #ff6b2c; border-radius: 4px; backdrop-filter: blur(6px); }
+.sv-objectives h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: #ff6b2c; }
+.sv-objectives ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.sv-objectives li { display: flex; align-items: center; gap: 9px; color: #f4e8cfcc; }
+.sv-objectives li i { width: 16px; height: 16px; border: 1px solid #f4e8cf55; border-radius: 3px; display: grid; place-items: center; font-style: normal; font-size: 11px; }
+.sv-objectives li.done { color: #f4e8cf73; }
+.sv-objectives li.done i { background: #2fd3ff; border-color: #2fd3ff; color: #120b22; }
+.sv-next { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid #f4e8cf1f; font-size: 14px; }
+.sv-arrow { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px solid #ff6b2c; border-radius: 50%; color: #ff6b2c; font-size: 16px; transition: transform .1s linear; }
+.sv-progress { margin-top: 10px; font-size: 11px; color: #2fd3ff; }
+.sv-progress i { display: block; height: 4px; margin-top: 4px; background: #2fd3ff; border-radius: 2px; }
+
+.sv-radar { position: absolute; top: 76px; right: 20px; width: 180px; height: 180px; border-radius: 50%; border: 1px solid #f4e8cf2e; }
+
+.sv-toast { position: absolute; top: 34%; left: 50%; transform: translateX(-50%); max-width: 560px; padding: 10px 18px; background: #120b22e6; border: 1px solid #f4e8cf2e; border-radius: 4px; font-size: 14px; text-align: center; animation: sv-rise 3s ease forwards; }
+.sv-toast.points { border-color: #2fd3ff; }
+.sv-toast strong { color: #2fd3ff; margin-right: 10px; font-size: 18px; }
+@keyframes sv-rise { 0% { opacity: 0; transform: translate(-50%, 8px); } 10% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+.sv-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 20px 18px; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 10px 18px; align-items: end; background: linear-gradient(0deg, #120b22d9, #120b2200); }
+.sv-readouts { grid-row: 1 / span 2; display: flex; gap: 6px; pointer-events: auto; }
+.sv-readout { min-width: 92px; padding: 8px 12px; background: #120b22d9; border: 1px solid #f4e8cf1f; border-radius: 4px; }
+.sv-readout span { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #f4e8cf99; }
+.sv-readout strong { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sv-readout small { font-size: 11px; color: #f4e8cf99; }
+.sv-readout b { display: block; height: 3px; margin-top: 4px; background: #f4e8cf1f; }
+.sv-readout b i { display: block; height: 100%; background: #ff6b2c; }
+.sv-readout.warn strong, .sv-readout.warn span { color: #ff6b2c; }
+.sv-message { font-size: 14px; color: #f4e8cf; text-shadow: 0 1px 3px #000; }
+.sv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: auto; }
+.sv-actions button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; background: #120b22e6; border: 1px solid #f4e8cf3d; color: #f4e8cf; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.sv-actions button:hover { border-color: #ff6b2c; }
+.sv-actions button.primary { background: #ff6b2c; border-color: #ff6b2c; color: #120b22; font-weight: 600; }
+.sv-actions button.on { border-color: #2fd3ff; color: #2fd3ff; }
+.sv-hint { font-size: 12px; color: #f4e8cf80; }
+kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px solid currentColor; border-radius: 3px; font: 600 11px/1.4 ui-monospace, monospace; text-align: center; opacity: .85; }
+
+.sv-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: #020307b3; backdrop-filter: blur(4px); }
+.sv-modal section { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow: auto; padding: 26px 28px; background: #120b22; border: 1px solid #f4e8cf2e; border-radius: 6px; }
+.sv-eyebrow { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: #ff6b2c; }
+.sv-modal h2 { margin: 8px 0 14px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.sv-modal p { color: #f4e8cfcc; font-size: 14px; line-height: 1.6; }
+.sv-modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.sv-modal-actions button { padding: 10px 16px; background: transparent; border: 1px solid #f4e8cf3d; color: #f4e8cf; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.sv-modal-actions button.primary { background: #ff6b2c; border-color: #ff6b2c; color: #120b22; font-weight: 600; }
+.sv-modal-actions button:focus-visible { outline: 2px solid #2fd3ff; outline-offset: 2px; }
+.sv-howto { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 14px; line-height: 1.55; color: #f4e8cfd9; }
+.sv-howto strong { color: #ff6b2c; }
+.sv-graphics { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; font-size: 13px; }
+.sv-graphics span { margin-right: 6px; color: #f4e8cfb3; }
+.sv-graphics button { padding: 6px 10px; border: 1px solid #f4e8cf3d; background: transparent; color: #f4e8cf; border-radius: 3px; cursor: pointer; }
+.sv-graphics button.on { border-color: #ff6b2c; color: #ff6b2c; }
+
+.sv-results h2.sv-stars { font-size: 46px; letter-spacing: .1em; margin: 6px 0 10px; }
+.sv-stars span { color: #f4e8cf2e; }
+.sv-stars span.on { color: #ff6b2c; }
+.sv-results dl { margin: 0; display: grid; gap: 6px; }
+.sv-results dl div { display: flex; justify-content: space-between; font-size: 14px; color: #f4e8cfcc; padding: 4px 0; border-bottom: 1px solid #f4e8cf14; }
+.sv-results dd { margin: 0; font-variant-numeric: tabular-nums; }
+.sv-results .total { font-size: 18px; color: #f4e8cf; font-weight: 600; }
+.sv-results .science dd, .sv-results .science dt { color: #2fd3ff; }
+.sv-tip { font-size: 13px !important; }
+
+.sv-touch { position: absolute; left: 0; right: 0; bottom: 136px; display: flex; justify-content: space-between; padding: 0 16px; }
+.sv-dpad { display: grid; justify-items: center; gap: 4px; }
+.sv-dpad > div { display: flex; gap: 4px; }
+.sv-touch-right { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.sv-hold { width: 54px; height: 54px; border-radius: 50%; background: #120b22cc; border: 1px solid #f4e8cf4d; color: #f4e8cf; font-size: 13px; touch-action: none; user-select: none; }
+.sv-hold.big { width: 84px; height: 84px; border-color: #ff6b2c; color: #ff6b2c; font-weight: 600; }
+
+@media (max-width: 760px) {
+  .sv-top { padding: 10px 12px; gap: 10px; }
+  .sv-title h1 { font-size: 16px; } .sv-title small, .sv-gravity { display: none; }
+  .sv-objectives { top: 58px; left: 10px; width: calc(100% - 150px); padding: 10px 12px; }
+  .sv-objectives ol { font-size: 11px; gap: 4px; }
+  .sv-radar { top: 58px; right: 10px; width: 120px; height: 120px; }
+  .sv-bottom { padding: 10px 12px 12px; grid-template-columns: 1fr; }
+  .sv-readouts { grid-row: auto; overflow-x: auto; }
+  .sv-readout { min-width: 70px; padding: 6px 8px; } .sv-readout strong { font-size: 16px; }
+  .sv-message { font-size: 12px; }
+  /* Above the readouts, the message and the buttons, which stack here. */
+  .sv-touch { bottom: 196px; }
+}

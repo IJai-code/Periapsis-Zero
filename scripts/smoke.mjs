@@ -16,11 +16,14 @@
 import { launch, preview, wait } from './lib/chrome.mjs'
 
 const PAGES = [
-  { name: 'front page', hash: '', canvas: true, text: 'Land on the Moon' },
-  { name: 'story', hash: '#story', canvas: true, text: 'missions.' },
-  { name: 'Moon expedition', hash: '#expedition/moon', canvas: true, text: 'Moon' },
-  { name: 'Mars expedition', hash: '#expedition/mars', canvas: true, text: 'Mars' },
-  { name: 'Europa expedition', hash: '#expedition/europa', canvas: true, text: 'Europa' },
+  { name: 'front page', hash: '', canvas: true, text: 'Land anywhere in the solar system' },
+  { name: 'campaign', hash: '#campaign', canvas: true, text: 'Station Zero', settle: 15000 },
+  { name: 'old story link, now the campaign', hash: '#story', canvas: true, text: 'Station Zero', settle: 15000 },
+  { name: 'Moon landing', hash: '#land/moon', canvas: true, text: 'Moon' },
+  { name: 'Venus landing (air, heat timer)', hash: '#land/venus', canvas: true, text: 'Venus' },
+  { name: 'Io landing (lava)', hash: '#land/io', canvas: true, text: 'Io' },
+  { name: 'Titan landing (haze, lake)', hash: '#land/titan', canvas: true, text: 'Titan' },
+  { name: 'Halley landing (hopper)', hash: '#land/halley', canvas: true, text: 'Halley' },
   { name: 'simulator', hash: '#flight', canvas: true, text: 'PERIAPSIS ZERO', settle: 15000 },
 ]
 /**
@@ -41,8 +44,8 @@ try {
     const page = await launch({ width: 1280, height: 800 })
     try {
       await page.goto(`${server.url}/`)
-      // Skip the first-run how-to card so the expedition actually runs.
-      await page.evaluate("localStorage.setItem('pz-expedition-howto-v1', '1')")
+      // Skip the first-run cards so the mission actually runs.
+      await page.evaluate("localStorage.setItem('pz-surface-howto-v1', '1'); localStorage.setItem('pz-campaign-intro-v1', '1')")
       await page.goto(`${server.url}/${p.hash}`)
       await wait(p.settle ?? 9000)
       const state = await page.evaluate(`({ canvas: !!document.querySelector('canvas'), text: document.body.innerText })`)

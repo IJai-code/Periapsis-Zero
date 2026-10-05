@@ -4,21 +4,32 @@ Working notes for anyone, human or agent, who changes Periapsis Zero. It says
 what the codebase is today, the rules that keep it honest, and the engineering
 plan for raising the web product with Blender-authored art.
 
-Last reviewed: 3 October 2026, at `4320475` on `main`.
+Last reviewed: 4 October 2026, on `main`.
 
 ---
 
 ## 1. What the product is now
 
-Periapsis Zero started as a true-scale solar-system simulator. It is now a
-sim/game hybrid with one front door and three experiences:
+Periapsis Zero started as a true-scale solar-system simulator. It is now one
+product with two ways in, and both are the simulator:
 
 | Route | Experience | What it is |
 | --- | --- | --- |
-| `/` | Front door | `src/ui/Landing.jsx` over a live Mars backdrop (`ScenicBackdrop.jsx`). Picks an experience. |
-| `#expedition/moon\|mars\|europa` | Expeditions | Fly a fictional survey lander down, walk, drive a rover, deploy three instruments, collect two samples, return, take off. |
-| `#expedition/<id>/campaign`, `#story` | The ground truth | Three authored chapters (Moon, Mars, Europa). A chapter unlocks only when the previous survey is actually delivered. |
-| `#flight` | Simulator | The original N-body simulator: Apollo 8, Apollo 11, Artemis presets, mission library, planner, contracts, story chapters, Almanac, walk mode. |
+| `/` | Front door | `src/ui/Landing.jsx` over a live Mars backdrop (`ScenicBackdrop.jsx`): the pitch, the two modes, a gallery of every landable world (Blender renders, `public/stills/world-<id>.webp`), how a mission goes. |
+| `#campaign` (old `#story`) | Campaign: Station Zero | The simulator with `ui/CampaignPanel.jsx` over it. Twelve worlds in order (`CAMPAIGN_ORDER`), each a landing, a survey and a lift-off, scored in stars; science buys upgrades; after nine surveys the finale picks the station's site. Rules in `sim/campaign.js`. |
+| `#flight` | Simulator | The N-body simulator: Apollo and Artemis presets, mission library, planner, contracts, Almanac, walk mode. The top bar's **Land** menu, or **Land on X** with a landable world in focus, drops onto that world's surface. |
+| `#land/<world>` (old `#expedition/<id>`) | A landing | The simulator, straight onto one of 13 worlds' surfaces (`sim/worlds.js`). |
+
+A surface mission (`ui/Surface.jsx` over `components/ExpeditionScene.jsx`,
+physics in `sim/expedition.js`) is the same in every mode: land on the pad
+(assist or by hand), collect three samples (a rare fourth and the anomaly
+start hidden in search zones the scanner reveals), deploy the station,
+investigate the anomaly for a bonus, lift off, get scored. Hopper worlds
+(Phobos, Deimos, Halley) have no rover: the lander hops between sites. Venus
+gives eight minutes before the heat wins. Controls: W A S D move (camera
+relative), Space thrust or jump, E use, Q scan, Shift time warp x4, F walk or
+rover, T lift off, H assist (and hop), C hold-down thruster on hoppers, Esc
+pause.
 
 Old simulator deep links (`?preset=…&vessel=…&site=…#flight`) still work and
 must keep working.
@@ -83,10 +94,10 @@ Found while reviewing for this document. None is urgent; all are cheap.
 index.html            Page shell, OG/Twitter card, boot splash (owned by make-favicon)
 vite.config.js        Build: chunking, model pruning, Draco copy, dev build stamp
 src/main.jsx          Mounts ExperienceApp
-src/ExperienceApp.jsx Router: hash -> home | story | expedition | simulator (lazy)
+src/ExperienceApp.jsx Router: hash -> home | campaign | land | simulator (lazy)
 src/App.jsx           The simulator app (canvas, HUD, presets, intro)
 src/index.css         Tailwind v4 tokens, the four colours, @utility control/lit/readout
-src/ui/experiences.css Front door, expedition and campaign styles (same four colours)
+src/ui/home.css campaign.css surface.css  Front page, campaign panel, surface HUD (same four colours)
 
 src/sim/      Physics and game state. No React, no three.js rendering. Testable in Node.
   constants.js system.js rk4.js       Bodies, GM values, state vector, integrator
@@ -99,7 +110,8 @@ src/sim/      Physics and game state. No React, no three.js rendering. Testable 
   halo.js cr3bp.js lagrange.js        Gateway NRHO, three-body, Lagrange points
   presets.js launchsite.js            Historical presets, pads (Earth and Moon)
   programs.js almanac.js story.js     Game layer: routes, contracts, story, generated missions
-  expedition.js experiences.js        Expedition sim, routes, campaign record
+  worlds.js expedition.js             The 13 landable worlds; the surface game (lander, rover, walker, scoring)
+  campaign.js experiences.js          Station Zero campaign rules and record; routes
   walk.js                             On-foot physics from four human measurements
   logbook.js pilot.js                 Local persistence (versioned, validated on read)
   store.js                            UI store (useSyncExternalStore)
@@ -116,7 +128,7 @@ src/gfx/      Rendering helpers: materials, shaders, budgets, camera math. Alloc
   brand.js                                                        Generated by make-favicon
 
 src/components/  React Three Fiber scene graph (Scene.jsx, CameraRig.jsx, Driver.jsx, …)
-src/ui/          DOM interface (Hud, Nav, Hotbar, Landing, Expedition, Planner, …)
+src/ui/          DOM interface (Hud, Nav, Hotbar, Landing, CampaignPanel, Surface, Planner, …)
 src/sfx/         ambience.js only
 
 public/models    1.1 GB NASA archives, gitignored; 56 GLB/GLTF referenced, pruned at build
@@ -200,7 +212,6 @@ npm run build          # Production build into dist/
 npm run verify:all     # All 72 gates
 npm run smoke          # Open the built site in headless Chrome; fail on any error
 npm run art:build -- <id> [--check]   # Build an authored model in Blender (or check it is byte-identical)
-npm run art:stills     # Photograph each world from the built game into public/stills
 npm run icons          # Regenerate favicon set, mark.svg, brand.js, boot splash
 npm run models:scan    # Regenerate gfx/modelsManifest.js from public/models
 ```
@@ -360,7 +371,7 @@ hand-railed ladder, hatch frame, antenna dish with a feed, and the stripe.
 | 2b | Baked surfaces: procedural Blender materials baked to colour, ORM and normal atlases (`art/lib/surfacing.py`) | **Built**: lander, rover and kit retextured; one material per side; WebP inside the `.glb`; reflections from a per-world environment (`gfx/surfaceEnvironment.js`) |
 | 3 | Rock library for the three regions, replacing generated rock meshes | **Built**: `art/rocks`, six stones baked from 82k-face sculpts onto 320-triangle meshes, swapped into the instanced field and the samples |
 | 3b | Ground detail | **Built**: `art/ground`, a 4 m tile per world baked from real geometry, blended into the terrain shader at two scales |
-| 3c | Story chapter art | **Built**: `art/story`, Cycles renders from the shipped assets for the story dossiers |
+| 3c | World art | **Built**: `art/worlds`, a Cycles render of each of the 13 worlds from the shipped assets |
 | 4 | Simulator close-ups that read as primitives: LC-39B structures, the LM at Tranquility | Measured against the existing pad geometry gates |
 | 5 | Expedition terrain beyond the 700 m regional patch | A design decision first (4.9) |
 
@@ -369,10 +380,10 @@ hand-railed ladder, hatch frame, antenna dish with a feed, and the stripe.
 - **Walking through the lander.** Fixed: `SOLID` in `sim/expedition.js`
   gives the body and four footpads circles, the walker and rover are pushed
   out of them, and `verify-expeditions` checks it on two worlds.
-- **Stills.** `npm run art:stills` photographs each world from the built
-  game (and the simulator's Earth view) into `public/stills/`, used by the
-  story dossiers, the front page and the link preview. Re-run it after any
-  change to surface graphics; it needs Chrome and a GPU, so it is not in CI.
+- **World pictures.** `npm run art:build -- worlds` path traces every
+  landable world in Cycles from the shipped models and that world's ground tile
+  into `public/stills/world-<id>.webp` (gallery, briefings); `PZ_WORLD=io,titan`
+  renders a subset. In an open Blender it builds the scene to explore instead.
 - **Browser smoke test.** `npm run smoke` opens six parts of the built site in
   headless Chrome and fails on any console error, uncaught exception or
   missing canvas. CI runs it after the build, on software WebGL.

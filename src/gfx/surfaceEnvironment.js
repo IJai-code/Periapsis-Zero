@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { WORLDS } from '../sim/worlds.js'
 
 /**
  * What a surface vehicle's metal reflects: the world it stands on.
@@ -15,14 +16,24 @@ import * as THREE from 'three'
  * dusty gradient on Mars); and the Sun itself, small and very bright. Drawn
  * once into a cube and pre-filtered for roughness by PMREM. Nothing per frame.
  */
-const LOOK = {
-  moon: { ground: '#8c8780', sky: '#000000', horizon: '#05060a', light: 1.0 },
-  mars: { ground: '#b8693c', sky: '#6c5347', horizon: '#d6a982', light: 0.85 },
-  europa: { ground: '#d9e1e2', sky: '#000000', horizon: '#06080c', light: 0.55 },
+/** Sky colours for worlds with air; airless worlds have a black sky. */
+export const SKY = {
+  mars: { horizon: '#d6a982', zenith: '#6c5347' },
+  venus: { horizon: '#c7924a', zenith: '#8a5a2a' },
+  titan: { horizon: '#c08a44', zenith: '#6a4a26' },
+}
+function lookFor(id) {
+  const w = WORLDS[id]
+  const sky = SKY[w.air?.sky ?? (w.air ? 'mars' : null)]
+  // Sunlight falls off with the square of distance from the Sun; the camera
+  // opens up for it, so the ground's brightness in a reflection follows only
+  // a little of that (a quarter power), as the exposure in the scene does.
+  const light = Math.min(1, Math.pow(1 / (w.sunAU * w.sunAU), 0.25)) * (w.air?.rho > 1 ? 0.6 : 1)
+  return { ground: w.ground.dust, sky: sky?.zenith ?? '#000000', horizon: sky?.horizon ?? '#05060a', light }
 }
 
 export function buildSurfaceEnvironment(renderer, id, sunDirection) {
-  const look = LOOK[id] ?? LOOK.moon
+  const look = lookFor(id)
   const scene = new THREE.Scene()
   const material = new THREE.ShaderMaterial({
     side: THREE.BackSide,
