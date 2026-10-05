@@ -778,7 +778,6 @@ def hangar():
     for k in range(3):
         lathe_y(f'tank{k}', [(0, 0), (2.0, 0.2), (2.2, 1.2), (2.2, 7.0), (2.0, 8.0), (0, 8.2)], m['metal'], 30, H0, 6 + k * 5.2)
         tube(f'fuelline{k}', (30, H0 + 7.6, 6 + k * 5.2), (W - 0.4, H0 + 7.6, 6 + k * 5.2), 0.22, m['dark'], seg=8)
-    tube('fuelhose', (W - 3, H0 + 0.25, 11), (12, H0 + 0.25, 4), 0.2, m['dark'], seg=8)
     return m, 2.5
 
 

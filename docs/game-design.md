@@ -108,6 +108,25 @@ and on Rook's side Vex flies with you too.
 
 After the finale the open world carries on: jobs, trade, ships, upgrades.
 
+## What makes it its own game
+
+- **One career across the site.** Pilot licences are earned in the
+  Simulator, by flying real things: a parking orbit, a trans-lunar burn, a
+  docking, a lunar liftoff, a splashdown. Each one shows up in the game as a
+  licence, a suit and a signing bonus (src/game/core/pilot.js reads the
+  Simulator's own records).
+- **You fly the transfers.** A torch drive's thrust line wanders and the
+  pilot holds it; the flip at the midpoint is the pilot's call, and early or
+  late costs. Each transfer is rated S to D and a good one gives back up to
+  12% of the propellant.
+- **Your pilot is a person.** Chosen suit, walked out to the ship, seen
+  through the canopy in flight.
+- **Squadron.** A battle mode for four: waves of raiders, an ace every third
+  wave, six ships in reserve. AI wingmates fill empty seats; a five-letter
+  code (or a #squadron/CODE link) brings friends in, over Supabase Realtime.
+  The host flies the enemies and wingmates; each pilot flies their own ship
+  and decides what hits them (src/game/core/skirmish.js).
+
 ## The hangar
 
 Docked, the ship sits on a pad inside the station's bay (art/game-hangar,

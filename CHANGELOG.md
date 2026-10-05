@@ -5,7 +5,26 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
-### Your pilot, your ship, in the bay: 6 October 2026
+### Squadron, flown burns, and a front page for both halves: 6 October 2026
+
+- **Squadron.** A battle mode: hold a piece of sky (the Drift, Gateway or
+  Harbor) against waves of raiders, an ace every third wave, six ships in
+  reserve. Alone, three AI wingmates fly with you; create a squadron and
+  share its five-letter code or link, and each friend who joins takes a
+  wingmate's seat. Live over the site's Supabase Realtime project, with a
+  small client written for it (src/game/net/realtime.js). `verify-squadron`
+  plays it, including two machines in one squadron.
+- **Flown burns.** Transfers are no longer a cutscene: hold the drifting
+  thrust line, flip at the midpoint yourself, and the trip is rated S to D,
+  a good one giving back up to 12% of its propellant.
+- **The front page** now argues for three ways to fly (the story, a
+  squadron, the simulator), shows the licences the simulator earns for the
+  game, and opens any of the simulator's thirteen worlds in one click.
+- **Earth's clouds up close** are bent by a warp noise and edged by a finer
+  one, instead of showing the map's texels as round puffs.
+- **No blur over the 3D view.** In-flight panels no longer use backdrop
+  blur, which cost a full-screen pass a frame.
+
 
 - **Pilot and suit.** A new pilot chooses a suit (nine; five are earned),
   then walks across the bay to the ship in it, rides the lift up and climbs

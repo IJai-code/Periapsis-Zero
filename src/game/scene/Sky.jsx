@@ -267,14 +267,17 @@ function cloudMaterial(tex, octaves) {
       ${NOISE}
       void main() {
         #include <logdepthbuf_fragment>
-        // Cover is the map's alpha (its colour is white wherever it is clear).
-        float c0 = smoothstep(0.004, 0.42, texture2D(uClouds, vUv).a);
         float foot = length(fwidth(vP));
-        // The map says where the weather is; the noise says what it looks
-        // like up close: thin cloud eaten into billows, thick cloud textured.
-        float n = fbmAA(vP, 260.0, foot);
         float near = 1.0 - smoothstep(0.0015, 0.012, foot);
-        float c = mix(c0, clamp((c0 - 0.55 * (1.0 - n) * (1.0 - c0 * 0.6)) * 1.5, 0.0, 1.0), near);
+        // Up close the map's texels (39 km each) would show as round blobs.
+        // A warp noise bends where the map is read, and a finer noise
+        // decides where each cloud's edge falls: streets, swirls, ragged edges.
+        float w1 = fbmAA(vP, 70.0, foot), w2 = fbmAA(vP.yzx, 70.0, foot);
+        float n = fbmAA(vP + vec3(w1 - 0.5, w2 - 0.5, w1 - w2) * 0.02, 300.0, foot);
+        vec2 uv = vUv + vec2(w1 - 0.5, w2 - 0.5) * vec2(0.006, 0.008) * near;
+        // Cover is the map's alpha (its colour is white wherever it is clear).
+        float c0 = smoothstep(0.004, 0.42, texture2D(uClouds, uv).a);
+        float c = mix(c0, smoothstep(0.28, 0.62, c0 + (n - 0.5) * 0.95), near);
         float ndl = dot(normalize(vN), uSun);
         float lit = smoothstep(-0.1, 0.3, ndl);
         vec3 col = vec3(0.02 + 0.72 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)) * mix(1.0, 0.72 + 0.4 * n, near);

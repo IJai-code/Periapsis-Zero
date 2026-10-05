@@ -7,6 +7,7 @@ import { isLandable } from './worlds.js'
  *   #play            the game
  *   #sim, #flight    the solar system simulator
  *   #land/<world>    the simulator, straight onto that world's surface
+ *   #squadron        the battle mode; #squadron/<CODE> joins a squadron
  *
  * Older links keep working: the campaign and the story are the game now,
  * and an expedition link is a landing on the same world.
@@ -14,6 +15,8 @@ import { isLandable } from './worlds.js'
 export function experienceFromHash(hash) {
   if (hash === '#play' || hash === '#campaign' || hash === '#story') return { mode: 'play' }
   if (hash === '#sim' || hash === '#flight') return { mode: 'simulator' }
+  const sq = /^#squadron(?:\/([A-Za-z0-9]{5}))?$/.exec(hash)
+  if (sq) return { mode: 'squadron', code: sq[1]?.toUpperCase() ?? null }
   const land = /^#land\/([a-z]+)$/.exec(hash)
   if (land) return isLandable(land[1]) ? { mode: 'land', id: land[1] } : { mode: 'home' }
   const old = /^#expedition\/([a-z]+)(\/campaign)?$/.exec(hash)

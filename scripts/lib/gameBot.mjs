@@ -103,7 +103,14 @@ export function createPilot(name = 'Bot', save = null) {
       step(2)
       if (g.mode === 'dead') throw new Error(`destroyed while lighting the drive for ${dest} (hit by ${hurtBy()})`)
       if (g.mode !== 'align' && g.mode !== 'transfer') throw new Error(`transfer to ${dest} refused: ${[...g.events].reverse().find((e) => e.type === 'denied')?.why ?? g.prompt?.text} (mode ${g.mode}, heat ${g.heat.level})`)
-      until(() => g.mode === 'flight', 60, `transferring to ${dest}`)
+      // Fly the burn: hold the thrust line, flip at halfway.
+      until(() => {
+        const tr = g.transfer
+        if (tr?.trim) { c.burnX = Math.max(-1, Math.min(1, tr.trim.x * 4)); c.burnY = Math.max(-1, Math.min(1, tr.trim.y * 4)) }
+        if (tr && tr.phase === 'burn' && tr.t >= 0.5 && !bot.lazyBurns) c.actions.push('dock')
+        return g.mode === 'flight'
+      }, 60, `transferring to ${dest}`)
+      c.burnX = c.burnY = 0
       if (g.place === dest) { step(5); log.push(`arrived ${dest}`); return }
       log.push('interdicted')
       bot.fightAll()

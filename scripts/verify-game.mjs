@@ -7,7 +7,7 @@ import { makeShip, stepShip, playerShip } from '../src/game/core/flight.js'
 import { leadPoint, makeBolts, fire, stepBolts } from '../src/game/core/combat.js'
 import { addHeat, fine, SIGHT, COLD_SIGHT } from '../src/game/core/heat.js'
 import { buyPrice, sellPrice, jobBoard, price } from '../src/game/core/economy.js'
-import { newSave, startGame, saveData, validSave, respawn, acceptJob, trade, buyHull, setStorage, autosave, loadSave, stepGame, tripCost, startTransfer, setDestination } from '../src/game/core/game.js'
+import { BURN_REFUND, newSave, startGame, saveData, validSave, respawn, acceptJob, trade, buyHull, setStorage, autosave, loadSave, stepGame, tripCost, startTransfer, setDestination } from '../src/game/core/game.js'
 import { startStory, chooseStory, STORY } from '../src/game/core/story.js'
 import { buyUpgrade } from '../src/game/core/game.js'
 
@@ -51,7 +51,21 @@ check('transfers are brachistochrones at the torch\'s acceleration: t = 2 sqrt(d
   for (let i = 0; i < 60 * 40 && g.mode !== 'flight'; i++) stepGame(g, input)
   assert.equal(g.place, 'harbor')
   assert.ok(Math.abs((g.time - t0) - c.T) < 120, `clock moved ${((g.time - t0) / 3600).toFixed(2)} h`)
-  assert.ok(Math.abs(prop0 - g.ship.prop - c.dv) < 1)
+  // Unflown (no steering, no flip), the burn rates low and gives little back.
+  assert.ok(prop0 - g.ship.prop <= c.dv + 1 && prop0 - g.ship.prop >= c.dv * (1 - BURN_REFUND) - 1, `spent ${(prop0 - g.ship.prop).toFixed(0)} of ${c.dv.toFixed(0)}`)
+  assert.ok(g.lastBurn.auto && ['C', 'D'].includes(g.lastBurn.grade), `an unflown burn rates ${g.lastBurn.grade}`)
+})
+
+check('a flown burn: held on the line and flipped at halfway, it rates well and gives propellant back', () => {
+  const b = createPilot('Burner')
+  const g = b.g
+  b.launch()
+  const prop0 = g.ship.prop
+  const c = tripCost(g, 'harbor')
+  b.transfer('harbor')
+  assert.equal(g.place, 'harbor')
+  assert.ok(['S', 'A'].includes(g.lastBurn.grade), `rated ${g.lastBurn.grade} (trim ${g.lastBurn.trim.toFixed(2)}, flip ${g.lastBurn.flip.toFixed(2)})`)
+  assert.ok(prop0 - g.ship.prop < c.dv * (1 - BURN_REFUND * 0.75), `spent ${(prop0 - g.ship.prop).toFixed(0)} of ${c.dv.toFixed(0)}`)
 })
 
 check('flight assist holds the commanded speed; with it off, momentum is kept', () => {

@@ -149,7 +149,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click') }} onOverlay={setOverlay} />}
       <Comms game={g} />
       <Banners game={g} touch={touch} onRespawn={() => respawn(g)} />
-      {touch && g.mode === 'flight' && !overlay && <Touch controls={controls.current} game={g} onOverlay={setOverlay} />}
+      {touch && (g.mode === 'flight' || g.mode === 'transfer') && !overlay && <Touch controls={controls.current} game={g} onOverlay={setOverlay} />}
       {overlay === 'map' && <MapView game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {overlay === 'log' && <Log game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current}
@@ -160,7 +160,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
 }
 
 /** Which sound for which event, and how loud for how far. */
-function sound(g, ev) {
+export function sound(g, ev) {
   const p = g.player
   const near = (x, y, z) => Math.max(0, 1 - Math.hypot(x - p.pos.x, y - p.pos.y, z - p.pos.z) / 3000)
   switch (ev.type) {
@@ -172,5 +172,9 @@ function sound(g, ev) {
     case 'comms': play('comms'); break
     case 'heat': if (ev.level > 0 && ev.why !== 'cooling') play('heat'); break
     case 'objective-done': play('objective'); break
+    case 'wave': play('heat'); break
+    case 'wave-clear': play('mission-complete'); break
+    case 'skirmish-over': play('mission-failed'); break
+    case 'kill-credit': play('paid'); break
   }
 }

@@ -273,7 +273,48 @@ export function startTransfer(g, dest) {
   return null
 }
 
-function stepTransfer(g, dt) {
+/**
+ * The flown burn. A torch drive's thrust line wanders (gimbal drift, uneven
+ * propellant draw), and the pilot holds it on the line: any steering input
+ * pushes the drift back. At the midpoint the pilot flips the ship; the
+ * window is a few percent of the trip either side of halfway, and missing it
+ * means the computer flips late. On arrival the flight is rated, and a good
+ * burn gives back up to BURN_REFUND of the propellant it cost.
+ */
+export const BURN_REFUND = 0.12, FLIP_WINDOW = [0.44, 0.535]
+function trimBurn(g, tr, dt, input) {
+  const k = tr.trim ?? (tr.trim = { x: 0, y: 0, bx: (Math.random() - 0.5) * 0.5, by: (Math.random() - 0.5) * 0.5, err: 0, n: 0 })
+  if (tr.phase === 'flipping') return
+  k.x += ((Math.random() - 0.5) * 2.2 + k.bx) * dt
+  k.y += ((Math.random() - 0.5) * 2.2 + k.by) * dt
+  k.x = clamp(k.x - clamp(input?.burnX ?? 0, -1, 1) * 1.4 * dt, -1, 1)
+  k.y = clamp(k.y - clamp(input?.burnY ?? 0, -1, 1) * 1.4 * dt, -1, 1)
+  k.err += Math.hypot(k.x, k.y) * dt
+  k.n += dt
+}
+/** Flip now, if it is time. */
+export function flipBurn(g) {
+  const tr = g.transfer
+  if (!tr || g.mode !== 'transfer' || tr.phase !== 'burn') return false
+  const f = Math.min(1, tr.t)
+  if (f < FLIP_WINDOW[0]) { g.emit({ type: 'toast', text: 'Too early to flip: wait for the midpoint.' }); return false }
+  tr.phase = 'brake'; tr.flipAt = f
+  g.emit({ type: 'flip' })
+  return true
+}
+function rateBurn(g, tr) {
+  const k = tr.trim ?? { err: 0, n: 1 }
+  const trim = clamp(1 - (k.err / Math.max(1e-6, k.n)) / 0.55, 0, 1)
+  const flip = tr.autoFlip ? 0 : clamp(1 - Math.abs((tr.flipAt ?? 0.5) - 0.5) / 0.035, 0, 1)
+  const score = 0.6 * trim + 0.4 * flip
+  const grade = score >= 0.92 ? 'S' : score >= 0.78 ? 'A' : score >= 0.6 ? 'B' : score >= 0.35 ? 'C' : 'D'
+  const back = Math.round(tr.a * tr.T * BURN_REFUND * score)
+  g.ship.prop = Math.min(g.player.stats.tank ?? Infinity, g.ship.prop + back)
+  g.lastBurn = { grade, score, trim, flip, back, pct: Math.round(BURN_REFUND * score * 100), auto: Boolean(tr.autoFlip) }
+  g.emit({ type: 'burn-rated', ...g.lastBurn })
+}
+
+function stepTransfer(g, dt, input) {
   const tr = g.transfer, p = g.player
   if (g.mode === 'align') {
     // Turn to the burn direction (in local frame, which is the global frame's axes).
@@ -298,18 +339,24 @@ function stepTransfer(g, dt) {
   g.anchor.copy(tr.from).addScaledVector(tr.dir, s)
   p.pos.set(0, 0, 0); p.vel.copy(tr.dir).multiplyScalar(tau < tr.T / 2 ? tr.a * tau : tr.a * (tr.T - tau))
   g.time += tr.T * dt / tr.real - dt
-  if (tr.phase === 'burn' && f >= 0.5) { tr.phase = 'brake'; g.emit({ type: 'flip' }) }
-  // The flip: half a turn, nose to the destination becomes tail to it.
-  const flip = clamp((f - 0.47) / 0.06, 0, 1)
+  trimBurn(g, tr, dt, input)
+  g.prompt = tr.phase === 'burn' && f >= FLIP_WINDOW[0] ? { action: 'dock', key: 'F', text: 'Flip' } : null
+  // Miss the window and the computer flips for you, late.
+  if (tr.phase === 'burn' && f >= FLIP_WINDOW[1]) { tr.phase = 'brake'; tr.flipAt = f; tr.autoFlip = true; g.emit({ type: 'flip' }); g.emit({ type: 'toast', text: 'Computer flip: you missed the window.' }) }
+  // The flip: half a turn from the moment it was called, nose to the destination becoming tail to it.
+  const flip = tr.flipAt == null ? 0 : clamp((f - tr.flipAt) / 0.05, 0, 1)
   _v.copy(tr.dir)
   p.q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), _v)
   if (flip > 0) { _q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI * (flip * flip * (3 - 2 * flip))); p.q.multiply(_q) }
+  // The wander, seen: the nose off the line by as much as the drift.
+  if (tr.trim && flip === 0) { _q.setFromEuler(new THREE.Euler(tr.trim.y * 0.08, -tr.trim.x * 0.08, 0)); p.q.multiply(_q) }
   if (tr.ambushAt && f >= tr.ambushAt) return interdict(g)
   if (f >= 1) arrive(g)
 }
 
 function arrive(g) {
   const tr = g.transfer
+  rateBurn(g, tr)
   g.transfer = null
   loadPlace(g, tr.dest)
   const p = g.player
@@ -354,13 +401,15 @@ function interdict(g) {
  * one-shot commands consumed here.
  */
 export function stepGame(g, input, dt = STEP) {
+  // Another kind of game (a squadron skirmish) brings its own step.
+  if (g.step) return g.step(g, input, dt)
   g.real += dt
   for (const a of input.actions.splice(0)) act(g, a, input)
   if (g.mode === 'docked' || g.mode === 'surface') { g.time += dt; storyTick(g, dt); objective(g); tickComms(g, dt); return }
   if (g.mode === 'dead') { g.time += dt; tickComms(g, dt); return }
   g.time += dt
   const p = g.player
-  if (g.mode === 'align' || g.mode === 'transfer') { stepTransfer(g, dt); tickComms(g, dt); return }
+  if (g.mode === 'align' || g.mode === 'transfer') { stepTransfer(g, dt, input); tickComms(g, dt); return }
   if (g.mode === 'docking' || g.mode === 'launch') { stepAnim(g, dt); stepNPCs(g, dt); tickComms(g, dt); return }
 
   // Flight.
@@ -382,7 +431,7 @@ export function stepGame(g, input, dt = STEP) {
   if (!p.alive && g.mode === 'flight') die(g)
 }
 
-function pilot(g, p, input, dt) {
+export function pilot(g, p, input, dt) {
   const c = p.ctrl
   c.throttle = clamp(c.throttle + (input.throttleRate ?? 0) * dt * 0.8, -0.3, 1)
   if (input.throttleSet != null) { c.throttle = input.throttleSet; input.throttleSet = null }
@@ -403,7 +452,7 @@ function pilot(g, p, input, dt) {
   }
 }
 
-function stepNPCs(g, dt) {
+export function stepNPCs(g, dt) {
   for (const e of g.ships) {
     if (e === g.player || !e.alive) continue
     stepAI(g, e, dt)
@@ -471,13 +520,13 @@ function stepAnim(g, dt) {
 }
 
 /** One-shot commands from the interface. */
-function act(g, a, input) {
+export function act(g, a, input) {
   const p = g.player
   switch (a) {
     case 'fa': if (g.mode === 'flight') { p.ctrl.fa = !p.ctrl.fa; g.emit({ type: 'fa', on: p.ctrl.fa }) } break
     case 'stop': input.throttleSet = 0; break
     case 'roll-left': case 'roll-right': if (g.mode === 'flight' && barrelRoll(p, a === 'roll-left' ? 1 : -1, g.time)) g.emit({ type: 'roll' }); break
-    case 'dock': if (g.prompt?.action === 'dock') requestDock(g); else if (g.prompt?.action === 'descend') descend(g); break
+    case 'dock': if (g.mode === 'transfer') flipBurn(g); else if (g.prompt?.action === 'dock') requestDock(g); else if (g.prompt?.action === 'descend') descend(g); break
     case 'target': cycleTarget(g); break
     case 'transfer': if (g.mode === 'flight') startTransfer(g, g.dest); break
     case 'launch': if (!g.cine) launch(g); break
@@ -505,7 +554,7 @@ export function cycleTarget(g) {
  * ------------------------------------------------------------------ */
 
 /** Station hulls and rocks are solid. Hitting them hurts, by the speed of impact. */
-function collide(g) {
+export function collide(g) {
   for (const e of g.ships) {
     if (!e.alive) continue
     for (const st of g.stations) for (const c of colliders(st)) solid(g, e, c.at, c.r)
@@ -611,7 +660,7 @@ function objective(g) {
   g.objective = storyObjective(g) ?? jobObjective(g)
 }
 
-function tickComms(g, dt) {
+export function tickComms(g, dt) {
   const c = g.comms[0]
   // Nobody talks over a cutscene; the line waits for it.
   if (!c || g.cine) return

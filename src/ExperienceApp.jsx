@@ -6,6 +6,7 @@ import { experienceFromHash } from './sim/experiences.js'
 // paints on React alone.
 const Simulator = lazy(() => import('./App.jsx'))
 const Game = lazy(() => import('./game/GameApp.jsx'))
+const Squadron = lazy(() => import('./game/SquadronApp.jsx'))
 const NEW_GAME = 'pz-game-new'
 
 export default function ExperienceApp() {
@@ -24,8 +25,11 @@ export default function ExperienceApp() {
   if (experience.mode === 'play') {
     return <Suspense fallback={<div className="mode-loading">Periapsis Zero</div>}><Game fresh={sessionStorage.getItem(NEW_GAME) === '1'} onFresh={() => sessionStorage.removeItem(NEW_GAME)} onExit={() => navigate('')} /></Suspense>
   }
+  if (experience.mode === 'squadron') {
+    return <Suspense fallback={<div className="mode-loading">Squadron</div>}><Squadron joinCode={experience.code} onExit={() => navigate('')} /></Suspense>
+  }
   if (experience.mode !== 'home') {
     return <Suspense fallback={<div className="mode-loading">Preparing the solar system…</div>}><Simulator /></Suspense>
   }
-  return <Title onPlay={() => navigate('#play')} onNew={() => { sessionStorage.setItem(NEW_GAME, '1'); navigate('#play') }} onSimulator={() => navigate('#sim')} />
+  return <Title onPlay={() => navigate('#play')} onNew={() => { sessionStorage.setItem(NEW_GAME, '1'); navigate('#play') }} onSimulator={() => navigate('#sim')} onSquadron={() => navigate('#squadron')} onLand={(id) => navigate(`#land/${id}`)} />
 }

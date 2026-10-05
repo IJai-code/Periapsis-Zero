@@ -329,7 +329,7 @@ check('rendered terrain is the collision surface, its rings meet without cracks,
   }
 })
 
-check('links: #play is the game, #sim and #flight the simulator, #land/<world> a landing; old campaign and story links go to the game; junk goes home', () => {
+check('links: #play is the game, #squadron/<code> a squadron, #sim and #flight the simulator, #land/<world> a landing; old campaign and story links go to the game; junk goes home', () => {
   assert.deepEqual(experienceFromHash(''), { mode: 'home' })
   assert.deepEqual(experienceFromHash('#play'), { mode: 'play' })
   assert.deepEqual(experienceFromHash('#sim'), { mode: 'simulator' })
@@ -341,6 +341,9 @@ check('links: #play is the game, #sim and #flight the simulator, #land/<world> a
   assert.deepEqual(experienceFromHash('#expedition/europa/campaign'), { mode: 'play' })
   assert.deepEqual(experienceFromHash('#land/jupiter'), { mode: 'home' })
   assert.deepEqual(experienceFromHash('#nonsense'), { mode: 'home' })
+  assert.deepEqual(experienceFromHash('#squadron'), { mode: 'squadron', code: null })
+  assert.deepEqual(experienceFromHash('#squadron/k7qxm'), { mode: 'squadron', code: 'K7QXM' })
+  assert.deepEqual(experienceFromHash('#squadron/toolong'), { mode: 'home' })
   assert.throws(() => landHash('jupiter'))
   assert.equal(launch(createExpedition('moon')), false, 'no lift-off before landing')
 })

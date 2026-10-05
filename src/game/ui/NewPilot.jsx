@@ -33,7 +33,7 @@ export function NewPilot({ onBegin, onExit }) {
           </button>
         })}
       </div>
-      <p className="np-licence">Locked suits come with pilot licences, earned in the <a href="#simulator" target="_blank" rel="noreferrer">Simulator</a>: make orbit, cross to the Moon, dock, land, come home. Each licence also pays a signing bonus here.</p>
+      <p className="np-licence">Locked suits come with pilot licences, earned in the <a href="#sim" target="_blank" rel="noreferrer">Simulator</a>: make orbit, cross to the Moon, dock, land, come home. Each licence also pays a signing bonus here.</p>
       <div className="np-actions"><button className="st-primary" onClick={() => go(2)}>Suit up</button><button className="st-ghost" onClick={() => go(0)}>Back</button></div>
     </section>}
     {step === 2 && <section className="np-crawl" onClick={begin}>

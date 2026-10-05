@@ -315,3 +315,4 @@ export async function bootAccount() {
   if (changed && arrived) location.reload()
   else if (changed) set({ message: 'Progress from your other devices is in. Reload to see it everywhere.' })
 }
+export const realtimeConfig = () => (accountsEnabled ? { url: URL_, key: KEY } : null)

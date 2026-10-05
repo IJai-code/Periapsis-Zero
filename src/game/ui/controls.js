@@ -110,6 +110,9 @@ export function resolveInput(c, ship, camera, flying) {
     c.yaw = -(c.touch.active ? c.touch.x : kx)
     c.pitch = c.touch.active ? c.touch.y : ky
   }
+  // On a burn, any steering holds the thrust line: keys, the mouse, or the stick.
+  c.burnX = (has(c, KEYS.right) || has(c, KEYS.yawRight) ? 1 : 0) - (has(c, KEYS.left) || has(c, KEYS.yawLeft) ? 1 : 0) + c.mouse.dx * 0.06 + (c.touch.active ? c.touch.x : 0)
+  c.burnY = (has(c, KEYS.thrustUp) || has(c, KEYS.pitchUp) ? 1 : 0) - (has(c, KEYS.thrustDown) || has(c, KEYS.pitchDown) ? 1 : 0) - c.mouse.dy * 0.06 * (c.settings.invert ? -1 : 1) + (c.touch.active ? c.touch.y : 0)
   c.mouse.dx = 0; c.mouse.dy = 0
 }
 

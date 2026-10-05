@@ -53,8 +53,21 @@ export function fire(g, e, aimAt = null) {
   b.x[i] = _o.x; b.y[i] = _o.y; b.z[i] = _o.z
   b.vx[i] = e.vel.x + _d.x * LASER.speed; b.vy[i] = e.vel.y + _d.y * LASER.speed; b.vz[i] = e.vel.z + _d.z * LASER.speed
   b.life[i] = LASER.life; b.damage[i] = s.damage ?? LASER.damage; b.owner[i] = e.id; b.team[i] = e.team
-  g.emit({ type: 'fire', ship: e.id, player: e.kind === 'player' })
+  g.emit({ type: 'fire', ship: e.id, player: e.kind === 'player', bolt: i })
   return true
+}
+
+/**
+ * A bolt fired somewhere else (another player's machine, in a squadron):
+ * put it in the pool as it left. Damage 0 makes it a picture only: it stops
+ * on what it meets and hurts nothing, because its owner's machine decides.
+ */
+export function spawnBolt(g, x, y, z, vx, vy, vz, dmg, owner, team, life = LASER.life) {
+  const b = g.bolts, i = b.next
+  b.next = (b.next + 1) % b.n
+  b.x[i] = x; b.y[i] = y; b.z[i] = z; b.vx[i] = vx; b.vy[i] = vy; b.vz[i] = vz
+  b.life[i] = life; b.damage[i] = dmg; b.owner[i] = owner; b.team[i] = team
+  return i
 }
 
 /** Step every live bolt, and resolve hits against `ships`. */
@@ -76,7 +89,7 @@ export function stepBolts(g, dt) {
       const cx = ox - dx * t, cy = oy - dy * t, cz = oz - dz * t
       if (cx * cx + cy * cy + cz * cz > e.radius * e.radius) continue
       b.life[i] = 0
-      damage(g, e, b.damage[i], b.owner[i], b.team[i])
+      if (b.damage[i] > 0) damage(g, e, b.damage[i], b.owner[i], b.team[i])
       break
     }
   }
@@ -92,13 +105,15 @@ export function friendly(a, b) {
 /** Shields, then hull. Events tell the HUD, the sound and the effects. */
 export function damage(g, e, amount, byId, byTeam) {
   if (!e.alive) return
+  // A puppet is another machine's ship: report the hit, change nothing.
+  if (e.puppet) { e.hitAt = g.time; g.onHit?.(e, byId, byTeam, amount); return }
   e.hitAt = g.time
   e.lastAttacker = byId
   const toShield = Math.min(e.shield, amount)
   e.shield -= toShield
   e.hull -= amount - toShield
   g.emit({ type: 'hit', ship: e.id, by: byId, shield: toShield > 0, player: e.kind === 'player', byPlayer: byTeam === 'player' })
-  if (g.onHit) g.onHit(e, byId, byTeam)
+  if (g.onHit) g.onHit(e, byId, byTeam, amount)
   if (e.hull <= 0) {
     e.hull = 0
     e.alive = false

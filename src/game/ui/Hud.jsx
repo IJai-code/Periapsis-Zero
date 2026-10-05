@@ -1,4 +1,4 @@
-import { EPOCH, setDestination, cycleTarget } from '../core/game.js'
+import { EPOCH, FLIP_WINDOW, setDestination, cycleTarget } from '../core/game.js'
 import { PLACES } from '../core/world.js'
 import { hostile } from '../core/ai.js'
 import { inhibited } from '../core/heat.js'
@@ -12,19 +12,20 @@ export function Hud({ game: g, touch, onOverlay }) {
   return <div className="gm-hud">
     <header className="hud-where">
       <h1>{place?.name ?? 'Deep space'}</h1>
-      <p>{place?.where} · {clock(g.time)}</p>
+      <p>{g.skirmish ? `Skirmish${g.skirmish.code ? ` · squadron ${g.skirmish.code}` : ' · with AI wingmates'}` : `${place?.where} · ${clock(g.time)}`}</p>
       <Heat g={g} />
     </header>
     <Objective g={g} touch={touch} />
-    <div className="hud-money"><strong>₡ {Math.round(g.credits).toLocaleString()}</strong>{g.debt > 0 && <small>Debt ₡ {g.debt.toLocaleString()}</small>}</div>
+    {g.skirmish ? <div className="hud-money"><strong>{g.skirmish.score.toLocaleString()}</strong><small>Wave {g.skirmish.wave} · {g.skirmish.lives} ships in reserve</small></div>
+      : <div className="hud-money"><strong>₡ {Math.round(g.credits).toLocaleString()}</strong>{g.debt > 0 && <small>Debt ₡ {g.debt.toLocaleString()}</small>}</div>}
     {g.mode === 'flight' && <Tactical g={g} />}
     {g.mode === 'flight' && <Cluster g={g} p={p} />}
-    {(g.mode === 'transfer' || g.mode === 'align') && <Transfer g={g} />}
+    {(g.mode === 'transfer' || g.mode === 'align') && <Transfer g={g} touch={touch} />}
     {g.mode === 'flight' && g.prompt && <div className={`hud-prompt ${g.prompt.blocked ? 'blocked' : ''}`}>{!g.prompt.blocked && <kbd className="gk">{touch ? 'Action' : g.prompt.key}</kbd>}<span>{g.prompt.text}</span></div>}
     <Toasts g={g} />
     {!touch && <nav className="hud-keys">
-      <button onClick={() => onOverlay('map')}><kbd className="gk">M</kbd>Map</button>
-      <button onClick={() => onOverlay('log')}><kbd className="gk">Tab</kbd>Jobs</button>
+      {!g.skirmish && <button onClick={() => onOverlay('map')}><kbd className="gk">M</kbd>Map</button>}
+      {!g.skirmish && <button onClick={() => onOverlay('log')}><kbd className="gk">Tab</kbd>Jobs</button>}
       <button onClick={() => onOverlay('help')}><kbd className="gk">H</kbd>Controls</button>
       <button onClick={() => onOverlay('pause')}><kbd className="gk">Esc</kbd>Menu</button>
     </nav>}
@@ -106,18 +107,26 @@ function Cluster({ g, p }) {
 }
 const Bar = ({ label, v, cls }) => <div className={`hud-bar ${cls}`}><span>{label}</span><b><i style={{ width: `${Math.max(0, Math.min(1, v)) * 100}%` }} /></b></div>
 
-function Transfer({ g }) {
+function Transfer({ g, touch }) {
   const tr = g.transfer
   if (!tr) return null
   const f = Math.min(1, tr.t), tau = f * tr.T
   const v = tau < tr.T / 2 ? tr.a * tau : tr.a * (tr.T - tau)
   const s = tau < tr.T / 2 ? 0.5 * tr.a * tau * tau : tr.D - 0.5 * tr.a * (tr.T - tau) ** 2
-  const phase = g.mode === 'align' ? 'Aligning' : f < 0.47 ? 'Burn' : f < 0.53 ? 'Flip' : 'Brake'
+  const flipped = tr.flipAt != null
+  const inWindow = !flipped && f >= FLIP_WINDOW[0]
+  const phase = g.mode === 'align' ? 'Aligning' : inWindow ? 'Flip now' : !flipped ? 'Burn' : f - tr.flipAt < 0.05 ? 'Flipping' : 'Brake'
+  const k = tr.trim ?? { x: 0, y: 0 }
+  const off = Math.hypot(k.x, k.y)
   const h = (x) => `${Math.floor(x / 3600)}h ${String(Math.floor(x % 3600 / 60)).padStart(2, '0')}m`
   return <div className="hud-transfer">
     <span className="hud-mission">Transfer to {PLACES[tr.dest].name}</span>
-    <h2>{phase}</h2>
-    <div className="hud-progress"><i style={{ width: `${f * 100}%` }} /><b style={{ left: '50%' }} /></div>
+    <h2 className={inWindow ? 'flip' : ''}>{phase}</h2>
+    {g.mode === 'transfer' && !(flipped && f - tr.flipAt < 0.05) && <div className="hud-burn">
+      <div className={`hud-trim ${off < 0.25 ? 'good' : off < 0.6 ? 'ok' : 'bad'}`}><i style={{ transform: `translate(${k.x * 34}px, ${-k.y * 34}px)` }} /></div>
+      <p>{inWindow ? <>Flip with <Hint text="[dock]" touch={touch} />: the closer to halfway, the better.</> : <>Hold the thrust line: steer toward the dot with <Hint text={touch ? '[aim]' : 'the mouse or W A S D'} touch={touch} />.</>}</p>
+    </div>}
+    <div className="hud-progress"><em style={{ left: `${FLIP_WINDOW[0] * 100}%`, width: `${(FLIP_WINDOW[1] - FLIP_WINDOW[0]) * 100}%` }} /><i style={{ width: `${f * 100}%` }} /><b style={{ left: '50%' }} /></div>
     <dl>
       <div><dt>Velocity</dt><dd>{(v / 1000).toFixed(1)} km/s</dd></div>
       <div><dt>Remaining</dt><dd>{Math.round((tr.D - s) / 1000).toLocaleString()} km</dd></div>
@@ -130,7 +139,7 @@ function Transfer({ g }) {
 /** Recent short messages: payments, pickups, warnings. */
 function Toasts({ g }) {
   const now = g.time
-  const list = g.events.filter((e) => now - e.t < 4 && (e.type === 'toast' || e.type === 'paid' || e.type === 'pickup' || e.type === 'denied' || e.type === 'fined' || e.type === 'interdicted' || e.type === 'race-done' || e.type === 'ring')).slice(-4)
+  const list = g.events.filter((e) => now - e.t < 4 && (e.type === 'toast' || e.type === 'paid' || e.type === 'pickup' || e.type === 'denied' || e.type === 'fined' || e.type === 'interdicted' || e.type === 'race-done' || e.type === 'ring' || e.type === 'burn-rated')).slice(-4)
   if (!list.length) return null
   return <div className="hud-toasts">{list.map((e) => <p key={e.n} className={e.type}>{toastText(e)}</p>)}</div>
 }
@@ -138,6 +147,7 @@ function toastText(e) {
   switch (e.type) {
     case 'paid': return `+₡ ${e.amount.toLocaleString()} · ${e.why}`
     case 'pickup': return 'Canister scooped'
+    case 'burn-rated': return `Burn rated ${e.grade}${e.back > 0 ? `: ${e.pct}% of the propellant back` : ''}${e.auto ? ' (computer flip)' : ''}`
     case 'denied': return e.why ?? 'Refused'
     case 'fined': return `Fined ₡ ${e.amount.toLocaleString()}`
     case 'interdicted': return 'Pulled out of the drive: Hollow interdiction'

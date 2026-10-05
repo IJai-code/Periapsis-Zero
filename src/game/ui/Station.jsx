@@ -209,7 +209,7 @@ function Pilot({ g, act }) {
       </div>)}
     </div>
     {unclaimed.length > 0 ? <button className="st-primary" onClick={() => act(() => { const got = claimLicences(g); return got.length ? null : 'Nothing to claim.' })}>Claim ₡ {unclaimed.reduce((n, l) => n + l.bonus, 0).toLocaleString()} in licence bonuses</button>
-      : <a className="st-ghost st-simlink" href="#simulator" target="_blank" rel="noreferrer">Open the Simulator to earn licences</a>}
+      : <a className="st-ghost st-simlink" href="#sim" target="_blank" rel="noreferrer">Open the Simulator to earn licences</a>}
     <h3>Suit</h3>
     <div className="suit-grid">
       {SUITS.map((u) => {
