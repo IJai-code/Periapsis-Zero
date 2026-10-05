@@ -34,7 +34,7 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
     <Ships game={game} />
     <Fx game={game} />
     {hi && <EffectComposer disableNormalPass multisampling={0}>
-      <Bloom mipmapBlur intensity={0.9} luminanceThreshold={0.62} luminanceSmoothing={0.25} radius={0.7} />
+      <Bloom mipmapBlur intensity={0.85} luminanceThreshold={0.85} luminanceSmoothing={0.2} radius={0.65} />
       <Vignette offset={0.3} darkness={0.55} />
     </EffectComposer>}
   </Canvas>
@@ -72,14 +72,17 @@ function placeCamera(g, c, cam, rig, dt, t) {
   const r = p.radius
   const k = 1 - Math.exp(-dt * 6)
   if (g.mode === 'docked' || g.mode === 'surface') {
-    // A slow orbit round the ship in its berth, the station behind.
-    rig.orbit += dt * 0.08
+    // Standing off the berth: the ship in front, the station's face and its
+    // lit bay behind, swinging slowly so the light moves over the hull.
+    rig.orbit += dt * 0.04
     const st = STATIONS[g.docked ?? g.home]
     const out = st ? st.port.axis : _f.set(0, 0, 1)
-    _t.copy(p.pos).addScaledVector(out, 10)
-    _v.set(Math.cos(rig.orbit) * r * 4.5, r * 1.6 + Math.sin(rig.orbit * 0.7) * r, Math.sin(rig.orbit) * r * 4.5).add(_t).addScaledVector(out, r * 3)
+    const a = Math.sin(rig.orbit) * 0.6
+    _v.copy(out).multiplyScalar(r * 3.4).add(_t.set(Math.sin(a) * r * 2.6 + r * 2.4, r * 1.5, 0)).add(p.pos)
     cam.position.lerp(_v, rig.init ? k * 0.5 : 1)
     cam.up.set(0, 1, 0)
+    // Look at the ship, a little to its left so the menu does not cover it.
+    _t.copy(p.pos).add(_up.set(-r * 0.9, r * 0.1, 0))
     cam.lookAt(_t)
     rig.init = true
     return

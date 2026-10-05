@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { PLACES, STATIONS, ARRIVAL, RACE_RINGS, driftRocks } from './world.js'
+import { PLACES, STATIONS, ARRIVAL, RACE_RINGS, driftRocks, BODIES } from './world.js'
 import { HULLS, shipStats, UPGRADES } from './ships.js'
 import { makeShip, playerShip, stepShip, steerToward, clamp } from './flight.js'
 import { makeBolts, stepBolts, fire, leadPoint } from './combat.js'
@@ -24,7 +24,29 @@ export const MAX_JOBS = 3
 /** Where a docked ship sits: just outside its station's bay. */
 const BERTH = 20
 
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quaternion()
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quaternion(), _m4 = new THREE.Matrix4()
+
+/**
+ * Where a transfer drops you: 4.2 km out from the place's centre, off the
+ * station's port and square to 'up', so looking back at the station the
+ * nearest world is the floor of the view rather than a wall beside it.
+ */
+export function arrivalPoint(g, out) {
+  const up = worldUp(g, new THREE.Vector3())
+  // In front of the station's port if there is one, else any side square to up.
+  const port = g.stations[0]?.port.axis
+  const side = port ? port.clone().addScaledVector(up, -port.dot(up)) : new THREE.Vector3(1, 0, 0).cross(up)
+  if (side.lengthSq() < 0.1) side.set(0, 0, 1).cross(up)
+  side.normalize()
+  return out.copy(side).multiplyScalar(ARRIVAL.length()).addScaledVector(up, 300)
+}
+
+/** 'Up' at a place: away from the nearest world, so it is below you. */
+export function worldUp(g, out) {
+  let best = null, bestD = Infinity
+  for (const b of BODIES) { const d = b.position.distanceTo(g.anchor) - b.radius; if (d < bestD) { bestD = d; best = b } }
+  return out.copy(g.anchor).sub(best.position).normalize()
+}
 
 export function newSave(name) {
   return {
@@ -269,10 +291,11 @@ function arrive(g) {
   g.transfer = null
   loadPlace(g, tr.dest)
   const p = g.player
-  p.pos.copy(ARRIVAL); p.vel.set(0, 0, 0); p.w.set(0, 0, 0)
+  arrivalPoint(g, p.pos); p.vel.set(0, 0, 0); p.w.set(0, 0, 0)
   const look = g.stations[0]?.at ?? new THREE.Vector3()
-  _v.copy(look).sub(p.pos).normalize()
-  p.q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), _v)
+  // Arrive the right way up: the nearest world below you, the station ahead.
+  _m4.lookAt(p.pos, look, worldUp(g, _w))
+  p.q.setFromRotationMatrix(_m4)
   p.ctrl.throttle = 0
   g.mode = 'flight'
   g.dest = null

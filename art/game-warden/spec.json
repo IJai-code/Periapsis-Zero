@@ -1,0 +1,28 @@
+{
+  "id": "game-warden",
+  "note": "The game's warden: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -17,
+      -17,
+      -17
+    ],
+    "max": [
+      17,
+      17,
+      17
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 40000,
+    "bytes": 1800000
+  },
+  "requiredEmpties": [
+    "nozzle_0"
+  ],
+  "doubleSided": [
+    "warden_ds"
+  ],
+  "textured": true
+}

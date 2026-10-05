@@ -134,7 +134,7 @@ function radial() {
  * game keeps for the eye's sake, because without a reference nearby, 200 m/s
  * looks like standing still. In the drive, the motes stretch into streaks.
  */
-const DUST = 600, BOX = 420
+const DUST = 260, BOX = 420
 function Dust({ game }) {
   const { camera } = useThree()
   const pts = useMemo(() => {
@@ -166,7 +166,7 @@ function Dust({ game }) {
       a[i * 6 + 3] = x - v.x * k * (transfer ? 0.0002 : 1); a[i * 6 + 4] = y - v.y * k * (transfer ? 0.0002 : 1); a[i * 6 + 5] = z - v.z * k * (transfer ? 0.0002 : 1)
     }
     pts.line.geometry.attributes.position.needsUpdate = true
-    pts.line.material.opacity = transfer ? 0.55 : Math.min(0.35, 0.08 + sp / 700)
+    pts.line.material.opacity = transfer ? 0.45 : Math.min(0.22, 0.04 + sp / 1400)
   })
   return <primitive object={pts.line} />
 }

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave } from './core/game.js'
+import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp } from './core/game.js'
+import * as THREE from 'three'
 import { bindDesktop, createControls, isTouch } from './ui/controls.js'
 import { duck, engineLevel, pauseSound, play, startSound } from './audio.js'
 import { Hud } from './ui/Hud.jsx'
@@ -42,7 +43,13 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   const begin = useCallback((save) => {
     game.current = startGame(save)
     // For the browser checks in scripts/: the running game, in development only.
-    if (import.meta.env.DEV) window.__game = game.current
+    if (import.meta.env.DEV) {
+      window.__game = game.current
+      // Staging helpers for screenshots and checks: aim at a local point, or jump to a place.
+      window.__pzLook = (x, y, z) => { const g = game.current, p = g.player; p.q.setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, new THREE.Vector3(x, y, z), worldUp(g, new THREE.Vector3()))); p.vel.set(0, 0, 0); p.ctrl.throttle = 0 }
+      window.__pzGo = (place, x = 0, y = 300, z = 4200) => { const g = game.current; g.mode = 'flight'; g.docked = null; loadPlace(g, place); g.player.pos.set(x, y, z); g.player.vel.set(0, 0, 0) }
+      window.__pzV = (x, y, z) => new THREE.Vector3(x, y, z)
+    }
     setPlaceKey(`${game.current.place}:${Date.now()}`)
     setPhase('play')
     startSound()

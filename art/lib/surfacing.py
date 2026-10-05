@@ -662,6 +662,7 @@ def preview(path, objects, size=(1280, 800), samples=64, ground='#7d776e', dista
     world.use_nodes = True
     world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.02, 0.02, 0.024, 1)
     cam = bpy.data.cameras.new('preview_cam'); cam.lens = 50
+    cam.clip_end = max(1000.0, radius * 20)
     co = bpy.data.objects.new('preview_cam', cam); scene.collection.objects.link(co)
     d = distance or radius * 3.2
     az, el = math.radians(azimuth), math.radians(elevation)

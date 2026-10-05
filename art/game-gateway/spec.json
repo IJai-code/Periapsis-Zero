@@ -1,0 +1,24 @@
+{
+  "id": "game-gateway",
+  "note": "The game's gateway: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -300,
+      -300,
+      -300
+    ],
+    "max": [
+      300,
+      300,
+      300
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 160000,
+    "bytes": 5500000
+  },
+  "requiredEmpties": [],
+  "doubleSided": [],
+  "textured": true
+}

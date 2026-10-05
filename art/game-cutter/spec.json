@@ -1,0 +1,28 @@
+{
+  "id": "game-cutter",
+  "note": "The game's cutter: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -12,
+      -12,
+      -12
+    ],
+    "max": [
+      12,
+      12,
+      12
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 40000,
+    "bytes": 1800000
+  },
+  "requiredEmpties": [
+    "nozzle_0"
+  ],
+  "doubleSided": [
+    "cutter_ds"
+  ],
+  "textured": true
+}

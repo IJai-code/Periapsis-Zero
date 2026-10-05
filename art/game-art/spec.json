@@ -1,0 +1,10 @@
+{
+  "id": "game-art",
+  "note": "The game's pictures: title key art, shipyard hulls, comms portraits. Path traced in Cycles from the procedural models in art/lib/craft.py and the NASA Earth and Moon in public/textures. Not bit-reproducible, so not held to --check; verify-art holds files, sizes and budget.",
+  "outputDir": "game",
+  "outputs": ["keyart.webp", "hull-kestrel.webp", "hull-mule.webp", "hull-lance.webp", "portrait-mara.webp", "portrait-rook.webp", "portrait-chen.webp", "portrait-warden.webp", "portrait-hollow.webp", "portrait-patrol.webp", "portrait-control.webp"],
+  "size": [512, 512],
+  "sizes": { "keyart.webp": [1920, 1080], "hull-kestrel.webp": [960, 540], "hull-mule.webp": [960, 540], "hull-lance.webp": [960, 540] },
+  "budget": { "bytes": 2600000 },
+  "reproducible": false
+}

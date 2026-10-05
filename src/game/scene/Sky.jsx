@@ -64,7 +64,7 @@ export function Sky({ game, quality }) {
       mesh.scale.setScalar(R)
       if (it.b === EARTH) {
         clouds.current.position.copy(mesh.position); clouds.current.scale.setScalar(R * 1.006)
-        atmo.current.position.copy(mesh.position); atmo.current.scale.setScalar(R * 1.025)
+        atmo.current.position.copy(mesh.position); atmo.current.scale.setScalar(R * 1.012)
         // Earth turns once a sidereal day, on the game clock.
         mesh.rotation.y = (g.time / 86164) * Math.PI * 2 + 1.2
         clouds.current.rotation.y = mesh.rotation.y * 1.04
@@ -79,11 +79,14 @@ export function Sky({ game, quality }) {
   return <group ref={group}>
     {stars && <points geometry={stars.geometry} material={stars.material} renderOrder={-20} frustumCulled={false} />}
     <mesh geometry={milky.geometry} material={milky.material} renderOrder={-30} frustumCulled={false} />
-    <sprite ref={sun} scale={[SUN_R * 0.09, SUN_R * 0.09, 1]} renderOrder={-15}><spriteMaterial map={sunTex} color="#fff6e8" blending={THREE.AdditiveBlending} depthWrite={false} transparent toneMapped={false} /></sprite>
+    <sprite ref={sun} scale={[SUN_R * 0.045, SUN_R * 0.045, 1]} renderOrder={-15}><spriteMaterial map={sunTex} color="#fff6e8" blending={THREE.AdditiveBlending} depthWrite={false} transparent toneMapped={false} /></sprite>
     <mesh ref={earth} geometry={sphere} material={earthMat} frustumCulled={false} />
     <mesh ref={clouds} geometry={sphere} material={cloudMat} frustumCulled={false} />
     <mesh ref={atmo} geometry={sphere} material={atmoMat} frustumCulled={false} />
-    <mesh ref={moon} geometry={sphere} material={moonMat} frustumCulled={false} rotation={[0, Math.PI, 0]} />
+    {/* Turned about the Earth-Moon line: the near side still faces Earth, and the
+        texture's pinched poles move to the limbs, out of the way of a view straight
+        down at the south pole from Shackleton. */}
+    <mesh ref={moon} geometry={sphere} material={moonMat} frustumCulled={false} rotation={[Math.PI / 2, Math.PI, 0]} />
   </group>
 }
 
@@ -175,8 +178,8 @@ function milkyWay() {
         float clouds = fbm(vDir * 7.0);
         float dust = smoothstep(0.45, 0.75, fbm(vDir * 14.0 + 3.0)) * exp(-pow(lat / 0.035, 2.0));
         float glow = band * (0.35 + 0.9 * clouds) * (0.35 + 1.2 * pow(core, 3.0)) * (1.0 - 0.75 * dust);
-        vec3 col = mix(vec3(0.55, 0.62, 0.85), vec3(1.0, 0.82, 0.62), pow(core, 2.0));
-        gl_FragColor = vec4(col * glow * 0.055, 1.0);
+        vec3 col = mix(vec3(0.5, 0.58, 0.9), vec3(0.95, 0.82, 0.7), pow(core, 3.0));
+        gl_FragColor = vec4(col * glow * 0.022, 1.0);
       }`,
     side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending, transparent: true, toneMapped: false,
   })
@@ -204,13 +207,13 @@ function earthMaterial(day, night, spec) {
         vec3 N = normalize(vN), V = normalize(cameraPosition - vW);
         float ndl = dot(N, uSun);
         float lit = smoothstep(-0.08, 0.22, ndl);
-        vec3 dayc = texture2D(uDay, vUv).rgb * (0.015 + 1.15 * max(ndl, 0.0));
+        vec3 dayc = texture2D(uDay, vUv).rgb * (0.01 + 0.62 * max(ndl, 0.0));
         vec3 nightc = texture2D(uNight, vUv).rgb * vec3(1.0, 0.82, 0.55) * (1.0 - lit) * 1.4;
         float ocean = texture2D(uSpec, vUv).r;
         vec3 H = normalize(uSun + V);
-        float glint = pow(max(dot(N, H), 0.0), 70.0) * ocean * lit * 1.6;
+        float glint = pow(max(dot(N, H), 0.0), 120.0) * ocean * lit * 0.9;
         float fres = pow(1.0 - max(dot(N, V), 0.0), 2.5);
-        vec3 air = mix(vec3(0.25, 0.5, 1.0), vec3(1.0, 0.55, 0.3), smoothstep(0.35, -0.05, ndl)) * fres * smoothstep(-0.25, 0.3, ndl) * 0.9;
+        vec3 air = mix(vec3(0.25, 0.5, 1.0), vec3(1.0, 0.55, 0.3), smoothstep(0.35, -0.05, ndl)) * fres * smoothstep(-0.25, 0.3, ndl) * 0.45;
         gl_FragColor = vec4(dayc + nightc + glint * vec3(1.0, 0.95, 0.85) + air, 1.0);
       }`,
   })
@@ -229,7 +232,7 @@ function cloudMaterial(tex) {
         float c = texture2D(uClouds, vUv).r;
         float ndl = dot(normalize(vN), uSun);
         float lit = smoothstep(-0.1, 0.3, ndl);
-        gl_FragColor = vec4(vec3(0.02 + 1.05 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)), c * (0.25 + 0.75 * lit) * 0.92);
+        gl_FragColor = vec4(vec3(0.02 + 0.68 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)), c * (0.25 + 0.75 * lit) * 0.6);
       }`,
     transparent: true, depthWrite: false,
   })
@@ -249,7 +252,7 @@ function atmosphereMaterial() {
         float rim = pow(1.0 - abs(dot(N, V)), 5.0);
         float ndl = dot(N, uSun);
         vec3 col = mix(vec3(0.3, 0.6, 1.0), vec3(1.0, 0.5, 0.25), smoothstep(0.3, -0.1, ndl));
-        gl_FragColor = vec4(col * rim * smoothstep(-0.3, 0.25, ndl) * 1.6, 1.0);
+        gl_FragColor = vec4(col * rim * smoothstep(-0.3, 0.25, ndl) * 0.9, 1.0);
       }`,
     blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
   })

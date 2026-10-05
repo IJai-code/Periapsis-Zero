@@ -1,0 +1,28 @@
+{
+  "id": "game-raider",
+  "note": "The game's raider: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -9,
+      -9,
+      -9
+    ],
+    "max": [
+      9,
+      9,
+      9
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 40000,
+    "bytes": 1800000
+  },
+  "requiredEmpties": [
+    "nozzle_0"
+  ],
+  "doubleSided": [
+    "raider_ds"
+  ],
+  "textured": true
+}

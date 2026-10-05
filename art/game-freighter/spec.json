@@ -1,0 +1,28 @@
+{
+  "id": "game-freighter",
+  "note": "The game's freighter: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -56,
+      -56,
+      -56
+    ],
+    "max": [
+      56,
+      56,
+      56
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 40000,
+    "bytes": 1800000
+  },
+  "requiredEmpties": [
+    "nozzle_0"
+  ],
+  "doubleSided": [
+    "freighter_ds"
+  ],
+  "textured": true
+}

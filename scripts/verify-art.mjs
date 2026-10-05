@@ -142,7 +142,7 @@ for (const id of assets) {
         assert.ok(existsSync(path), `${name} has not been built (npm run art:build -- ${id})`)
         const b = readFileSync(path)
         total += b.length
-        const want = Array.isArray(spec.size) ? spec.size : [spec.size, spec.size]
+        const want = spec.sizes?.[name] ?? (Array.isArray(spec.size) ? spec.size : [spec.size, spec.size])
         assert.deepEqual(webpSize(b), want, `${name} is not ${want.join(' x ')} px`)
       }
       assert.ok(total <= spec.budget.bytes, `${total} bytes against a budget of ${spec.budget.bytes}`)

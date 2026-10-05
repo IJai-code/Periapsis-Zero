@@ -1,0 +1,28 @@
+{
+  "id": "game-kestrel",
+  "note": "The game's kestrel: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -10,
+      -10,
+      -10
+    ],
+    "max": [
+      10,
+      10,
+      10
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 40000,
+    "bytes": 1800000
+  },
+  "requiredEmpties": [
+    "nozzle_0"
+  ],
+  "doubleSided": [
+    "kestrel_ds"
+  ],
+  "textured": true
+}

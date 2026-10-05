@@ -47,6 +47,11 @@ export function startSound() {
   hum.start(); hiss.start()
   engine = { hum, lp, eg }
   state.started = true
+  // Safari will not let a context or a track start outside a gesture; the
+  // first key or click in the game wakes both, whatever started them.
+  const wake = () => { ctx?.resume?.(); if (musicEl?.paused) musicEl.play().catch(() => {}) }
+  window.addEventListener('pointerdown', wake, { once: true, capture: true })
+  window.addEventListener('keydown', wake, { once: true, capture: true })
 }
 export function setMusic(v) { state.music = v; persist(); if (musicGain) musicGain.gain.setTargetAtTime(v, ctx.currentTime, 0.3) }
 export function setSfx(v) { state.sfx = v; persist(); if (sfxGain) sfxGain.gain.setTargetAtTime(v, ctx.currentTime, 0.1) }
@@ -115,3 +120,9 @@ export function play(type, near = 1, extra = {}) {
     case 'click': tone('square', 1400, 1400, 0.02, 0.02); break
   }
 }
+
+/** For checks: is sound running, and how far into the track is the music. */
+export function soundDebug() {
+  return { started: state.started, ctx: ctx?.state ?? null, music: musicEl ? { time: musicEl.currentTime, paused: musicEl.paused, loop: musicEl.loop, src: musicEl.src.split('/').pop(), ready: musicEl.readyState } : null, musicGain: musicGain?.gain.value ?? null, sfxGain: sfxGain?.gain.value ?? null }
+}
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__pzAudio = { soundDebug, play }

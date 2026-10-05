@@ -173,8 +173,9 @@ function gltf() {
   loader.setDRACOLoader(draco)
   return loader
 }
-/** Which kinds have a Blender model, and its file. */
-export const AUTHORED = {}
+/** Which kinds have a Blender model, and its file (art/game-*, baked and exported by npm run art:build). */
+export const AUTHORED = Object.fromEntries(['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle'].map((k) => [k, `authored/game-${k}.glb`]))
+AUTHORED.wing = AUTHORED.cutter
 export function registerAuthored(map) { Object.assign(AUTHORED, map) }
 
 export function preload(kinds) {

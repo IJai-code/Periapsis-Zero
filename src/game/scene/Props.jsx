@@ -10,11 +10,11 @@ import { instance, MATERIALS, onModelsChange, preload, roughRock } from './model
  */
 export function Props({ game, placeKey }) {
   const g = game.current
-  const [, bump] = useState(0)
+  const [version, bump] = useState(0)
   useEffect(() => { preload(['hearth', 'harbor', 'gateway', 'shackle', 'canister']); return onModelsChange(() => bump((n) => n + 1)) }, [])
   if (!g) return null
   return <group key={placeKey}>
-    {g.stations.map((st) => <Station key={st.id} st={st} />)}
+    {g.stations.map((st) => <Station key={`${st.id}:${version}`} st={st} />)}
     {g.rocks.length > 0 && <Rocks rocks={g.rocks} />}
     <Canisters game={game} />
     {g.rings.length > 0 && <Rings game={game} />}
@@ -29,7 +29,7 @@ function Station({ st }) {
   // Hearth's ring turns for its gravity (about 0.3 g at 380 m, one turn a minute and a half).
   return <group position={st.at}>
     <primitive object={obj} ref={ref} />
-    <pointLight position={st.port.at.clone().sub(st.at).multiplyScalar(1.05)} color="#ffc890" intensity={4e5} distance={2500} decay={2} />
+    <pointLight position={st.port.at.clone().sub(st.at).multiplyScalar(1.15)} color="#ffc890" intensity={6e3} distance={900} decay={2} />
   </group>
 }
 
@@ -87,11 +87,11 @@ function Rings({ game }) {
   return <group>{game.current.rings.map((r, i) => <mesh key={i} ref={(m) => { refs.current[i] = m }} geometry={ringGeo} />)}</group>
 }
 
-/** Shackleton's descent corridor: a stack of rings pointing at the pole. */
+/** Shackleton's descent corridor: a stack of rings leading down to the pole (+y is toward the Moon there). */
 function Corridor({ at }) {
   const ref = useRef()
   useFrame((s) => { if (ref.current) ref.current.children.forEach((c, i) => { c.material.opacity = 0.35 + 0.35 * Math.sin(s.clock.elapsedTime * 2 - i * 0.6) }) })
-  return <group ref={ref} position={at} rotation={[Math.PI / 2, 0, 0]}>
+  return <group ref={ref} position={at} rotation={[-Math.PI / 2, 0, 0]}>
     {[0, 1, 2, 3, 4].map((i) => <mesh key={i} position={[0, 0, i * 220]}><torusGeometry args={[260 - i * 30, 4, 8, 64]} /><meshBasicMaterial color="#2fd3ff" transparent opacity={0.5} toneMapped={false} depthWrite={false} /></mesh>)}
   </group>
 }

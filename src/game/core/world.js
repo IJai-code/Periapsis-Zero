@@ -15,8 +15,12 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z)
 export const EARTH = { id: 'earth', name: 'Earth', radius: 6371e3, mu: 3.986004418e14, position: V(0, 0, 0) }
 export const MOON = { id: 'moon', name: 'Moon', radius: 1737.4e3, mu: 4.9048695e12, position: V(384400e3, 0, 0) }
 export const BODIES = [EARTH, MOON]
-/** Toward the Sun. Fixed: both worlds at quarter phase, so every view has a terminator. */
-export const SUN_DIR = V(0.2, 0.25, 1).normalize()
+/**
+ * Toward the Sun. Fixed: both worlds near quarter phase, so every view has a
+ * terminator, and a little south of the Moon's equator, so the south pole
+ * (Shackleton) is in the low, grazing light it really gets.
+ */
+export const SUN_DIR = V(0.25, -0.14, 1).normalize()
 
 /**
  * Earth-Moon L1, from the Earth: where the two pulls and the frame's rotation

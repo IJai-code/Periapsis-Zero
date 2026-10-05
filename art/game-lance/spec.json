@@ -1,0 +1,28 @@
+{
+  "id": "game-lance",
+  "note": "The game's lance: runtime frame (three.js, Y up, metres, nose to -Z). Built by art/lib/craft.py; engine exits are nozzle_N empties. Bounds are an envelope, not an exact size.",
+  "bounds": {
+    "min": [
+      -11,
+      -11,
+      -11
+    ],
+    "max": [
+      11,
+      11,
+      11
+    ]
+  },
+  "boundsMode": "within",
+  "budget": {
+    "triangles": 40000,
+    "bytes": 1800000
+  },
+  "requiredEmpties": [
+    "nozzle_0"
+  ],
+  "doubleSided": [
+    "lance_ds"
+  ],
+  "textured": true
+}

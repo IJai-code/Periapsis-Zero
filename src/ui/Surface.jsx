@@ -94,7 +94,7 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
     <div className="sv-hud">
       <header className="sv-top">
         <button className="sv-quiet" onClick={() => setPaused(true)} aria-label="Pause">❚❚ <span>Menu</span></button>
-        <div className="sv-title"><span>{title ?? (mode === 'campaign' ? 'Campaign' : 'Free landing')}</span><h1>{w.name} <small>/ {w.site}</small></h1></div>
+        <div className="sv-title"><span>{title ?? (mode === 'game' ? 'Landing' : 'Free landing')}</span><h1>{w.name} <small>/ {w.site}</small></h1></div>
         <div className="sv-gravity"><strong>{w.gravity < 0.1 ? w.gravity.toFixed(4) : w.gravity.toFixed(2)}</strong> m/s² · {w.air ? `${w.air.rho} kg/m³ air` : 'no air'}</div>
       </header>
 
@@ -157,11 +157,11 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
         <li><strong>Lift off.</strong> Back at the lander, {touch ? 'tap Board, then Lift off' : <><kbd>E</kbd> to board and <kbd>T</kbd> to lift off</>}. The anomaly is a bonus worth 500.</li>
       </ol>
     </Modal>}
-    {paused && !done && !crashed && <Modal title="Paused" eyebrow={`${w.name} · ${w.site}`} onPrimary={() => setPaused(false)} primary="Resume" secondary={[['Restart landing', retry], ['How to play', () => { setPaused(false); setHowTo(true) }], [mode === 'campaign' ? 'Back to the campaign' : 'Back to the simulator', () => onExit?.(null)]]}>
+    {paused && !done && !crashed && <Modal title="Paused" eyebrow={`${w.name} · ${w.site}`} onPrimary={() => setPaused(false)} primary="Resume" secondary={[['Restart landing', retry], ['How to play', () => { setPaused(false); setHowTo(true) }], [backLabel(mode), () => onExit?.(null)]]}>
       <p>Everything is stopped, including your fuel{session.survival !== null ? ' and the heat clock' : ''}.</p>
       <div className="sv-graphics" role="group" aria-label="Graphics quality"><span>Graphics</span>{[['auto', `Auto${quality.mode === 'auto' ? ` (${quality.name})` : ''}`], ['high', 'High'], ['low', 'Low']].map(([m, l]) => <button key={m} aria-pressed={quality.mode === m} className={quality.mode === m ? 'on' : ''} onClick={() => setSurfaceMode(m)}>{l}</button>)}</div>
     </Modal>}
-    {crashed && <Modal title="That one did not hold." eyebrow="Mission lost" onPrimary={retry} primary="Try again" secondary={[[mode === 'campaign' ? 'Back to the campaign' : 'Back to the simulator', () => onExit?.(null)]]}>
+    {crashed && <Modal title="That one did not hold." eyebrow="Mission lost" onPrimary={retry} primary="Try again" secondary={[[backLabel(mode), () => onExit?.(null)]]}>
       <p>{session.message}</p>
     </Modal>}
     {done && result && <Results world={w} result={result} session={session} mode={mode} onContinue={finish} onRetry={retry} onNext={onNext} />}
@@ -252,6 +252,9 @@ function Radar({ session, controls }) {
   return <canvas ref={ref} className="sv-radar" width={180} height={180} aria-label="Radar" />
 }
 
+/** Where the way out leads: back up to the ship in the game, back to the simulator otherwise. */
+const backLabel = (mode) => (mode === 'game' ? 'Back up to orbit' : 'Back to the simulator')
+
 function Modal({ title, eyebrow, children, primary, onPrimary, secondary = [] }) {
   useEffect(() => {
     const t = requestAnimationFrame(() => document.querySelector('.sv-modal button')?.focus())
@@ -285,7 +288,7 @@ function Results({ world, result, session, mode, onContinue, onRetry, onNext }) 
       </dl>
       <p className="sv-tip">{!result.complete ? 'Three samples and the station complete a survey.' : result.stars < 3 ? (session.touchdown?.assisted ? 'Three stars: fly the last 60 m yourself, land on the pad, and find the anomaly.' : 'Three stars: 2,500 points and the anomaly.') : 'A perfect survey.'}</p>
       <div className="sv-modal-actions">
-        <button className="primary" onClick={onContinue}>{mode === 'campaign' ? 'Back to the campaign' : 'Back to the simulator'}</button>
+        <button className="primary" onClick={onContinue}>{backLabel(mode)}</button>
         {onNext && result.complete && <button onClick={() => { onContinue(); onNext() }}>Next world →</button>}
         <button onClick={onRetry}>Fly it again</button>
       </div>
