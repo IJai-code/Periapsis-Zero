@@ -17,6 +17,10 @@ import { buyUpgrade } from '../src/game/core/game.js'
  * the same controls as a player. A mission the pilot dies on is retried after
  * respawning, as a player would; three failures of one mission fail the gate.
  */
+// The game rolls dice (spawn points, scan misses, ambushes). Seed them, so this
+// machine and CI play the same game and a failure is reproducible.
+let seed = 0x2091
+Math.random = () => { seed = (seed + 0x6d2b79f5) | 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 let checks = 0
 const check = (name, fn) => { fn(); console.log(`  ✓ ${name}`); checks++ }
 const V = (x, y, z) => new THREE.Vector3(x, y, z)

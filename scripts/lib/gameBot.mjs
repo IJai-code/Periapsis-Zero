@@ -70,7 +70,7 @@ export function createPilot(name = 'Bot', save = null) {
 
   bot.dock = (id) => {
     const st = STATIONS[id]
-    if (g.mode === 'docked' && g.docked === id) return
+    if (g.mode === 'docked' && g.docked === id) { refuel(g); repair(g); return }
     if (g.mode === 'docked') bot.launch()
     if (g.place !== st.place) bot.transfer(st.place)
     bot.flyTo(st.port.at.clone().addScaledVector(st.port.axis, 500), 120, 200)
