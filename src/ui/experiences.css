@@ -203,3 +203,13 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 /* Account dialog (ui/Account.jsx), on the pilot dialog's frame. */
 .account-providers { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 16px; }
 .account-note { font-size: 12px; color: #ff6b2c; margin: 10px 0 0; }
+
+/* A licence earned in the simulator, for the game (ui/LicenceToast.jsx). */
+.licence-toast { position: fixed; left: 50%; top: 18px; z-index: 60; width: min(420px, calc(100vw - 32px)); transform: translateX(-50%); padding: 16px 18px; color: #f4e8cf; font-family: var(--font-sans); background: #120b22f2; border: 1px solid #2fd3ff88; border-radius: 10px; box-shadow: 0 16px 50px #000c; animation: licence-in .6s cubic-bezier(.2,.9,.3,1.2) both; }
+.licence-toast span { font-size: 10px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: #2fd3ff; }
+.licence-toast strong { display: block; margin: 4px 0 6px; font: 400 28px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.licence-toast p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: #f4e8cfcc; }
+.licence-toast div { display: flex; gap: 10px; }
+.licence-toast a { padding: 8px 14px; border-radius: 6px; background: #ff6b2c; color: #120b22; font-weight: 700; font-size: 14px; text-decoration: none; }
+.licence-toast button { padding: 8px 12px; border: 1px solid #f4e8cf44; border-radius: 6px; background: none; color: #f4e8cf; font: 600 14px var(--font-sans); cursor: pointer; }
+@keyframes licence-in { from { opacity: 0; transform: translate(-50%, -16px) scale(.96); } }

@@ -80,7 +80,9 @@ export default function SquadronApp({ joinCode = null, onExit }) {
     if (!host) window.history.replaceState(null, '', `#squadron/${c}`)
   }, [me, pilotName, suit, hull, fly])
 
-  useEffect(() => { if (phase === 'joining' && joinCode && name.trim()) openRoom(joinCode.toUpperCase(), false) }, [phase, joinCode, name, openRoom])
+  // A link with a code joins at once if we already know who you are; otherwise you type a callsign first.
+  const knownName = useRef(Boolean(name.trim()))
+  useEffect(() => { if (phase === 'joining' && joinCode && knownName.current) { knownName.current = false; openRoom(joinCode.toUpperCase(), false) } }, [phase, joinCode, openRoom])
 
   const launchSquad = () => {
     net.current?.broadcast('start', { arena })

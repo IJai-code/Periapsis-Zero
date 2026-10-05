@@ -461,3 +461,7 @@
 .hud-transfer h2.flip { color: #ff6b2c; animation: heatpulse .5s steps(2) infinite; }
 .hud-progress em { position: absolute; top: -3px; bottom: -3px; border-radius: 3px; background: #ff6b2c33; border: 1px solid #ff6b2c88; }
 .hud-toasts p.burn-rated { border: 1px solid #2fd3ff66; color: #2fd3ff; }
+.gm-pause-elsewhere { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: #f4e8cf99; }
+.gm-pause-elsewhere a { color: #2fd3ff; }
+.gm-pause-elsewhere { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: #f4e8cf99; }
+.gm-pause-elsewhere a { color: #2fd3ff; }

@@ -12,6 +12,7 @@ import { setUi, uiStore, useUi } from './sim/store.js'
 import { QUALITY, chooseDevice, guessDevice } from './sim/device.js'
 import { requestedPreset, startPreset } from './sim/presets.js'
 import { MissionIntro } from './ui/MissionIntro.jsx'
+import { LicenceToast } from './ui/LicenceToast.jsx'
 import { TRANSIT } from './gfx/transit.js'
 import { introEnd } from './gfx/introFlights.js'
 import { requestedProgram, armProgram, program } from './sim/programs.js'
@@ -122,6 +123,7 @@ export default function App() {
       <Resolution /><Photograph />
       <Suspense fallback={null}>{assets.ready && <Scene textures={assets.textures} />}</Suspense>
     </Canvas>
+    <LicenceToast />
     {assets.ready ? intro ? <MissionIntro preset={intro.preset} finalFocus={intro.focus} onBegin={introDone} onSkip={introSkipped} /> : (surface ? null : <Hud onLibrary={() => setLibrary(true)} />) : <div className="simulator-loading"><span className="eyebrow">Simulator</span><h1>Preparing the solar system.</h1><p>{assets.label} · {Math.round(assets.progress * 100)}%</p><progress max="1" value={assets.progress} /><button className="quiet-button" onClick={() => { window.location.hash = '' }}>← Home</button></div>}
     {library && <Suspense fallback={null}><MissionLibrary open onClose={() => setLibrary(false)} /></Suspense>}
     {surface && <Suspense fallback={<div className="simulator-loading"><span className="eyebrow">Descent</span><h1>Preparing the surface.</h1></div>}><Surface key={`${surface.world}/${surface.mode}`} world={surface.world} mode={surface.mode} upgrades={surface.upgrades} onExit={leaveSurface} /></Suspense>}
