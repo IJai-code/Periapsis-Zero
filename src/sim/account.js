@@ -28,7 +28,7 @@
  * `[https://x.supabase.co](https://x.supabase.co)`, which is how the first
  * configured deploy received it.
  */
-const URL_ = ((import.meta.env?.VITE_SUPABASE_URL ?? '').match(/https:\/\/[^\s\])]+/)?.[0] ?? '').replace(/\/$/, '')
+const URL_ = ((import.meta.env?.VITE_SUPABASE_URL ?? '').match(/https:\/\/[^\s\])]+/)?.[0] ?? '').replace(/[./]+$/, '')
 const KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
 export const accountsEnabled = Boolean(URL_ && KEY)
 
