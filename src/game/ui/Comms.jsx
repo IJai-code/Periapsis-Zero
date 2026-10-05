@@ -3,7 +3,7 @@ import { CHARACTERS } from '../core/story.js'
 /** Whoever is talking: portrait, name, and the line, one at a time. */
 export function Comms({ game: g }) {
   const c = g.comms[0]
-  if (!c) return null
+  if (!c || g.cine) return null
   const who = CHARACTERS[c.who] ?? { name: c.who, role: '' }
   const shown = Math.min(c.text.length, Math.floor(((g.real - (c.at ?? g.real)) * 55)))
   return <div className={`gm-comms ${who.tone ?? ''}`} onClick={() => { g.comms.shift() }} role="status" aria-live="polite">

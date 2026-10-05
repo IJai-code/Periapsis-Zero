@@ -101,7 +101,8 @@ export function createPilot(name = 'Bot', save = null) {
       if (g.heat.level >= 2) bot.loseHeat()
       c.actions.push('transfer')
       step(2)
-      if (g.mode !== 'align' && g.mode !== 'transfer') throw new Error(`transfer to ${dest} refused: ${g.prompt?.text}`)
+      if (g.mode === 'dead') throw new Error(`destroyed while lighting the drive for ${dest} (hit by ${hurtBy()})`)
+      if (g.mode !== 'align' && g.mode !== 'transfer') throw new Error(`transfer to ${dest} refused: ${[...g.events].reverse().find((e) => e.type === 'denied')?.why ?? g.prompt?.text} (mode ${g.mode}, heat ${g.heat.level})`)
       until(() => g.mode === 'flight', 60, `transferring to ${dest}`)
       if (g.place === dest) { step(5); log.push(`arrived ${dest}`); return }
       log.push('interdicted')

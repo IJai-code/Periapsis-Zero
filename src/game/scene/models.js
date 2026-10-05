@@ -197,11 +197,38 @@ export function preload(kinds) {
     gltf().load(`${BASE}${AUTHORED[k]}`, (res) => {
       const root = res.scene
       const nozzles = []
-      root.traverse((o) => { if (/^nozzle_\d+/.test(o.name)) nozzles.push(o.getWorldPosition(new THREE.Vector3()).toArray()) ; if (o.isMesh) { o.castShadow = false; o.receiveShadow = false } })
+      root.traverse((o) => {
+        if (/^nozzle_\d+/.test(o.name)) nozzles.push(o.getWorldPosition(new THREE.Vector3()).toArray())
+        if (!o.isMesh) return
+        o.castShadow = false; o.receiveShadow = false
+        // Canopies are glass you can see the pilot through.
+        for (const m of [o.material].flat()) if (m?.name === 'canopy') { m.transparent = true; m.opacity = 0.34; m.depthWrite = false; m.roughness = 0.04; m.metalness = 0.5 }
+      })
       cache.set(k, { object: root, nozzles })
       listeners.forEach((fn) => fn(k))
     }, undefined, () => { cache.set(k, false) })
   }
+}
+
+/**
+ * Dress the pilot in a model in a suit's colours: the suit, its stripe and
+ * the visor are their own materials in the GLB (art/lib/craft.py); this
+ * instance gets its own copies, so other ships of the kind are untouched.
+ */
+export function paintPilot(object, suit) {
+  const want = { pilotsuit: suit.suit, pilotstripe: suit.stripe, pilotvisor: suit.visor }
+  object.traverse((o) => {
+    if (!o.isMesh) return
+    const list = [o.material].flat()
+    const next = list.map((m) => {
+      if (!m || !(m.name in want)) return m
+      const own = m.userData.own ? m : Object.assign(m.clone(), { userData: { own: true } })
+      own.color.set(want[m.name])
+      if (m.name === 'pilotvisor') { own.emissive?.set(want[m.name]); own.emissiveIntensity = 0.35 }
+      return own
+    })
+    o.material = Array.isArray(o.material) ? next : next[0]
+  })
 }
 
 /** A fresh instance of a kind: the authored model if loaded, else the stand-in. */

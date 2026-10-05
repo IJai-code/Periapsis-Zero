@@ -5,6 +5,27 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Your pilot, your ship, in the bay: 6 October 2026
+
+- **Pilot and suit.** A new pilot chooses a suit (nine; five are earned),
+  then walks across the bay to the ship in it, rides the lift up and climbs
+  in, and stays visible through the canopy in flight. Change suits in the
+  Pilot tab and the pilot boards again.
+- **Licences from the Simulator.** The game and the Simulator share one
+  career: making orbit, crossing to the Moon, docking, lifting off the Moon
+  and splashing down in the Simulator each earn a pilot licence in the game,
+  with a suit and a signing bonus.
+- **Docking and launching through the bay.** Docking flies the ship in
+  through the bay door onto a turntable that turns it to face out; launching
+  lifts it off the pad and out through the door, the view cutting from the
+  bay to space as the camera clears it.
+- **Ships, rebuilt in Blender.** The Kestrel, Mule and Lance gained armour,
+  machinery, missiles, gear, RCS blocks, lettering and a lit cockpit with the
+  pilot in it, baked at 2048.
+- **Barrel rolls.** Double-tap A, D, Q or E (or the Roll buttons on a
+  tablet) for a full roll with a sideways kick; the camera holds the
+  horizon. AI pilots roll out of fire too.
+
 ### Act Two, the hangar, and Earth up close: 5 October 2026
 
 - **Act Two, "Apoapsis".** Four new missions after the Warden: an escort out

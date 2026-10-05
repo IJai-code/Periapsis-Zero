@@ -4,11 +4,11 @@
  */
 const DESKTOP = {
   aim: 'Mouse', thrust: 'W', brake: 'S', boost: 'Shift', fa: 'Z', stop: 'X', dock: 'F', target: 'T', fire: 'Left click', map: 'M', transfer: 'J',
-  launch: 'Enter', strafe: 'A D', roll: 'Q E', pause: 'Esc', log: 'Tab', help: 'H',
+  launch: 'Enter', strafe: 'A D', roll: 'Q E', barrel: 'double-tap A or D', pause: 'Esc', log: 'Tab', help: 'H',
 }
 const TOUCH = {
   aim: 'the stick', thrust: 'the throttle', brake: 'the throttle', boost: 'Boost', fa: 'Assist', stop: 'Stop', dock: 'the action button', target: 'Target', fire: 'Fire', map: 'Map', transfer: 'the action button',
-  launch: 'Launch', strafe: 'the stick', roll: 'the stick', pause: 'Menu', log: 'Jobs', help: 'Help',
+  launch: 'Launch', strafe: 'the stick', roll: 'the stick', barrel: 'Roll', pause: 'Menu', log: 'Jobs', help: 'Help',
 }
 export const keyName = (k, touch) => (touch ? TOUCH : DESKTOP)[k] ?? k
 
@@ -30,6 +30,7 @@ export const CONTROL_LIST = [
   ['Stop', 'X', 'Stop'],
   ['Strafe', 'A / D, Space / C', '(assist handles it)'],
   ['Roll', 'Q / E', '(automatic)'],
+  ['Barrel roll (dodge)', 'Double-tap A / D or Q / E', 'Roll buttons'],
   ['Boost', 'Shift (hold)', 'Boost (hold)'],
   ['Fire', 'Left click (hold)', 'Fire (hold)'],
   ['Target next', 'T or right click', 'Target'],

@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { instance, onModelsChange, preload } from './models.js'
+import { instance, onModelsChange, paintPilot, preload } from './models.js'
+import { suitById } from '../core/pilot.js'
+import { BOARD_T } from './Boarding.jsx'
+
+const pilotMaterials = (o) => { const out = new Set(); o.traverse((m) => { if (m.isMesh) for (const x of [m.material].flat()) if (/^pilot/.test(x?.name ?? '')) out.add(x) }); return [...out] }
 
 /**
  * Every ship in the sky, drawn from the game's list each frame. A ship's
@@ -42,12 +46,20 @@ export function Ships({ game }) {
         live.current.set(e.id, s)
         root.current.add(s.group)
       }
+      // Your pilot, in your suit, under the canopy.
+      if (e.kind === 'player') {
+        if (s.suit !== g.pilot.suit) { s.suit = g.pilot.suit; paintPilot(s.group, suitById(g.pilot.suit)); s.pilotMats = pilotMaterials(s.group) }
+        // The seat is empty until the pilot has climbed in.
+        const aboard = !(g.cine?.kind === 'board' && g.cine.t < BOARD_T.walk + BOARD_T.turn + BOARD_T.lift + BOARD_T.climb)
+        for (const m of s.pilotMats ?? []) m.visible = aboard
+      }
       s.group.position.copy(e.pos)
       s.group.quaternion.copy(e.q)
       s.group.visible = !(e.kind === 'player' && g.mode === 'docked' && g.hideShip)
       // Plumes: length by thrust, a flicker, and blue-white on boost.
       const transfer = e.kind === 'player' && g.mode === 'transfer'
-      const thrust = transfer ? 1.8 : Math.min(1.5, (e.thrust ?? 0) * 1.2 + (e.ctrl.throttle > 0 ? 0.15 : 0))
+      const scripted = e.kind === 'player' && g.mode !== 'flight' && !transfer
+      const thrust = transfer ? 1.8 : scripted ? (e.thrust ?? 0) : Math.min(1.5, (e.thrust ?? 0) * 1.2 + (e.ctrl.throttle > 0 ? 0.15 : 0))
       const flick = 0.9 + 0.1 * Math.sin(t * 40 + e.id)
       for (const p of s.plumes) {
         const len = (transfer ? 70 : 4 + 14 * thrust) * (e.boosting ? 1.7 : 1) * flick * s.scale

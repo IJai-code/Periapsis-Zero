@@ -25,6 +25,18 @@ export const RIGHT = new THREE.Vector3(1, 0, 0)
 const ASSIST_TAU = 0.45
 const BOOST_DRAIN = 0.3, BOOST_REGEN = 0.16, BOOST_DELAY = 1.2
 const SHIELD_DELAY = 3
+/** A barrel roll: one full turn about the nose in this long, and a sideways kick. */
+export const BARREL = { dur: 0.75, kick: 70, cooldown: 1.1 }
+const _z = new THREE.Vector3(0, 0, 1), _qb = new THREE.Quaternion(), _side = new THREE.Vector3()
+const ease = (t) => t * t * (3 - 2 * t)
+
+/** Start a barrel roll to the left (dir 1) or right (-1), if the last one is done. */
+export function barrelRoll(e, dir, time) {
+  if (e.barrel || time - (e.barrelAt ?? -99) < BARREL.cooldown) return false
+  e.barrel = { dir, t: 0 }
+  e.barrelAt = time
+  return true
+}
 
 let nextId = 1
 export function makeShip(kind, team, stats, pos, q) {
@@ -60,6 +72,17 @@ export function stepShip(e, dt, time) {
   _e.set(e.w.x * dt, e.w.y * dt, e.w.z * dt, 'XYZ')
   _q.setFromEuler(_e)
   e.q.multiply(_q).normalize()
+  if (e.barrel) {
+    // The roll is flown on a profile, not the stick: smooth in, fast through
+    // the middle, smooth out; the kick is spent the same way, sideways.
+    const b = e.barrel, t0 = b.t / BARREL.dur
+    b.t += dt
+    const t1 = Math.min(1, b.t / BARREL.dur), de = ease(t1) - ease(t0)
+    _side.set(-b.dir, 0, 0).applyQuaternion(e.q)
+    e.vel.addScaledVector(_side, BARREL.kick * de)
+    e.q.multiply(_qb.setFromAxisAngle(_z, b.dir * Math.PI * 2 * de)).normalize()
+    if (t1 >= 1) e.barrel = null
+  }
 
   // Boost: a fuel-free overdrive on a battery that drains and recharges.
   const boosting = c.boost && e.boost > 0.02 && c.throttle > 0.1

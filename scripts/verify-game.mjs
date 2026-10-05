@@ -45,7 +45,7 @@ check('transfers are brachistochrones at the torch\'s acceleration: t = 2 sqrt(d
   // Flown: the ship arrives, the clock moves on by the ship time, the tank pays the delta-v.
   const t0 = g.time, prop0 = g.ship.prop
   const input = { actions: ['launch'] }
-  for (let i = 0; i < 60 * 4; i++) stepGame(g, input)
+  for (let i = 0; i < 60 * 8 && g.mode !== 'flight'; i++) stepGame(g, input)
   setDestination(g, 'harbor')
   startTransfer(g, 'harbor')
   for (let i = 0; i < 60 * 40 && g.mode !== 'flight'; i++) stepGame(g, input)
@@ -105,7 +105,7 @@ check('a Mule\'s hidden compartment is not read by a patrol scan; a Kestrel\'s h
     g.ship.hull = hull; g.ship.cargo.chips = chips
     g.player = playerShip(hull, {})
     const input = { actions: ['launch'] }
-    for (let i = 0; i < 60 * 4; i++) stepGame(g, input)
+    for (let i = 0; i < 60 * 8 && g.mode !== 'flight'; i++) stepGame(g, input)
     const e = makeShip('cutter', 'compact', shipStats('cutter'), g.player.pos.clone().add(V(0, 0, 600)))
     e.ai = { mode: 'hold' }; e.sure = true
     g.ships.push(e)

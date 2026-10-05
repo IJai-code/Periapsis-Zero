@@ -114,6 +114,7 @@ export function play(type, near = 1, extra = {}) {
     case 'flip': hiss(600, 2400, 1, 1.2, 0.07); break
     case 'arrive': hiss(900, 120, 0.6, 1.8, 0.1, 0, 'lowpass'); break
     case 'boost': hiss(500, 3000, 0.7, 0.6, 0.06); break
+    case 'roll': hiss(900, 3400, 1.4, 0.55, 0.07); hiss(3400, 700, 1.4, 0.4, 0.04, 0.3); break
     case 'mission-complete': [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.5, 0.07, i * 0.12)); break
     case 'mission-failed': [392, 311, 262].forEach((f, i) => tone('triangle', f, f * 0.98, 0.5, 0.07, i * 0.18)); break
     case 'objective': tone('sine', 880, 880, 0.12, 0.05); tone('sine', 1320, 1320, 0.16, 0.05, 0.1); break

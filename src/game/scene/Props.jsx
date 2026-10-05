@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { instance, MATERIALS, onModelsChange, preload, roughRock } from './models.js'
+import { STATIONS } from '../core/world.js'
+import { BERTH, berthQuat } from '../core/game.js'
+import { Boarding, KEEL } from './Boarding.jsx'
 
 /**
  * What a place is built of: its stations, the Drift's rocks, salvage
@@ -15,7 +18,8 @@ export function Props({ game, placeKey }) {
   if (!g) return null
   return <group key={placeKey}>
     <Hangar key={`hangar:${version}`} game={game} />
-    <StationsOutside game={game}>{g.stations.map((st) => <Station key={`${st.id}:${version}`} st={st} />)}</StationsOutside>
+    <Boarding game={game} />
+    <StationsOutside>{g.stations.map((st) => <Station key={`${st.id}:${version}`} st={st} />)}</StationsOutside>
     {g.rocks.length > 0 && <Rocks rocks={g.rocks} />}
     <Canisters game={game} />
     {g.rings.length > 0 && <Rings game={game} />}
@@ -28,8 +32,6 @@ export function Props({ game, placeKey }) {
  * own lamps, the door open on the sky. The stations outside are hidden
  * meanwhile (the bay is inside one) and the sun is dimmed to what spills in.
  */
-// Height of each hull's keel above its centre, so it sits just off the pad.
-const KEEL = { kestrel: 2.9, mule: 3.0, lance: 1.2 }
 // Each station's bay has its own light: Hearth's warm work lamps, Harbor's
 // clean white, the Shackle's dim sodium, Gateway's cold Compact blue.
 const BAY_LIGHT = {
@@ -42,22 +44,30 @@ function Hangar({ game }) {
   const lit = useRef(null)
   const obj = useMemo(() => instance('hangar').object, [])
   const sun = useRef(null)
-  useFrame(({ scene }) => {
+  useFrame(({ scene, camera }) => {
     const g = game.current, h = ref.current
     if (!g || !h) return
-    const inside = g.mode === 'docked'
-    h.visible = inside
+    // The bay stands at the berth of the station you are in, or docking
+    // with, or leaving; it is drawn while the camera is inside it.
+    const id = g.mode === 'docked' ? g.docked : (g.mode === 'docking' || g.mode === 'launch') ? g.anim?.st : null
+    const st = id && STATIONS[id]
+    if (st) {
+      h.position.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
+      berthQuat(g, st, h.quaternion)
+      obj.position.y = 6 - (KEEL[g.ship.hull] ?? 2.9)
+      _local.copy(camera.position).sub(h.position).applyQuaternion(_inv.copy(h.quaternion).invert())
+      _local.y -= obj.position.y
+      BAY.inside = Math.abs(_local.x) < 35.5 && _local.y > -5.8 && _local.y < 25.8 && _local.z > -45.5 && _local.z < 45.5
+    } else BAY.inside = false
+    h.visible = BAY.inside
     if (!sun.current) sun.current = scene.getObjectByName('sun')
-    if (sun.current) sun.current.intensity = inside ? 0.9 : 3.2
-    if (!inside) return
-    if (lit.current !== g.docked) {
-      lit.current = g.docked
-      const [key, fill, k] = BAY_LIGHT[g.docked] ?? BAY_LIGHT.hearth
+    if (sun.current) sun.current.intensity = BAY.inside ? 0.9 : 3.2
+    if (!BAY.inside) return
+    if (lit.current !== id) {
+      lit.current = id
+      const [key, fill, k] = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
       lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? key : fill); l.intensity = [4200, 2400, 2400][i] * k })
     }
-    h.position.copy(g.player.pos)
-    h.quaternion.copy(g.player.q)
-    obj.position.y = 6 - (KEEL[g.ship.hull] ?? 2.9)
   })
   return <group ref={ref} visible={false}>
     <primitive object={obj} />
@@ -68,9 +78,13 @@ function Hangar({ game }) {
   </group>
 }
 
-function StationsOutside({ game, children }) {
+/** Whether the camera is inside the bay this frame: the bay hides the stations outside it. */
+export const BAY = { inside: false }
+const _local = new THREE.Vector3(), _inv = new THREE.Quaternion()
+
+function StationsOutside({ children }) {
   const ref = useRef()
-  useFrame(() => { if (ref.current && game.current) ref.current.visible = game.current.mode !== 'docked' })
+  useFrame(() => { if (ref.current) ref.current.visible = !BAY.inside })
   return <group ref={ref}>{children}</group>
 }
 

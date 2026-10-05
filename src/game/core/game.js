@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { PLACES, STATIONS, ARRIVAL, RACE_RINGS, driftRocks, BODIES } from './world.js'
 import { HULLS, shipStats, UPGRADES } from './ships.js'
-import { makeShip, playerShip, stepShip, steerToward, clamp } from './flight.js'
+import { makeShip, playerShip, stepShip, steerToward, clamp, barrelRoll } from './flight.js'
 import { makeBolts, stepBolts, fire, leadPoint } from './combat.js'
 import { stepAI, hostile } from './ai.js'
 import { addHeat, stepHeat, stepScans, inhibited, dockAllowed, clearHeat } from './heat.js'
@@ -22,7 +22,9 @@ export const EPOCH = Date.UTC(2091, 3, 2, 6, 0)
 export const SAVE_KEY = 'pz-game-v1'
 export const MAX_JOBS = 3
 /** Where a docked ship sits: just outside its station's bay. */
-const BERTH = 20
+export const BERTH = 20
+/** The docking and launch sequences, s: outside to the door, through it, the turntable; lift, then out. */
+export const DOCK_T = { approach: 2.6, inside: 2.8, turn: 1.6 }, LAUNCH_T = { lift: 1.1, out: 3.3 }
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quaternion(), _m4 = new THREE.Matrix4()
 
@@ -48,9 +50,9 @@ export function worldUp(g, out) {
   return out.copy(g.anchor).sub(best.position).normalize()
 }
 
-export function newSave(name) {
+export function newSave(name, suit = 'hearth') {
   return {
-    version: 1, pilot: { name: String(name || 'Pilot').slice(0, 24) },
+    version: 1, pilot: { name: String(name || 'Pilot').slice(0, 24), suit, licences: [] },
     credits: 2500, debt: 40000,
     ship: { hull: 'kestrel', up: {}, hp: 1, prop: HULLS.kestrel.tank, cargo: {} },
     home: 'hearth', time: 0, heat: 0,
@@ -187,7 +189,7 @@ function parkAtPort(g, stationId) {
   const st = STATIONS[stationId], p = g.player
   // Held in the berth's clamps at the mouth of the bay.
   p.pos.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
-  p.vel.set(0, 0, 0); p.w.set(0, 0, 0)
+  p.vel.set(0, 0, 0); p.w.set(0, 0, 0); p.thrust = 0; p.boosting = false
   // Nose out of the bay, ready to launch.
   berthQuat(g, st, p.q)
   p.ctrl.throttle = 0
@@ -208,7 +210,7 @@ export function requestDock(g) {
   if (!st || g.mode !== 'flight') return false
   if (!dockAllowed(g, st.id)) { g.say('control', `${st.name} control: docking refused while the Compact is after you.`, 4); g.emit({ type: 'denied' }); return false }
   g.mode = 'docking'
-  g.anim = { t: 0, dur: 4.5, st: st.id, from: g.player.pos.clone(), q0: g.player.q.clone() }
+  g.anim = { t: 0, dur: DOCK_T.approach + DOCK_T.inside + DOCK_T.turn, st: st.id, from: g.player.pos.clone(), q0: g.player.q.clone() }
   g.emit({ type: 'dock-start', station: st.id })
   return true
 }
@@ -218,7 +220,7 @@ export function launch(g) {
   const st = STATIONS[g.docked]
   parkAtPort(g, g.docked)
   g.mode = 'launch'
-  g.anim = { t: 0, dur: 3.2, st: st.id }
+  g.anim = { t: 0, dur: LAUNCH_T.lift + LAUNCH_T.out, st: st.id }
   g.docked = null
   g.emit({ type: 'launch', station: st.id })
   return true
@@ -409,18 +411,45 @@ function stepNPCs(g, dt) {
   }
 }
 
+const _qa = new THREE.Quaternion(), _qb2 = new THREE.Quaternion(), _up2 = new THREE.Vector3(), _door = new THREE.Vector3()
+const smooth = (x) => { const f = clamp(x, 0, 1); return f * f * (3 - 2 * f) }
+/**
+ * Docking and launching, flown on rails. The bay sits at the berth, its
+ * door 45 m out along the port axis (art/game-hangar). Docking: up to a
+ * point off the door, in through it nose first, down onto the pad, and the
+ * pad turns the ship to face out. Launching: lift off the pad, then out
+ * through the door and away.
+ */
 function stepAnim(g, dt) {
   const a = g.anim, p = g.player, st = STATIONS[a.st]
   a.t += dt
-  const f = clamp(a.t / a.dur, 0, 1), s = f * f * (3 - 2 * f)
+  const berth = _v.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
+  berthQuat(g, st, _qb2)
+  _up2.set(0, 1, 0).applyQuaternion(_qb2)
+  p.vel.set(0, 0, 0)
+  p.boosting = false
   if (g.mode === 'docking') {
-    _v.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
-    p.pos.lerpVectors(a.from, _v, s)
-    // In nose first, turned round in the bay (the cut hides the turn).
-    _q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), _w.copy(st.port.axis).negate())
-    p.q.slerpQuaternions(a.q0, _q, s)
-    p.vel.set(0, 0, 0)
-    if (f >= 1) {
+    // The plume: a braking glow on the way in, cold once inside.
+    p.thrust = a.t < DOCK_T.approach ? 0.25 : a.t < DOCK_T.approach + DOCK_T.inside ? 0.06 : 0
+    const T = DOCK_T
+    // Facing in: the berth's orientation turned half round its up axis.
+    _qa.setFromAxisAngle(_up2, Math.PI).multiply(_qb2)
+    _door.copy(berth).addScaledVector(st.port.axis, 140).addScaledVector(_up2, 6)
+    if (a.t < T.approach) {
+      const s = smooth(a.t / T.approach)
+      p.pos.lerpVectors(a.from, _door, s)
+      p.q.slerpQuaternions(a.q0, _qa, s)
+    } else if (a.t < T.approach + T.inside) {
+      const s = smooth((a.t - T.approach) / T.inside)
+      p.pos.lerpVectors(_door, berth, s)
+      p.q.copy(_qa)
+    } else {
+      // The turntable: half a turn about the deck's up, ending nose out.
+      const s = smooth((a.t - T.approach - T.inside) / T.turn)
+      p.pos.copy(berth)
+      p.q.slerpQuaternions(_qa, _qb2, s)
+    }
+    if (a.t >= a.dur) {
       g.mode = 'docked'; g.docked = a.st; g.home = a.st; g.anim = null
       parkAtPort(g, a.st)
       g.emit({ type: 'dock', station: a.st })
@@ -428,10 +457,16 @@ function stepAnim(g, dt) {
       autosave(g)
     }
   } else {
-    p.pos.copy(st.port.at).addScaledVector(st.port.axis, BERTH + 420 * s)
-    berthQuat(g, st, p.q)
-    p.vel.copy(st.port.axis).multiplyScalar(140 * (1 - f) + 20)
-    if (f >= 1) { g.mode = 'flight'; g.anim = null; p.ctrl.throttle = 0.15; g.emit({ type: 'undocked', station: a.st }) }
+    const T = LAUNCH_T
+    p.q.copy(_qb2)
+    const lift = smooth(a.t / T.lift) * 2.2
+    const s = Math.max(0, a.t - T.lift) / T.out
+    // Out along the port axis, gathering speed: a quarter of the way in the first half.
+    const out = 460 * s * s
+    p.thrust = s > 0 ? 0.35 + 0.6 * s : 0.08
+    p.pos.copy(berth).addScaledVector(_up2, lift).addScaledVector(st.port.axis, out)
+    p.vel.copy(st.port.axis).multiplyScalar(s > 0 ? 920 * s / T.out : 0)
+    if (a.t >= a.dur) { g.mode = 'flight'; g.anim = null; p.vel.copy(st.port.axis).multiplyScalar(120); p.ctrl.throttle = 0.15; g.emit({ type: 'undocked', station: a.st }) }
   }
 }
 
@@ -441,10 +476,11 @@ function act(g, a, input) {
   switch (a) {
     case 'fa': if (g.mode === 'flight') { p.ctrl.fa = !p.ctrl.fa; g.emit({ type: 'fa', on: p.ctrl.fa }) } break
     case 'stop': input.throttleSet = 0; break
+    case 'roll-left': case 'roll-right': if (g.mode === 'flight' && barrelRoll(p, a === 'roll-left' ? 1 : -1, g.time)) g.emit({ type: 'roll' }); break
     case 'dock': if (g.prompt?.action === 'dock') requestDock(g); else if (g.prompt?.action === 'descend') descend(g); break
     case 'target': cycleTarget(g); break
     case 'transfer': if (g.mode === 'flight') startTransfer(g, g.dest); break
-    case 'launch': launch(g); break
+    case 'launch': if (!g.cine) launch(g); break
     case 'respawn': if (g.mode === 'dead') respawn(g); break
   }
 }
@@ -577,7 +613,8 @@ function objective(g) {
 
 function tickComms(g, dt) {
   const c = g.comms[0]
-  if (!c) return
+  // Nobody talks over a cutscene; the line waits for it.
+  if (!c || g.cine) return
   if (c.at == null) c.at = g.real
   if (g.real - c.at > c.dur) g.comms.shift()
 }

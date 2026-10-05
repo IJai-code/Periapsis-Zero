@@ -15,8 +15,8 @@
   },
   "boundsMode": "within",
   "budget": {
-    "triangles": 40000,
-    "bytes": 1800000
+    "triangles": 90000,
+    "bytes": 4200000
   },
   "requiredEmpties": [
     "nozzle_0"

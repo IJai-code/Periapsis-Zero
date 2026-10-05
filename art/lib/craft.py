@@ -252,7 +252,92 @@ def surfaces(m, panel=1.1, dust=None):
     sf.surface(m['solar'], 'solar', cell=0.5 * panel)
 
 
-KEEP = ('glow', 'lights', 'navred', 'navgreen', 'ion')
+KEEP = ('glow', 'lights', 'navred', 'navgreen', 'ion', 'pilotsuit', 'pilotvisor', 'pilotstripe', 'canopy')
+
+
+# --------------------------------------------------------------------------
+# Detail: what makes a hull read as a machine up close
+# --------------------------------------------------------------------------
+
+def decal(m, name, text, at, size, side, mat='dark', depth=0.02):
+    """Painted lettering on a side wall facing +x (side 1) or -x (side -1),
+    reading forward on the right and aft on the left, as on an aircraft."""
+    cu = bpy.data.curves.new(name, 'FONT')
+    cu.body = text
+    cu.size = size
+    cu.extrude = depth
+    cu.align_x = 'CENTER'
+    cu.align_y = 'CENTER'
+    ob = bpy.data.objects.new(name, cu)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location = T(*at)
+    ob.rotation_euler = (math.radians(90), 0, math.radians(90 if side > 0 else -90))
+    with bpy.context.temp_override(active_object=ob, object=ob, selected_objects=[ob], selected_editable_objects=[ob]):
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    ob = bpy.context.scene.objects[name]
+    ob.data.materials.clear()
+    ob.data.materials.append(m[mat])
+    return ob
+
+
+def greebles(m, name, x0, x1, y, z0, z1, n, seed=1, up=True):
+    """Small machinery scattered over a flat patch: boxes, caps and pipes."""
+    import random
+    rnd = random.Random(seed)
+    keys = ['metal', 'dark', 'trim', 'metal']
+    for i in range(n):
+        x = rnd.uniform(x0, x1); z = rnd.uniform(z0, z1)
+        w = rnd.uniform(0.12, 0.45); d = rnd.uniform(0.15, 0.7); h = rnd.uniform(0.06, 0.22)
+        mat = m[keys[i % len(keys)]]
+        if i % 5 == 4:
+            lathe_y(f'{name}{i}', [(0, h), (w * 0.5, h), (w * 0.5, 0)], mat, x, y if up else y - h, z, seg=10)
+        else:
+            box(f'{name}{i}', (w, h, d), (x, y + (h / 2 if up else -h / 2), z), mat, chamfer=min(w, h) * 0.2)
+
+
+def rcs_quad(m, name, at, side):
+    """A reaction-control block: four small bells, up, down, out and fore."""
+    x, y, z = at
+    box(f'{name}', (0.42, 0.42, 0.42), at, m['dark'], chamfer=0.06)
+    for k, (dx, dy, dz) in enumerate([(side, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -1)]):
+        tube(f'{name}n{k}', (x + dx * 0.18, y + dy * 0.18, z + dz * 0.18), (x + dx * 0.36, y + dy * 0.36, z + dz * 0.36), 0.08, m['metal'], seg=8)
+
+
+def pilot_seat(m, name, at, scale=1.0):
+    """A pilot in the cockpit: seat, console, and a suited figure whose suit
+    and visor keep their own materials, so the game can paint them in the
+    colours the player chose."""
+    x, y, z = at
+    k = scale
+    box(f'{name}seat', (0.7 * k, 0.12 * k, 0.7 * k), (x, y - 0.45 * k, z), m['dark'], chamfer=0.05)
+    box(f'{name}back', (0.7 * k, 0.9 * k, 0.14 * k), (x, y, z + 0.38 * k), m['dark'], chamfer=0.05)
+    box(f'{name}console', (1.1 * k, 0.3 * k, 0.5 * k), (x, y - 0.15 * k, z - 0.9 * k), m['dark'], chamfer=0.05)
+    for i, kind in enumerate(('ion', 'lights', 'ion')):
+        box(f'{name}screen{i}', (0.26 * k, 0.16 * k, 0.03 * k), (x + (i - 1) * 0.34 * k, y + 0.02 * k, z - 0.86 * k), m[kind])
+    box(f'{name}torso', (0.55 * k, 0.55 * k, 0.36 * k), (x, y - 0.1 * k, z + 0.08 * k), m['pilotsuit'], chamfer=0.1 * k)
+    pz.sphere(f'{name}helmet', tuple(T(x, y + 0.36 * k, z)), 0.22 * k, m['pilotsuit'], segments=20, rings=10)
+    pz.sphere(f'{name}visor', tuple(T(x, y + 0.37 * k, z - 0.07 * k)), 0.18 * k, m['pilotvisor'], segments=20, rings=10)
+    box(f'{name}stripe', (0.08 * k, 0.05 * k, 0.4 * k), (x, y + 0.58 * k, z + 0.02 * k), m['pilotstripe'])
+
+
+def pilot_materials(m):
+    m['pilotsuit'] = pz.material('pilotsuit', '#f4e8cf', roughness=0.55)
+    m['pilotvisor'] = pz.material('pilotvisor', '#ffb070', metallic=0.6, roughness=0.08)
+    m['pilotstripe'] = pz.material('pilotstripe', '#ff6b2c', roughness=0.5)
+    # The canopy keeps its own material too: the game draws it see-through.
+    m['canopy'] = pz.material('canopy', '#0c1822', metallic=0.3, roughness=0.06)
+
+
+def missile_rail(m, name, x, y, z0, z1, n=2):
+    """Missiles slung under a wing: a pylon and n rounds with coloured tips."""
+    box(f'{name}pylon', (0.18, 0.3, z1 - z0), (x, y + 0.12, (z0 + z1) / 2), m['dark'])
+    for i in range(n):
+        dx = (i - (n - 1) / 2) * 0.42
+        tube(f'{name}m{i}', (x + dx, y - 0.16, z0 + 0.4), (x + dx, y - 0.16, z1), 0.13, m['hull'], seg=10)
+        tube(f'{name}t{i}', (x + dx, y - 0.16, z0), (x + dx, y - 0.16, z0 + 0.4), 0.11, m['accent'], seg=10)
+        for f in (-1, 1):
+            box(f'{name}f{i}{f}', (0.02, 0.22, 0.3), (x + dx + f * 0.12, y - 0.16, z1 - 0.15), m['dark'])
 
 
 # --------------------------------------------------------------------------
@@ -265,9 +350,6 @@ def kestrel():
     loft('fuselage', [(-9.0, 0.5, 0.4, 0.15, 0, -0.2), (-8.2, 1.3, 0.9, 0.4, 0, -0.1), (-7.0, 2.4, 1.7, 0.6, 0, 0), (-5.0, 3.3, 2.4, 0.8, 0, 0.1), (-1.0, 3.9, 2.8, 0.9, 0, 0.1),
                       (3.0, 4.1, 3.0, 0.9, 0, 0.0), (6.0, 3.6, 2.6, 0.8, 0, 0), (7.2, 3.0, 2.1, 0.6, 0, 0)], m['hull'], soft=True)
     loft('canopy', [(-7.3, 0.6, 0.2, 0.1, 0, 0.85), (-6.4, 1.6, 0.8, 0.35, 0, 1.2), (-4.2, 1.8, 0.95, 0.4, 0, 1.35), (-2.7, 1.3, 0.55, 0.3, 0, 1.25)], m['glass'], soft=True)
-    for z in (-6.0, -4.9):
-        box(f'frame{z}', (1.75, 0.12, 0.12), (0, 1.86 if z > -5.5 else 1.72, z), m['trim'])
-    box('framespine', (0.1, 0.1, 3.4), (0, 1.82, -4.9), m['trim'])
     loft('spine', [(-2.6, 1.0, 0.4, 0.15, 0, 1.45), (-1.6, 1.4, 0.7, 0.25, 0, 1.55), (5.5, 1.6, 0.8, 0.3, 0, 1.6), (6.9, 1.0, 0.4, 0.2, 0, 1.4)], m['trim'], soft=True)
     loft('belly', [(-4.5, 1.8, 0.4, 0.15, 0, -1.3), (-3.0, 2.6, 0.8, 0.25, 0, -1.5), (4.5, 3.0, 1.2, 0.35, 0, -1.6), (6.2, 2.2, 0.7, 0.25, 0, -1.4)], m['dark'], soft=True)
     loft('stripe', [(-8.0, 1.0, 0.1, 0.02, 0, 0.62), (-5.5, 2.2, 0.1, 0.02, 0, 1.1)], m['accent'])
@@ -284,7 +366,6 @@ def kestrel():
         light(m, f'nav{s}', (s * 8.8, -0.4, 4.4), 0.3, 'red' if s < 0 else 'green')
         box(f'rcs{s}', (0.5, 0.5, 0.7), (s * 2.0, 0.9, -5.4), m['metal'], chamfer=0.08)
         box(f'rcsB{s}', (0.4, 0.4, 0.5), (s * 2.1, 0.6, 5.6), m['metal'], chamfer=0.06)
-        hatch(m, f'hatch{s}', s * 1.6, 1.2, 1.0, 0.9, 2.4)
         tube(f'gun{s}', (s * 2.3, -0.5, -4.6), (s * 2.3, -0.5, -1.0), 0.12, m['metal'])
     vent(m, 'spinevent', 0, 2.02, 2.6, 1.0, 2.6, 7)
     box('cargo', (3.0, 1.4, 3.6), (0, -2.0, 1.4), m['accent'], chamfer=0.18)
@@ -293,7 +374,28 @@ def kestrel():
     dome(m, 'sensor', (0, 1.75, 4.4), 0.4)
     tube('antenna', (0.6, 1.6, 2.0), (0.6, 3.0, 2.6), 0.05, m['metal'])
     light(m, 'beacon', (0, 2.0, 5.6), 0.3, 'lights')
-    return m, 1.1
+    # Detail: the pilot under the glass, machinery on the spine, rings on
+    # the nacelles, missiles under the wings, gear pods, lettering.
+    pilot_materials(m)
+    bpy.context.scene.objects['canopy'].data.materials[0] = m['canopy']
+    pilot_seat(m, 'pilot', (0, 1.1, -4.7), 1.0)
+    greebles(m, 'gspine', -0.55, 0.55, 1.98, -1.4, 1.2, 14, seed=3)
+    for x in (-0.62, 0.62):
+        tube(f'pipe{x}', (x, 1.92, -2.0), (x, 1.92, 5.6), 0.07, m['metal'], seg=8)
+    for s in (-1, 1):
+        for i, z in enumerate((1.0, 2.6, 4.9)):
+            lathe_z(f'band{s}{i}', [(1.18, z - 0.12), (1.26, z - 0.08), (1.26, z + 0.08), (1.18, z + 0.12)], m['metal'], s * 4.2, -0.2, seg=24)
+        missile_rail(m, f'rail{s}', s * 6.0, -0.75, 0.6, 3.2)
+        rcs_quad(m, f'rcsq{s}', (s * 1.75, 0.2, -6.4), s)
+        box(f'gear{s}', (0.8, 0.5, 1.8), (s * 1.3, -1.75, -3.2), m['dark'], chamfer=0.12)
+        box(f'gearB{s}', (0.9, 0.5, 1.6), (s * 2.6, -1.1, 4.0), m['dark'], chamfer=0.12)
+        decal(m, f'reg{s}', 'PZ-0911', (s * 5.43, 0.2, 2.4), 0.42, s, 'hull')
+        box(f'heat{s}', (0.06, 0.9, 1.4), (s * 5.42, -0.2, 5.3), m['metal'])
+        light(m, f'land{s}', (s * 1.3, -2.02, -4.0), 0.18, 'lights')
+    decal(m, 'name', 'KESTREL', (1.53, -2.0, 1.4), 0.36, 1, 'dark')
+    box('dish', (0.8, 0.06, 0.8), (-0.7, 2.05, 3.5), m['metal'], chamfer=0.1)
+    tube('whip', (-0.6, 1.6, 6.2), (-0.6, 2.6, 6.8), 0.03, m['metal'], seg=6)
+    return m, 0.75
 
 
 def mule():
@@ -320,7 +422,26 @@ def mule():
     light(m, 'beacon', (0, 3.6, -10.0), 0.45, 'lights')
     for i in range(6):
         light(m, f'cabwin{i}', (-2.2 + i * 0.88, 2.2, -14.6), 0.35, 'lights')
-    return m, 1.6
+    pilot_materials(m)
+    bpy.context.scene.objects['windscreen'].data.materials[0] = m['canopy']
+    pilot_seat(m, 'pilot', (0, 2.6, -13.2), 1.1)
+    greebles(m, 'gspine', -1.3, 1.3, 1.52, -8.5, 11.0, 30, seed=5)
+    for i in range(3):
+        for s in (-1, 1):
+            z = -6.5 + i * 6.4
+            decal(m, f'pod{i}{s}tag', f'PZ {i * 2 + (s > 0) + 1:02d}', (s * 6.73, 0.9, z), 0.9, s, 'dark')
+            for k in (-1, 1):
+                box(f'latch{i}{s}{k}', (0.12, 0.6, 0.3), (s * 6.76, -1.0, z + k * 2.0), m['metal'])
+    for s in (-1, 1):
+        rcs_quad(m, f'rcsq{s}', (s * 3.4, 2.3, 12.4), s)
+        for i, z in enumerate((14.4, 16.2)):
+            lathe_z(f'band{s}{i}', [(2.0, z - 0.15), (2.2, z - 0.1), (2.2, z + 0.1), (2.0, z + 0.15)], m['metal'], s * 2.4, 0, seg=24)
+        box(f'gear{s}', (1.2, 0.8, 2.4), (s * 2.0, -1.9, -11.5), m['dark'], chamfer=0.15)
+        light(m, f'land{s}', (s * 2.0, -2.32, -12.4), 0.25, 'lights')
+    decal(m, 'name', 'MULE', (3.65, 0.0, -10.4), 1.0, 1, 'accent')
+    tube('mast', (0.8, 3.6, -9.6), (0.8, 6.0, -9.2), 0.06, m['metal'], seg=6)
+    box('dish', (1.4, 0.08, 1.4), (-1.2, 3.75, -9.8), m['metal'], chamfer=0.2)
+    return m, 1.1
 
 
 def lance():
@@ -339,7 +460,20 @@ def lance():
         box(f'stripe{s}', (0.15, 0.25, 9.0), (s * 1.25, 0.9, -1.0), m['ion'])
         vent(m, f'vent{s}', s * 1.6, 0.72, 4.2, 0.8, 2.0, 5)
     dome(m, 'sensor', (0, 1.0, 2.6), 0.32)
-    return m, 0.9
+    pilot_materials(m)
+    bpy.context.scene.objects['canopy'].data.materials[0] = m['canopy']
+    pilot_seat(m, 'pilot', (0, 0.72, -3.0), 0.85)
+    greebles(m, 'gback', -0.7, 0.7, 1.15, 0.2, 5.6, 12, seed=7)
+    for s in (-1, 1):
+        missile_rail(m, f'rail{s}', s * 5.2, -0.2, -0.2, 2.6, 2)
+        rcs_quad(m, f'rcsq{s}', (s * 1.15, 0.1, -6.2), s)
+        for i, z in enumerate((3.0, 5.0, 6.8)):
+            lathe_z(f'band{s}{i}', [(0.92, z - 0.1), (0.98, z - 0.06), (0.98, z + 0.06), (0.92, z + 0.1)], m['metal'], s * 1.6, -0.1, seg=20)
+        decal(m, f'reg{s}', 'PZ-L7', (s * 1.53, 0.1, -0.2), 0.36, s, 'trim')
+        slab(f'canard{s}', [(s * 0.7, -6.4), (s * 2.6, -5.6), (s * 2.6, -5.1), (s * 0.7, -4.6)], 0.0, 0.12, m['trim'])
+        light(m, f'land{s}', (s * 0.8, -0.95, -5.0), 0.15, 'lights')
+    tube('probe', (0, 0, -10.0), (0, 0, -11.6), 0.05, m['metal'], seg=6)
+    return m, 0.6
 
 
 def raider():
@@ -679,7 +813,7 @@ def build(kind):
         if a['preview']:
             sf.preview(a['preview'], meshes, size=(900, 560), samples=24, ground='#15131c', azimuth=-35, elevation=22)
         return
-    size = 2048 if kind in ('hearth', 'harbor', 'shackle', 'freighter', 'gateway', 'hangar') else 1024
+    size = 2048 if kind in ('hearth', 'harbor', 'shackle', 'freighter', 'gateway', 'hangar', 'kestrel', 'mule', 'lance') else 1024
     sf.bake_asset(meshes, kind, keep=KEEP, **pz.bake_options(a, size))
     for i, p in enumerate(nozzles):
         pz.empty(f'nozzle_{i}', tuple(p))

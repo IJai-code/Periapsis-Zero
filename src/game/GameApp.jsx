@@ -41,8 +41,10 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   const markers = useRef(null)
   const seen = useRef(0)
 
-  const begin = useCallback((save) => {
+  const begin = useCallback((save, intro = false) => {
     game.current = startGame(save)
+    // A new pilot boards their ship before anything else happens.
+    if (intro) game.current.cine = { kind: 'board', t: 0 }
     // For the browser checks in scripts/: the running game, in development only.
     if (import.meta.env.DEV) {
       window.__game = game.current
@@ -72,14 +74,18 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       const g = game.current
       if (!g) return
       if (what === 'unlocked') { if (g.mode === 'flight' && !overlayRef.current) setOverlay('pause'); return }
-      if (what === 'pause') { setOverlay((o) => (o ? null : 'pause')); return }
+      if (what === 'pause') { if (g.cine) { g.cine = null; return } setOverlay((o) => (o ? null : 'pause')); return }
       if (what === 'map') { if (g.mode === 'flight' || g.mode === 'docked') { document.exitPointerLock?.(); setOverlay((o) => (o === 'map' ? null : 'map')) } return }
       if (what === 'log') { document.exitPointerLock?.(); setOverlay((o) => (o === 'log' ? null : 'log')); return }
       if (what === 'help') { document.exitPointerLock?.(); setOverlay('help'); return }
       if (what === 'respawn' && g.mode === 'dead') respawn(g)
     }
     const canvas = c.canvas ?? document.querySelector('canvas')
-    return bindDesktop(c, canvas ?? document.body, onUi)
+    // Space skips a cutscene.
+    const skip = (e) => { if (e.code === 'Space' && game.current?.cine) { game.current.cine = null; e.preventDefault() } }
+    window.addEventListener('keydown', skip)
+    const unbind = bindDesktop(c, canvas ?? document.body, onUi)
+    return () => { window.removeEventListener('keydown', skip); unbind() }
   }, [phase, touch])
 
   // Ten times a second: re-render the interface, play sounds for new events, save now and then.
@@ -124,7 +130,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
     }
   }, [])
 
-  if (phase === 'new') return <NewPilot onBegin={(name) => { deleteSave(); begin(newSave(name)) }} onExit={onExit} />
+  if (phase === 'new') return <NewPilot onBegin={(name, suit) => { deleteSave(); begin(newSave(name, suit), true) }} onExit={onExit} />
   const g = game.current
   if (!g) return <div className="gm-loading">Loading</div>
 
@@ -139,7 +145,8 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
     {g.mode !== 'surface' && <>
       <div className="gm-markers" ref={markers} />
       {g.mode !== 'docked' && <Hud game={g} touch={touch} controls={controls.current} onOverlay={setOverlay} />}
-      {g.mode === 'docked' && !overlay && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click') }} onOverlay={setOverlay} />}
+      {g.cine && <button className="gm-skip" onClick={() => { g.cine = null; play('click') }}>Skip{!touch && <kbd className="gk">Space</kbd>}</button>}
+      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click') }} onOverlay={setOverlay} />}
       <Comms game={g} />
       <Banners game={g} touch={touch} onRespawn={() => respawn(g)} />
       {touch && g.mode === 'flight' && !overlay && <Touch controls={controls.current} game={g} onOverlay={setOverlay} />}
@@ -161,7 +168,7 @@ function sound(g, ev) {
     case 'hit': if (ev.player) play(ev.shield ? 'hit-shield' : 'hit-hull', 1); else if (ev.byPlayer) play('hit-shield', 0.35); break
     case 'explode': play('explode', ev.player ? 1 : near(ev.x, ev.y, ev.z) + 0.15); break
     case 'bump': if (ev.player) play('bump', 1); break
-    case 'pickup': case 'paid': case 'target': case 'denied': case 'dock-start': case 'dock': case 'launch': case 'burn': case 'flip': case 'arrive': case 'mission-complete': case 'mission-failed': play(ev.type); break
+    case 'roll': case 'pickup': case 'paid': case 'target': case 'denied': case 'dock-start': case 'dock': case 'launch': case 'burn': case 'flip': case 'arrive': case 'mission-complete': case 'mission-failed': play(ev.type); break
     case 'comms': play('comms'); break
     case 'heat': if (ev.level > 0 && ev.why !== 'cooling') play('heat'); break
     case 'objective-done': play('objective'); break

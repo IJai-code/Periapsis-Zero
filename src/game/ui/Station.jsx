@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { acceptJob, abandonJob, buyHull, buyUpgrade, cargoUsed, offers, payDebt, refuel, refuelCost, repair, repairCost, trade } from '../core/game.js'
+import { acceptJob, abandonJob, autosave, buyHull, buyUpgrade, cargoUsed, offers, payDebt, refuel, refuelCost, repair, repairCost, trade } from '../core/game.js'
 import { STATIONS, PLACES } from '../core/world.js'
 import { GOODS, GOOD_ORDER, buyPrice, sellPrice } from '../core/economy.js'
 import { HULLS, PLAYER_HULLS, UPGRADES } from '../core/ships.js'
-import { CHARACTERS, chooseStory, mission, startStory, storyOffers, storyNext } from '../core/story.js'
+import { CHARACTERS, STORY, chooseStory, mission, startStory, storyOffers, storyNext } from '../core/story.js'
+import { LICENCES, SUITS, claimLicences, earnedLicences, suitUnlocked } from '../core/pilot.js'
+import { SuitArt } from './NewPilot.jsx'
 import { fine } from '../core/heat.js'
 import { Hint } from './keys.jsx'
 import { clock } from './Hud.jsx'
@@ -45,7 +47,7 @@ export function Station({ game: g, touch, onLaunch, onOverlay }) {
       {tab === 'shipyard' && <Shipyard g={g} act={act} />}
       {tab === 'outfit' && <Outfit g={g} act={act} />}
       {tab === 'services' && <Services g={g} st={st} act={act} />}
-      {tab === 'pilot' && <Pilot g={g} />}
+      {tab === 'pilot' && <Pilot g={g} act={act} />}
     </section>
     <div className="st-launch">
       <ShipCard g={g} />
@@ -187,15 +189,37 @@ function Services({ g, st, act }) {
   </div>
 }
 
-function Pilot({ g }) {
+function Pilot({ g, act }) {
   const s = g.stats
+  const earned = earnedLicences()
+  const held = g.pilot.licences ?? []
+  const unclaimed = LICENCES.filter((l) => earned.has(l.id) && !held.includes(l.id))
   return <div className="st-pilot">
     <h2>{g.pilot.name}</h2>
     <dl>
       <div><dt>Earned</dt><dd>₡ {s.earned.toLocaleString()}</dd></div><div><dt>Jobs done</dt><dd>{s.jobs}</dd></div>
       <div><dt>Transfers flown</dt><dd>{s.trips}</dd></div><div><dt>Kills</dt><dd>{s.kills}</dd></div>
-      <div><dt>Ships lost</dt><dd>{s.deaths}</dd></div><div><dt>Story</dt><dd>{g.story.done.length} of 8 missions</dd></div>
+      <div><dt>Ships lost</dt><dd>{s.deaths}</dd></div><div><dt>Story</dt><dd>{g.story.done.length} of {STORY.length} missions</dd></div>
     </dl>
+    <h3>Licences, earned in the Simulator</h3>
+    <div className="st-licences">
+      {LICENCES.map((l) => <div key={l.id} className={`st-licence ${earned.has(l.id) ? 'on' : ''}`}>
+        <strong>{l.name}</strong>
+        <span>{earned.has(l.id) ? (held.includes(l.id) ? `Held. Bonus ₡ ${l.bonus.toLocaleString()} paid.` : `Earned. ₡ ${l.bonus.toLocaleString()} to claim.`) : l.earn}</span>
+      </div>)}
+    </div>
+    {unclaimed.length > 0 ? <button className="st-primary" onClick={() => act(() => { const got = claimLicences(g); return got.length ? null : 'Nothing to claim.' })}>Claim ₡ {unclaimed.reduce((n, l) => n + l.bonus, 0).toLocaleString()} in licence bonuses</button>
+      : <a className="st-ghost st-simlink" href="#simulator" target="_blank" rel="noreferrer">Open the Simulator to earn licences</a>}
+    <h3>Suit</h3>
+    <div className="suit-grid">
+      {SUITS.map((u) => {
+        const open = suitUnlocked(u, earned)
+        return <button key={u.id} className={`np-suit ${g.pilot.suit === u.id || (!g.pilot.suit && u.id === 'hearth') ? 'on' : ''} ${open ? '' : 'locked'}`} disabled={!open}
+          onClick={() => act(() => { g.pilot.suit = u.id; g.cine = { kind: 'board', t: 0 }; autosave(g); return null })} title={open ? u.note : LICENCES.find((l) => l.id === u.licence)?.earn}>
+          <SuitArt suit={u} size={64} /><strong>{u.name}</strong>
+        </button>
+      })}
+    </div>
   </div>
 }
 

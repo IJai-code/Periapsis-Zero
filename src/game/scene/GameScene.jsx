@@ -2,13 +2,15 @@ import { Suspense, useEffect, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
-import { STEP, stepGame } from '../core/game.js'
 import { STATIONS, SUN_DIR } from '../core/world.js'
+import { BARREL } from '../core/flight.js'
+import { STEP, stepGame, BERTH, DOCK_T, LAUNCH_T, berthQuat } from '../core/game.js'
 import { resolveInput } from '../ui/controls.js'
 import { Sky } from './Sky.jsx'
 import { Ships } from './Ships.jsx'
 import { Props } from './Props.jsx'
 import { Fx } from './Fx.jsx'
+import { BOARD_DUR, BOARD_T, boardPose } from './Boarding.jsx'
 
 /**
  * The game's 3D view: the fixed-step loop, the camera, the light, and the
@@ -40,7 +42,7 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
   </Canvas>
 }
 
-const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _up = new THREE.Vector3(), _f = new THREE.Vector3(), _q = new THREE.Quaternion()
+const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _up = new THREE.Vector3(), _f = new THREE.Vector3(), _q = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _z = new THREE.Vector3(0, 0, 1), _bay = new THREE.Vector3(), _qbay = new THREE.Quaternion(), _pose = { pos: new THREE.Vector3() }
 
 function Loop({ game, controls, paused, onFrame }) {
   const { camera, gl } = useThree()
@@ -71,6 +73,30 @@ function placeCamera(g, c, cam, rig, dt, t) {
   const p = g.player
   const r = p.radius
   const k = 1 - Math.exp(-dt * 6)
+  if (g.mode === 'docked' && g.cine?.kind === 'board') {
+    // Boarding: the camera walks with the pilot, rises with the lift, and
+    // watches them climb in; then hands back to the berth shot.
+    g.cine.t += dt
+    const c = g.cine
+    const T = BOARD_T, inT = T.walk + T.turn + T.lift + T.climb
+    const st = STATIONS[g.docked]
+    _bay.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
+    berthQuat(g, st, _qbay)
+    boardPose(g.ship.hull, Math.min(c.t, inT - 0.01), _pose)
+    const lx = _pose.pos.x, ly = _pose.pos.y, lz = _pose.pos.z
+    if (c.t < T.walk) _v.set(lx + 4.2, ly + 2.4, lz + 6.5)
+    else if (c.t < inT) _v.set(lx + 5.5, ly + 1.8, lz + 4.5)
+    else _v.set(9, 6, 9)
+    _v.applyQuaternion(_qbay).add(_bay)
+    cam.position.lerp(_v, rig.boardInit ? 1 - Math.exp(-dt * (c.t < inT ? 2.5 : 1.2)) : 1)
+    rig.boardInit = true
+    cam.up.set(0, 1, 0).applyQuaternion(_qbay)
+    _t.set(lx, ly + 1.4, lz)
+    if (c.t >= inT) _t.set(0, 0, 0)
+    cam.lookAt(_t.applyQuaternion(_qbay).add(_bay))
+    if (c.t >= BOARD_DUR) { g.cine = null; rig.boardInit = false; rig.glide = 0; rig.mode = 'docked' }
+    return
+  }
   if (g.mode === 'docked' || g.mode === 'surface') {
     // In the bay: behind and beside the ship, looking past it to the open
     // door and the sky, swinging slowly so the lamps move over the hull.
@@ -79,7 +105,7 @@ function placeCamera(g, c, cam, rig, dt, t) {
     const az = 0.62 + Math.sin(rig.orbit) * 0.42
     const d = Math.min(r * 3.1, 30)
     _v.set(Math.sin(az) * d, r * 0.5 + 3.5, Math.cos(az) * d).applyQuaternion(p.q).add(p.pos)
-    if (rig.mode !== 'docked' && g.mode === 'docked') {
+    if (rig.mode !== 'docked' && rig.mode !== 'docking' && g.mode === 'docked') {
       // Just docked: start at the bay door, looking in, and glide to the berth.
       cam.position.set(-6, 9, -40).applyQuaternion(p.q).add(p.pos)
       rig.glide = 0
@@ -98,13 +124,40 @@ function placeCamera(g, c, cam, rig, dt, t) {
   }
   rig.mode = g.mode
   if (g.mode === 'docking' || g.mode === 'launch') {
+    // Shots in the bay's frame (art/game-hangar): -z is out of the door.
     const st = STATIONS[g.anim?.st] ?? STATIONS[g.home]
-    _v.copy(st.port.at).addScaledVector(st.port.axis, 260).add(_t.set(120, 70, 0))
-    cam.position.lerp(_v, k)
-    cam.up.set(0, 1, 0)
-    cam.lookAt(p.pos)
+    _bay.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
+    berthQuat(g, st, _qbay)
+    const t = g.anim?.t ?? 0
+    const at = (x, y, z) => _v.set(x, y, z).applyQuaternion(_qbay).add(_bay)
+    cam.up.set(0, 1, 0).applyQuaternion(_qbay)
+    if (g.mode === 'docking') {
+      if (t < DOCK_T.approach) {
+        // Outside: off the door's shoulder, watching the ship come in.
+        cam.position.lerp(at(80, 30, -240), rig.shot === 'dock-out' ? k : 1)
+        rig.shot = 'dock-out'
+      } else {
+        // The cut: inside, high in the back corner, the door ahead.
+        cam.position.lerp(at(-22, 10, 30), rig.shot === 'dock-in' ? k * 0.3 : 1)
+        rig.shot = 'dock-in'
+      }
+      cam.lookAt(p.pos)
+    } else {
+      if (t < LAUNCH_T.lift) {
+        cam.position.lerp(at(16, 5, 26), rig.shot === 'lift' ? k * 0.4 : 1)
+        rig.shot = 'lift'
+        cam.lookAt(p.pos)
+      } else {
+        // The chase out of the door: behind and above, the camera lagging as she gathers speed.
+        _t.set(5, 7, 32).applyQuaternion(_qbay).add(p.pos)
+        cam.position.lerp(_t, rig.shot === 'out' ? 1 - Math.exp(-dt * 3) : 1 - Math.exp(-dt * 1.5))
+        rig.shot = 'out'
+        cam.lookAt(_t.set(0, 0, -80).applyQuaternion(_qbay).add(p.pos))
+      }
+    }
     return
   }
+  rig.shot = null
   if (g.mode === 'transfer' || g.mode === 'align') {
     // The drive: a slow swing round the ship, so the burn and the flip are seen.
     rig.orbit += dt * 0.12
@@ -123,7 +176,8 @@ function placeCamera(g, c, cam, rig, dt, t) {
   if (c.aiming) {
     // The up vector follows the ship's, slowly, so rolling tilts the world.
     _up.set(0, 1, 0).applyQuaternion(p.q)
-    rig.up.lerp(_up, 1 - Math.exp(-dt * 2)).normalize()
+    // Through a barrel roll the camera holds the horizon and the ship spins in it.
+    if (!p.barrel) rig.up.lerp(_up, 1 - Math.exp(-dt * 2)).normalize()
     _v.copy(p.pos).addScaledVector(c.aimDir, -dist).addScaledVector(rig.up, height)
     cam.position.lerp(_v, 1 - Math.exp(-dt * 14))
     cam.up.copy(rig.up)
@@ -131,10 +185,12 @@ function placeCamera(g, c, cam, rig, dt, t) {
     cam.lookAt(_t)
   } else {
     _q.copy(p.q)
+    // Take the barrel roll back out, so the camera stays put while the ship turns over.
+    if (p.barrel) { const s = Math.min(1, p.barrel.t / BARREL.dur); _q.multiply(_qr.setFromAxisAngle(_z, -p.barrel.dir * Math.PI * 2 * s * s * (3 - 2 * s))) }
     _v.set(0, height, dist).applyQuaternion(_q).add(p.pos)
     cam.position.lerp(_v, 1 - Math.exp(-dt * 10))
     _up.set(0, 1, 0).applyQuaternion(_q)
-    rig.up.lerp(_up, 1 - Math.exp(-dt * 6)).normalize()
+    if (!p.barrel) rig.up.lerp(_up, 1 - Math.exp(-dt * 6)).normalize()
     cam.up.copy(rig.up)
     _t.set(0, 0, -600).applyQuaternion(_q).add(p.pos)
     cam.lookAt(_t)

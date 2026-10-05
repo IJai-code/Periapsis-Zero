@@ -31,6 +31,8 @@ export function Touch({ controls: c, game: g, onOverlay }) {
       <div className="tc-buttons">
         <button className="tc-fire" {...hold('fire')}>Fire</button>
         <button className="tc-boost" {...hold('boost')}>Boost</button>
+        <button className="tc-roll" {...tap('roll-left')} aria-label="Barrel roll left">⟲ Roll</button>
+        <button className="tc-roll" {...tap('roll-right')} aria-label="Barrel roll right">Roll ⟳</button>
         <button {...tap('target')}>Target</button>
         <button {...tap('stop')}>Stop</button>
         {prompt && !prompt.blocked && <button className="tc-action" {...tap(prompt.action === 'transfer' ? 'transfer' : 'dock')}>{prompt.text}</button>}

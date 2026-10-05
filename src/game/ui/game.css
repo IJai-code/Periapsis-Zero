@@ -362,3 +362,30 @@
 @media (prefers-reduced-motion: reduce) {
   .st-root, .st-root *, .map-root, .map-root *, .gm-log, .gm-log *, .gm-pause, .gm-pause *, .gm-banner, .gm-comms, .hud-prompt, .hud-toasts p { animation: none !important; transition: none !important; }
 }
+
+/* The suit locker (new pilot, and the Pilot tab). */
+.np-card { animation: settle .45s cubic-bezier(.2,.8,.2,1) both; }
+.np-suits { width: min(760px, 94vw); max-height: 92vh; overflow-y: auto; }
+.np-sub, .np-licence { margin: 0 0 14px; font-size: 14px; line-height: 1.55; color: #f4e8cfb3; }
+.np-licence a { color: #2fd3ff; }
+.np-grid, .suit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.np-suit { display: grid; justify-items: center; gap: 4px; padding: 12px 8px 10px; border: 1px solid #f4e8cf1f; border-radius: 8px; background: #05030b99; color: #f4e8cf; text-align: center; transition: border-color .18s ease, transform .18s cubic-bezier(.2,.8,.2,1), background-color .18s ease; animation: settle .4s cubic-bezier(.2,.8,.2,1) both; }
+.np-suit:nth-child(2) { animation-delay: .03s; } .np-suit:nth-child(3) { animation-delay: .06s; } .np-suit:nth-child(4) { animation-delay: .09s; }
+.np-suit:nth-child(n+5) { animation-delay: .12s; }
+.np-suit:hover:not(:disabled) { transform: translateY(-3px); border-color: #f4e8cf55; }
+.np-suit.on { border-color: #ff6b2c; background: #ff6b2c1a; box-shadow: 0 0 0 1px #ff6b2c inset, 0 8px 28px #ff6b2c33; }
+.np-suit strong { font-size: 14px; }
+.np-suit small { font-size: 11px; line-height: 1.35; color: #f4e8cf99; }
+.np-suit.locked { cursor: not-allowed; }
+.np-suit.locked .suit-art { filter: grayscale(1) brightness(.45); }
+.np-suit.locked small { color: #2fd3ffcc; }
+.suit-art { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.np-suit.on .suit-art { transform: scale(1.08); }
+.gm-skip { position: absolute; right: 22px; bottom: 22px; z-index: 12; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid #f4e8cf40; border-radius: 6px; background: #120b22cc; color: #f4e8cf; font: 600 14px var(--font-sans); animation: fadein .6s 1s ease both; }
+.gm-skip:hover { border-color: #f4e8cf88; }
+.st-licences { display: grid; gap: 6px; margin-bottom: 10px; }
+.st-licence { display: grid; grid-template-columns: 120px 1fr; gap: 10px; padding: 9px 12px; border: 1px solid #f4e8cf1a; border-radius: 6px; background: #120b22cc; font-size: 13px; color: #f4e8cf99; }
+.st-licence strong { color: #f4e8cf80; }
+.st-licence.on { border-color: #2fd3ff55; } .st-licence.on strong { color: #2fd3ff; }
+.st-simlink { display: inline-block; text-decoration: none; color: #2fd3ff; }
+.st-pilot .suit-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }

@@ -5,18 +5,18 @@
     "min": [
       -11,
       -11,
-      -11
+      -12
     ],
     "max": [
       11,
       11,
-      11
+      12
     ]
   },
   "boundsMode": "within",
   "budget": {
-    "triangles": 40000,
-    "bytes": 1800000
+    "triangles": 90000,
+    "bytes": 4200000
   },
   "requiredEmpties": [
     "nozzle_0"

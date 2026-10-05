@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { steerToward, clamp } from './flight.js'
+import { steerToward, clamp, barrelRoll } from './flight.js'
 import { fire, leadPoint } from './combat.js'
 
 /**
@@ -77,6 +77,8 @@ function attack(g, e, dt) {
   const d = _to.length()
   // Running: shield gone and the hull failing.
   if (e.shield <= 0 && e.hull < e.stats.hull * 0.3 && ai.brave !== true && Math.random() < dt * 0.3) { ai.mode = 'flee'; ai.fleeFrom = t.id; ai.fleeUntil = ai.t + 8; return }
+  // Under fire, a good pilot rolls out of the line, as you can.
+  if (g.time - e.hitAt < 0.4 && Math.random() < dt * (ai.skill ?? 0.5)) barrelRoll(e, Math.random() < 0.5 ? 1 : -1, g.time)
   if (ai.breakUntil && ai.t < ai.breakUntil) {
     // Extend: away and past, then come round.
     c.throttle = 1; c.boost = d < 600

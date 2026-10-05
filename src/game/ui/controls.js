@@ -17,6 +17,7 @@ export const KEYS = {
 }
 /** One-shot keys: game actions go to the core, the rest to the interface. */
 const ACTIONS = { KeyZ: 'fa', KeyX: 'stop', KeyF: 'dock', KeyT: 'target', KeyJ: 'transfer', KeyL: 'launch', Enter: 'launch' }
+const ROLL_TAP = { KeyA: 'roll-left', KeyQ: 'roll-left', KeyD: 'roll-right', KeyE: 'roll-right' }
 const UI = { KeyM: 'map', Tab: 'log', KeyH: 'help', Escape: 'pause', KeyP: 'pause', KeyR: 'respawn' }
 
 export function createControls() {
@@ -38,6 +39,9 @@ export function bindDesktop(c, canvas, onUi) {
     if (UI[e.code]) { if (e.code === 'Tab') e.preventDefault(); onUi(UI[e.code], e); return }
     if (e.repeat) { c.keys.add(e.code); return }
     c.keys.add(e.code)
+    // A double tap of a strafe or roll key is a barrel roll that way.
+    const roll = ROLL_TAP[e.code]
+    if (roll) { const now = performance.now(); if (c.lastTap?.code === e.code && now - c.lastTap.at < 280) { c.actions.push(roll); c.lastTap = null } else c.lastTap = { code: e.code, at: now } }
     if (ACTIONS[e.code]) c.actions.push(ACTIONS[e.code])
     if (e.code === 'Space') e.preventDefault()
   }
