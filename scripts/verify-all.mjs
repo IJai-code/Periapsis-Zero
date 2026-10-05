@@ -169,6 +169,7 @@ const GATES = [
   ['verify-programs', false],
   ['verify-audio', false],
   ['verify-expeditions', false],
+  ['verify-game', false],
   ['verify-pilot', false],
   ['verify-art', false],
   ['verify-preset-clock', false],

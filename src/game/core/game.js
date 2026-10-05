@@ -30,7 +30,7 @@ export function newSave(name) {
   return {
     version: 1, pilot: { name: String(name || 'Pilot').slice(0, 24) },
     credits: 2500, debt: 40000,
-    ship: { hull: 'kestrel', up: {}, hp: 1, prop: HULLS.kestrel.tank * 0.7, cargo: {} },
+    ship: { hull: 'kestrel', up: {}, hp: 1, prop: HULLS.kestrel.tank, cargo: {} },
     home: 'hearth', time: 0, heat: 0,
     story: { active: 'arrival', step: 0, done: [], choice: null, offered: [] },
     jobs: [], flags: {},
@@ -71,7 +71,7 @@ export function saveData(g) {
   }
 }
 export function validSave(s) {
-  return s && s.version === 1 && typeof s.pilot?.name === 'string' && Number.isFinite(s.credits) && HULLS[s.ship?.hull] && STATIONS[s.home] && Number.isFinite(s.time)
+  return Boolean(s && s.version === 1 && typeof s.pilot?.name === 'string' && Number.isFinite(s.credits) && HULLS[s.ship?.hull] && STATIONS[s.home] && Number.isFinite(s.time))
 }
 
 /* ------------------------------------------------------------------ *
@@ -96,7 +96,7 @@ export function loadPlace(g, id, deep = null) {
   g.race = null
   g.traffic = { next: 2 }
   // The patrol: how much law each place has.
-  const patrol = { hearth: 1, harbor: 2, gateway: 3, shackleton: 1, drift: 0 }[id] ?? 0
+  const patrol = { hearth: 1, harbor: 2, gateway: 2, shackleton: 1, drift: 0 }[id] ?? 0
   for (let i = 0; i < patrol; i++) {
     const st = g.stations[0]
     const e = makeShip('cutter', 'compact', shipStats('cutter'), (st?.at ?? new THREE.Vector3()).clone().add(new THREE.Vector3(Math.cos(i * 2.1) * 2600, 200 * i, Math.sin(i * 2.1) * 2600)))
@@ -380,6 +380,7 @@ function stepAnim(g, dt) {
       g.mode = 'docked'; g.docked = a.st; g.home = a.st; g.anim = null
       parkAtPort(g, a.st)
       g.emit({ type: 'dock', station: a.st })
+      storyTick(g)
       autosave(g)
     }
   } else {
@@ -603,8 +604,9 @@ function onKill(g, e, byId, byTeam) {
   e.diedAt = g.time
   if (byTeam !== 'player') return
   g.stats.kills++
-  if (e.team === 'compact') addHeat(g, Math.min(5, g.heat.level + 1), 'murder')
-  if (e.team === 'civil') addHeat(g, Math.max(2, g.heat.level + 1), 'murder')
+  // Every two patrol ships destroyed is another chevron, from two: a rampage reaches five.
+  if (e.team === 'compact') { g.heat.kills = (g.heat.kills ?? 0) + 1; addHeat(g, Math.min(5, 2 + Math.floor(g.heat.kills / 2)), 'murder') }
+  if (e.team === 'civil') { g.heat.kills = (g.heat.kills ?? 0) + 1; addHeat(g, Math.min(5, 2 + Math.floor(g.heat.kills / 2)), 'murder') }
   if (e.team === 'hollow') {
     const bounty = e.stats.bounty ?? 0
     // Bounties are paid on proof at a lawful station; loose ones are credited now.

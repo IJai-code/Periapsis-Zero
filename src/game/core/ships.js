@@ -32,11 +32,11 @@ export const PLAYER_HULLS = ['kestrel', 'mule', 'lance']
 
 /** Everyone else in the sky. */
 export const NPC_HULLS = {
-  raider: { id: 'raider', name: 'Hollow raider', radius: 7, accel: 26, lateral: 14, maxSpeed: 250, boost: 1.7, rates: [1.7, 1.4, 2.6], shield: 50, hull: 70, guns: 1, bounty: 1800 },
-  warden: { id: 'warden', name: 'The Warden', radius: 14, accel: 22, lateral: 12, maxSpeed: 270, boost: 1.8, rates: [1.3, 1.1, 2.0], shield: 420, hull: 520, guns: 3, bounty: 25000 },
-  cutter: { id: 'cutter', name: 'Compact cutter', radius: 11, accel: 26, lateral: 14, maxSpeed: 245, boost: 1.6, rates: [1.6, 1.3, 2.4], shield: 160, hull: 220, guns: 2 },
+  raider: { id: 'raider', name: 'Hollow raider', radius: 7, accel: 26, lateral: 14, maxSpeed: 250, boost: 1.7, rates: [1.7, 1.4, 2.6], shield: 50, hull: 70, guns: 1, bounty: 1800, gunScale: 0.75 },
+  warden: { id: 'warden', name: 'The Warden', radius: 14, accel: 22, lateral: 12, maxSpeed: 270, boost: 1.8, rates: [1.3, 1.1, 2.0], shield: 420, hull: 520, guns: 3, bounty: 25000, gunScale: 0.6 },
+  cutter: { id: 'cutter', name: 'Compact cutter', radius: 11, accel: 24, lateral: 13, maxSpeed: 200, boost: 1.5, rates: [1.6, 1.3, 2.4], shield: 160, hull: 220, guns: 2 },
   freighter: { id: 'freighter', name: 'Freighter', radius: 42, accel: 4, lateral: 2, maxSpeed: 90, boost: 1, rates: [0.25, 0.2, 0.3], shield: 400, hull: 1600, guns: 0 },
-  wing: { id: 'wing', name: 'Compact wingman', radius: 11, accel: 28, lateral: 15, maxSpeed: 290, boost: 1.8, rates: [1.6, 1.3, 2.4], shield: 200, hull: 260, guns: 2 },
+  wing: { id: 'wing', name: 'Compact wingman', radius: 11, accel: 28, lateral: 15, maxSpeed: 290, boost: 1.8, rates: [1.6, 1.3, 2.4], shield: 200, hull: 260, guns: 2, gunScale: 0.5 },
 }
 
 /** The pulse laser: a visible bolt, not a hitscan beam, so it can be dodged. */
@@ -60,7 +60,7 @@ export function shipStats(hullId, up = {}) {
     accel: h.accel * e, lateral: h.lateral * e, maxSpeed: h.maxSpeed * e,
     shield: h.shield * sh, recharge: 0.06 * sh, hull: h.hull * ar,
     // Other pilots' guns are softer than yours: a fight should be lost to skill, not arithmetic.
-    fireRate: LASER.rate * gn * (HULLS[hullId] ? 1 : 0.7), damage: LASER.damage * gn * (HULLS[hullId] ? 1 : 0.55),
+    fireRate: LASER.rate * gn * (HULLS[hullId] ? 1 : 0.6), damage: LASER.damage * gn * (HULLS[hullId] ? 1 : h.gunScale ?? 0.42),
     scanMiss: 0.3 * (up.jammer ?? 0),
   }
 }

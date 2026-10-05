@@ -21,7 +21,9 @@ import { STATIONS } from './world.js'
 export const SIGHT = 6000
 export const COLD_SIGHT = 1800
 export const INHIBIT = 8000
-const COUNT = [0, 1, 2, 3, 4, 6]
+const COUNT = [0, 1, 1, 2, 3, 5]
+/** How many patrol ships press an attack at once, by heat: the rest hang back and search. */
+const ATTACKERS = [0, 0, 1, 2, 3, 5]
 
 export function addHeat(g, level, why) {
   const h = g.heat
@@ -35,7 +37,7 @@ export function addHeat(g, level, why) {
   }
 }
 export function clearHeat(g) {
-  g.heat.level = 0; g.heat.hail = null
+  g.heat.level = 0; g.heat.hail = null; g.heat.kills = 0
   for (const e of g.ships) if (e.team === 'compact' && e.ai && e.ai.pursuer) { e.ai.mode = 'route'; e.ai.points = [e.pos.clone().add(new THREE.Vector3(0, 0, -20000).applyQuaternion(e.q))]; e.ai.leg = 0; e.ai.onEnd = 'despawn'; e.ai.speed = 1 }
 }
 
@@ -55,15 +57,17 @@ export function stepHeat(g, dt) {
   if (p.thrust > 0.06 || p.boosting || p.ctrl.fire) h.hotAt = g.time
   h.cold = g.time - (h.hotAt ?? 0) > 3
   const sight = h.cold ? COLD_SIGHT : SIGHT
-  let seen = false
-  for (const e of g.ships) {
-    if (!e.alive || e.team !== 'compact') continue
+  let seen = false, attackers = 0
+  // Nearest first, so the ships pressing the attack are the ones closest to you.
+  const patrol = g.ships.filter((e) => e.alive && e.team === 'compact').sort((a, b) => a.pos.distanceToSquared(p.pos) - b.pos.distanceToSquared(p.pos))
+  for (const e of patrol) {
     const sees = e.pos.distanceTo(p.pos) < sight
     if (sees) seen = true
     if (h.level >= 2 && e.ai && !e.ai.passive) {
-      // Hunting: those who see you attack, those who do not search where you were.
-      if (sees) { e.ai.mode = 'attack'; e.ai.target = p.id }
-      else if (e.ai.mode === 'attack' && e.ai.target === p.id) { e.ai.mode = 'search'; e.ai.goal = (h.lastKnown ?? p.pos).clone() }
+      // Hunting: some of those who see you attack; the rest, and those who
+      // do not see you, search where you were last seen.
+      if (sees && attackers < ATTACKERS[h.level]) { attackers++; e.ai.mode = 'attack'; e.ai.target = p.id }
+      else if (e.ai.mode === 'attack' && e.ai.target === p.id || (sees && e.ai.mode !== 'search')) { e.ai.mode = 'search'; e.ai.goal = (h.lastKnown ?? p.pos).clone() }
     }
   }
   if (seen && h.level > 0) { h.lastSeen = g.time; h.lastKnown = (h.lastKnown ?? p.pos.clone()).copy(p.pos) }
@@ -75,7 +79,8 @@ export function stepHeat(g, dt) {
     if (h.level === 0) clearHeat(g)
   }
   // Reinforcements while hot, arriving from far out, a few seconds apart.
-  if (h.level >= 1 && !g.story.noPatrol) {
+  // A jammed distress call (a story beat) holds the reinforcements back for a while.
+  if (h.level >= 1 && !g.story.noPatrol && !(g.story.jamUntil > g.time)) {
     h.spawnIn = (h.spawnIn ?? 0) - dt
     const pursuers = g.ships.filter((e) => e.alive && e.team === 'compact' && e.ai?.pursuer).length
     if (pursuers < COUNT[h.level] && h.spawnIn <= 0) {
@@ -109,8 +114,9 @@ export function fine(g) {
 
 export function spawnCutter(g, mode) {
   const p = g.player
-  // From behind the player and well out, or from the nearest Compact station.
-  const dir = new THREE.Vector3(Math.random() - 0.5, (Math.random() - 0.5) * 0.4, Math.random() - 0.5).normalize()
+  // From behind you: where you have come from, which is where they would be coming from.
+  const back = p.vel.lengthSq() > 100 ? p.vel.clone().normalize().negate() : new THREE.Vector3(0, 0, 1).applyQuaternion(p.q)
+  const dir = back.add(new THREE.Vector3(Math.random() - 0.5, (Math.random() - 0.5) * 0.4, Math.random() - 0.5).multiplyScalar(0.8)).normalize()
   const at = p.pos.clone().addScaledVector(dir, 5000 + Math.random() * 2500)
   const e = makeShip('cutter', 'compact', shipStats('cutter'), at)
   e.label = 'Compact cutter'

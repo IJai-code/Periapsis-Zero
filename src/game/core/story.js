@@ -49,6 +49,8 @@ function canisters(g, n, center, tag, spread = 1500) {
 }
 const nearestCan = (g, tag) => g.canisters.find((c) => !c.taken && c.tag === tag)?.at ?? null
 const kills = (g, tag) => g.story.s.kills?.[tag] ?? 0
+/** The jamming countdown, while it lasts. */
+const jam = (g) => { const left = (g.story.jamUntil ?? 0) - g.time; return left > 0 ? ` · jammed ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}` : '' }
 
 export const STORY = [
   {
@@ -110,7 +112,8 @@ export const STORY = [
       { text: 'Transfer to Gateway with the crates', place: 'gateway', done: (g) => g.place === 'gateway' },
       {
         text: 'Fly to the dead drop behind Gateway', place: 'gateway', at: () => V(4200, -900, -3000),
-        enter: (g) => { const e = spawn(g, 'cutter', 'compact', g.player.pos.clone().add(V(-900, 200, -1400)), 'm:scanner', { mode: 'follow', lead: g.player.id, slot: 1, home: 'patrol', skill: 0.6 }, 'Compact cutter'); e.sure = true },
+        // A cutter is sitting on the drop. It scans whoever comes close.
+        enter: (g) => { if (alive(g, 'm:scanner').length) return; const e = spawn(g, 'cutter', 'compact', V(4700, -700, -2400), 'm:scanner', { mode: 'patrol', center: V(4500, -800, -2700), radius: 500, home: 'patrol', skill: 0.55 }, 'Compact cutter'); e.sure = true },
         done: (g) => dist(g, V(4200, -900, -3000)) < 80,
         finish: (g) => { g.ship.cargo.chips = Math.max(0, (g.ship.cargo.chips ?? 0) - 2); if (!g.ship.cargo.chips) delete g.ship.cargo.chips; g.say('rook', 'Drop made. Now get yourself out of there.') },
       },
@@ -175,8 +178,9 @@ export const STORY = [
     steps: [
       { text: 'Transfer to Hearth', place: 'hearth', done: (g) => g.place === 'hearth' },
       {
-        text: (g) => `Destroy the convoy\'s escort (${kills(g, 'm:escort')} of 2)`, place: 'hearth',
+        text: (g) => `Destroy the convoy\'s escort (${kills(g, 'm:escort')} of 2)${jam(g)}`, place: 'hearth',
         enter: (g) => {
+          if (!g.story.jamUntil) { g.story.jamUntil = g.time + 90; g.say('rook', 'I have jammed their distress call. You have ninety seconds before Hearth\'s patrol hears a thing.') }
           if (!g.story.s.barge) {
             const b = spawn(g, 'freighter', 'compact', V(-2500, 300, 6000), 'm:barge', { mode: 'route', points: [V(-9000, 2000, 24000)], leg: 0, onEnd: 'hold', speed: 0.35, passive: true }, 'Compact supply barge')
             g.story.s.barge = b.id
@@ -186,11 +190,11 @@ export const STORY = [
         ship: (g) => alive(g, 'm:escort')[0]?.id, done: (g) => kills(g, 'm:escort') >= 2,
       },
       {
-        text: 'Disable the barge: bring its hull under half', place: 'hearth', ship: (g) => g.story.s.barge,
+        text: (g) => `Disable the barge: bring its hull under half${jam(g)}`, place: 'hearth', ship: (g) => g.story.s.barge,
         done: (g) => { const b = g.byId(g.story.s.barge); return !b || b.hull < b.stats.hull * 0.5 },
         finish: (g) => { const b = g.byId(g.story.s.barge); if (b) { b.ai.mode = 'hold'; canisters(g, 3, b.pos.clone(), 'm:convoy', 300) } else canisters(g, 3, g.player.pos.clone().add(V(0, 0, -600)), 'm:convoy', 300) },
       },
-      { text: (g) => `Scoop the cargo (${g.story.s.got ?? 0} of 3)`, place: 'hearth', at: (g) => nearestCan(g, 'm:convoy'), done: (g) => (g.story.s.got ?? 0) >= 3 },
+      { text: (g) => `Scoop the cargo (${g.story.s.got ?? 0} of 3)${jam(g)}`, place: 'hearth', at: (g) => nearestCan(g, 'm:convoy'), done: (g) => (g.story.s.got ?? 0) >= 3 },
       { text: 'Get to the Shackle. They will dock you hot.', place: 'drift', at: () => port('shackle'), done: (g) => g.story.s.docked === 'shackle', finish: (g) => { g.ship.cargo.salvage = Math.max(0, (g.ship.cargo.salvage ?? 0) - 3); if (!g.ship.cargo.salvage) delete g.ship.cargo.salvage } },
     ],
     outro: [['rook', 'Fifteen off. You are nearly a free woman, or man, or whatever you are.'], ['rook', 'The Warden wants to meet you. Shackleton, over the pole. He says he has a proposal. I say bring your guns.']],
@@ -350,6 +354,7 @@ function complete(g, m) {
   g.story.active = null
   g.story.step = 0
   g.story.noInterdict = g.story.noAmbient = g.story.noPatrol = false
+  g.story.jamUntil = 0
   for (const [who, text] of val(m.outroFor, g) ?? m.outro ?? []) g.say(who, text)
   g.emit({ type: 'mission-complete', id: m.id, title: m.title, reward: r, epilogue: m.epilogue })
   g.choice = null
@@ -365,6 +370,7 @@ export function storyFail(g, reason) {
   g.story.step = 0
   g.story.s = {}
   g.story.noInterdict = g.story.noAmbient = g.story.noPatrol = false
+  g.story.jamUntil = 0
   g.choice = null
   g.emit({ type: 'mission-failed', id: m.id, title: m.title, reason })
 }

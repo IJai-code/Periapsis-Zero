@@ -41,6 +41,8 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
 
   const begin = useCallback((save) => {
     game.current = startGame(save)
+    // For the browser checks in scripts/: the running game, in development only.
+    if (import.meta.env.DEV) window.__game = game.current
     setPlaceKey(`${game.current.place}:${Date.now()}`)
     setPhase('play')
     startSound()

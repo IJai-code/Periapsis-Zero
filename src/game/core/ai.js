@@ -99,8 +99,8 @@ function attack(g, e, dt) {
   if (!ai.jinkAt || ai.t > ai.jinkAt) { ai.jinkAt = ai.t + 1 + Math.random() * 1.5; ai.jx = (Math.random() - 0.5) * 1.4; ai.jy = (Math.random() - 0.5) * 1.4 }
   c.strafeX = d < 1600 ? ai.jx : 0; c.strafeY = d < 1600 ? ai.jy : 0
   // The trigger: nose on the lead point and in range. Skill sets the tolerance.
-  const tol = 0.05 + (1 - (ai.skill ?? 0.5)) * 0.06
-  if (off < tol && d < 1400) { c.fire = true; _f.copy(_lead).multiplyScalar(d).add(e.pos); fire(g, e, _f) }
+  const tol = 0.07 + (1 - (ai.skill ?? 0.5)) * 0.05
+  if (off < tol && d < 1600) { c.fire = true; _f.copy(_lead).multiplyScalar(d).add(e.pos); fire(g, e, _f) }
 }
 
 function follow(g, e, lead, slot) {
