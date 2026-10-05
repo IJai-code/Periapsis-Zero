@@ -20,7 +20,7 @@ import { LANDABLE, WORLDS } from '../sim/worlds.js'
  * thing it replaces. Flight is the way home: it closes whatever is open and
  * leaves the pilot with the sky.
  */
-export function Nav({ onMap, onLogbook, onLibrary, campaign = false }) {
+export function Nav({ onMap, onLogbook, onLibrary }) {
   const map = useUi((s) => s.map)
   const broadcast = useUi((s) => s.broadcast)
   const setup = useUi((s) => s.setup)
@@ -32,18 +32,10 @@ export function Nav({ onMap, onLogbook, onLibrary, campaign = false }) {
   const clean = !boards && !setup && !map && !broadcast
   const board = (id) => () => { setMore(false); setUi((s) => ({ boards: s.boards === id ? null : id })) }
 
-  /*
-   * Two modes, one menu bar. The campaign shows only the ways out; free flight
-   * shows the six things people use, and keeps the rest one click away under
-   * More, instead of eleven words in a row.
-   */
-  const items = campaign ? [
+  /* The things people use, and the rest one click away under More. */
+  const items = [
     { id: 'home', label: '← home', on: false, go: () => { window.location.hash = '' } },
-    { id: 'campaign', label: 'campaign', on: true, go: () => setUi({ boards: null, map: false }) },
-    { id: 'free', label: 'free simulator', on: false, go: () => { window.location.hash = '#flight' } },
-  ] : [
-    { id: 'home', label: '← home', on: false, go: () => { window.location.hash = '' } },
-    { id: 'campaign', label: 'campaign', on: false, go: () => { window.location.hash = '#campaign' } },
+    { id: 'game', label: 'play the game', on: false, go: () => { window.location.hash = '#play' } },
     { id: 'land', label: 'land ▾', on: Boolean(landAt), go: (e) => { setMore(false); const r = e.currentTarget.getBoundingClientRect(); setLandAt((v) => v ? null : r.left) } },
     { id: 'flight', label: 'fly', on: clean, go: () => setUi({ boards: null, setup: false, map: false, broadcast: false }) },
     { id: 'library', label: 'missions', on: false, go: onLibrary },
@@ -71,7 +63,7 @@ export function Nav({ onMap, onLogbook, onLibrary, campaign = false }) {
             {it.label}
           </button>
         ))}
-        {!campaign && <div className="relative shrink-0">
+        {<div className="relative shrink-0">
           <button onClick={() => { setLandAt(null); setMore((m) => !m) }} aria-expanded={more} className={`control rounded-sm px-2.5 py-1.5 text-[10px] tracking-[0.16em] uppercase outline-none ${more || boards || broadcast ? 'text-ember' : 'text-hud/65 hover:text-ember'}`}>more ▾</button>
         </div>}
       </nav>

@@ -280,7 +280,7 @@ const wiring = [
   ['src/components/Photograph.jsx', 'plateSave(', 'a captured plate is shelved'],
   ['src/ui/MissionIntro.jsx', 'recordFilm(preset.id)', 'a kept film is counted'],
   ['src/ui/Hud.jsx', '<Logbook open={logbook}', 'the drawer is reachable from the HUD'],
-  ['src/ui/Landing.jsx', 'logbookLine()', 'the front door greets the returning visitor'],
+  ['src/ui/Title.jsx', 'logbookLine()', 'the front door greets the returning visitor'],
   ['src/ui/Logbook.jsx', 'plateAll()', 'the gallery reads the shelf'],
 ]
 for (const [file, needle, why] of wiring) {
@@ -449,10 +449,10 @@ try {
 
 /* And the front door must not print a line it has not checked. */
 {
-  const landing = readFileSync(join(ROOT, 'src/ui/Landing.jsx'), 'utf8')
+  const landing = readFileSync(join(ROOT, 'src/ui/Title.jsx'), 'utf8')
   if (/hasFlown\(\)\s*\?\s*`Your logbook: \$\{logbookLine\(\)\}`/.test(landing))
-    fail('Landing.jsx interpolates logbookLine() without checking it for null')
-  else pass('Landing.jsx checks the line before printing it')
+    fail('Title.jsx interpolates logbookLine() without checking it for null')
+  else pass('Title.jsx checks the line before printing it')
 }
 
 console.log(failures ? `\n  ${failures} failure${failures === 1 ? '' : 's'}` : '\n  PASS')

@@ -33,7 +33,7 @@ const KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
 export const accountsEnabled = Boolean(URL_ && KEY)
 
 /** The browser-stored records an account carries. Device settings stay local. */
-export const SYNCED = ['pz-campaign-v2', 'pz-story', 'periapsis.logbook.v1', 'pz-pilot-v1', 'pz-expeditions-v1']
+export const SYNCED = ['pz-game-v1', 'pz-story', 'periapsis.logbook.v1', 'pz-pilot-v1', 'pz-expeditions-v1']
 const SESSION_KEY = 'pz-account-v1'
 const PUSHED_KEY = 'pz-account-pushed'
 
@@ -202,6 +202,14 @@ const isDate = (v) => typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v)
  * (more fuel left, later in the mission, more plates); of two timestamps the
  * later; a text field keeps this device's value unless it is empty.
  */
+const GAME_KEY = 'pz-game-v1'
+/** Of two game saves, the one with more of the story done, then the later game clock. */
+export function furtherAlong(a, b) {
+  if (!a) return b
+  if (!b) return a
+  const rank = (s) => (s.story?.done?.length ?? 0) * 1e9 + (s.time ?? 0)
+  return rank(b) > rank(a) ? b : a
+}
 export function mergeProgress(local, remote) {
   if (local === undefined || local === null) return remote
   if (remote === undefined || remote === null) return local
@@ -245,6 +253,8 @@ export async function syncNow() {
     const remote = rows?.[0]?.data ?? {}
     const local = localProgress()
     const merged = mergeProgress(local, remote)
+    // A game save is one story, not a pile of numbers: keep whichever is further along.
+    if (local[GAME_KEY] || remote[GAME_KEY]) merged[GAME_KEY] = furtherAlong(local[GAME_KEY], remote[GAME_KEY])
     let changed = false
     for (const k of SYNCED) {
       if (merged[k] === undefined) continue

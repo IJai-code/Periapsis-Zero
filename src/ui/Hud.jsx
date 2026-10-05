@@ -40,7 +40,6 @@ import { prediction } from '../sim/predict.js'
 const SetupDrawer = lazy(() => import('./Setup.jsx').then((m) => ({ default: m.SetupDrawer })))
 const Boards = lazy(() => import('./Boards.jsx').then((m) => ({ default: m.Boards })))
 const BroadcastHud = lazy(() => import('./Broadcast.jsx').then((m) => ({ default: m.BroadcastHud })))
-const CampaignPanel = lazy(() => import('./CampaignPanel.jsx').then((m) => ({ default: m.CampaignPanel })))
 
 /**
  * Camera modes the map cannot use.
@@ -119,7 +118,7 @@ function useNarrow() {
   return narrow
 }
 
-export function Hud({ onLibrary, campaign = false }) {
+export function Hud({ onLibrary }) {
   const open = useUi((s) => s.panelOpen)
   /** The setup drawer: missions, contracts, pad, craft, display, one key, S. */
   const setup = useUi((s) => s.setup)
@@ -247,16 +246,13 @@ export function Hud({ onLibrary, campaign = false }) {
     return () => { window.removeEventListener('keydown', escape); setUi({ experienceMenu: false }) }
   }, [])
 
-  const modeMenu = menu && <div className="sim-mode-menu" role="dialog" aria-modal="true" aria-label="Simulator menu"><section><span className="eyebrow">Simulator paused</span><h2>Where next?</h2><button autoFocus className="action-button primary" onClick={() => { setUi({ experienceMenu: false, paused: pauseBeforeMenu.current }); setMenu(false) }}>Resume flight</button><button className="action-button" onClick={() => { window.location.hash = campaign ? '#flight' : '#campaign' }}>{campaign ? 'Free simulator' : 'Campaign'}</button><button className="action-button" onClick={() => { window.location.hash = '' }}>Home</button></section></div>
+  const modeMenu = menu && <div className="sim-mode-menu" role="dialog" aria-modal="true" aria-label="Simulator menu"><section><span className="eyebrow">Simulator paused</span><h2>Where next?</h2><button autoFocus className="action-button primary" onClick={() => { setUi({ experienceMenu: false, paused: pauseBeforeMenu.current }); setMenu(false) }}>Resume flight</button><button className="action-button" onClick={() => { window.location.hash = '#play' }}>Play the game</button><button className="action-button" onClick={() => { window.location.hash = '' }}>Home</button></section></div>
 
   /*
     The broadcast replaces the whole instrument layout rather than sitting on
     top of it: a feed with panels printed over it is neither. The key handler
     above stays live in both, so the number keys cut between cameras here too.
   */
-  // The campaign is the simulator with a goal: its own panel instead of the
-  // cockpit, the menu bar for the way out, and the solar system behind both.
-  if (campaign) return <><div className="pointer-events-none fixed inset-0 z-10 select-none"><Nav campaign onMap={toggleMap} onLogbook={() => setLogbook(true)} onLibrary={onLibrary} /></div><Suspense fallback={null}><CampaignPanel /></Suspense>{modeMenu}</>
   if (broadcast) return <><Suspense fallback={null}><BroadcastHud /></Suspense>{modeMenu}</>
 
   /*

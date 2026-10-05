@@ -16,7 +16,6 @@ import { TRANSIT } from './gfx/transit.js'
 import { introEnd } from './gfx/introFlights.js'
 import { requestedProgram, armProgram, program } from './sim/programs.js'
 import { resetMission } from './sim/mission.js'
-import { recordMission } from './sim/campaign.js'
 import { isLandable } from './sim/worlds.js'
 
 /** The mission library opens on demand, so it loads on demand (see Hud.jsx). */
@@ -44,7 +43,7 @@ if (!uiStore.get().device) {
   uiStore.set({ device: guess, deviceGuessed: true, panelOpen: false })
 }
 
-export default function App({ campaign = false }) {
+export default function App() {
   const assets = useAssets()
   const [visible, setVisible] = useState(() => !document.hidden)
   const [library, setLibrary] = useState(false)
@@ -52,17 +51,11 @@ export default function App({ campaign = false }) {
   const introRef = useRef(null)
   const graphicsLost = useUi((s) => s.graphicsLost)
   const surface = useUi((s) => s.surface)
-  /*
-   * Back from the surface: the result goes into the campaign (or nowhere, in
-   * free flight), and the simulator resumes looking at the world just left.
-   */
-  const leaveSurface = useCallback((result) => {
+  /* Back from the surface: the simulator resumes looking at the world just left. */
+  const leaveSurface = useCallback(() => {
     const cur = uiStore.get().surface
     if (!cur) return
-    let note = null
-    if (result && cur.mode === 'campaign') note = { world: cur.world, ...recordMission(cur.world, result), finale: false }
-    if (result && cur.mode === 'finale') { recordMission(cur.world, result, { finale: true }); note = { world: cur.world, earned: 0, finale: result.complete } }
-    setUi({ surface: null, focus: cur.world, campaignResult: note })
+    setUi({ surface: null, focus: cur.world })
     if (/^#land\//.test(window.location.hash)) history.replaceState(null, '', '#flight')
   }, [])
   useEffect(() => {
@@ -94,7 +87,7 @@ export default function App({ campaign = false }) {
   useEffect(() => {
     if (addressApplied) return
     addressApplied = true
-    if (campaign || /^#land\//.test(window.location.hash)) return
+    if (/^#land\//.test(window.location.hash)) return
     const preset = requestedPreset()
     if (preset) {
       const run = startPreset(preset)
@@ -129,9 +122,9 @@ export default function App({ campaign = false }) {
       <Resolution /><Photograph />
       <Suspense fallback={null}>{assets.ready && <Scene textures={assets.textures} />}</Suspense>
     </Canvas>
-    {assets.ready ? intro ? <MissionIntro preset={intro.preset} finalFocus={intro.focus} onBegin={introDone} onSkip={introSkipped} /> : (surface ? null : <Hud campaign={campaign} onLibrary={() => setLibrary(true)} />) : <div className="simulator-loading"><span className="eyebrow">{campaign ? 'Campaign / Station Zero' : 'Simulator'}</span><h1>Preparing the solar system.</h1><p>{assets.label} · {Math.round(assets.progress * 100)}%</p><progress max="1" value={assets.progress} /><button className="quiet-button" onClick={() => { window.location.hash = '' }}>← Home</button></div>}
+    {assets.ready ? intro ? <MissionIntro preset={intro.preset} finalFocus={intro.focus} onBegin={introDone} onSkip={introSkipped} /> : (surface ? null : <Hud onLibrary={() => setLibrary(true)} />) : <div className="simulator-loading"><span className="eyebrow">Simulator</span><h1>Preparing the solar system.</h1><p>{assets.label} · {Math.round(assets.progress * 100)}%</p><progress max="1" value={assets.progress} /><button className="quiet-button" onClick={() => { window.location.hash = '' }}>← Home</button></div>}
     {library && <Suspense fallback={null}><MissionLibrary open onClose={() => setLibrary(false)} /></Suspense>}
-    {surface && <Suspense fallback={<div className="simulator-loading"><span className="eyebrow">Descent</span><h1>Preparing the surface.</h1></div>}><Surface key={`${surface.world}/${surface.mode}`} world={surface.world} mode={surface.mode === 'finale' ? 'campaign' : surface.mode} title={surface.mode === 'finale' ? 'Station Zero' : undefined} upgrades={surface.upgrades} onExit={leaveSurface} /></Suspense>}
+    {surface && <Suspense fallback={<div className="simulator-loading"><span className="eyebrow">Descent</span><h1>Preparing the surface.</h1></div>}><Surface key={`${surface.world}/${surface.mode}`} world={surface.world} mode={surface.mode} upgrades={surface.upgrades} onExit={leaveSurface} /></Suspense>}
     {graphicsLost && <div role="alertdialog" aria-label="Graphics interrupted" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-8"><div className="max-w-md text-hud"><h2 className="font-display text-3xl">Graphics interrupted</h2><p className="mt-3 text-sm text-hud/65">The browser lost its GPU context. Reload to recreate the drawing buffer.</p><button className="control mt-6 border border-ember px-4 py-2 text-ember" onClick={() => window.location.reload()}>Reload safely</button></div></div>}
   </div>
 }

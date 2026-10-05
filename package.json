@@ -70,7 +70,6 @@
     "verify:navigation": "node --expose-gc scripts/verify-navigation.mjs",
     "verify:all": "node scripts/verify-all.mjs",
     "verify:expeditions": "node scripts/verify-expeditions.mjs",
-    "verify:campaign": "node scripts/verify-campaign.mjs",
     "verify:pilot": "node scripts/verify-pilot.mjs",
     "record:attitude": "node scripts/record-attitude.mjs",
     "verify:camera": "node scripts/verify-camera-filter.mjs",

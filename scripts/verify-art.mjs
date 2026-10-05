@@ -256,7 +256,7 @@ check('the runtime loads authored art lazily, with the primitive model as its fa
   assert.ok(/<SurveyLander\s*\/>/.test(scene), 'the primitive lander is gone; it is the fallback while loading and on failure')
   assert.ok(scene.includes('nozzle_0'), 'the plume is not placed from the nozzle empty')
   // First paint must not pay for it: nothing on the eager path imports the loader.
-  for (const eager of ['src/main.jsx', 'src/ExperienceApp.jsx', 'src/ui/Landing.jsx', 'src/ui/CampaignPanel.jsx']) {
+  for (const eager of ['src/main.jsx', 'src/ExperienceApp.jsx', 'src/ui/Title.jsx']) {
     assert.ok(!readFileSync(join(ROOT, eager), 'utf8').includes('gfx/authored'), `${eager} imports the authored-art loader`)
   }
 })
