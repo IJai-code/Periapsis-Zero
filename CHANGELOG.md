@@ -22,6 +22,12 @@ but not yet fixed is under *Known limitations* rather than left out.
   over the whole planet. It reads the cover now, and noise octaves below the
   imagery give clouds and land structure at Harbor's 420 km, each fading out
   as it shrinks below a pixel so nothing shimmers from far off.
+- **Motion and feel.** Docking ends with the camera gliding in from the bay
+  door; each station's bay has its own light (Hearth warm, Harbor white, the
+  Shackle sodium, Gateway blue). Station menus, cards and overlays ease in
+  with a short stagger; all of it switches off under reduced motion. The
+  map, log and pause screens no longer blur the live 3D view behind them,
+  which cost a full-screen GPU pass every frame.
 - **Balance.** The convoy's escorts fly at skill 0.5 instead of 0.65, the jam
   lasts 150 s instead of 90, and Vex flies with you. The Harbor Loop is
   17 km and seven corners: its par is now two minutes (double pay under

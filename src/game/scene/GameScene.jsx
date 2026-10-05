@@ -79,7 +79,14 @@ function placeCamera(g, c, cam, rig, dt, t) {
     const az = 0.62 + Math.sin(rig.orbit) * 0.42
     const d = Math.min(r * 3.1, 30)
     _v.set(Math.sin(az) * d, r * 0.5 + 3.5, Math.cos(az) * d).applyQuaternion(p.q).add(p.pos)
-    cam.position.lerp(_v, rig.init ? k * 0.5 : 1)
+    if (rig.mode !== 'docked' && g.mode === 'docked') {
+      // Just docked: start at the bay door, looking in, and glide to the berth.
+      cam.position.set(-6, 9, -40).applyQuaternion(p.q).add(p.pos)
+      rig.glide = 0
+    }
+    rig.mode = g.mode
+    rig.glide = Math.min(1, (rig.glide ?? 1) + dt / 2.6)
+    cam.position.lerp(_v, rig.glide < 1 ? 1 - Math.exp(-dt * (1 + 3 * rig.glide)) : k * 0.5)
     _up.set(0, 1, 0).applyQuaternion(p.q)
     cam.up.copy(_up)
     // Look at the ship, a little to its left so the menu does not cover it.
@@ -89,6 +96,7 @@ function placeCamera(g, c, cam, rig, dt, t) {
     rig.init = true
     return
   }
+  rig.mode = g.mode
   if (g.mode === 'docking' || g.mode === 'launch') {
     const st = STATIONS[g.anim?.st] ?? STATIONS[g.home]
     _v.copy(st.port.at).addScaledVector(st.port.axis, 260).add(_t.set(120, 70, 0))

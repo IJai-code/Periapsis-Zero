@@ -37,7 +37,7 @@ export function Station({ game: g, touch, onLaunch, onOverlay }) {
         <button onClick={() => onOverlay('pause')}>Menu</button>
       </div>
     </nav>
-    <section className="st-panel">
+    <section className="st-panel" key={tab}>
       {msg && <p className="st-msg">{msg}</p>}
       {tab === 'missions' && <Missions g={g} st={st} touch={touch} offersHere={storyHere} act={act} />}
       {tab === 'jobs' && <Jobs g={g} st={st} act={act} />}

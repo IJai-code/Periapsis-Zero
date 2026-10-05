@@ -30,8 +30,16 @@ export function Props({ game, placeKey }) {
  */
 // Height of each hull's keel above its centre, so it sits just off the pad.
 const KEEL = { kestrel: 2.9, mule: 3.0, lance: 1.2 }
+// Each station's bay has its own light: Hearth's warm work lamps, Harbor's
+// clean white, the Shackle's dim sodium, Gateway's cold Compact blue.
+const BAY_LIGHT = {
+  hearth: ['#fff1d8', '#ffd7a8', 1], harbor: ['#f2f6ff', '#dfe9ff', 1.1],
+  shackle: ['#ffb27a', '#ff8a52', 0.7], gateway: ['#d8ecff', '#9fd2ff', 1],
+}
 function Hangar({ game }) {
   const ref = useRef()
+  const lamps = useRef([])
+  const lit = useRef(null)
   const obj = useMemo(() => instance('hangar').object, [])
   const sun = useRef(null)
   useFrame(({ scene }) => {
@@ -42,15 +50,20 @@ function Hangar({ game }) {
     if (!sun.current) sun.current = scene.getObjectByName('sun')
     if (sun.current) sun.current.intensity = inside ? 0.9 : 3.2
     if (!inside) return
+    if (lit.current !== g.docked) {
+      lit.current = g.docked
+      const [key, fill, k] = BAY_LIGHT[g.docked] ?? BAY_LIGHT.hearth
+      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? key : fill); l.intensity = [4200, 2400, 2400][i] * k })
+    }
     h.position.copy(g.player.pos)
     h.quaternion.copy(g.player.q)
     obj.position.y = 6 - (KEEL[g.ship.hull] ?? 2.9)
   })
   return <group ref={ref} visible={false}>
     <primitive object={obj} />
-    <pointLight position={[0, 16, 6]} color="#fff1d8" intensity={4200} distance={130} decay={2} />
-    <pointLight position={[-22, 12, -24]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
-    <pointLight position={[22, 12, 26]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
+    <pointLight ref={(l) => { lamps.current[0] = l }} position={[0, 16, 6]} color="#fff1d8" intensity={4200} distance={130} decay={2} />
+    <pointLight ref={(l) => { lamps.current[1] = l }} position={[-22, 12, -24]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
+    <pointLight ref={(l) => { lamps.current[2] = l }} position={[22, 12, 26]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
     <pointLight position={[0, 2, -40]} color="#9fe6ff" intensity={700} distance={60} decay={2} />
   </group>
 }

@@ -218,7 +218,8 @@
 .st-go:hover { filter: brightness(1.1); }
 
 /* ------------------------------------------------------------------ Map */
-.map-root, .gm-log, .gm-pause { position: absolute; inset: 0; z-index: 20; background: #05030bee; backdrop-filter: blur(6px); }
+.map-root, .gm-log, .gm-pause { position: absolute; inset: 0; z-index: 20; background: #05030bf2; animation: fadein .22s ease both; }
+.gm-log > section, .gm-pause > * , .map-body { animation: settle .32s cubic-bezier(.2,.8,.2,1) both; }
 .map-root { display: flex; flex-direction: column; padding: 18px 22px; }
 .map-root header, .gm-log header { display: flex; align-items: center; justify-content: space-between; }
 .map-root h1, .gm-log h1 { margin: 0; font: 800 24px var(--font-sans); text-transform: uppercase; }
@@ -331,4 +332,33 @@
   .st-root { grid-template-columns: 1fr; padding: 12px; }
   .st-tabs { flex-direction: row; overflow-x: auto; }
   .st-tabs-foot { display: none; }
+}
+
+/* Motion. One easing everywhere (fast out, soft landing); transforms and
+   opacity only, so nothing here makes the GPU repaint the 3D view. */
+@keyframes fadein { from { opacity: 0; } }
+@keyframes settle { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+@keyframes slidein { from { opacity: 0; transform: translateX(-14px); } }
+@keyframes glow { 50% { box-shadow: 0 6px 38px #ff6b2c88; } }
+.st-root { animation: fadein .45s ease both; }
+.st-top { animation: slidein .5s cubic-bezier(.2,.8,.2,1) both; }
+.st-tabs > button { transition: color .18s ease, background-color .18s ease, border-color .18s ease; animation: slidein .4s cubic-bezier(.2,.8,.2,1) both; }
+.st-tabs > button:nth-child(2) { animation-delay: .03s; } .st-tabs > button:nth-child(3) { animation-delay: .06s; } .st-tabs > button:nth-child(4) { animation-delay: .09s; }
+.st-tabs > button:nth-child(5) { animation-delay: .12s; } .st-tabs > button:nth-child(6) { animation-delay: .15s; } .st-tabs > button:nth-child(7) { animation-delay: .18s; }
+.st-panel > * { animation: settle .34s cubic-bezier(.2,.8,.2,1) both; }
+.st-panel > *:nth-child(2) { animation-delay: .04s; } .st-panel > *:nth-child(3) { animation-delay: .08s; }
+.st-missions > *, .st-panel > div > .st-job, .st-panel > div > .st-card { animation: settle .34s cubic-bezier(.2,.8,.2,1) both; }
+.st-missions > *:nth-child(2), .st-panel > div > *:nth-child(2) { animation-delay: .05s; }
+.st-missions > *:nth-child(3), .st-panel > div > *:nth-child(3) { animation-delay: .1s; }
+.st-missions > *:nth-child(4), .st-panel > div > *:nth-child(4) { animation-delay: .15s; }
+.st-panel > div > *:nth-child(n+5) { animation-delay: .2s; }
+.st-launch { animation: settle .5s .15s cubic-bezier(.2,.8,.2,1) both; }
+.st-go { transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s ease; animation: glow 2.6s ease-in-out infinite; }
+.st-go:hover { transform: translateY(-2px); }
+.st-go:active, .st-primary:active, .st-ghost:active { transform: translateY(1px) scale(.98); }
+.st-primary, .st-ghost { transition: transform .12s ease, filter .15s ease, background-color .15s ease; }
+.st-card, .st-job { transition: border-color .2s ease; }
+.st-job:hover { border-color: #f4e8cf40; }
+@media (prefers-reduced-motion: reduce) {
+  .st-root, .st-root *, .map-root, .map-root *, .gm-log, .gm-log *, .gm-pause, .gm-pause *, .gm-banner, .gm-comms, .hud-prompt, .hud-toasts p { animation: none !important; transition: none !important; }
 }
