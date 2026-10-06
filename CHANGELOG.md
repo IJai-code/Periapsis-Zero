@@ -5,6 +5,24 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A pilot who walks, and less stutter: 6 October 2026
+
+- **The pilot is rigged and animated** (art/game-pilot): a skeleton under a
+  segmented suit, with a walk cycle (heel strike, knee bend, hip sway and
+  counter-rotation, arm swing), breathing idle and a sit, built in Blender
+  and played by three.js's animation mixer. The stride follows the ground
+  speed so the feet do not slide; the pilot eases in and out of each
+  stretch at a walking pace, turns at a walker's rate, sits into the seat,
+  and casts a soft shadow on the deck.
+- **No recompile at the bay door.** The bay's lamps and reflections used to
+  appear and disappear, which recompiled every material in view at the
+  moment of docking or launching. They now stay in the scene and fade by
+  intensity; the bay has four lamps instead of six.
+- **Shaders warmed up** for every ship and station at load, so the first
+  raider of a session does not cost a frame.
+- **Resolution follows the frame rate**: down a step when frames run long,
+  back up when there is room.
+
 ### The skywalk, a darker bay, and lanes: 6 October 2026
 
 - **Suit first, then the walk.** A new pilot picks a suit, then a name, and

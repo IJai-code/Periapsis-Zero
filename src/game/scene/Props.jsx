@@ -41,15 +41,15 @@ const BAY_LIGHT = {
 }
 function Hangar({ game }) {
   const ref = useRef()
+  const rig = useRef()
   const inner = useRef()
   const lamps = useRef([])
   const lit = useRef(null)
   const obj = useMemo(() => instance('hangar').object, [])
   const sun = useRef(null)
-  const env = useRef(null)
-  const { gl } = useThree()
+  const { scene } = useThree()
   const { shafts, dust } = useMemo(bayAtmosphere, [])
-  useFrame(({ scene, camera, clock }) => {
+  useFrame(({ camera, clock }) => {
     const g = game.current, h = ref.current
     if (!g || !h) return
     // The bay stands at the berth of the station you are in, or docking
@@ -60,6 +60,7 @@ function Hangar({ game }) {
     if (st) {
       h.position.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
       berthQuat(g, st, h.quaternion)
+      rig.current.position.copy(h.position); rig.current.quaternion.copy(h.quaternion)
       obj.position.y = 6 - (KEEL[g.ship.hull] ?? 2.9)
       inner.current.position.y = obj.position.y
       _local.copy(camera.position).sub(h.position).applyQuaternion(_inv.copy(h.quaternion).invert())
@@ -70,30 +71,74 @@ function Hangar({ game }) {
     h.visible = BAY.inside || walking
     if (!sun.current) sun.current = scene.getObjectByName('sun')
     if (sun.current) sun.current.intensity = BAY.inside ? 0.7 : 3.2
-    // Reflections inside: a studio-style environment, made once, worn only in here.
-    if (BAY.inside && !env.current) { const pm = new THREE.PMREMGenerator(gl); env.current = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose() }
-    scene.environment = BAY.inside ? env.current : null
-    scene.environmentIntensity = 0.45
+    scene.environmentIntensity = BAY.inside ? 0.45 : 0
+    const k = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
+    if (lit.current !== `${id}:${h.visible}`) {
+      lit.current = `${id}:${h.visible}`
+      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? k[0] : i < 3 ? k[1] : '#2fd3ff'); l.intensity = h.visible ? [5200, 1700, 1700, 1100][i] * (i < 3 ? k[2] : 1) : 0 })
+    }
     if (!h.visible) return
     dust.rotation.y = clock.elapsedTime * 0.006
     dust.position.y = Math.sin(clock.elapsedTime * 0.15) * 0.6
-    if (lit.current !== id) {
-      lit.current = id
-      const [key, fill, k] = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
-      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? key : fill); l.intensity = [5200, 1700, 1700][i] * k })
-    }
   })
-  return <group ref={ref} visible={false}>
-    <primitive object={obj} />
-    <group ref={inner}><primitive object={shafts} /><primitive object={dust} /></group>
-    <pointLight ref={(l) => { lamps.current[0] = l }} position={[0, 18, 6]} color="#fff1d8" intensity={5200} distance={130} decay={2} />
-    <pointLight ref={(l) => { lamps.current[1] = l }} position={[-22, 12, -24]} color="#ffd7a8" intensity={1700} distance={100} decay={2} />
-    <pointLight ref={(l) => { lamps.current[2] = l }} position={[22, 12, 26]} color="#ffd7a8" intensity={1700} distance={100} decay={2} />
-    {/* Coloured rims, low and from the sides: the ship picks out against the dark. */}
-    <pointLight position={[-30, 3, 0]} color="#2fd3ff" intensity={1100} distance={70} decay={2} />
-    <pointLight position={[30, 4, -18]} color="#ff9a5a" intensity={800} distance={70} decay={2} />
-    <pointLight position={[0, 2, -40]} color="#9fe6ff" intensity={700} distance={60} decay={2} />
-  </group>
+  return <>
+    <group ref={ref} visible={false}>
+      <primitive object={obj} />
+      <group ref={inner}><primitive object={shafts} /><primitive object={dust} /></group>
+    </group>
+    {/* The bay's lamps stay in the scene at zero when it is not drawn, so the light count never changes. */}
+    <group ref={rig}>
+      <pointLight ref={(l) => { lamps.current[0] = l }} position={[0, 18, 6]} intensity={0} distance={130} decay={2} />
+      <pointLight ref={(l) => { lamps.current[1] = l }} position={[-22, 12, -24]} intensity={0} distance={100} decay={2} />
+      <pointLight ref={(l) => { lamps.current[2] = l }} position={[22, 12, 26]} intensity={0} distance={100} decay={2} />
+      <pointLight ref={(l) => { lamps.current[3] = l }} position={[-30, 3, 0]} intensity={0} distance={70} decay={2} />
+    </group>
+  </>
+}
+
+/**
+ * Every ship, station and prop compiled once, early: the first raider of the
+ * day should not cost a frame while its shaders build. Instances go into the
+ * scene for a moment, are compiled, and leave; their materials are shared
+ * with every later instance, so the programs stay.
+ */
+/**
+ * The bay's reflections, made once and left on the scene: switching
+ * scene.environment (or the number of lights) recompiles every material in
+ * view, which was the stutter at the moment of docking. Intensity does not.
+ */
+export function BayEnvironment() {
+  const { gl, scene } = useThree()
+  useEffect(() => {
+    const pm = new THREE.PMREMGenerator(gl)
+    const env = pm.fromScene(new RoomEnvironment(), 0.04).texture
+    pm.dispose()
+    scene.environment = env
+    scene.environmentIntensity = 0
+    return () => { if (scene.environment === env) scene.environment = null; env.dispose() }
+  }, [gl, scene])
+  return null
+}
+
+export function Warmup() {
+  const { gl, scene, camera } = useThree()
+  useEffect(() => {
+    let alive = true
+    const run = () => {
+      const group = new THREE.Group()
+      for (const k of ['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle']) group.add(instance(k).object)
+      group.position.set(0, -1e6, 0)
+      scene.add(group)
+      const done = () => scene.remove(group)
+      if (gl.compileAsync) gl.compileAsync(scene, camera).then(done, done)
+      else { gl.compile(scene, camera); done() }
+    }
+    // Models arrive one by one: compile once they have stopped arriving.
+    let t = setTimeout(() => { if (alive) run() }, 1500)
+    const off = onModelsChange(() => { clearTimeout(t); t = setTimeout(() => { if (alive) run() }, 900) })
+    return () => { alive = false; clearTimeout(t); off() }
+  }, [gl, scene, camera])
+  return null
 }
 
 /**

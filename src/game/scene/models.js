@@ -233,6 +233,17 @@ export function paintPilot(object, suit) {
   })
 }
 
+/** The rigged pilot (art/game-pilot): its scene and animation clips, loaded once. */
+let pilotRig = null
+export function loadPilot(done) {
+  if (pilotRig?.ready) return done(pilotRig)
+  if (!pilotRig) {
+    pilotRig = { ready: false, waiting: [] }
+    gltf().load(`${BASE}authored/game-pilot.glb`, (res) => { pilotRig.ready = true; pilotRig.scene = res.scene; pilotRig.clips = res.animations; for (const f of pilotRig.waiting.splice(0)) f(pilotRig) }, undefined, () => { pilotRig.failed = true })
+  }
+  pilotRig.waiting.push(done)
+}
+
 /** A fresh instance of a kind: the authored model if loaded, else the stand-in. */
 export function instance(kind) {
   const a = cache.get(kind)

@@ -8,7 +8,7 @@ import { STEP, stepGame, BERTH, DOCK_T, LAUNCH_T, berthQuat } from '../core/game
 import { resolveInput } from '../ui/controls.js'
 import { Sky } from './Sky.jsx'
 import { Ships } from './Ships.jsx'
-import { Props } from './Props.jsx'
+import { Props, BayEnvironment, Warmup } from './Props.jsx'
 import { Fx } from './Fx.jsx'
 import { BOARD_DUR, BOARD_SEATED, COCKPIT, boardPose } from './Boarding.jsx'
 
@@ -25,7 +25,7 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
     gl={{ antialias: hi, logarithmicDepthBuffer: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
     camera={{ fov: 62, near: 0.5, far: 4.5e6, position: [0, 30, 120] }}
     style={{ position: 'fixed', inset: 0, background: '#000' }}>
-    <Loop game={game} controls={controls} paused={paused} onFrame={onFrame} />
+    <Loop game={game} controls={controls} paused={paused} onFrame={onFrame} maxDpr={hi ? 1.75 : 1} />
     <ambientLight intensity={0.06} color="#9fb4ff" />
     <hemisphereLight intensity={0.12} color="#b8c8ff" groundColor="#2a1a12" />
     <directionalLight name="sun" position={SUN_DIR.clone().multiplyScalar(1e4)} intensity={3.2} color="#fff4e2" />
@@ -35,6 +35,8 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
       <Sky game={game} quality={quality} />
     </Suspense>
     <Props game={game} placeKey={placeKey} />
+    <BayEnvironment />
+    <Warmup />
     <Ships game={game} />
     <Fx game={game} />
     {hi && <EffectComposer disableNormalPass multisampling={0}>
@@ -46,9 +48,12 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
 
 const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _up = new THREE.Vector3(), _f = new THREE.Vector3(), _q = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _z = new THREE.Vector3(0, 0, 1), _bay = new THREE.Vector3(), _qbay = new THREE.Quaternion(), _pose = { pos: new THREE.Vector3() }
 
-function Loop({ game, controls, paused, onFrame }) {
-  const { camera, gl } = useThree()
+function Loop({ game, controls, paused, onFrame, maxDpr }) {
+  const { camera, gl, setDpr } = useThree()
   const acc = useRef(0)
+  // Resolution that follows the frame rate: down a step when frames run long,
+  // back up when there is room. The pixels are the cost that scales.
+  const res = useRef({ ema: 1 / 60, at: 0, dpr: Math.min(maxDpr, window.devicePixelRatio || 1) })
   const rig = useRef({ pos: new THREE.Vector3(0, 30, 120), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), orbit: 0, init: false })
   useEffect(() => { controls.current.canvas = gl.domElement }, [gl, controls])
 
@@ -56,6 +61,14 @@ function Loop({ game, controls, paused, onFrame }) {
     const g = game.current, c = controls.current
     if (!g) return
     const dt = Math.min(delta, 0.1)
+    const r = res.current
+    r.ema += (Math.min(delta, 0.25) - r.ema) * 0.05
+    if (state.clock.elapsedTime - r.at > 1.5) {
+      r.at = state.clock.elapsedTime
+      const top = Math.min(maxDpr, window.devicePixelRatio || 1)
+      const next = r.ema > 1 / 45 ? Math.max(0.6, r.dpr - 0.15) : r.ema < 1 / 57 ? Math.min(top, r.dpr + 0.1) : r.dpr
+      if (Math.abs(next - r.dpr) > 0.01) { r.dpr = next; setDpr(next) }
+    }
     const flying = g.mode === 'flight'
     resolveInput(c, g.player, camera, flying && !paused)
     if (!paused) {
