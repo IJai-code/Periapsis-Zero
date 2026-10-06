@@ -5,6 +5,18 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A suit with a body in it, and surfaces up close: 6 October 2026
+
+- **The pilot's suit is one continuous body** grown along the skeleton with
+  Blender's Skin modifier, smoothed and weighted to the rig by bone heat, so
+  it bends like padded fabric at the hips, knees, shoulders and elbows; the
+  helmet, visor, pack, boots and gloves stay rigid.
+- **Close-up detail on surfaces**: plate grain, scratches and wear (CC0
+  normal and roughness maps from Poly Haven, credited in
+  public/game/detail/CREDITS.txt) laid over the bay's and the ships' own
+  baked surfaces, projected triplanar so they need no UVs. Still 60 fps
+  docked and in flight on this machine's GPU.
+
 ### The bay reflects itself: 6 October 2026
 
 - Reflections in the bay come from a panorama of the bay itself, rendered in

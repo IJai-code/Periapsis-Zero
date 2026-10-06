@@ -84,10 +84,7 @@ def along(name, bone, h, t, r, mat, cap=1.0):
     h, t = Vector(h), Vector(t)
     return ellipsoid(name, bone, (h + t) / 2, (r, r, (t - h).length / 2 * cap), mat, axis=t - h)
 
-ellipsoid('pelvis', 'hips', (0, 0, 1.02), (0.19, 0.14, 0.11), 'suit')
 ellipsoid('belt', 'hips', (0, 0, 1.1), (0.195, 0.15, 0.035), 'dark')
-ellipsoid('abdomen', 'spine', (0, 0.0, 1.24), (0.175, 0.135, 0.14), 'suit')
-ellipsoid('torso', 'chest', (0, 0, 1.44), (0.225, 0.165, 0.165), 'suit')
 ellipsoid('chestplate', 'chest', (0, -0.11, 1.45), (0.12, 0.05, 0.08), 'stripe')
 ellipsoid('pack', 'chest', (0, 0.17, 1.4), (0.15, 0.08, 0.2), 'dark')
 ellipsoid('packlamp', 'chest', (0, 0.245, 1.52), (0.08, 0.01, 0.012), 'stripe')
@@ -96,15 +93,49 @@ ellipsoid('helmet', 'head', (0, 0.01, 1.76), (0.16, 0.17, 0.17), 'suit', segs=(2
 ellipsoid('visor', 'head', (0, -0.075, 1.765), (0.125, 0.11, 0.09), 'visor', segs=(28, 16))
 ellipsoid('crest', 'head', (0, 0.02, 1.915), (0.025, 0.12, 0.02), 'stripe')
 for s, n in ((1, 'L'), (-1, 'R')):
-    along(f'thigh{n}', f'thigh.{n}', (s * 0.1, 0, 0.98), (s * 0.1, 0, 0.55), 0.1, 'suit')
     ellipsoid(f'knee{n}', f'shin.{n}', (s * 0.1, -0.06, 0.55), (0.06, 0.04, 0.06), 'stripe')
-    along(f'shin{n}', f'shin.{n}', (s * 0.1, 0, 0.53), (s * 0.1, 0.01, 0.13), 0.082, 'suit')
     ellipsoid(f'boot{n}', f'foot.{n}', (s * 0.1, -0.05, 0.06), (0.08, 0.14, 0.065), 'dark')
-    ellipsoid(f'shoulder{n}', f'upperarm.{n}', (s * 0.22, 0, 1.49), (0.09, 0.09, 0.07), 'suit')
-    along(f'upper{n}', f'upperarm.{n}', (s * 0.21, 0, 1.47), (s * 0.24, 0.0, 1.23), 0.068, 'suit')
-    ellipsoid(f'elbow{n}', f'forearm.{n}', (s * 0.24, 0.0, 1.22), (0.05, 0.05, 0.045), 'dark')
-    along(f'fore{n}', f'forearm.{n}', (s * 0.24, 0.0, 1.21), (s * 0.26, -0.03, 0.98), 0.06, 'suit')
     ellipsoid(f'glove{n}', f'hand.{n}', (s * 0.265, -0.035, 0.92), (0.045, 0.04, 0.06), 'dark')
+
+# The suit itself: one continuous body grown along the joints with a Skin
+# modifier, smoothed, and weighted to the rig automatically (bone heat), so
+# it bends like padded fabric at hip, knee, shoulder and elbow. The hard
+# parts above (helmet, pack, boots, gloves, pads) stay rigid.
+J = {'pelvis': ((0, 0, 1.0), (0.17, 0.13)), 'waist': ((0, 0, 1.18), (0.155, 0.12)), 'chest': ((0, 0, 1.4), (0.205, 0.15)), 'neck': ((0, 0, 1.58), (0.085, 0.085))}
+for s_, n in ((1, 'L'), (-1, 'R')):
+    J.update({f'hip{n}': ((s_ * 0.1, 0, 0.94), (0.105, 0.105)), f'knee{n}': ((s_ * 0.1, 0, 0.55), (0.082, 0.085)), f'ankle{n}': ((s_ * 0.1, 0.01, 0.14), (0.066, 0.07)),
+              f'shoulder{n}': ((s_ * 0.2, 0, 1.47), (0.085, 0.085)), f'elbow{n}': ((s_ * 0.24, 0, 1.22), (0.062, 0.062)), f'wrist{n}': ((s_ * 0.26, -0.03, 0.99), (0.052, 0.052))})
+names = list(J)
+EDGES = [('pelvis', 'waist'), ('waist', 'chest'), ('chest', 'neck')]
+for n in ('L', 'R'):
+    EDGES += [('pelvis', f'hip{n}'), (f'hip{n}', f'knee{n}'), (f'knee{n}', f'ankle{n}'), ('chest', f'shoulder{n}'), (f'shoulder{n}', f'elbow{n}'), (f'elbow{n}', f'wrist{n}')]
+me = bpy.data.meshes.new('suitbody')
+me.from_pydata([J[k][0] for k in names], [(names.index(a_), names.index(b_)) for a_, b_ in EDGES], [])
+suitbody = bpy.data.objects.new('suitbody', me)
+bpy.context.scene.collection.objects.link(suitbody)
+sk = suitbody.modifiers.new('skin', 'SKIN')
+sub = suitbody.modifiers.new('smooth', 'SUBSURF'); sub.levels = 2; sub.render_levels = 2
+for i, k in enumerate(names):
+    me.skin_vertices[0].data[i].radius = J[k][1]
+me.skin_vertices[0].data[0].use_root = True
+bpy.context.view_layer.objects.active = suitbody
+for o in bpy.context.selected_objects:
+    o.select_set(False)
+suitbody.select_set(True)
+for m_ in list(suitbody.modifiers):
+    bpy.ops.object.modifier_apply(modifier=m_.name)
+for p_ in suitbody.data.polygons:
+    p_.use_smooth = True
+suitbody.data.materials.append(M['suit'])
+# Bone heat: select the body, then the rig (active), parent with automatic weights.
+bpy.ops.object.select_all(action='DESELECT')
+suitbody.select_set(True); rig.select_set(True)
+bpy.context.view_layer.objects.active = rig
+bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+for m_ in list(suitbody.modifiers):
+    suitbody.modifiers.remove(m_)
+mw = suitbody.matrix_world.copy(); suitbody.parent = None; suitbody.matrix_world = mw
+print('PZ-SKIN groups', len(suitbody.vertex_groups), 'verts', len(suitbody.data.vertices))
 
 # Each piece entirely in its bone's vertex group; joined; bound to the rig.
 for o in parts:
@@ -115,6 +146,7 @@ for o in parts:
     o.select_set(True)
 bpy.context.view_layer.objects.active = parts[0]
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+suitbody.select_set(True)
 bpy.ops.object.join()
 body = bpy.context.active_object
 body.name = 'pilot'

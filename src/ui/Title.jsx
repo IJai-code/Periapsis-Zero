@@ -195,7 +195,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
 
     <footer className="tt-foot">
       <span>Built by Ishaan Jha</span>
-      <span>Earth and Moon imagery: NASA · ships, stations and pilots built in Blender</span>
+      <span>Earth and Moon imagery: NASA · ships, stations and pilots built in Blender · detail textures: Poly Haven (CC0)</span>
       <span>Saves live in this browser; sign in to keep them on every device</span>
     </footer>
   </main>

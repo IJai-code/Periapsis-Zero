@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { detailModel } from './detail.js'
 
 /**
  * Ships, stations and props.
@@ -14,6 +15,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
  * Conventions: metres, forward -Z, up +Y.
  */
 const BASE = import.meta.env.BASE_URL
+const SHIPS = new Set(['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter'])
 const cache = new Map()
 const listeners = new Set()
 export const onModelsChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn) }
@@ -206,6 +208,9 @@ export function preload(kinds) {
         // The skywalk's glass: thin, cool, and see-through from both sides.
         for (const m of [o.material].flat()) if (m?.name === 'skyglass') { m.transparent = true; m.opacity = 0.16; m.depthWrite = false; m.side = THREE.DoubleSide; m.roughness = 0.05; m.metalness = 0.6 }
       })
+      // Close-up detail (scene/detail.js): deck plate in the bay, fine plate on hulls.
+      if (k === 'hangar') detailModel(root, 'plate', { scale: 0.5, strength: 0.55, wear: 0.55 })
+      else if (SHIPS.has(k)) detailModel(root, 'hull', { scale: k === 'freighter' ? 0.35 : 0.8, strength: 0.35, wear: 0.4 })
       cache.set(k, { object: root, nozzles })
       listeners.forEach((fn) => fn(k))
     }, undefined, () => { cache.set(k, false) })

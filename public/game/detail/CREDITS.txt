@@ -1,0 +1,7 @@
+Detail textures (normal and roughness maps), CC0 / public domain, from Poly Haven:
+
+  plate-normal.webp, plate-rough.webp   "Metal Plate" by Rob Tuytel     https://polyhaven.com/a/metal_plate
+  hull-normal.webp, hull-rough.webp     "Metal Plate 02" by Rob Tuytel  https://polyhaven.com/a/metal_plate_02
+
+Downloaded at 1K and re-encoded as WebP. The game layers them over its own
+baked surfaces as fine close-up detail (src/game/scene/detail.js).
