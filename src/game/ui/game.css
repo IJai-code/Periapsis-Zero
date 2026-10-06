@@ -465,3 +465,10 @@
 .gm-pause-elsewhere a { color: #2fd3ff; }
 .gm-pause-elsewhere { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: #f4e8cf99; }
 .gm-pause-elsewhere a { color: #2fd3ff; }
+/* Other players in the shared sky. */
+.mk-tag.pilot::before { border-color: #f4e8cf; background: #f4e8cf44; box-shadow: 0 0 8px #f4e8cf88; }
+.mk-tag.pilot span { color: #f4e8cf; font-weight: 700; }
+.hud-tactical li.pilot i { background: #f4e8cf; border-radius: 50%; transform: none; box-shadow: 0 0 6px #f4e8cf; }
+.hud-tactical li.pilot { color: #f4e8cf; font-weight: 600; }
+.hud-online { margin: 4px 0 0; font-size: 11px; letter-spacing: .08em; color: #f4e8cf99; }
+.hud-online b { color: #f4e8cf; }

@@ -39,5 +39,6 @@ export const CONTROL_LIST = [
   ['Map and destinations', 'M', 'Map'],
   ['Transfer to destination', 'J', 'Action button'],
   ['Jobs and missions', 'Tab', 'Jobs'],
+  ['Hail the pilots near you', 'G', 'Wave'],
   ['Pause, settings, help', 'Esc', 'Menu'],
 ]

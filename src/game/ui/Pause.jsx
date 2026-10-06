@@ -3,7 +3,8 @@ import { soundSettings, setMusic, setSfx, setMuted } from '../audio.js'
 import { CONTROL_LIST } from './keys.jsx'
 
 /** Esc: resume, controls, settings, quit to the title. */
-export function Pause({ game: g, touch, help, quality, setQuality, controls, onResume, onQuit }) {
+export function Pause({ game: g, touch, help, quality, setQuality, controls, onResume, onQuit, onSky }) {
+  const [sky, setSky] = useState(() => { try { return localStorage.getItem('pz-sky') !== 'off' } catch { return true } })
   const [tab, setTab] = useState(help ? 'controls' : 'menu')
   const [snd, setSnd] = useState(soundSettings)
   const [sens, setSens] = useState(controls.settings.sensitivity)
@@ -40,6 +41,7 @@ export function Pause({ game: g, touch, help, quality, setQuality, controls, onR
         <label className="check"><input type="checkbox" checked={snd.muted} onChange={(e) => { setMuted(e.target.checked); setSnd(soundSettings()) }} /> Mute everything</label>
         {!touch && <label>Mouse sensitivity <input type="range" min="0.3" max="2.5" step="0.05" value={sens} onChange={(e) => { controls.settings.sensitivity = +e.target.value; setSens(+e.target.value) }} /></label>}
         {!touch && <label className="check"><input type="checkbox" checked={inv} onChange={(e) => { controls.settings.invert = e.target.checked; setInv(e.target.checked) }} /> Invert mouse</label>}
+        {!g.skirmish && <label className="check"><input type="checkbox" checked={sky} onChange={(e) => { const on = e.target.checked; setSky(on); try { localStorage.setItem('pz-sky', on ? 'on' : 'off') } catch { /* fine */ } onSky?.(on) }} /> Shared sky: see other pilots flying, and be seen</label>}
         <div className="gm-quality"><span>Graphics</span>{[['high', 'High'], ['low', 'Fast']].map(([q, l]) => <button key={q} className={quality === q ? 'on' : ''} onClick={() => setQuality(q)}>{l}</button>)}</div>
         <button className="st-primary" onClick={onResume}>Done</button>
       </div>}

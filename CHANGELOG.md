@@ -5,6 +5,15 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### One live sky: 6 October 2026
+
+- **The shared sky.** Everyone playing the story now flies in the same
+  Earth-Moon system at the same time. Around Hearth you see the other pilots
+  at Hearth (Harbor, the Drift, Gateway, Shackleton likewise) by name, in
+  their suits, flying live; G (or Wave on a tablet) hails them. Nobody can
+  shoot anybody. The front page shows how many pilots are flying now, and
+  leads with what makes the game different. Settings can turn it off.
+
 ### Squadron, flown burns, and a front page for both halves: 6 October 2026
 
 - **Squadron.** A battle mode: hold a piece of sky (the Drift, Gateway or

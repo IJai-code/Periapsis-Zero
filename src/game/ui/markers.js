@@ -112,8 +112,9 @@ export function updateMarkers(root, g, cam, c) {
     if (e === p || !e.alive || e.id === g.target) continue
     const d = e.pos.distanceTo(p.pos)
     if (d > 7000) continue
-    const cls = hostile(g, e, p) ? 'mk-tag hostile' : e.team === 'ally' ? 'mk-tag ally' : e.team === 'compact' ? 'mk-tag law' : 'mk-tag civil'
-    tag(e.pos, cls, d < 2500 ? e.label : '')
+    const cls = hostile(g, e, p) ? 'mk-tag hostile' : e.team === 'pilot' ? 'mk-tag pilot' : e.team === 'ally' ? 'mk-tag ally' : e.team === 'compact' ? 'mk-tag law' : 'mk-tag civil'
+    // Other players are named at any range: they are why you came.
+    tag(e.pos, cls, d < 2500 || e.team === 'pilot' ? e.label : '')
   }
   for (const k of g.canisters) if (!k.taken && k.at.distanceTo(p.pos) < 4000) tag(k.at, 'mk-tag loot', '')
   for (const st of g.stations) tag(st.port.at, 'mk-tag station', st.name)

@@ -3,6 +3,7 @@ import { AccountButton } from './Account.jsx'
 import { Mark } from './Mark.jsx'
 import { logbookLine } from '../sim/logbook.js'
 import { LICENCES, earnedLicences } from '../game/core/pilot.js'
+import { realtimeConfig } from '../sim/account.js'
 import './title.css'
 
 /**
@@ -58,6 +59,19 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
     els.forEach((e) => io.observe(e))
     return () => io.disconnect()
   }, [])
+  // How many pilots are in the shared sky right now: presence on one room,
+  // read without joining it as a pilot. Opened after the page has painted.
+  const [flying, setFlying] = useState(null)
+  useEffect(() => {
+    const cfg = realtimeConfig()
+    if (!cfg) return
+    let room = null
+    const t = setTimeout(() => import('../game/net/realtime.js').then(({ connectRoom }) => {
+      room = connectRoom({ url: cfg.url, key: cfg.key, room: 'pz-online', id: `v${Math.random().toString(36).slice(2, 9)}`, track: false })
+      room.onPresence = (r) => setFlying(r.size)
+    }).catch(() => {}), 1200)
+    return () => { clearTimeout(t); room?.close() }
+  }, [])
   const land = (id) => (onLand ? onLand(id) : (window.location.hash = `#land/${id}`))
   return <main className="tt-root" ref={root}>
     <div className="tt-art" style={{ backgroundImage: `url(${BASE}game/keyart.webp)` }} />
@@ -72,7 +86,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
     </header>
 
     <section className="tt-hero">
-      <span className="tt-kicker">A space game in the real Earth-Moon system</span>
+      <span className="tt-kicker">A shared, real Earth-Moon system{flying > 0 && <em className="tt-live"><i />{flying} {flying === 1 ? 'pilot' : 'pilots'} flying now</em>}</span>
       <h1><span>Periapsis</span><span>Zero</span></h1>
       <p className="tt-tag">2091. The Moon is the frontier, L1 is the boomtown, and you owe the wrong people forty thousand credits.</p>
       {isPhone ? <div className="tt-phone">
@@ -92,6 +106,16 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
       <span className="tt-scroll" aria-hidden>Scroll</span>
     </section>
 
+    <section className="tt-pillars tt-reveal">
+      <h2>What makes it different</h2>
+      <ol>
+        <li><b>01</b><strong>One live sky</strong><span>Every pilot playing flies in the same Earth-Moon system at once. At Hearth you see who else is at Hearth, by name and suit, and hail them.</span></li>
+        <li><b>02</b><strong>Real flight, flown</strong><span>The Earth and Moon where they really are, Newtonian ships, and transfers you fly yourself: hold the burn, call the flip, get graded.</span></li>
+        <li><b>03</b><strong>One career, two cockpits</strong><span>Licences come from the simulator next door: make orbit, reach the Moon, land, come home, and your game pilot is promoted.</span></li>
+        <li><b>04</b><strong>A squadron in a link</strong><span>Share five letters and friends are flying beside you in seconds. No accounts, nothing to install.</span></li>
+      </ol>
+    </section>
+
     <section className="tt-ways tt-reveal">
       <h2>Three ways to fly</h2>
       <div>
@@ -99,7 +123,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
           <img src={`${BASE}game/shot-hangar.webp`} alt="" loading="lazy" />
           <span className="tt-eyebrow">The game</span>
           <h3>Make a living</h3>
-          <p>Pick a suit, walk out to your ship, and work the lanes: couriers, salvage, smuggling, bounties, and a story with a choice in it.</p>
+          <p>Pick a suit, walk out to your ship, and work the lanes alongside every other pilot online: couriers, salvage, smuggling, bounties, and a story with a choice in it.</p>
         </article>
         <article onClick={onSquadron}>
           <img src={`${BASE}game/shot-squadron.webp`} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = `${BASE}game/shot-flight.webp` }} />

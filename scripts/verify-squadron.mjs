@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { createSkirmish, SQUAD, LIVES } from '../src/game/core/skirmish.js'
-import { stepGame } from '../src/game/core/game.js'
+import { stepGame, startGame, newSave, loadPlace } from '../src/game/core/game.js'
+import { createSky, syncSky, hail } from '../src/game/net/sky.js'
+import { spawnBolt } from '../src/game/core/combat.js'
 import { makeShip } from '../src/game/core/flight.js'
 import { shipStats } from '../src/game/core/ships.js'
 import { leadPoint } from '../src/game/core/combat.js'
 import { hostile } from '../src/game/core/ai.js'
 
 /*
- * Squadron (src/game/core/skirmish.js): waves, wingmates, the reserve of
+ * Squadron (src/game/core/skirmish.js) and the shared sky (net/sky.js):
+ * waves, wingmates, the reserve of
  * ships, and two machines in one squadron, joined here by a loopback in
  * place of the Realtime room so the gate needs no network. A live room is
  * the same messages over a websocket (src/game/net/realtime.js).
@@ -107,4 +110,44 @@ check('a pilot who stops reporting leaves, and a wingmate takes the seat back', 
   void makeShip; void shipStats
 })
 
-console.log(`\n${checks} squadron checks pass.`)
+/** Named rooms in memory: a message reaches the others in the same room. */
+function rooms() {
+  const all = []
+  const queue = []
+  const open = (name) => { const r = { name, onMessage: null, open: true, broadcast: (ev, p) => { if (r.open) queue.push([r, ev, JSON.parse(JSON.stringify(p))]) }, close: () => { r.open = false } }; all.push(r); return r }
+  const flush = () => { for (const [from, ev, p] of queue.splice(0)) for (const r of all) if (r !== from && r.open && r.name === from.name) r.onMessage?.(ev, p) }
+  return { open, flush }
+}
+
+check('the shared sky: pilots at the same place see each other, named and where they are, can hail, and cannot shoot each other', () => {
+  const net = rooms()
+  const flyOut = (name) => { const g = startGame(newSave(name, 'ion')); const c = controls(); c.actions.push('launch'); for (let i = 0; i < 60 * 8 && g.mode !== 'flight'; i++) stepGame(g, c); return g }
+  const A = flyOut('Ada'), B = flyOut('Bo')
+  const sa = createSky({ open: net.open, me: 'a', name: 'Ada' }), sb = createSky({ open: net.open, me: 'b', name: 'Bo' })
+  const cb = controls()
+  cb.throttleSet = 0.6
+  for (let n = 0; n < 60 * 4; n++) {
+    stepGame(A, controls()); stepGame(B, cb)
+    if (n % 6 === 0) { syncSky(A, sa, 0.1); syncSky(B, sb, 0.1); net.flush() }
+  }
+  const seen = A.ships.find((e) => e.team === 'pilot' && e.alive)
+  assert.ok(seen, 'Ada sees Bo')
+  assert.equal(seen.label, 'Bo')
+  assert.equal(seen.suit, 'ion')
+  assert.ok(seen.pos.distanceTo(B.player.pos) < 80, `Bo is where Bo is: ${seen.pos.distanceTo(B.player.pos).toFixed(0)} m off`)
+  // A bolt aimed straight at Bo goes through.
+  const from = seen.pos.clone().add(new THREE.Vector3(0, 0, 300))
+  const i = spawnBolt(A, from.x, from.y, from.z, 0, 0, -2200, 8, A.player.id, 'player')
+  for (let k = 0; k < 20; k++) stepGame(A, controls())
+  assert.ok(A.bolts.life[i] > 0, 'the bolt flew on')
+  assert.ok(hail(B, sb), 'Bo hails')
+  syncSky(B, sb, 0.1); net.flush()
+  assert.ok(A.comms.some((c) => c.who === 'Bo'), 'Ada hears it')
+  // Bo leaves for the Drift: Ada stops seeing them; Bo's sky moves rooms.
+  loadPlace(B, 'drift')
+  for (let n = 0; n < 60 * 6; n++) { stepGame(A, controls()); if (n % 6 === 0) { syncSky(A, sa, 0.1); syncSky(B, sb, 0.1); net.flush() } }
+  assert.ok(!A.ships.some((e) => e.team === 'pilot' && e.alive), 'gone from Hearth')
+  assert.equal(sb.place, 'drift')
+})
+
+console.log(`\n${checks} squadron and shared-sky checks pass.`)

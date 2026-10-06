@@ -4,6 +4,7 @@ import { makeShip, playerShip, stepShip } from './flight.js'
 import { shipStats } from './ships.js'
 import { stepAI } from './ai.js'
 import { stepBolts, spawnBolt, damage } from './combat.js'
+import { followNet, setNet, shipState } from '../net/puppet.js'
 
 /**
  * Skirmish: hold a piece of sky against waves of raiders, as a squadron of
@@ -90,7 +91,7 @@ export function stepSkirmish(g, input, dt) {
   }
   for (const e of g.ships) {
     if (e === p || !e.alive) continue
-    if (e.puppet) follow(e, dt)
+    if (e.puppet) followNet(e, dt)
     else { stepAI(g, e, dt); stepShip(e, dt, g.time) }
   }
   stepBolts(g, dt)
@@ -242,7 +243,6 @@ function onKill(g, e, byId) {
  * ------------------------------------------------------------------ */
 
 const r1 = (x) => Math.round(x * 10) / 10
-const r3 = (x) => Math.round(x * 1000) / 1000
 
 /** Shots this machine is the authority for, gathered from this step's events. */
 function collectShots(g) {
@@ -259,9 +259,6 @@ function collectShots(g) {
   sk.seenEv = g.evN
 }
 
-function shipState(e) {
-  return [r1(e.pos.x), r1(e.pos.y), r1(e.pos.z), r3(e.q.x), r3(e.q.y), r3(e.q.z), r3(e.q.w), Math.round(e.vel.x), Math.round(e.vel.y), Math.round(e.vel.z), r3(Math.max(0, e.hull) / e.stats.hull), r3(Math.max(0, e.shield) / e.stats.shield), r3(e.thrust ?? 0), e.boosting ? 1 : 0]
-}
 
 function send(g) {
   const sk = g.skirmish, p = g.player
@@ -314,7 +311,7 @@ function pilotFrom(g, m) {
   r.at = g.real
   r.kills = m.k
   r.hull = m.s[10]
-  setNet(r.ship, m.s, g)
+  setNet(r.ship, m.s, g.real)
   if (r.alive && !m.a) { r.alive = false; r.ship.alive = false; g.emit({ type: 'explode', ship: r.ship.id, x: r.ship.pos.x, y: r.ship.pos.y, z: r.ship.pos.z, size: r.ship.radius }); if (sk.host) loseLife(g, m.n) }
   if (!r.alive && m.a) r.alive = true
 }
@@ -336,7 +333,7 @@ function worldFrom(g, m) {
       sk.puppets.set(id, e)
       g.ships.push(e)
     }
-    setNet(e, row.slice(4), g)
+    setNet(e, row.slice(4), g.real)
   }
   for (const [id, e] of sk.puppets) {
     if (seen.has(id)) continue
@@ -344,24 +341,6 @@ function worldFrom(g, m) {
     e.alive = false
     sk.puppets.delete(id)
   }
-}
-
-/** A puppet's reported state; it eases toward it between packets. */
-function setNet(e, s, g) {
-  e.net = e.net ?? { pos: new THREE.Vector3(), q: new THREE.Quaternion(), vel: new THREE.Vector3(), at: 0 }
-  e.net.pos.set(s[0], s[1], s[2]); e.net.q.set(s[3], s[4], s[5], s[6]).normalize(); e.net.vel.set(s[7], s[8], s[9]); e.net.at = g.real
-  e.hull = s[10] * e.stats.hull; e.shield = s[11] * e.stats.shield; e.thrust = s[12]; e.boosting = Boolean(s[13])
-  if (!e.seen) { e.pos.copy(e.net.pos); e.q.copy(e.net.q); e.seen = true }
-}
-const _p = new THREE.Vector3()
-function follow(e, dt) {
-  if (!e.net) return
-  // Where it should be now: the report, carried on by its velocity, and eased to.
-  _p.copy(e.net.vel).multiplyScalar(Math.min(0.5, (e.net.dt = (e.net.dt ?? 0) + dt))).add(e.net.pos)
-  if (e.net.at !== e.net.last) { e.net.last = e.net.at; e.net.dt = 0 }
-  e.pos.lerp(_p, 1 - Math.exp(-dt * 10))
-  e.vel.copy(e.net.vel)
-  e.q.slerp(e.net.q, 1 - Math.exp(-dt * 12))
 }
 
 /** Pilots who stop reporting have left. */

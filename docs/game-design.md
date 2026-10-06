@@ -110,6 +110,12 @@ After the finale the open world carries on: jobs, trade, ships, upgrades.
 
 ## What makes it its own game
 
+- **One live sky.** Everyone playing the story flies in the same Earth-Moon
+  system at once: at each place, the other pilots there are drawn live, by
+  name and in their suits, and can be hailed (G). Nobody can hurt anybody;
+  bolts pass through other pilots. One Realtime room per place
+  (src/game/net/sky.js); `pz-online` presence gives the front page its
+  "pilots flying now". It can be turned off in Settings.
 - **One career across the site.** Pilot licences are earned in the
   Simulator, by flying real things: a parking orbit, a trans-lunar burn, a
   docking, a lunar liftoff, a splashdown. Each one shows up in the game as a

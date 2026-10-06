@@ -13,6 +13,9 @@ import { Touch } from './ui/Touch.jsx'
 import { NewPilot } from './ui/NewPilot.jsx'
 import { Log } from './ui/Log.jsx'
 import { updateMarkers } from './ui/markers.js'
+import { createSky, syncSky, hail, closeSky } from './net/sky.js'
+import { connectRoom } from './net/realtime.js'
+import { realtimeConfig } from '../sim/account.js'
 import './ui/game.css'
 
 const GameScene = lazy(() => import('./scene/GameScene.jsx'))
@@ -40,6 +43,10 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   overlayRef.current = overlay
   const markers = useRef(null)
   const seen = useRef(0)
+  // The shared sky (net/sky.js): other pilots, live. Off in settings, or without the online service.
+  const sky = useRef(null)
+  const online = useRef(null)
+  const [skyOn, setSkyOn] = useState(() => { try { return localStorage.getItem('pz-sky') !== 'off' } catch { return true } })
 
   const begin = useCallback((save, intro = false) => {
     game.current = startGame(save)
@@ -65,6 +72,18 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   // Continue straight away when there is a save (the click that brought us here counts as the gesture).
   useEffect(() => { if (phase === 'loading') begin(loadSave()) }, [phase, begin])
 
+  useEffect(() => {
+    const cfg = realtimeConfig()
+    if (phase !== 'play' || !cfg || !skyOn) return
+    let id
+    try { id = localStorage.getItem('pz-sky-id') ?? `s${Math.random().toString(36).slice(2, 10)}`; localStorage.setItem('pz-sky-id', id) } catch { id = `s${Math.random().toString(36).slice(2, 10)}` }
+    const g = game.current
+    sky.current = createSky({ me: id, name: g?.pilot.name ?? 'Pilot', suit: g?.pilot.suit, open: (room, o) => connectRoom({ url: cfg.url, key: cfg.key, room, id, meta: o?.meta }) })
+    online.current = connectRoom({ url: cfg.url, key: cfg.key, room: 'pz-online', id, meta: { mode: 'game' } })
+    online.current.onPresence = (r) => { if (game.current) game.current.skyOnline = r.size }
+    return () => { closeSky(sky.current); sky.current = null; online.current?.close(); online.current = null; if (game.current) game.current.skyOnline = null }
+  }, [phase, skyOn])
+
   // The interface's own keys.
   useEffect(() => {
     if (phase !== 'play') return
@@ -79,6 +98,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       if (what === 'log') { document.exitPointerLock?.(); setOverlay((o) => (o === 'log' ? null : 'log')); return }
       if (what === 'help') { document.exitPointerLock?.(); setOverlay('help'); return }
       if (what === 'respawn' && g.mode === 'dead') respawn(g)
+      if (what === 'hail') hail(g, sky.current)
     }
     const canvas = c.canvas ?? document.querySelector('canvas')
     // Space skips a cutscene.
@@ -101,6 +121,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
         sound(g, ev)
       }
       seen.current = g.evN
+      if (sky.current) syncSky(g, sky.current, 0.1)
       duck(g.comms.length > 0)
       engineLevel(g.player.thrust ?? 0, g.player.boosting, g.mode === 'flight')
       if (g.mode === 'flight' && g.sinceSave > 60) autosave(g)
@@ -149,10 +170,10 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click') }} onOverlay={setOverlay} />}
       <Comms game={g} />
       <Banners game={g} touch={touch} onRespawn={() => respawn(g)} />
-      {touch && (g.mode === 'flight' || g.mode === 'transfer') && !overlay && <Touch controls={controls.current} game={g} onOverlay={setOverlay} />}
+      {touch && (g.mode === 'flight' || g.mode === 'transfer') && !overlay && <Touch controls={controls.current} game={g} onOverlay={(o) => (o === 'hail' ? hail(g, sky.current) : setOverlay(o))} />}
       {overlay === 'map' && <MapView game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {overlay === 'log' && <Log game={g} touch={touch} onClose={() => setOverlay(null)} />}
-      {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current}
+      {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current} onSky={setSkyOn}
         onResume={() => setOverlay(null)} onQuit={() => { autosave(g); onExit?.() }} />}
       {g.mode === 'flight' && !touch && !controls.current.mouse.locked && !overlay && <div className="gm-takestick">Click the view to take the stick</div>}
     </>}

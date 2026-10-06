@@ -13,6 +13,7 @@ export function Hud({ game: g, touch, onOverlay }) {
     <header className="hud-where">
       <h1>{place?.name ?? 'Deep space'}</h1>
       <p>{g.skirmish ? `Skirmish${g.skirmish.code ? ` · squadron ${g.skirmish.code}` : ' · with AI wingmates'}` : `${place?.where} · ${clock(g.time)}`}</p>
+      {g.skyOnline > 1 && !g.skirmish && <p className="hud-online"><b>{g.skyOnline - 1}</b> other {g.skyOnline === 2 ? 'pilot' : 'pilots'} online · <kbd className="gk">G</kbd> hail</p>}
       <Heat g={g} />
     </header>
     <Objective g={g} touch={touch} />

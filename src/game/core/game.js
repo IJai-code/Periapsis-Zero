@@ -4,6 +4,7 @@ import { HULLS, shipStats, UPGRADES } from './ships.js'
 import { makeShip, playerShip, stepShip, steerToward, clamp, barrelRoll } from './flight.js'
 import { makeBolts, stepBolts, fire, leadPoint } from './combat.js'
 import { stepAI, hostile } from './ai.js'
+import { followNet } from '../net/puppet.js'
 import { addHeat, stepHeat, stepScans, inhibited, dockAllowed, clearHeat } from './heat.js'
 import { jobBoard, GOODS, FUEL_PER_KMS, REPAIR_PER_HP, buyPrice, sellPrice } from './economy.js'
 import { storyTick, storyEvent, storyObjective, storyFail, storyOnLoad } from './story.js'
@@ -455,6 +456,8 @@ export function pilot(g, p, input, dt) {
 export function stepNPCs(g, dt) {
   for (const e of g.ships) {
     if (e === g.player || !e.alive) continue
+    // Another player's ship, flown on their machine: follow their reports.
+    if (e.puppet) { followNet(e, dt); continue }
     stepAI(g, e, dt)
     stepShip(e, dt, g.time)
   }

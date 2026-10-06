@@ -41,6 +41,7 @@ export function Touch({ controls: c, game: g, onOverlay }) {
     <div className="tc-top">
       <button onClick={() => onOverlay('map')}>Map</button>
       <button onClick={() => onOverlay('log')}>Jobs</button>
+      {!g.skirmish && <button onClick={() => onOverlay('hail')}>Wave</button>}
       <button {...tap('fa')}>{g.player.ctrl.fa ? 'Assist on' : 'Assist off'}</button>
       <button onClick={() => onOverlay('pause')}>Menu</button>
     </div>

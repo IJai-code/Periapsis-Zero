@@ -18,7 +18,7 @@ export const KEYS = {
 /** One-shot keys: game actions go to the core, the rest to the interface. */
 const ACTIONS = { KeyZ: 'fa', KeyX: 'stop', KeyF: 'dock', KeyT: 'target', KeyJ: 'transfer', KeyL: 'launch', Enter: 'launch' }
 const ROLL_TAP = { KeyA: 'roll-left', KeyQ: 'roll-left', KeyD: 'roll-right', KeyE: 'roll-right' }
-const UI = { KeyM: 'map', Tab: 'log', KeyH: 'help', Escape: 'pause', KeyP: 'pause', KeyR: 'respawn' }
+const UI = { KeyM: 'map', Tab: 'log', KeyH: 'help', Escape: 'pause', KeyP: 'pause', KeyR: 'respawn', KeyG: 'hail' }
 
 export function createControls() {
   return {

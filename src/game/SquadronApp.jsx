@@ -48,6 +48,13 @@ export default function SquadronApp({ joinCode = null, onExit }) {
 
   useEffect(() => { try { localStorage.setItem(PREFS, JSON.stringify({ id: me, name, suit, hull, arena })) } catch { /* fine */ } }, [me, name, suit, hull, arena])
   useEffect(() => () => net.current?.close(), [])
+  // Counted among the pilots flying now (the front page's number).
+  useEffect(() => {
+    const cfg = realtimeConfig()
+    if (!cfg) return
+    const room = connectRoom({ url: cfg.url, key: cfg.key, room: 'pz-online', id: me, meta: { mode: 'squadron' } })
+    return () => room.close()
+  }, [me])
 
   const pilotName = name.trim() || 'Pilot'
   const fly = useCallback((opts) => {

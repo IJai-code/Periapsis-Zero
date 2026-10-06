@@ -82,7 +82,8 @@ export function stepBolts(g, dt) {
     const len2 = dx * dx + dy * dy + dz * dz
     for (let k = 0; k < ships.length; k++) {
       const e = ships[k]
-      if (!e.alive || e.id === b.owner[i] || friendly(b.team[i], e.team)) continue
+      // Other players in the shared sky are out of reach: bolts pass through them.
+      if (!e.alive || e.id === b.owner[i] || e.team === 'pilot' || friendly(b.team[i], e.team)) continue
       // Closest approach of the segment to the ship's centre.
       const ox = e.pos.x - x0, oy = e.pos.y - y0, oz = e.pos.z - z0
       const t = Math.max(0, Math.min(1, (ox * dx + oy * dy + oz * dz) / len2))

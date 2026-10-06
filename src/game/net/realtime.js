@@ -8,7 +8,7 @@
  * Runs in a browser or under Node 22 (global WebSocket), so the gate can
  * put two clients in one room.
  */
-export function connectRoom({ url, key, room, id, meta = {}, onMessage, onPresence, onStatus }) {
+export function connectRoom({ url, key, room, id, meta = {}, track = true, onMessage, onPresence, onStatus }) {
   const ws = new WebSocket(`${url.replace(/^http/, 'ws')}/realtime/v1/websocket?apikey=${encodeURIComponent(key)}&vsn=1.0.0`)
   const topic = `realtime:${room}`
   let ref = 0, joined = false, closed = false
@@ -29,7 +29,7 @@ export function connectRoom({ url, key, room, id, meta = {}, onMessage, onPresen
     try { m = JSON.parse(e.data) } catch { return }
     if (m.topic !== topic) return
     if (m.event === 'phx_reply' && !joined) {
-      if (m.payload?.status === 'ok') { joined = true; status('joined'); send({ topic, event: 'presence', payload: { type: 'presence', event: 'track', payload: { id, ...meta } }, ref: next() }) }
+      if (m.payload?.status === 'ok') { joined = true; status('joined'); if (track) send({ topic, event: 'presence', payload: { type: 'presence', event: 'track', payload: { id, ...meta } }, ref: next() }) }
       else status('error', m.payload?.response?.reason ?? 'join refused')
       return
     }

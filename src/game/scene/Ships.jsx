@@ -47,6 +47,7 @@ export function Ships({ game }) {
         root.current.add(s.group)
       }
       // Your pilot, in your suit, under the canopy.
+      if (e.remote && s.suit !== e.suit) { s.suit = e.suit; paintPilot(s.group, suitById(e.suit)) }
       if (e.kind === 'player') {
         if (s.suit !== g.pilot.suit) { s.suit = g.pilot.suit; paintPilot(s.group, suitById(g.pilot.suit)); s.pilotMats = pilotMaterials(s.group) }
         // The seat is empty until the pilot has climbed in.
