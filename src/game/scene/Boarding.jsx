@@ -106,7 +106,7 @@ export function Boarding({ game }) {
       act.sit?.setLoop(THREE.LoopOnce, 1)
       if (act.sit) act.sit.clampWhenFinished = true
       const mats = {}
-      body.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.material = o.material.clone(); mats[o.material.name] = o.material } })
+      body.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.material = o.material.clone(); mats[o.material.name] = o.material } })
       state.current.rig = { body, mixer, act, mats }
       state.current.suit = null
       parts.body.visible = parts.legL.visible = parts.legR.visible = false
@@ -205,6 +205,7 @@ function makeFigure() {
   const piece = (w, h, d, m, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(1, h, d), m); b.geometry.translate(0.5, 0, 0); b.position.set(0, y, z); b.scale.x = w; return b }
   bridge.add(piece(1, 0.12, 1.4, bdark, -0.06, 0))
   for (const s of [-1, 1]) { bridge.add(piece(1, 0.05, 0.06, glow, 0.02, s * 0.66)); bridge.add(piece(1, 0.06, 0.06, bgold, 1.0, s * 0.68)) }
+  bridge.traverse((o) => { if (o.isMesh) o.castShadow = true })
   bridge.visible = false
   // A soft contact shadow under the feet: the figure stands on the deck instead of floating over it.
   const c = document.createElement('canvas'); c.width = c.height = 64

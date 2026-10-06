@@ -21,6 +21,7 @@ import { BOARD_DUR, BOARD_SEATED, COCKPIT, boardPose } from './Boarding.jsx'
 export default function GameScene({ game, controls, quality, placeKey, paused, onFrame }) {
   const hi = quality !== 'low'
   return <Canvas
+    shadows={hi ? 'soft' : false}
     dpr={hi ? [1, 1.75] : [0.7, 1]}
     gl={{ antialias: hi, logarithmicDepthBuffer: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
     camera={{ fov: 62, near: 0.5, far: 4.5e6, position: [0, 30, 120] }}

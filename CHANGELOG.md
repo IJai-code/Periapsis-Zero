@@ -5,6 +5,13 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Shadows in the bay: 6 October 2026
+
+- A soft, shadow-casting key light over the pad: the ship, the pilot, the
+  boarding bridge and the robot arms cast shadows on the deck. Its shadows
+  are drawn only while the bay is in view, so flight pays nothing for it.
+- The starboard robot arm moved out of the berth camera's swing.
+
 ### A pilot who walks, and less stutter: 6 October 2026
 
 - **The pilot is rigged and animated** (art/game-pilot): a skeleton under a

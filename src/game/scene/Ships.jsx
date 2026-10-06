@@ -76,6 +76,8 @@ export function Ships({ game }) {
 
 function make(kind, e, plumeGeo, plumeMats) {
   const { object, nozzles } = instance(kind)
+  // Ships cast shadows (seen only in the bay, where a light draws them); glass does not.
+  object.traverse((o) => { if (o.isMesh) o.castShadow = !/canopy|glass/.test([o.material].flat()[0]?.name ?? '') })
   const group = new THREE.Group()
   group.add(object)
   const plumeMat = plumeMats[e.team] ?? plumeMats.civil

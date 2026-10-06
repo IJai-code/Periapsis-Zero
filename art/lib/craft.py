@@ -833,7 +833,7 @@ def hangar():
             light(m, f'lanelamp{s}{k}', (s * 7, H0 + 0.1, L0 + 4 + k * 5), 0.3, 'ion')
     # Arms either side, clear of the skywalk.
     robot_arm(m, 'armL', -21, 4, math.radians(80))
-    robot_arm(m, 'armR', 21, 14, math.radians(-110))
+    robot_arm(m, 'armR', 24, -16, math.radians(-60))
     robot_arm(m, 'armB', -16, 30, math.radians(140), reach=0.8)
     for i, (x, z, n) in enumerate([(24, 28, 3), (-27, -22, 2), (26, -30, 2), (-24, 36, 3)]):
         for k in range(n):

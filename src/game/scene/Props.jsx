@@ -45,8 +45,11 @@ function Hangar({ game }) {
   const inner = useRef()
   const lamps = useRef([])
   const lit = useRef(null)
-  const obj = useMemo(() => instance('hangar').object, [])
+  const obj = useMemo(() => { const o = instance('hangar').object; o.traverse((m) => { if (m.isMesh) { m.receiveShadow = true; m.castShadow = !/glass/.test(m.material?.name ?? '') } }); return o }, [])
   const sun = useRef(null)
+  const spot = useRef()
+  const aim = useRef()
+  useEffect(() => { if (spot.current && aim.current) spot.current.target = aim.current }, [])
   const { scene } = useThree()
   const { shafts, dust } = useMemo(bayAtmosphere, [])
   useFrame(({ camera, clock }) => {
@@ -72,6 +75,8 @@ function Hangar({ game }) {
     if (!sun.current) sun.current = scene.getObjectByName('sun')
     if (sun.current) sun.current.intensity = BAY.inside ? 0.7 : 3.2
     scene.environmentIntensity = BAY.inside ? 0.45 : 0
+    // The key light's shadows are drawn only while they can be seen.
+    if (spot.current) { spot.current.intensity = h.visible ? 3600 * (BAY_LIGHT[id] ?? BAY_LIGHT.hearth)[2] : 0; spot.current.shadow.autoUpdate = h.visible }
     const k = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
     if (lit.current !== `${id}:${h.visible}`) {
       lit.current = `${id}:${h.visible}`
@@ -92,6 +97,11 @@ function Hangar({ game }) {
       <pointLight ref={(l) => { lamps.current[1] = l }} position={[-22, 12, -24]} intensity={0} distance={100} decay={2} />
       <pointLight ref={(l) => { lamps.current[2] = l }} position={[22, 12, 26]} intensity={0} distance={100} decay={2} />
       <pointLight ref={(l) => { lamps.current[3] = l }} position={[-30, 3, 0]} intensity={0} distance={70} decay={2} />
+      {/* The pad's key light: a soft spot from the roof that casts the ship's and the pilot's shadows on the deck. */}
+      <spotLight ref={spot} position={[3, 21, 9]} angle={0.8} penumbra={0.65} decay={2} distance={80} intensity={0} color="#fff1dc"
+        castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.03} shadow-camera-near={4} shadow-camera-far={70}>
+      </spotLight>
+      <object3D ref={aim} position={[0, -3, -2]} />
     </group>
   </>
 }
