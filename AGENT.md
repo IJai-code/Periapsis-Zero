@@ -15,19 +15,23 @@ game, with the simulator beside it:
 
 | Route | What it is |
 | --- | --- |
-| `/` | The game's title screen (`src/ui/Title.jsx`): continue, new game, a link to the simulator. Phones get a notice and the simulator. |
+| `/` | The front page (`src/ui/Title.jsx`): continue, new game, Squadron, the simulator as the game's companion (licences, worlds). Phones get a notice and the simulator. |
 | `#play` (old `#campaign`, `#story`) | The game (`src/game/GameApp.jsx`). Design: docs/game-design.md. |
+| `#squadron`, `#squadron/<CODE>` | Squadron, the battle mode (`src/game/SquadronApp.jsx`, `core/skirmish.js`): waves, AI wingmates, friends by code over Supabase Realtime (`game/net/realtime.js`). |
 | `#sim`, `#flight` | The N-body simulator: Apollo and Artemis presets, planner, Almanac, walk mode, and a Land menu. |
 | `#land/<world>` | The simulator, straight onto one of 13 worlds' surfaces (`sim/worlds.js`). |
 
 **The game** is `src/game`: `core/` is pure JavaScript, testable in Node
-(world, ships, flight, combat, ai, heat, economy, story, game), `scene/` is
+(world, ships, flight, combat, ai, heat, economy, story, game, pilot (suits and
+the licences read from the simulator's records), skirmish), `scene/` is
 the R3F view (sky with real stars and true-angular-size Earth and Moon,
-ships, stations, effects, camera), `ui/` the interface (HUD, station menus,
+ships, stations, the hangar, the boarding walk, effects, camera), `ui/` the interface (HUD, station menus,
 map, comms, banners, pause, touch). `scripts/lib/gameBot.mjs` is a scripted
-pilot; `verify-game` uses it to play the whole story. In development,
-`window.__game`, `__pzGo`, `__pzLook`, `__pzRaid`, `__pzHeat` and
-`__pzTransfer` stage scenes for checks and screenshots.
+pilot; `verify-game` uses it to play the whole story and fly burns, and
+`verify-squadron` plays skirmishes, two machines included (a loopback in
+place of the network). In development, `window.__game`, `__pzGo`, `__pzLook`,
+`__pzRaid`, `__pzHeat`, `__pzTransfer`, `__pzDock` and (in a squadron)
+`window.__sq` stage scenes for checks and screenshots.
 
 A surface mission (`ui/Surface.jsx` over `components/ExpeditionScene.jsx`,
 physics in `sim/expedition.js`) is the same in every mode: land on the pad

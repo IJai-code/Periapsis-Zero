@@ -479,7 +479,7 @@ def lance():
 def raider():
     """A Hollow raider: scrap-built, asymmetric, one big engine. 14 m."""
     m = palette('#5a1e1e', '#2b2420', '#c9973c', dark='#1d1a1c', glow='#ff5a3a', lights='#ff7a4a')
-    loft('body', [(-7.0, 0.6, 0.5, 0.15, 0, -0.1), (-5.0, 2.6, 1.4, 0.5, 0, 0), (0.0, 3.6, 2.2, 0.4, 0, 0.1), (4.5, 3.0, 2.0, 0.4, 0, 0), (6.0, 2.4, 1.8, 0.4, 0, 0)], m['hull'], smooth=20)
+    loft('body', [(-7.0, 0.6, 0.5, 0.15, 0, -0.1), (-5.0, 2.6, 1.4, 0.5, 0, 0), (0.0, 3.6, 2.2, 0.6, 0, 0.1), (4.5, 3.0, 2.0, 0.6, 0, 0), (6.0, 2.4, 1.8, 0.5, 0, 0)], m['hull'], soft=True)
     loft('hump', [(-3.5, 1.2, 0.6, 0.2, 0.6, 1.0), (1.5, 1.8, 1.2, 0.3, 0.6, 1.3), (4.0, 1.2, 0.6, 0.2, 0.6, 1.1)], m['trim'], smooth=20)
     slab('wingL', [(-1.6, -1.5), (-7.0, 1.5), (-7.4, 3.0), (-1.6, 3.5)], -0.2, 0.3, m['trim'])
     slab('wingR', [(1.6, -0.5), (6.2, 3.2), (6.0, 4.4), (1.6, 3.8)], 0.1, 0.3, m['dark'])
@@ -492,7 +492,20 @@ def raider():
     light(m, 'eye', (0, 0.5, -5.6), 0.5, 'lights')
     for i, (x, z) in enumerate([(-3.4, 1.0), (3.6, 2.8), (0.5, -2.5)]):
         box(f'junk{i}', (0.9, 0.5, 1.2), (x, 0.9, z), m['metal'])
-    return m, 0.8
+    # Scrap plating bolted over the hull, a glowing slit for a cockpit, pipes and clutter.
+    for i, (x, z, w, l) in enumerate([(-0.9, -3.2, 1.1, 1.6), (0.9, -0.6, 1.2, 2.0), (-1.0, 2.2, 1.0, 1.8), (1.1, 3.6, 0.9, 1.2)]):
+        box(f'plate{i}', (w, 0.08, l), (x, 1.12 - abs(z) * 0.02, z), m['metal'] if i % 2 else m['trim'], chamfer=0.03)
+    box('slit', (1.2, 0.08, 0.18), (0, 0.78, -4.6), m['lights'])
+    for s in (-1, 1):
+        tube(f'pipe{s}', (s * 1.55, 0.2, -3.5), (s * 1.6, 0.4, 4.4), 0.09, m['metal'], seg=8)
+        rcs_quad(m, f'rcsq{s}', (s * 1.6, -0.4, -4.4), s)
+    greebles(m, 'gtop', -0.9, 0.9, 1.1, -1.0, 3.5, 10, seed=11)
+    missile_rail(m, 'rail', -4.6, -0.55, 0.0, 2.4, 2)
+    for i, z in enumerate((4.2, 5.6)):
+        lathe_z(f'eband{i}', [(1.22, z - 0.1), (1.3, z - 0.06), (1.3, z + 0.06), (1.22, z + 0.1)], m['metal'], 0, 0, seg=20)
+    decal(m, 'tagL', 'HOLLOW', (-1.83, 0.0, 0.8), 0.42, -1, 'accent')
+    tube('whip', (0.4, 0.9, 3.2), (0.6, 2.2, 4.4), 0.03, m['metal'], seg=6)
+    return m, 0.6
 
 
 def warden():
@@ -509,7 +522,16 @@ def warden():
     nozzle(m, 'engine0', 0, 0.6, 11.0, 2.0, 2.6)
     for i in range(5):
         light(m, f'eye{i}', (-1.6 + i * 0.8, 3.4, -5.6), 0.45, 'lights')
-    return m, 1.4
+    greebles(m, 'gback', -2.4, 2.4, 2.2, 2.0, 9.5, 26, seed=31)
+    for s in (-1, 1):
+        missile_rail(m, f'rail{s}', s * 9.5, -0.95, -1.0, 3.0, 3)
+        rcs_quad(m, f'rcsq{s}', (s * 3.4, 1.0, -11.0), s)
+        for k in range(3):
+            box(f'armor{s}{k}', (0.12, 1.8, 3.0), (s * 3.62, 0.2, -4.0 + k * 4.0), m['metal'] if k % 2 else m['trim'], chamfer=0.05)
+        for i, z in enumerate((11.6, 12.6)):
+            lathe_z(f'eband{s}{i}', [(1.62, z - 0.12), (1.72, z - 0.08), (1.72, z + 0.08), (1.62, z + 0.12)], m['metal'], s * 3.2, 0, seg=24)
+    decal(m, 'tag', 'WARDEN', (3.71, 0.4, 2.0), 0.9, 1, 'accent')
+    return m, 1.0
 
 
 def cutter():
@@ -527,11 +549,19 @@ def cutter():
     fin('fin', [(1.0, 4.0), (3.6, 7.6), (3.6, 9.2), (1.0, 9.4)], 0, 0.3, m['trim'])
     for s in (-1, 1):
         vent(m, f'vent{s}', s * 1.4, 1.62, 3.0, 0.9, 2.6, 6)
-        hatch(m, f'hatch{s}', s * 1.4, 1.5, -1.0, 0.8, 2.0)
         tube(f'gun{s}', (s * 1.6, -1.2, -7.5), (s * 1.6, -1.2, -2.0), 0.14, m['metal'])
     dome(m, 'sensor', (0, -1.5, -4.0), 0.5)
     box('stripe', (4.05, 0.5, 1.0), (0, 0.2, -6.0), m['trim'])
-    return m, 1.0
+    greebles(m, 'gtop', -0.9, 0.9, 1.62, -1.6, 1.4, 10, seed=21)
+    for s in (-1, 1):
+        rcs_quad(m, f'rcsq{s}', (s * 1.95, 0.3, -7.6), s)
+        missile_rail(m, f'rail{s}', s * 4.8, -0.95, 0.8, 3.6, 2)
+        decal(m, f'tag{s}', 'COMPACT', (s * 2.03, 0.3, -1.6), 0.5, s, 'trim')
+        for i, z in enumerate((4.4, 6.6, 8.4)):
+            lathe_z(f'pband{s}{i}', [(0.98, z - 0.1), (1.05, z - 0.06), (1.05, z + 0.06), (0.98, z + 0.1)], m['metal'], s * 2.6, -0.4, seg=20)
+        light(m, f'land{s}', (s * 1.0, -1.45, -6.4), 0.18, 'lights')
+    tube('mast', (0.5, 1.6, 6.2), (0.5, 3.0, 7.0), 0.04, m['metal'], seg=6)
+    return m, 0.8
 
 
 def freighter():
