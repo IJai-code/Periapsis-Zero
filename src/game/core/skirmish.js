@@ -47,9 +47,11 @@ export function createSkirmish({ name = 'Pilot', suit = 'hearth', hull = 'kestre
   g.story.noAmbient = g.story.noPatrol = g.story.noInterdict = true
   g.mode = 'flight'; g.docked = null
   g.comms = []
-  place(g, g.player, 0)
+  // The host starts in the first slot of the line; each friend in one of the others, by their id.
+  const slot = host ? 0 : 1 + ([...me].reduce((n, ch) => n + ch.charCodeAt(0), 0) % (SQUAD - 1))
+  place(g, g.player, slot)
   g.skirmish = {
-    arena, code, host, net, me, name, suit, hull,
+    arena, code, host, net, me, name, suit, hull, slot,
     wave: 0, score: 0, lives: LIVES, state: 'break', breakUntil: g.time + 7, over: null,
     remote: new Map(), puppets: new Map(), out: [], sendAt: 0, seenEv: 0, myKills: 0, deadUntil: 0, wasAlive: true,
     roster: new Map(),
@@ -123,7 +125,7 @@ function comeBack(g) {
   const old = g.player
   g.player = playerShip(sk.hull, g.ship.up, 1)
   g.player.id = old.id
-  place(g, g.player, 0)
+  place(g, g.player, sk.slot)
   g.ships = g.ships.filter((e) => e !== old)
   g.ships.push(g.player)
   g.mode = 'flight'
