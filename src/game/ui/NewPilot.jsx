@@ -12,14 +12,8 @@ export function NewPilot({ onBegin, onExit }) {
   const begin = () => onBegin(name.trim() || 'Pilot', suit)
   return <div className="np-root">
     <div className="np-art" />
-    {step === 0 && <section className="np-card" key="name">
+    {step === 0 && <section className="np-card np-suits" key="suit">
       <span className="st-eyebrow">New game · 1 of 2</span>
-      <h1>Who is flying?</h1>
-      <input autoFocus maxLength={24} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') go(1) }} />
-      <div className="np-actions"><button className="st-primary" onClick={() => go(1)}>Continue</button><button className="st-ghost" onClick={onExit}>Back</button></div>
-    </section>}
-    {step === 1 && <section className="np-card np-suits" key="suit">
-      <span className="st-eyebrow">New game · 2 of 2</span>
       <h1>Choose your suit</h1>
       <p className="np-sub">You will see it on the walk to your ship, and through the canopy in flight. Change it any time in the Pilot tab.</p>
       <div className="np-grid">
@@ -34,7 +28,13 @@ export function NewPilot({ onBegin, onExit }) {
         })}
       </div>
       <p className="np-licence">Locked suits come with pilot licences, earned in the <a href="#sim" target="_blank" rel="noreferrer">Simulator</a>: make orbit, cross to the Moon, dock, land, come home. Each licence also pays a signing bonus here.</p>
-      <div className="np-actions"><button className="st-primary" onClick={() => go(2)}>Suit up</button><button className="st-ghost" onClick={() => go(0)}>Back</button></div>
+      <div className="np-actions"><button className="st-primary" onClick={() => go(1)}>Suit up</button><button className="st-ghost" onClick={onExit}>Back</button></div>
+    </section>}
+    {step === 1 && <section className="np-card np-name" key="name">
+      <span className="st-eyebrow">New game · 2 of 2</span>
+      <div className="np-who"><SuitArt suit={SUITS.find((x) => x.id === suit) ?? SUITS[0]} size={72} /><h1>Who is wearing it?</h1></div>
+      <input autoFocus maxLength={24} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') go(2) }} />
+      <div className="np-actions"><button className="st-primary" onClick={() => go(2)}>Continue</button><button className="st-ghost" onClick={() => go(0)}>Back</button></div>
     </section>}
     {step === 2 && <section className="np-crawl" onClick={begin}>
       <p className="np-year">2091</p>

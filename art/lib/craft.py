@@ -252,7 +252,7 @@ def surfaces(m, panel=1.1, dust=None):
     sf.surface(m['solar'], 'solar', cell=0.5 * panel)
 
 
-KEEP = ('glow', 'lights', 'navred', 'navgreen', 'ion', 'pilotsuit', 'pilotvisor', 'pilotstripe', 'canopy')
+KEEP = ('glow', 'lights', 'navred', 'navgreen', 'ion', 'pilotsuit', 'pilotvisor', 'pilotstripe', 'canopy', 'skyglass')
 
 
 # --------------------------------------------------------------------------
@@ -738,51 +738,81 @@ def robot_arm(m, name, x, z, facing, reach=1.0):
 
 def hangar():
     """The bay a docked ship sits in. Runtime frame: the ship at the origin
-    nose to -Z, the open door 45 m ahead at z = -45, the floor at y = -6."""
-    m = palette('#5c6066', '#34333c', '#e8b22c', dark='#1d1c24', lights='#fff1d8')
+    nose to -Z, the open door 45 m ahead at z = -45, the deck at y = -6.
+
+    Industrial and dark, lit in pools: gunmetal walls in inset panels between
+    braced ribs, pipe runs, a coffered roof of light panels, a gold-trimmed
+    pad. A glass skywalk comes in through the starboard wall from outside the
+    station (x = 36 to 66) and runs on inside to x = 12, where a boarding
+    bridge (built by the game, per hull) reaches the cockpit."""
+    m = palette('#3a3f47', '#25262d', '#c9973c', dark='#16161b', lights='#fff1d8')
+    m['skyglass'] = pz.material('skyglass', '#9fd8ff', metallic=0.4, roughness=0.05)
     W, H0, H1, L0, L1 = 36.0, -6.0, 26.0, -45.0, 46.0
-    # Shell: floor, walls, ceiling, back wall.
+    TZ, TY, TR = -4.25, -1.0, 1.8          # the skywalk: centre z, centre y, radius
+    TF = TY - 1.6                           # its floor
+    # Deck: plates with seams, darker lanes, grates.
     box('floor', (2 * W, 0.6, L1 - L0), (0, H0 - 0.3, (L0 + L1) / 2), m['trim'])
-    # Deck plates: seams every 6 m.
     for k in range(1, 12):
         box(f'seamx{k}', (0.12, 0.04, L1 - L0), (-W + k * 6, H0 + 0.01, (L0 + L1) / 2), m['dark'])
     for k in range(1, 15):
         box(f'seamz{k}', (2 * W, 0.04, 0.12), (0, H0 + 0.01, L0 + k * 6), m['dark'])
+    for i, (x, z) in enumerate([(-24, -30), (24, -30), (-24, 30), (24, 30), (-28, 0), (28, 18)]):
+        box(f'grate{i}', (4.0, 0.06, 2.4), (x, H0 + 0.02, z), m['dark'])
+        for k in range(7):
+            box(f'grate{i}b{k}', (0.12, 0.08, 2.2), (x - 1.8 + k * 0.6, H0 + 0.05, z), m['metal'])
+    # Walls: port solid, starboard with the skywalk's doorway; both in inset panels.
+    box('wallL', (0.8, H1 - H0, L1 - L0), (-W, (H0 + H1) / 2, (L0 + L1) / 2), m['hull'])
+    dz0, dz1, dy0, dy1 = TZ - 2.2, TZ + 2.2, TF - 0.4, TY + 2.2
+    box('wallRa', (0.8, H1 - H0, dz0 - L0), (W, (H0 + H1) / 2, (L0 + dz0) / 2), m['hull'])
+    box('wallRb', (0.8, H1 - H0, L1 - dz1), (W, (H0 + H1) / 2, (dz1 + L1) / 2), m['hull'])
+    box('wallRc', (0.8, dy0 - H0, dz1 - dz0), (W, (H0 + dy0) / 2, TZ), m['hull'])
+    box('wallRd', (0.8, H1 - dy1, dz1 - dz0), (W, (dy1 + H1) / 2, TZ), m['hull'])
     for s in (-1, 1):
-        box(f'wall{s}', (0.8, H1 - H0, L1 - L0), (s * W, (H0 + H1) / 2, (L0 + L1) / 2), m['hull'])
-        # Ribs, catwalk and railing along each wall.
         for k in range(9):
             z = L0 + 6 + k * 10.5
-            box(f'rib{s}{k}', (1.6, H1 - H0, 1.2), (s * (W - 0.8), (H0 + H1) / 2, z), m['trim'])
-            light(m, f'wlamp{s}{k}', (s * (W - 1.7), 12, z), 0.6, 'lights')
+            box(f'rib{s}{k}', (2.0, H1 - H0, 1.4), (s * (W - 1.0), (H0 + H1) / 2, z), m['trim'], chamfer=0.1)
+            # A brace from the rib's foot up the wall, and a lamp on it.
+            tube(f'brace{s}{k}', (s * (W - 2.2), H0 + 0.2, z), (s * (W - 0.6), H0 + 7.0, z), 0.22, m['dark'], seg=8)
+            light(m, f'wlamp{s}{k}', (s * (W - 2.1), 12, z), 0.6, 'lights')
+            # Inset panels between this rib and the next.
+            if k < 8:
+                for row in range(3):
+                    zz = z + 5.25
+                    if s > 0 and abs(zz - TZ) < 6 and row == 0:
+                        continue
+                    box(f'panel{s}{k}{row}', (0.12, 5.6, 8.4), (s * (W - 0.5), H0 + 4.2 + row * 7.6, zz), m['accent'] if (k + row) % 5 == 0 else m['trim'], chamfer=0.08)
         box(f'catwalk{s}', (4.0, 0.3, L1 - L0 - 4), (s * (W - 2.5), 6.0, (L0 + L1) / 2), m['metal'])
         tube(f'rail{s}', (s * (W - 4.4), 7.2, L0 + 2), (s * (W - 4.4), 7.2, L1 - 2), 0.08, m['accent'], seg=6)
         for k in range(12):
             z = L0 + 4 + k * 7.6
             tube(f'post{s}{k}', (s * (W - 4.4), 6.1, z), (s * (W - 4.4), 7.2, z), 0.06, m['metal'], seg=6)
         box(f'strip{s}', (0.3, 0.4, L1 - L0 - 6), (s * (W - 0.6), 18.0, (L0 + L1) / 2), m['ion'])
-        # Consoles under the catwalk, lit.
+        # Pipe runs along the wall.
+        for h, r in ((9.0, 0.35), (9.9, 0.22), (20.5, 0.45)):
+            tube(f'pipe{s}{h}', (s * (W - 0.9), h, L0 + 1), (s * (W - 0.9), h, L1 - 1), r, m['dark'] if r > 0.3 else m['metal'], seg=10)
         for k in range(3):
-            z = -20 + k * 18
+            z = (-22, 8, 22)[k]
             box(f'console{s}{k}', (2.2, 2.4, 4.0), (s * (W - 3.2), H0 + 1.2, z), m['trim'], chamfer=0.15)
             box(f'screen{s}{k}', (0.1, 1.2, 3.2), (s * (W - 4.35), H0 + 2.0, z), m['ion'])
     box('ceiling', (2 * W, 0.6, L1 - L0), (0, H1 + 0.3, (L0 + L1) / 2), m['hull'])
     box('back', (2 * W, H1 - H0, 0.8), (0, (H0 + H1) / 2, L1), m['hull'])
-    # The blast door at the back, framed in light.
     box('blastdoor', (22, 18, 0.6), (0, H0 + 9, L1 - 0.6), m['trim'])
+    for k in range(5):
+        box(f'bdseam{k}', (22.2, 0.15, 0.7), (0, H0 + 2 + k * 3.6, L1 - 0.6), m['dark'])
     for s in (-1, 1):
         box(f'doorlight{s}', (0.5, 18, 0.5), (s * 11.3, H0 + 9, L1 - 0.8), m['lights'])
     box('doorlightTop', (23, 0.5, 0.5), (0, H0 + 18.2, L1 - 0.8), m['lights'])
-    # Ceiling gantry beams, light panels, and a crane rail.
+    # The roof: deep beams and a light panel in each bay of them.
     for k in range(6):
         z = L0 + 8 + k * 15
-        box(f'beam{k}', (2 * W, 1.6, 1.4), (0, H1 - 1.0, z), m['trim'])
+        box(f'beam{k}', (2 * W, 2.4, 1.6), (0, H1 - 1.2, z), m['trim'], chamfer=0.1)
         box(f'panel{k}', (14, 0.25, 3.0), (0, H1 - 1.9, z + 6), m['lights'])
+        box(f'panelframe{k}', (15, 0.5, 4.0), (0, H1 - 1.7, z + 6), m['dark'])
     for s in (-1, 1):
         box(f'craneRail{s}', (1.0, 1.0, L1 - L0), (s * 14, H1 - 2.6, (L0 + L1) / 2), m['metal'])
-    box('crane', (30, 1.4, 2.2), (0, H1 - 3.4, 18), m['accent'])
-    tube('craneHook', (0, H1 - 4, 18), (0, H1 - 11, 18), 0.12, m['metal'], seg=6)
-    # The door frame: a heavy lip, hazard stripes, and lights round the opening.
+    box('crane', (30, 1.4, 2.2), (0, H1 - 3.4, 22), m['accent'])
+    tube('craneHook', (0, H1 - 4, 22), (0, H1 - 11, 22), 0.12, m['metal'])
+    # The door frame: a heavy lip, hazard stripes, lights round the opening.
     for s in (-1, 1):
         box(f'jamb{s}', (4.0, H1 - H0, 3.0), (s * (W - 2), (H0 + H1) / 2, L0 + 1.5), m['trim'])
         for k in range(8):
@@ -790,24 +820,72 @@ def hangar():
     box('lintel', (2 * W, 3.0, 3.0), (0, H1 - 1.5, L0 + 1.5), m['trim'])
     for k in range(10):
         light(m, f'doorlamp{k}', (-W + 4 + k * (2 * W - 8) / 9, H1 - 3.2, L0 + 1.0), 0.7, 'lights')
-    # The pad: a ring of light under the ship, and painted lanes to the door.
+    # The pad: a gold-ringed disc, a ring of light, lanes to the door.
     lathe_y('pad', [(0, 0.15), (13.4, 0.15), (13, 0)], m['trim'], 0, H0 + 0.02, 0, seg=64)
+    lathe_y('padgold', [(13.4, 0.18), (14.2, 0.18), (14.0, 0.0)], m['accent'], 0, H0 + 0.02, 0, seg=64)
     lathe_y('padring', [(12.2, 0.2), (12.8, 0.2)], m['ion'], 0, H0 + 0.05, 0, seg=64)
+    for k in range(16):
+        a = k / 16 * math.tau
+        box(f'padmark{k}', (0.3, 0.05, 1.6), (math.sin(a) * 10.5, H0 + 0.2, math.cos(a) * 10.5), m['accent'])
     for s in (-1, 1):
         box(f'lane{s}', (0.6, 0.05, 30), (s * 7, H0 + 0.03, L0 + 16), m['accent'])
         for k in range(6):
             light(m, f'lanelamp{s}{k}', (s * 7, H0 + 0.1, L0 + 4 + k * 5), 0.3, 'ion')
-    # Robot arms either side, reaching in, as in every good hangar.
+    # Arms either side, clear of the skywalk.
     robot_arm(m, 'armL', -21, 4, math.radians(80))
-    robot_arm(m, 'armR', 21, -6, math.radians(-100))
+    robot_arm(m, 'armR', 21, 14, math.radians(-110))
     robot_arm(m, 'armB', -16, 30, math.radians(140), reach=0.8)
-    # Cargo, fuel, clutter.
-    for i, (x, z, n) in enumerate([(24, 26, 3), (-27, -22, 2), (26, -30, 2), (-24, 36, 3)]):
+    for i, (x, z, n) in enumerate([(24, 28, 3), (-27, -22, 2), (26, -30, 2), (-24, 36, 3)]):
         for k in range(n):
             box(f'crate{i}{k}', (4.2, 3.2, 4.2), (x + (k % 2) * 0.6, H0 + 1.6 + k * 3.25, z + (k % 2) * 0.4), m['accent'] if (i + k) % 2 else m['trim'], chamfer=0.15)
     for k in range(3):
-        lathe_y(f'tank{k}', [(0, 0), (2.0, 0.2), (2.2, 1.2), (2.2, 7.0), (2.0, 8.0), (0, 8.2)], m['metal'], 30, H0, 6 + k * 5.2)
-        tube(f'fuelline{k}', (30, H0 + 7.6, 6 + k * 5.2), (W - 0.4, H0 + 7.6, 6 + k * 5.2), 0.22, m['dark'], seg=8)
+        lathe_y(f'tank{k}', [(0, 0), (2.0, 0.2), (2.2, 1.2), (2.2, 7.0), (2.0, 8.0), (0, 8.2)], m['metal'], 30, H0, 8 + k * 5.2)
+        tube(f'fuelline{k}', (30, H0 + 7.6, 8 + k * 5.2), (W - 0.4, H0 + 7.6, 8 + k * 5.2), 0.22, m['dark'], seg=8)
+    # The skywalk: from outside the station (x = 66, an airlock) in through
+    # the starboard wall to x = 12. Ribs of metal round a glass tube, a deck,
+    # strip lights along it; hung from the roof inside, from struts outside.
+    X0, X1 = 12.0, 66.0
+    box('swdeck', (X1 - X0, 0.2, 2.6), ((X0 + X1) / 2, TF, TZ), m['metal'])
+    for s in (-1, 1):
+        box(f'swedge{s}', (X1 - X0, 0.12, 0.12), ((X0 + X1) / 2, TF + 0.12, TZ + s * 1.2), m['ion'])
+    n = int((X1 - X0) / 3)
+    for k in range(n + 1):
+        x = X0 + k * (X1 - X0) / n
+        torus_name = f'swrib{k}'
+        verts, faces = [], []
+        seg, rseg = 24, 6
+        for a_i in range(seg):
+            a = a_i / seg * math.tau
+            for b_i in range(rseg):
+                b = b_i / rseg * math.tau
+                rr = TR + 0.12 * math.cos(b)
+                verts.append(T(x + 0.12 * math.sin(b), TY + rr * math.sin(a), TZ + rr * math.cos(a)))
+        for a_i in range(seg):
+            for b_i in range(rseg):
+                i0 = a_i * rseg + b_i; i1 = a_i * rseg + (b_i + 1) % rseg
+                i2 = ((a_i + 1) % seg) * rseg + (b_i + 1) % rseg; i3 = ((a_i + 1) % seg) * rseg + b_i
+                faces.append((i0, i1, i2, i3))
+        _finish(pz._object(torus_name, verts, faces, m['trim']), 60)
+    # The glass: a cylinder along x.
+    gv, gf, seg = [], [], 32
+    for x in (X0, X1):
+        for a_i in range(seg):
+            a = a_i / seg * math.tau
+            gv.append(T(x, TY + TR * math.sin(a), TZ + TR * math.cos(a)))
+    for a_i in range(seg):
+        j = (a_i + 1) % seg
+        gf.append((a_i, j, seg + j, seg + a_i))
+    pz._object('swglass', gv, gf, m['skyglass'])
+    # Airlock at the far end, struts outside, hangers inside.
+    box('swlock', (0.8, 4.2, 4.2), (X1 + 0.4, TY, TZ), m['trim'], chamfer=0.2)
+    box('swlockdoor', (0.2, 2.6, 1.6), (X1 - 0.05, TF + 1.3, TZ), m['dark'])
+    light(m, 'swlocklamp', (X1 - 0.2, TY + 1.5, TZ), 0.3, 'lights')
+    for k in range(4):
+        x = W + 6 + k * 7
+        tube(f'swstrut{k}', (x, TY - TR, TZ), (x - 4, TY - 9, TZ + 4), 0.18, m['dark'], seg=8)
+    for k in range(4):
+        x = X0 + 3 + k * 6
+        tube(f'swhang{k}', (x, TY + TR, TZ), (x, H1 - 2.5, TZ), 0.09, m['metal'], seg=6)
     return m, 2.5
 
 

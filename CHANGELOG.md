@@ -5,6 +5,22 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The skywalk, a darker bay, and lanes: 6 October 2026
+
+- **Suit first, then the walk.** A new pilot picks a suit, then a name, and
+  walks a glass skywalk outside the station (the hull and the stars beyond
+  the glass) into the bay, where a boarding bridge reaches out to the
+  cockpit; they cross, climb in, and the bridge draws back.
+- **The bay, rebuilt.** Gunmetal walls in inset panels between braced ribs,
+  pipe runs, a coffered roof, a gold-ringed pad; shafts of light under the
+  roof panels, dust turning in them, reflections on the metal, coloured rim
+  lights.
+- **The sky.** Faint hydrogen-red and oxygen-teal nebulae along the
+  Milky Way's plane, a lens streak across the Sun, and a cool rim light so
+  the dark side of a hull reads as an edge.
+- **Lanes.** Each pilot launches and arrives in their own lane, so two
+  pilots leaving the same bay together in the shared sky fan out.
+
 ### One live sky: 6 October 2026
 
 - **The shared sky.** Everyone playing the story now flies in the same

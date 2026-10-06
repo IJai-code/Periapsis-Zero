@@ -10,7 +10,7 @@ import { Sky } from './Sky.jsx'
 import { Ships } from './Ships.jsx'
 import { Props } from './Props.jsx'
 import { Fx } from './Fx.jsx'
-import { BOARD_DUR, BOARD_T, boardPose } from './Boarding.jsx'
+import { BOARD_DUR, BOARD_SEATED, COCKPIT, boardPose } from './Boarding.jsx'
 
 /**
  * The game's 3D view: the fixed-step loop, the camera, the light, and the
@@ -29,6 +29,8 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
     <ambientLight intensity={0.06} color="#9fb4ff" />
     <hemisphereLight intensity={0.12} color="#b8c8ff" groundColor="#2a1a12" />
     <directionalLight name="sun" position={SUN_DIR.clone().multiplyScalar(1e4)} intensity={3.2} color="#fff4e2" />
+    {/* A cool rim from the far side: the night side of a hull reads as a silhouette edged in blue, not a hole. */}
+    <directionalLight position={SUN_DIR.clone().multiplyScalar(-1e4).add(new THREE.Vector3(0, 4e3, 0))} intensity={0.55} color="#7fb0ff" />
     <Suspense fallback={null}>
       <Sky game={game} quality={quality} />
     </Suspense>
@@ -74,27 +76,28 @@ function placeCamera(g, c, cam, rig, dt, t) {
   const r = p.radius
   const k = 1 - Math.exp(-dt * 6)
   if (g.mode === 'docked' && g.cine?.kind === 'board') {
-    // Boarding: the camera walks with the pilot, rises with the lift, and
-    // watches them climb in; then hands back to the berth shot.
+    // Boarding: outside the skywalk with the station beyond the glass; cut
+    // inside as the pilot comes into the bay; watch the bridge reach out and
+    // the crossing; then hand back to the berth shot.
     g.cine.t += dt
     const c = g.cine
-    const T = BOARD_T, inT = T.walk + T.turn + T.lift + T.climb
     const st = STATIONS[g.docked]
     _bay.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
     berthQuat(g, st, _qbay)
-    boardPose(g.ship.hull, Math.min(c.t, inT - 0.01), _pose)
-    const lx = _pose.pos.x, ly = _pose.pos.y, lz = _pose.pos.z
-    if (c.t < T.walk) _v.set(lx + 4.2, ly + 2.4, lz + 6.5)
-    else if (c.t < inT) _v.set(lx + 5.5, ly + 1.8, lz + 4.5)
-    else _v.set(9, 6, 9)
+    boardPose(g.ship.hull, Math.min(c.t, BOARD_SEATED - 0.01), _pose)
+    const P = _pose.pos
+    const [cx, cy, cz] = COCKPIT[g.ship.hull] ?? COCKPIT.kestrel
+    let snap = false
+    if (_pose.phase === 'outside') { _v.set(P.x - 3.5, P.y + 2.4, P.z - 9.5); _t.set(P.x - 1.5, P.y + 1.5, P.z) }
+    else if (_pose.phase === 'inside') { _v.set(P.x + 5.5, P.y + 2.6, P.z + 8.5); _t.set(P.x - 2, P.y + 1.3, P.z) }
+    else if (c.t < BOARD_SEATED) { _v.set(cx + 13, cy + 5, cz + 11); _t.set((P.x + cx) / 2, P.y + 1, (P.z + cz) / 2) }
+    else { _v.set(9, 6, 9); _t.set(0, 0, 0) }
+    if (rig.boardPhase !== _pose.phase) { snap = rig.boardPhase === undefined || _pose.phase === 'inside' || _pose.phase === 'outside'; rig.boardPhase = _pose.phase }
     _v.applyQuaternion(_qbay).add(_bay)
-    cam.position.lerp(_v, rig.boardInit ? 1 - Math.exp(-dt * (c.t < inT ? 2.5 : 1.2)) : 1)
-    rig.boardInit = true
+    cam.position.lerp(_v, snap ? 1 : 1 - Math.exp(-dt * (c.t < BOARD_SEATED ? 2.2 : 1.1)))
     cam.up.set(0, 1, 0).applyQuaternion(_qbay)
-    _t.set(lx, ly + 1.4, lz)
-    if (c.t >= inT) _t.set(0, 0, 0)
     cam.lookAt(_t.applyQuaternion(_qbay).add(_bay))
-    if (c.t >= BOARD_DUR) { g.cine = null; rig.boardInit = false; rig.glide = 0; rig.mode = 'docked' }
+    if (c.t >= BOARD_DUR) { g.cine = null; rig.boardPhase = undefined; rig.glide = 0; rig.mode = 'docked' }
     return
   }
   if (g.mode === 'docked' || g.mode === 'surface') {

@@ -472,3 +472,6 @@
 .hud-tactical li.pilot { color: #f4e8cf; font-weight: 600; }
 .hud-online { margin: 4px 0 0; font-size: 11px; letter-spacing: .08em; color: #f4e8cf99; }
 .hud-online b { color: #f4e8cf; }
+.np-who { display: flex; align-items: center; gap: 14px; margin: 6px 0 14px; }
+.np-who h1 { margin: 0 !important; }
+.np-who .suit-art { animation: bannerin .6s cubic-bezier(.2,.9,.3,1.2) both; }

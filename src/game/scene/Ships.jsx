@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { instance, onModelsChange, paintPilot, preload } from './models.js'
 import { suitById } from '../core/pilot.js'
-import { BOARD_T } from './Boarding.jsx'
+import { BOARD_SEATED } from './Boarding.jsx'
 
 const pilotMaterials = (o) => { const out = new Set(); o.traverse((m) => { if (m.isMesh) for (const x of [m.material].flat()) if (/^pilot/.test(x?.name ?? '')) out.add(x) }); return [...out] }
 
@@ -51,7 +51,7 @@ export function Ships({ game }) {
       if (e.kind === 'player') {
         if (s.suit !== g.pilot.suit) { s.suit = g.pilot.suit; paintPilot(s.group, suitById(g.pilot.suit)); s.pilotMats = pilotMaterials(s.group) }
         // The seat is empty until the pilot has climbed in.
-        const aboard = !(g.cine?.kind === 'board' && g.cine.t < BOARD_T.walk + BOARD_T.turn + BOARD_T.lift + BOARD_T.climb)
+        const aboard = !(g.cine?.kind === 'board' && g.cine.t < BOARD_SEATED)
         for (const m of s.pilotMats ?? []) m.visible = aboard
       }
       s.group.position.copy(e.pos)

@@ -203,6 +203,8 @@ export function preload(kinds) {
         o.castShadow = false; o.receiveShadow = false
         // Canopies are glass you can see the pilot through.
         for (const m of [o.material].flat()) if (m?.name === 'canopy') { m.transparent = true; m.opacity = 0.34; m.depthWrite = false; m.roughness = 0.04; m.metalness = 0.5 }
+        // The skywalk's glass: thin, cool, and see-through from both sides.
+        for (const m of [o.material].flat()) if (m?.name === 'skyglass') { m.transparent = true; m.opacity = 0.16; m.depthWrite = false; m.side = THREE.DoubleSide; m.roughness = 0.05; m.metalness = 0.6 }
       })
       cache.set(k, { object: root, nozzles })
       listeners.forEach((fn) => fn(k))

@@ -41,7 +41,17 @@ export function arrivalPoint(g, out) {
   const side = port ? port.clone().addScaledVector(up, -port.dot(up)) : new THREE.Vector3(1, 0, 0).cross(up)
   if (side.lengthSq() < 0.1) side.set(0, 0, 1).cross(up)
   side.normalize()
-  return out.copy(side).multiplyScalar(ARRIVAL.length()).addScaledVector(up, 300)
+  out.copy(side).multiplyScalar(ARRIVAL.length()).addScaledVector(up, 300)
+  // Each pilot has a lane, so pilots arriving at once in the shared sky do not stack.
+  const lane = laneOf(g)
+  return out.addScaledVector(_lr.copy(side).cross(up).normalize(), lane.x * 240).addScaledVector(up, lane.y * 90)
+}
+const _lr = new THREE.Vector3()
+/** A pilot's lane: a fixed offset, -1..1 each way, chosen once and kept in the save. */
+export function laneOf(g) {
+  const p = g.pilot ?? (g.pilot = {})
+  if (!p.lane) p.lane = { x: Math.round((Math.random() * 2 - 1) * 100) / 100, y: Math.round((Math.random() * 2 - 1) * 100) / 100 }
+  return p.lane
 }
 
 /** 'Up' at a place: away from the nearest world, so it is below you. */
@@ -53,7 +63,7 @@ export function worldUp(g, out) {
 
 export function newSave(name, suit = 'hearth') {
   return {
-    version: 1, pilot: { name: String(name || 'Pilot').slice(0, 24), suit, licences: [] },
+    version: 1, pilot: { name: String(name || 'Pilot').slice(0, 24), suit, licences: [], lane: { x: Math.round((Math.random() * 2 - 1) * 100) / 100, y: Math.round((Math.random() * 2 - 1) * 100) / 100 } },
     credits: 2500, debt: 40000,
     ship: { hull: 'kestrel', up: {}, hp: 1, prop: HULLS.kestrel.tank, cargo: {} },
     home: 'hearth', time: 0, heat: 0,
@@ -517,6 +527,11 @@ function stepAnim(g, dt) {
     const out = 460 * s * s
     p.thrust = s > 0 ? 0.35 + 0.6 * s : 0.08
     p.pos.copy(berth).addScaledVector(_up2, lift).addScaledVector(st.port.axis, out)
+    // Clear of the door, the ship eases into its own lane, so two pilots
+    // launching together in the shared sky fan out instead of stacking.
+    const lane = laneOf(g), k = smooth((out - 50) / 300)
+    _lr.set(1, 0, 0).applyQuaternion(_qb2)
+    p.pos.addScaledVector(_lr, lane.x * 80 * k).addScaledVector(_up2, lane.y * 35 * k)
     p.vel.copy(st.port.axis).multiplyScalar(s > 0 ? 920 * s / T.out : 0)
     if (a.t >= a.dur) { g.mode = 'flight'; g.anim = null; p.vel.copy(st.port.axis).multiplyScalar(120); p.ctrl.throttle = 0.15; g.emit({ type: 'undocked', station: a.st }) }
   }

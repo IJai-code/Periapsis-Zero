@@ -39,6 +39,8 @@ export function Sky({ game, quality }) {
   const stars = useStars(quality)
   const milky = useMemo(() => milkyWay(), [])
   const sunTex = useMemo(() => glowTexture(), [])
+  const streakTex = useMemo(() => streakTexture(), [])
+  const streak = useRef()
 
   const tmp = useMemo(() => ({ cam: new THREE.Vector3(), rel: new THREE.Vector3(), list: BODIES.map((b) => ({ b, D: 0, dir: new THREE.Vector3() })) }), [])
 
@@ -72,6 +74,7 @@ export function Sky({ game, quality }) {
       }
     }
     sun.current.position.copy(SUN_DIR).multiplyScalar(SUN_R)
+    streak.current.position.copy(sun.current.position)
     earthMat.uniforms.uSun.value.copy(SUN_DIR)
     cloudMat.uniforms.uSun.value.copy(SUN_DIR)
     atmoMat.uniforms.uSun.value.copy(SUN_DIR)
@@ -81,6 +84,8 @@ export function Sky({ game, quality }) {
     {stars && <points geometry={stars.geometry} material={stars.material} renderOrder={-20} frustumCulled={false} />}
     <mesh geometry={milky.geometry} material={milky.material} renderOrder={-30} frustumCulled={false} />
     <sprite ref={sun} scale={[SUN_R * 0.045, SUN_R * 0.045, 1]} renderOrder={-15}><spriteMaterial map={sunTex} color="#fff6e8" blending={THREE.AdditiveBlending} depthWrite={false} transparent toneMapped={false} /></sprite>
+    {/* A lens streak across the Sun, as a camera sees it: always level on screen. */}
+    <sprite ref={streak} scale={[SUN_R * 0.42, SUN_R * 0.011, 1]} renderOrder={-14}><spriteMaterial map={streakTex} color="#ffe2bf" opacity={0.55} blending={THREE.AdditiveBlending} depthWrite={false} transparent toneMapped={false} /></sprite>
     <mesh ref={earth} geometry={sphere} material={earthMat} frustumCulled={false} />
     <mesh ref={clouds} geometry={sphere} material={cloudMat} frustumCulled={false} />
     <mesh ref={atmo} geometry={sphere} material={atmoMat} frustumCulled={false} />
@@ -180,7 +185,12 @@ function milkyWay() {
         float dust = smoothstep(0.45, 0.75, fbm(vDir * 14.0 + 3.0)) * exp(-pow(lat / 0.035, 2.0));
         float glow = band * (0.35 + 0.9 * clouds) * (0.35 + 1.2 * pow(core, 3.0)) * (1.0 - 0.75 * dust);
         vec3 col = mix(vec3(0.5, 0.58, 0.9), vec3(0.95, 0.82, 0.7), pow(core, 3.0));
-        gl_FragColor = vec4(col * glow * 0.022, 1.0);
+        // Emission nebulae along the plane, where the real ones are: hydrogen
+        // red and oxygen teal in patches, faint, under the dust lanes.
+        float hII = smoothstep(0.56, 0.86, fbm(vDir * 4.0 + 11.0)) * exp(-pow(lat / 0.2, 2.0));
+        float oIII = smoothstep(0.6, 0.9, fbm(vDir * 5.5 + 29.0)) * exp(-pow(lat / 0.28, 2.0));
+        vec3 neb = (vec3(1.0, 0.32, 0.3) * hII + vec3(0.22, 0.72, 0.92) * oIII * 0.75) * (0.6 + 0.8 * clouds) * (1.0 - 0.6 * dust);
+        gl_FragColor = vec4(col * glow * 0.026 + neb * 0.015, 1.0);
       }`,
     side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending, transparent: true, toneMapped: false,
   })
@@ -305,6 +315,22 @@ function atmosphereMaterial() {
       }`,
     blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
   })
+}
+
+function streakTexture() {
+  const c = document.createElement('canvas')
+  c.width = 256; c.height = 16
+  const x = c.getContext('2d')
+  const h = x.createLinearGradient(0, 0, 256, 0)
+  h.addColorStop(0, 'rgba(255,220,180,0)'); h.addColorStop(0.5, 'rgba(255,245,230,1)'); h.addColorStop(1, 'rgba(255,220,180,0)')
+  x.fillStyle = h; x.fillRect(0, 0, 256, 16)
+  x.globalCompositeOperation = 'destination-in'
+  const v = x.createLinearGradient(0, 0, 0, 16)
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.5, 'rgba(0,0,0,1)'); v.addColorStop(1, 'rgba(0,0,0,0)')
+  x.fillStyle = v; x.fillRect(0, 0, 256, 16)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
 }
 
 function glowTexture() {

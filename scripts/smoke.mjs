@@ -17,7 +17,7 @@ import { launch, preview, wait } from './lib/chrome.mjs'
 
 const PAGES = [
   { name: 'title screen', hash: '', canvas: false, text: 'Periapsis' },
-  { name: 'new game', hash: '#play', canvas: false, text: 'Who is flying', setup: "localStorage.removeItem('pz-game-v1')" },
+  { name: 'new game', hash: '#play', canvas: false, text: 'Choose your suit', setup: "localStorage.removeItem('pz-game-v1')" },
   { name: 'squadron lobby', hash: '#squadron', canvas: false, text: 'Hold the sky' },
   { name: 'the game, from a save (docked at Hearth)', hash: '#play', canvas: true, text: 'Hearth Station', settle: 20000, setup: "localStorage.setItem('pz-game-v1', JSON.stringify({version:1,pilot:{name:'Smoke'},credits:5000,debt:40000,ship:{hull:'kestrel',up:{},hp:1,prop:150000,cargo:{}},home:'hearth',time:0,heat:0,story:{active:'arrival',step:0,done:[],choice:null,offered:[]},jobs:[],flags:{},stats:{kills:0,earned:0,jobs:0,trips:0,deaths:0,fines:0}}))" },
   { name: 'old campaign link, now the game', hash: '#campaign', canvas: true, text: 'Hearth Station', settle: 20000, setup: "localStorage.setItem('pz-game-v1', JSON.stringify({version:1,pilot:{name:'Smoke'},credits:5000,debt:40000,ship:{hull:'kestrel',up:{},hp:1,prop:150000,cargo:{}},home:'hearth',time:0,heat:0,story:{active:'arrival',step:0,done:[],choice:null,offered:[]},jobs:[],flags:{},stats:{kills:0,earned:0,jobs:0,trips:0,deaths:0,fines:0}}))" },

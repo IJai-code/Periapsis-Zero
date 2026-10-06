@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import * as THREE from 'three'
 import { instance, MATERIALS, onModelsChange, preload, roughRock } from './models.js'
 import { STATIONS } from '../core/world.js'
@@ -40,42 +41,89 @@ const BAY_LIGHT = {
 }
 function Hangar({ game }) {
   const ref = useRef()
+  const inner = useRef()
   const lamps = useRef([])
   const lit = useRef(null)
   const obj = useMemo(() => instance('hangar').object, [])
   const sun = useRef(null)
-  useFrame(({ scene, camera }) => {
+  const env = useRef(null)
+  const { gl } = useThree()
+  const { shafts, dust } = useMemo(bayAtmosphere, [])
+  useFrame(({ scene, camera, clock }) => {
     const g = game.current, h = ref.current
     if (!g || !h) return
     // The bay stands at the berth of the station you are in, or docking
-    // with, or leaving; it is drawn while the camera is inside it.
+    // with, or leaving; it is drawn while the camera is inside it, or while
+    // a pilot walks the skywalk to it.
     const id = g.mode === 'docked' ? g.docked : (g.mode === 'docking' || g.mode === 'launch') ? g.anim?.st : null
     const st = id && STATIONS[id]
     if (st) {
       h.position.copy(st.port.at).addScaledVector(st.port.axis, BERTH)
       berthQuat(g, st, h.quaternion)
       obj.position.y = 6 - (KEEL[g.ship.hull] ?? 2.9)
+      inner.current.position.y = obj.position.y
       _local.copy(camera.position).sub(h.position).applyQuaternion(_inv.copy(h.quaternion).invert())
       _local.y -= obj.position.y
       BAY.inside = Math.abs(_local.x) < 35.5 && _local.y > -5.8 && _local.y < 25.8 && _local.z > -45.5 && _local.z < 45.5
     } else BAY.inside = false
-    h.visible = BAY.inside
+    const walking = g.mode === 'docked' && g.cine?.kind === 'board'
+    h.visible = BAY.inside || walking
     if (!sun.current) sun.current = scene.getObjectByName('sun')
-    if (sun.current) sun.current.intensity = BAY.inside ? 0.9 : 3.2
-    if (!BAY.inside) return
+    if (sun.current) sun.current.intensity = BAY.inside ? 0.7 : 3.2
+    // Reflections inside: a studio-style environment, made once, worn only in here.
+    if (BAY.inside && !env.current) { const pm = new THREE.PMREMGenerator(gl); env.current = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose() }
+    scene.environment = BAY.inside ? env.current : null
+    scene.environmentIntensity = 0.45
+    if (!h.visible) return
+    dust.rotation.y = clock.elapsedTime * 0.006
+    dust.position.y = Math.sin(clock.elapsedTime * 0.15) * 0.6
     if (lit.current !== id) {
       lit.current = id
       const [key, fill, k] = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
-      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? key : fill); l.intensity = [4200, 2400, 2400][i] * k })
+      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? key : fill); l.intensity = [5200, 1700, 1700][i] * k })
     }
   })
   return <group ref={ref} visible={false}>
     <primitive object={obj} />
-    <pointLight ref={(l) => { lamps.current[0] = l }} position={[0, 16, 6]} color="#fff1d8" intensity={4200} distance={130} decay={2} />
-    <pointLight ref={(l) => { lamps.current[1] = l }} position={[-22, 12, -24]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
-    <pointLight ref={(l) => { lamps.current[2] = l }} position={[22, 12, 26]} color="#ffd7a8" intensity={2400} distance={100} decay={2} />
+    <group ref={inner}><primitive object={shafts} /><primitive object={dust} /></group>
+    <pointLight ref={(l) => { lamps.current[0] = l }} position={[0, 18, 6]} color="#fff1d8" intensity={5200} distance={130} decay={2} />
+    <pointLight ref={(l) => { lamps.current[1] = l }} position={[-22, 12, -24]} color="#ffd7a8" intensity={1700} distance={100} decay={2} />
+    <pointLight ref={(l) => { lamps.current[2] = l }} position={[22, 12, 26]} color="#ffd7a8" intensity={1700} distance={100} decay={2} />
+    {/* Coloured rims, low and from the sides: the ship picks out against the dark. */}
+    <pointLight position={[-30, 3, 0]} color="#2fd3ff" intensity={1100} distance={70} decay={2} />
+    <pointLight position={[30, 4, -18]} color="#ff9a5a" intensity={800} distance={70} decay={2} />
     <pointLight position={[0, 2, -40]} color="#9fe6ff" intensity={700} distance={60} decay={2} />
   </group>
+}
+
+/**
+ * The air in the bay: a shaft of light under each roof panel (art/game-hangar,
+ * panels at y 24, every 15 m), and dust turning slowly in it. Additive and
+ * depth-tested, so they sit in the room, not on the screen.
+ */
+function bayAtmosphere() {
+  const c = document.createElement('canvas')
+  c.width = 4; c.height = 128
+  const x = c.getContext('2d')
+  const gr = x.createLinearGradient(0, 0, 0, 128)
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)')
+  x.fillStyle = gr; x.fillRect(0, 0, 4, 128)
+  const fade = new THREE.CanvasTexture(c)
+  const shaftMat = new THREE.MeshBasicMaterial({ color: '#ffe9c8', alphaMap: fade, transparent: true, opacity: 0.075, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  const geo = new THREE.CylinderGeometry(6.2, 9.5, 30, 24, 1, true)
+  // The cylinder's v runs bottom to top; flip so the bright end is at the lamp.
+  const uv = geo.attributes.uv
+  for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i))
+  const shafts = new THREE.Group()
+  for (const z of [-31, -16, -1, 14, 29, 44]) { const m = new THREE.Mesh(geo, shaftMat); m.position.set(0, 9, z); m.renderOrder = 6; shafts.add(m) }
+  const n = 420, pos = new Float32Array(n * 3)
+  let seed = 7
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 }
+  for (let i = 0; i < n; i++) { pos[i * 3] = (rnd() - 0.5) * 64; pos[i * 3 + 1] = -5 + rnd() * 26; pos[i * 3 + 2] = (rnd() - 0.5) * 84 }
+  const dg = new THREE.BufferGeometry()
+  dg.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: '#ffe8c8', size: 0.07, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }))
+  return { shafts, dust }
 }
 
 /** Whether the camera is inside the bay this frame: the bay hides the stations outside it. */
