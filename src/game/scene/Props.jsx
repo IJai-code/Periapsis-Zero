@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 import * as THREE from 'three'
 import { instance, MATERIALS, onModelsChange, preload, roughRock } from './models.js'
 import { STATIONS } from '../core/world.js'
@@ -74,7 +75,9 @@ function Hangar({ game }) {
     h.visible = BAY.inside || walking
     if (!sun.current) sun.current = scene.getObjectByName('sun')
     if (sun.current) sun.current.intensity = BAY.inside ? 0.7 : 3.2
-    scene.environmentIntensity = BAY.inside ? 0.45 : 0
+    scene.environmentIntensity = BAY.inside ? 0.55 : 0
+    // The panorama was rendered in the bay's own frame: turn it with the bay.
+    if (st) scene.environmentRotation.setFromQuaternion(h.quaternion)
     // The key light's shadows are drawn only while they can be seen.
     if (spot.current) { spot.current.intensity = h.visible ? 3600 * (BAY_LIGHT[id] ?? BAY_LIGHT.hearth)[2] : 0; spot.current.shadow.autoUpdate = h.visible }
     const k = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
@@ -120,12 +123,23 @@ function Hangar({ game }) {
 export function BayEnvironment() {
   const { gl, scene } = useThree()
   useEffect(() => {
+    // A studio stand-in at once; then the bay's own panorama (art/game-hangar/env.py),
+    // rendered in Cycles from where a docked ship sits, so a hull reflects its real surroundings.
     const pm = new THREE.PMREMGenerator(gl)
-    const env = pm.fromScene(new RoomEnvironment(), 0.04).texture
-    pm.dispose()
+    let env = pm.fromScene(new RoomEnvironment(), 0.04).texture
     scene.environment = env
     scene.environmentIntensity = 0
-    return () => { if (scene.environment === env) scene.environment = null; env.dispose() }
+    let alive = true
+    new HDRLoader().load(`${import.meta.env.BASE_URL}game/bay-env.hdr`, (hdr) => {
+      if (!alive) return
+      const real = pm.fromEquirectangular(hdr).texture
+      hdr.dispose()
+      env.dispose()
+      env = real
+      scene.environment = env
+      pm.dispose()
+    }, undefined, () => pm.dispose())
+    return () => { alive = false; if (scene.environment === env) scene.environment = null; env.dispose() }
   }, [gl, scene])
   return null
 }

@@ -5,6 +5,14 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The bay reflects itself: 6 October 2026
+
+- Reflections in the bay come from a panorama of the bay itself, rendered in
+  Cycles from where a docked ship sits (art/game-hangar/env.py,
+  public/game/bay-env.hdr) and turned with the bay at each station: a hull
+  shows the real lamps, panels, catwalks and the gold-lit pad around it.
+  Measured on this machine's GPU: 60 fps docked and in flight.
+
 ### Shadows in the bay: 6 October 2026
 
 - A soft, shadow-casting key light over the pad: the ship, the pilot, the
