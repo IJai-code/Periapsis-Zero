@@ -61,8 +61,8 @@ boarding, controls and physics, and the graphics tiers. The browser check
 watches all six film chapters, pauses, mutes, skips/replays, boards, launches
 and checks settings. The second check runs the film twice, at High and at
 Fast, in a Chrome whose GPU is only SwiftShader, and reports what each costs:
-currently 116.7 ms a frame at High and 66.6 ms at Fast, which is 43% off on
-the weakest device that can run this at all.
+166.7 ms a frame at High against 83.3 ms at Fast in the latest run, which is
+half the frame time on the weakest device that can run this at all.
 `node scripts/make-prologue.mjs` regenerates the synthetic narration on macOS
 using its installed Daniel voice and AAC encoder. CI consumes the committed
 audio and authored GLBs; it does not need Blender or macOS voices.

@@ -3,23 +3,27 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { Sky } from './Sky.jsx'
-import { instance, onModelsChange, preload } from './models.js'
+import { hasAuthored, instance, onModelsChange, preload } from './models.js'
 import { PLACES, SUN_DIR } from '../core/world.js'
 import { prologueAt } from '../core/prologue.js'
-import { TIERS, filmDegrade, filmPace, noteFilmFrame, tierOf } from '../core/quality.js'
+import { TIERS, filmDegrade, filmModelsReady, filmPace, filmSlowRun, filmWindowCount, noteFilmFrame, tierOf } from '../core/quality.js'
 
 /**
  * A film rendered from the game's own ships and worlds, not a slideshow.
  *
  * The film is the first two minutes of the game for every player, on whatever
- * device they are holding, so it is also the first place the machine's pace
- * is known. It carries the same discipline the game canvas does: a tier that
- * decides what the picture costs, a resolution governor that moves its own
- * pixels when frames run long, and a last rung — bloom and the extra sky
- * detail — spent only when the pixels are already at the floor. Where the
- * film differs from the game is that it draws no shadows at all: its light is
- * the Sun in vacuum, there is nothing behind the ships to cast onto, and a
- * shadow map would be bought at the price of the picture it is not in.
+ * device they are holding, so it has to fit the machine it is playing on. It
+ * carries the same discipline the game canvas does: a tier that decides what
+ * the picture costs, a resolution governor that moves its own pixels when
+ * frames run long, and a last rung — bloom and the extra sky detail — spent
+ * only when the pixels are already at the floor. It stops there: it measures
+ * itself and tunes itself, and says nothing to the game, because this canvas
+ * is heavier than the game's and would be the wrong benchmark for it.
+ *
+ * Where the film differs from the game it is that it draws no shadows at all:
+ * its light is the Sun in vacuum, there is nothing behind the ships to cast
+ * onto, and a shadow map would be bought at the price of the picture it is
+ * not in.
  *
  * Nothing here is a different film at a lower tier. The six shots, the
  * camera moves, the timing and the captions are identical; only the cost of
@@ -78,18 +82,24 @@ function Pace({ cfg, spent, onSlow, dbg }) {
     dbg.current.frames++
     const ms = Math.min(delta, 0.25) * 1000
     r.ema += (Math.min(delta, 0.25) - r.ema) * 0.05
-    noteFilmFrame(ms)
+    // While the film is still reading four megabytes of its own ships off the
+    // wire, its long frames are the network and not the machine. The learner
+    // is told, and holds its verdict until they are in hand.
+    noteFilmFrame(ms, !filmModelsReady(hasAuthored))
     const pace = filmPace()
     if (pace) dbg.current.pace = pace
+    dbg.current.slow = filmSlowRun()
+    dbg.current.windows = filmWindowCount()
     if (c.elapsedTime - r.at > 1.5) {
       r.at = c.elapsedTime
       const top = Math.min(cfg.filmDpr[1], window.devicePixelRatio || 1)
       const next = r.ema > 1 / 45 ? Math.max(cfg.filmDpr[0], r.dpr - 0.15) : r.ema < 1 / 57 ? Math.min(top, r.dpr + 0.1) : r.dpr
       if (Math.abs(next - r.dpr) > 0.01) { r.dpr = next; setDpr(next) }
       dbg.current.dpr = r.dpr
-      // The last rung, one-way: only from a measured pace, and only once the
-      // pixels are already at their floor.
-      if (pace && filmDegrade(pace, r.dpr, spent)) onSlow()
+      // The last rung, one-way: only from a sustained pace, and only once the
+      // pixels are already at their floor. The film tunes itself and stops
+      // there: the game's tier is not its business.
+      if (filmDegrade(filmSlowRun(), r.dpr, spent)) onSlow()
     }
   }, -1)
   return null

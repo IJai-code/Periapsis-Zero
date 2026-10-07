@@ -15,7 +15,7 @@ import { Prologue } from './ui/Prologue.jsx'
 import { Log } from './ui/Log.jsx'
 import { updateMarkers } from './ui/markers.js'
 import { checkpointTier, initialQuality, readChoice, readTier, rememberTier, writeChoice } from './core/quality.js'
-import { recentFrameMean } from '../gfx/frameStats.js'
+import { summarizeFrameTimes } from '../gfx/frameStats.js'
 import { createSky, syncSky, hail, closeSky } from './net/sky.js'
 import { connectRoom } from './net/realtime.js'
 import { realtimeConfig } from '../sim/account.js'
@@ -177,11 +177,17 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
     if (!pf.t0) { pf.t0 = now; return }
     if (now - pf.t0 < 4500) return
     pf.done = true
-    const mean = recentFrameMean(90)
-    const d = checkpointTier(qualityRef.current, mean, { explicit: Boolean(readChoice()), learned: readTier(), measured: mean > 0 })
+    // The middle of the shared ring rather than its mean, for the same reason
+    // the film reads the middle of its window: the first seconds of the bay pay
+    // for a panorama, a halved hangar and a pilot, and one cold decode must not
+    // be mistaken for a slow machine. Gaps over two seconds are excluded by the
+    // summary itself, so a tab that slept decides nothing.
+    const summary = summarizeFrameTimes()
+    const middle = summary?.p50 ?? 0
+    const d = checkpointTier(qualityRef.current, middle, { explicit: Boolean(readChoice()), learned: readTier(), measured: Boolean(summary) })
     if (d.tier !== qualityRef.current) { setQuality(d.tier); qualityRef.current = d.tier }
     if (d.remember) rememberTier(d.tier)
-    if (d.reason === 'slow') g.emit({ type: 'toast', text: `This machine is drawing at about ${Math.round(1000 / mean)} frames a second, so the game has switched to Fast graphics. High is in Menu, Settings.` })
+    if (d.reason === 'slow') g.emit({ type: 'toast', text: `This machine is drawing at about ${Math.round(1000 / middle)} frames a second, so the game has switched to Fast graphics. High is in Menu, Settings.` })
   }, [])
 
   if (phase === 'new') return <NewPilot onBegin={(name, suit) => { newPilot.current = newSave(name, suit); startSound(); setPhase('prologue') }} onExit={onExit} />

@@ -21,7 +21,7 @@ const frames = () => p.evaluate(`new Promise(resolve=>{const a=[];let prev=perfo
 // the honest measure of what a paused film costs: reading the canvas instead
 // would not work, because a WebGL canvas without a preserved drawing buffer
 // hands back a black image to anyone who samples it.
-const filmState = () => p.evaluate('window.__pzFilm ? {tier:__pzFilm.tier,fast:__pzFilm.fast,dpr:__pzFilm.dpr,pace:__pzFilm.pace,frames:__pzFilm.frames} : null')
+const filmState = () => p.evaluate('window.__pzFilm ? {tier:__pzFilm.tier,fast:__pzFilm.fast,dpr:__pzFilm.dpr,pace:__pzFilm.pace,slow:__pzFilm.slow,windows:__pzFilm.windows,frames:__pzFilm.frames} : null')
 const drawn = async () => (await filmState())?.frames ?? -1
 try {
   await p.goto(`${url}/`, 2000)
@@ -30,20 +30,34 @@ try {
   await click('Suit up'); await wait(500); await click('Watch the prologue')
   await wait(7000)
   assert.match(await text(), /PERIAPSIS ZERO \/ PROLOGUE/)
-  // The film measured its own frames: it should have said something, and on a
-  // machine that is coping it must not have condemned it behind the player's
-  // back. The hook is development-only, like every other one in this file.
+  // The film measures its own frames, but not before its four ships have
+  // arrived and two and a half seconds have passed since: on a cold cache that
+  // is ten seconds into the film and not five, so this waits for the event
+  // rather than assuming when it happens. The hook is development-only, like
+  // every other one in this file.
   if (dev) {
-    report.film = await filmState()
-    assert.ok(report.film, 'the film exposes its own tier and pace in development')
-    assert.ok(report.film.pace > 0 && report.film.pace < 250, `film pace ${report.film.pace}`)
-  }
-  if (dev) {
+    // Sample the film's own verdict for sixteen seconds: long enough for its
+    // windows to start closing, and long enough to see one go slow if they do.
+    let film = null
+    const history = []
+    for (let i = 0; i < 32; i++) {
+      film = await filmState()
+      if (film) history.push({ windows: film.windows, pace: +film.pace.toFixed(1), slow: film.slow })
+      if (film?.pace > 0 && i >= 12) break
+      await wait(500)
+    }
+    report.film = film
+    report.filmHistory = history
+    assert.ok(film, 'the film exposes its own tier and pace in development')
+    assert.ok(film.pace > 0 && film.pace < 250, `the film reports a pace of ${film?.pace} ms a frame`)
+    // And it is drawing: a count over two seconds, because the cold-cache
+    // seconds of a first visit are long frames on any machine and the claim
+    // here is that the film is being drawn, not that it is being drawn fast.
     const a = await drawn()
-    await wait(700)
+    await wait(2000)
     const b = await drawn()
-    report.filmDrawn = { playing: b - a }
-    assert.ok(b - a >= 20, `the film draws while it plays (${b - a} frames in 700 ms)`)
+    report.filmDrawn = { playing: b - a, ms: 2000, tier: film.tier }
+    assert.ok(b - a >= 20, `the film draws while it plays (${b - a} frames in 2 s, tier ${film.tier})`)
   }
   await click('Pause film'); await wait(400)
   const at = await p.evaluate("document.querySelector('[role=progressbar]').getAttribute('aria-valuenow')")
@@ -60,10 +74,10 @@ try {
     assert.equal(d - c, 0, 'a paused film draws not one frame')
     await shot('01-earth-paused')
     await click('Mute narrator'); assert.equal(await p.evaluate('document.querySelector("audio").volume'), 0)
-    await click('Unmute narrator'); await click('Resume film'); await wait(700)
+    await click('Unmute narrator'); await click('Resume film'); await wait(2000)
     const e = await drawn()
     report.pausedFilm.resumedDrawing = e - d
-    assert.ok(e - d >= 20, `and draws again the moment it is resumed (${e - d} frames in 700 ms)`)
+    assert.ok(e - d >= 20, `and draws again the moment it is resumed (${e - d} frames in 2 s)`)
   } else {
     await wait(1500)
     await shot('01-earth-paused')
@@ -78,8 +92,12 @@ try {
     await wait(1000)
   }
   assert.equal(report.chapters.length, 6, JSON.stringify(report.chapters))
-  report.learned = await p.evaluate("localStorage.getItem('pz-game-tier')")
-  if (report.film && report.film.pace <= 30) assert.equal(report.learned, null, 'a film the machine coped with teaches it nothing')
+  // The film tunes itself and says nothing about the game: this canvas is two
+  // full-screen six-octave Earth shaders and a bloom pass, and the game is
+  // hulls in a bay. Whatever pace it measured, storage is untouched.
+  report.learned = (await p.evaluate("localStorage.getItem('pz-game-tier')")) ?? null
+  assert.equal(report.learned, null, `the film must not decide the game's tier (asked: ${report.film?.pace} ms, windows ${JSON.stringify(report.filmHistory?.slice(-4))})`)
+  report.filmSlow = report.film?.slow
   assert.match(await text(), /Your mission/i)
   await shot('07-mission')
   await click('Replay film'); await wait(1000); await click('Skip to mission'); await wait(300)

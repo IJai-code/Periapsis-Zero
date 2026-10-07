@@ -143,23 +143,61 @@ const q = await import(join(ROOT, 'src/game/core/quality.js'))
   feed(n, 45)
   check('and a window is not closed early', q.filmPace() === 0)
 
+  // The bug a live run found: on a first visit the film is still reading four
+  // megabytes of ships and decoding its sky while it plays, and a cold cache
+  // puts very long frames into an otherwise perfect window. A mean carried
+  // them into the verdict and condemned a machine that was drawing at sixty
+  // frames a second at the time. Three things now stand in the way: the film
+  // is not measured at all until its own models have arrived, the middle of a
+  // window is read instead of its mean, and an isolated long frame is treated
+  // as an event and restarts the settle window.
+  q.resetFilmLearner()
+  for (let i = 0; i < 400; i++) q.noteFilmFrame(16.7, !q.filmModelsReady((k) => k !== 'raider'))
+  check('nothing is measured at all while the models are still arriving', q.filmPace() === 0 && store.get(q.TIER_KEY) === undefined)
+  const cool = (k) => q.filmModelsReady((kind) => k.includes(kind))
+  check('the film is settled only with all four of its models in hand', cool(['freighter', 'kestrel', 'hearth']) === false && cool(['freighter', 'kestrel', 'hearth', 'raider']) === true)
+  q.resetFilmLearner()
+  feed(Math.ceil(2500 / 16.7) + 1, 16.7)
+  for (let i = 0; i < q.WINDOW - 12; i++) q.noteFilmFrame(16.7)
+  check('a dozen cold-cache hitches in a fast window condemn nothing', feed(12, 120) === false && store.get(q.TIER_KEY) === undefined)
+  check('and each of them restarts the settle window rather than being judged', q.filmPace() === 0 && q.noteFilmFrame(900) === false)
+  feed(Math.ceil(2500 / 16.7) + 1, 16.7)
+  feed(q.WINDOW, 16.7)
+  check('after the hitches, a clean run is judged normally and read as fast', q.filmPace() > 16 && q.filmPace() < 17 && store.get(q.TIER_KEY) === undefined)
+  check('a single long frame does not condemn anything on its own', store.get(q.TIER_KEY) === undefined)
+
   store.clear()
   startFilm(16.7)
   feed(q.WINDOW, 16.7)
   check('a comfortable window is reported and the machine kept', q.filmPace() > 16 && q.filmPace() < 17 && store.get(q.TIER_KEY) === undefined)
 
+  // The film's trend: three windows slow in a row is a pace, one or two is a
+  // stumble, and a comfortable window in between starts the count over.
   startFilm(45)
-  const condemned = feed(q.WINDOW, 45)
-  check('a slow window condemns the machine', condemned === true && q.filmPace() > 44)
-  check('and the verdict is remembered as Fast', store.get(q.TIER_KEY) === 'low')
+  check('one slow window is one slow window', feed(q.WINDOW, 45) === false && q.filmSlowRun() === 1)
+  check('and two is not yet a pace', feed(q.WINDOW, 45) === false && q.filmSlowRun() === 2)
+  check('three in a row is', feed(q.WINDOW, 45) === true && q.filmPace() > 44 && q.filmSlowRun() >= q.FILM_NEED)
   startFilm(45)
-  feed(q.WINDOW, 45)
-  check('the verdict is spoken at most once per film', feed(q.WINDOW, 45) === false)
+  feed(q.WINDOW * 2, 45)
+  check('a stumble in the middle of a slow stretch starts it over', (feed(q.WINDOW, 16.7), q.filmSlowRun() === 0))
+  check('and the count resumes from one', feed(q.WINDOW, 45) === false && q.filmSlowRun() === 1)
+  // A machine drawing at ten frames a second is caught too, even though every
+  // one of its frames is long enough to look like an event on its own.
+  startFilm(150)
+  check('a machine whose every frame is an event still shows a slow pace', feed((q.WINDOW + 4) * q.FILM_NEED, 150) === true && q.filmPace() > 100)
 
+  // The claim that matters most here, and the one a live run argued for: the
+  // film tunes itself and says nothing about the game. Its canvas runs at 26
+  // to 33 ms where the game canvas holds 16.7 ms on the same machine, so a
+  // lesson from it would have quietly dropped a capable machine to Fast.
   store.clear()
+  q.resetFilmLearner()
+  feed(3000, 90)
+  check('a film that is slow from end to end writes nothing at all', store.get(q.TIER_KEY) === undefined && q.readTier() === null)
   q.writeChoice('high')
-  startFilm(45)
-  check('a slow film leaves a choice alone', feed(q.WINDOW, 45) === true && store.get(q.TIER_KEY) === undefined)
+  feed(3000, 90)
+  check('and it never touches a choice the player made', q.readChoice() === 'high')
+  store.clear()
   q.resetFilmLearner()
   check('a replay measures again', q.filmPace() === 0)
   startFilm(16.7)
@@ -168,13 +206,14 @@ const q = await import(join(ROOT, 'src/game/core/quality.js'))
   store.clear()
 }
 
-/* 6. The film's last rung: spent only at the floor, only once, never on a
-      comfortable pace. */
+/* 6. The film's last rung: spent only on a sustained pace, only at the pixel
+      floor, and only once. */
 {
-  check('a fast pace never spends the last rung', q.filmDegrade(16.7, 0.6, false) === null)
-  check('a slow pace with pixels still to give does not spend it either', q.filmDegrade(60, 1.3, false) === null)
-  check('slow at the floor spends it', q.filmDegrade(60, 0.7, false) === 'low')
-  check('and it is a one-way door: already Fast, nothing more to spend', q.filmDegrade(60, 0.6, true) === null)
+  check('a fast film never spends the last rung', q.filmDegrade(0, 0.6, false) === null)
+  check('one slow window is not enough to spend it', q.filmDegrade(1, 0.7, false) === null && q.filmDegrade(q.FILM_NEED - 1, 0.7, false) === null)
+  check('a sustained slow film at the pixel floor spends it', q.filmDegrade(q.FILM_NEED, 0.7, false) === 'low' && q.filmDegrade(9, 0.5, false) === 'low')
+  check('a slow film with pixels still to give does not spend it either', q.filmDegrade(9, 1.3, false) === null)
+  check('and it is a one-way door: already Fast, nothing more to spend', q.filmDegrade(9, 0.6, true) === null)
 }
 
 /* 7. The checkpoint: the player wins, a downgrade is a fact, a lift is an
@@ -199,6 +238,8 @@ const q = await import(join(ROOT, 'src/game/core/quality.js'))
     q.checkpointTier('high', 0, { explicit: false, learned: null, measured: false }).tier === 'high' &&
     q.checkpointTier('high', 0, { explicit: false, learned: null, measured: false }).reason === 'none')
   check('the drop threshold means between 25 and 34 frames a second', 1000 / q.DROP_MS >= 25 && 1000 / q.DROP_MS <= 34)
+  check('an event is longer than a merely slow frame', q.EVENT_MS > q.DROP_MS && q.EVENT_MS > q.STALL_MS)
+  check('a display capped at 30 Hz is not read as a slow machine', 1000 / 33.3 < q.DROP_MS)
 }
 
 /* 8. The wiring: every decision above has to reach a canvas. */
@@ -213,8 +254,8 @@ const q = await import(join(ROOT, 'src/game/core/quality.js'))
 
   const wiring = [
     [scene, 'tierOf(tier)', 'the film canvas takes its settings from the tier table'],
-    [scene, 'noteFilmFrame(ms)', 'the film measures its own frames'],
-    [scene, 'filmDegrade(pace, r.dpr, spent)', 'and can spend its own last rung'],
+    [scene, 'noteFilmFrame(ms, !filmModelsReady(hasAuthored))', 'the film measures its own frames, and holds off while they are still arriving'],
+    [scene, 'filmDegrade(filmSlowRun(), r.dpr, spent)', 'and can spend its own last rung'],
     [scene, 'spent={cfg === TIERS.low}', 'but never spends it twice'],
     [scene, "frameloop={stopped ? 'never' : 'always'}", 'a paused or hidden film stops drawing altogether'],
     [scene, 'budget={cfg.debris}', 'Fast draws a smaller wreck field'],
@@ -225,7 +266,8 @@ const q = await import(join(ROOT, 'src/game/core/quality.js'))
     [app, 'initialQuality()', 'the game opens at the tier the evidence argues for'],
     [app, 'readChoice()', 'the checkpoint knows whether the player has chosen'],
     [app, 'rememberTier(d.tier)', 'a downgrade is kept'],
-    [app, 'recentFrameMean(90)', 'the checkpoint reads the shared sampler'],
+    [app, 'summarizeFrameTimes()', 'the checkpoint reads the shared summary'],
+    [app, 'summary?.p50', 'and decides on the middle of the ring, not its mean'],
     [game, 'pushFrameTime(ms)', 'and the game loop feeds it'],
     [game, 'tierOf(quality)', 'the game canvas takes its settings from the tier table'],
     [game, 'minDpr={cfg.dpr[0]}', 'the resolution governor knows the tier floor'],

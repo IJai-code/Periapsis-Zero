@@ -18,11 +18,21 @@ but not yet fixed is under *Known limitations* rather than left out.
   three device pixels each. A machine that reports nothing is High, and real
   phone GPUs (Mali, Adreno) report through ANGLE like the software one does,
   so only explicit software markers count.
-- **The film measures its own frames and the game inherits the answer.** The
-  opening is the one benchmark every player runs; a machine that cannot hold
-  it is remembered, and the game begins Fast instead of relearning the same
-  fact. The film also keeps its own resolution governor and can spend bloom
-  and sky detail mid-shot, once, when its pixels are already at the floor.
+- **The film measures its own frames, tunes itself, and decides nothing about
+  the game.** It keeps its own resolution governor and spends bloom and sky
+  detail mid-shot, once, when its pixels are already at the floor. An earlier
+  draft also wrote the game's tier from the film's verdict; a live run showed
+  why that was wrong. On one machine the film's windows measured 26 to 33 ms
+  while the game canvas held 16.7 ms, because the film is two full-screen
+  six-octave Earth shaders and a bloom pass and the game is hulls in a bay. A
+  heavier canvas is not the benchmark for a lighter one, and the lesson it
+  wrote was remembered for every later session. The game is judged by its own
+  frames now, and the film's window reader is deliberately hard to fool: the
+  middle of the window rather than its mean, an isolated long frame treated as
+  an event and restarting the settle, nothing measured until the film's own
+  ships have arrived, and three slow windows in a row before it gives anything
+  up. `verify-game-quality` holds all of it, including the cold-cache case
+  that first went wrong.
 - **A paused or hidden film stops drawing altogether**: measured as zero
   frames in a second and a half, against 42 frames per 700 ms while it plays.
   Its overlay now re-renders six times a second instead of sixty.
@@ -33,11 +43,14 @@ but not yet fixed is under *Known limitations* rather than left out.
   Settings is never argued with at all. Models are compiled three at a time
   rather than twelve at once, so the bay's first frame is not the hitch.
 - **Measured, not asserted**: on a SwiftShader software rasteriser at
-  1280×800, the film's frame time is 116.7 ms at High and 66.6 ms at Fast —
-  43% off, 117 frames drawn in fifteen seconds against 223. That is a floor
-  and not a promise: Fast is 15 frames a second there, because software
-  rasterisation is the weakest possible device and not a typical one. No
-  claim of 60 fps on weak hardware is made, and none was measured.
+  1280×800, the film's frame time is 166.7 ms at High against 83.3 ms at
+  Fast in the latest run: half the frame time, and 180 frames drawn in
+  fifteen seconds against 81. Two runs measured 43% and 50%, because the
+  absolute numbers move with whatever else the machine is doing; the ratio is
+  the claim. That is a floor and not a promise: Fast is 12 frames a second
+  there, because software rasterisation is the weakest possible device and
+  not a typical one. No claim of 60 fps on weak hardware is made, and none
+  was measured.
 - New gate `verify-game-quality` (77 in total) holds the tier table, the
   guess, the film's learner, the checkpoint policy and every wire between
   them. `node scripts/check-game-quality.mjs` is the A/B measurement above,
