@@ -13,13 +13,13 @@ import { Boarding, KEEL } from './Boarding.jsx'
  * canisters, the race rings, and the descent corridor at Shackleton. Rebuilt
  * when the place changes; per frame only the moving bits move.
  */
-export function Props({ game, placeKey }) {
+export function Props({ game, placeKey, quality }) {
   const g = game.current
   const [version, bump] = useState(0)
   useEffect(() => { preload(['hearth', 'harbor', 'gateway', 'shackle', 'canister', 'hangar']); return onModelsChange(() => bump((n) => n + 1)) }, [])
   if (!g) return null
   return <group key={placeKey}>
-    <Hangar key={`hangar:${version}`} game={game} />
+    <Hangar key={`hangar:${version}`} game={game} quality={quality} />
     <Boarding game={game} />
     <StationsOutside>{g.stations.map((st) => <Station key={`${st.id}:${version}`} st={st} />)}</StationsOutside>
     {g.rocks.length > 0 && <Rocks rocks={g.rocks} />}
@@ -40,7 +40,7 @@ const BAY_LIGHT = {
   hearth: ['#fff1d8', '#ffd7a8', 1], harbor: ['#f2f6ff', '#dfe9ff', 1.1],
   shackle: ['#ffb27a', '#ff8a52', 0.7], gateway: ['#d8ecff', '#9fd2ff', 1],
 }
-function Hangar({ game }) {
+function Hangar({ game, quality }) {
   const ref = useRef()
   const rig = useRef()
   const inner = useRef()
@@ -52,7 +52,11 @@ function Hangar({ game }) {
   const aim = useRef()
   useEffect(() => { if (spot.current && aim.current) spot.current.target = aim.current }, [])
   const { scene } = useThree()
-  const { shafts, dust } = useMemo(bayAtmosphere, [])
+  // The dust is additive and unlit: on a machine that asked for Fast it is
+  // drawn as a third of the points rather than not at all, because a bay with
+  // no air in it reads as a studio, not a hangar.
+  const dust = useMemo(() => bayAtmosphere(quality === 'low' ? 70 : 200), [quality])
+  useEffect(() => () => { dust.geometry.dispose(); dust.material.dispose() }, [dust])
   useFrame(({ camera, clock }) => {
     const g = game.current, h = ref.current
     if (!g || !h) return
@@ -75,15 +79,15 @@ function Hangar({ game }) {
     h.visible = BAY.inside || walking
     if (!sun.current) sun.current = scene.getObjectByName('sun')
     if (sun.current) sun.current.intensity = BAY.inside ? 0.7 : 3.2
-    scene.environmentIntensity = BAY.inside ? 0.55 : 0
+    scene.environmentIntensity = BAY.inside ? 0.4 : 0
     // The panorama was rendered in the bay's own frame: turn it with the bay.
     if (st) scene.environmentRotation.setFromQuaternion(h.quaternion)
     // The key light's shadows are drawn only while they can be seen.
-    if (spot.current) { spot.current.intensity = h.visible ? 3600 * (BAY_LIGHT[id] ?? BAY_LIGHT.hearth)[2] : 0; spot.current.shadow.autoUpdate = h.visible }
+    if (spot.current) { spot.current.intensity = h.visible ? 2200 * (BAY_LIGHT[id] ?? BAY_LIGHT.hearth)[2] : 0; spot.current.shadow.autoUpdate = h.visible }
     const k = BAY_LIGHT[id] ?? BAY_LIGHT.hearth
     if (lit.current !== `${id}:${h.visible}`) {
       lit.current = `${id}:${h.visible}`
-      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? k[0] : i < 3 ? k[1] : '#2fd3ff'); l.intensity = h.visible ? [5200, 1700, 1700, 1100][i] * (i < 3 ? k[2] : 1) : 0 })
+      lamps.current.forEach((l, i) => { if (!l) return; l.color.set(i === 0 ? k[0] : i < 3 ? k[1] : '#2fd3ff'); l.intensity = h.visible ? [2400, 1000, 1000, 600][i] * (i < 3 ? k[2] : 1) : 0 })
     }
     if (!h.visible) return
     dust.rotation.y = clock.elapsedTime * 0.006
@@ -92,7 +96,7 @@ function Hangar({ game }) {
   return <>
     <group ref={ref} visible={false}>
       <primitive object={obj} />
-      <group ref={inner}><primitive object={shafts} /><primitive object={dust} /></group>
+      <group ref={inner}><primitive object={dust} /></group>
     </group>
     {/* The bay's lamps stay in the scene at zero when it is not drawn, so the light count never changes. */}
     <group ref={rig}>
@@ -119,19 +123,27 @@ function Hangar({ game }) {
  * The bay's reflections, made once and left on the scene: switching
  * scene.environment (or the number of lights) recompiles every material in
  * view, which was the stutter at the moment of docking. Intensity does not.
+ *
+ * The panorama (art/game-hangar/env.py) is a Cycles render of the hangar
+ * folded into a prefiltered cube: on Fast the machine keeps the studio
+ * stand-in instead. That is a download, a decode and a prefilter the weak
+ * device does not pay for, and the difference it buys is a reflection in a
+ * hull it is already drawing at half resolution.
  */
-export function BayEnvironment() {
+export function BayEnvironment({ quality }) {
   const { gl, scene } = useThree()
   useEffect(() => {
-    // A studio stand-in at once; then the bay's own panorama (art/game-hangar/env.py),
-    // rendered in Cycles from where a docked ship sits, so a hull reflects its real surroundings.
+    // A studio stand-in at once; then the bay's own panorama, rendered in
+    // Cycles from where a docked ship sits, so a hull reflects its real
+    // surroundings.
     const pm = new THREE.PMREMGenerator(gl)
     let env = pm.fromScene(new RoomEnvironment(), 0.04).texture
     scene.environment = env
     scene.environmentIntensity = 0
     let alive = true
+    if (quality === 'low') { pm.dispose(); return () => { alive = false; if (scene.environment === env) scene.environment = null; env.dispose() } }
     new HDRLoader().load(`${import.meta.env.BASE_URL}game/bay-env.hdr`, (hdr) => {
-      if (!alive) return
+      if (!alive) { hdr.dispose(); return }
       const real = pm.fromEquirectangular(hdr).texture
       hdr.dispose()
       env.dispose()
@@ -140,7 +152,7 @@ export function BayEnvironment() {
       pm.dispose()
     }, undefined, () => pm.dispose())
     return () => { alive = false; if (scene.environment === env) scene.environment = null; env.dispose() }
-  }, [gl, scene])
+  }, [gl, scene, quality])
   return null
 }
 
@@ -148,14 +160,20 @@ export function Warmup() {
   const { gl, scene, camera } = useThree()
   useEffect(() => {
     let alive = true
-    const run = () => {
-      const group = new THREE.Group()
-      for (const k of ['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle']) group.add(instance(k).object)
-      group.position.set(0, -1e6, 0)
-      scene.add(group)
-      const done = () => scene.remove(group)
-      if (gl.compileAsync) gl.compileAsync(scene, camera).then(done, done)
-      else { gl.compile(scene, camera); done() }
+    const kinds = ['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle']
+    const run = async () => {
+      // Four at a time, awaited in order, rather than all twelve at once: the
+      // same programs are built either way, but the peak is a third of it and
+      // the frames in between still get drawn. Twelve programs compiled in one
+      // turn is a visible hitch on exactly the machine this is meant to spare.
+      for (let i = 0; i < kinds.length && alive; i += 4) {
+        const group = new THREE.Group()
+        for (const k of kinds.slice(i, i + 4)) group.add(instance(k).object)
+        group.position.set(0, -1e6, 0)
+        scene.add(group)
+        try { if (gl.compileAsync) await gl.compileAsync(scene, camera); else gl.compile(scene, camera) } catch { /* a driver that refuses still draws */ }
+        scene.remove(group)
+      }
     }
     // Models arrive one by one: compile once they have stopped arriving.
     let t = setTimeout(() => { if (alive) run() }, 1500)
@@ -165,34 +183,16 @@ export function Warmup() {
   return null
 }
 
-/**
- * The air in the bay: a shaft of light under each roof panel (art/game-hangar,
- * panels at y 24, every 15 m), and dust turning slowly in it. Additive and
- * depth-tested, so they sit in the room, not on the screen.
- */
-function bayAtmosphere() {
-  const c = document.createElement('canvas')
-  c.width = 4; c.height = 128
-  const x = c.getContext('2d')
-  const gr = x.createLinearGradient(0, 0, 0, 128)
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)')
-  x.fillStyle = gr; x.fillRect(0, 0, 4, 128)
-  const fade = new THREE.CanvasTexture(c)
-  const shaftMat = new THREE.MeshBasicMaterial({ color: '#ffe9c8', alphaMap: fade, transparent: true, opacity: 0.075, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
-  const geo = new THREE.CylinderGeometry(6.2, 9.5, 30, 24, 1, true)
-  // The cylinder's v runs bottom to top; flip so the bright end is at the lamp.
-  const uv = geo.attributes.uv
-  for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i))
-  const shafts = new THREE.Group()
-  for (const z of [-31, -16, -1, 14, 29, 44]) { const m = new THREE.Mesh(geo, shaftMat); m.position.set(0, 9, z); m.renderOrder = 6; shafts.add(m) }
-  const n = 420, pos = new Float32Array(n * 3)
+/** Sparse illuminated dust, without solid cylinder stand-ins for light shafts. */
+function bayAtmosphere(n) {
+  const pos = new Float32Array(n * 3)
   let seed = 7
   const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 }
   for (let i = 0; i < n; i++) { pos[i * 3] = (rnd() - 0.5) * 64; pos[i * 3 + 1] = -5 + rnd() * 26; pos[i * 3 + 2] = (rnd() - 0.5) * 84 }
   const dg = new THREE.BufferGeometry()
   dg.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: '#ffe8c8', size: 0.07, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }))
-  return { shafts, dust }
+  const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: '#ffe8c8', size: 0.07, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false }))
+  return dust
 }
 
 /** Whether the camera is inside the bay this frame: the bay hides the stations outside it. */

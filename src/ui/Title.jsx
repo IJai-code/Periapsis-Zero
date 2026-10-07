@@ -88,7 +88,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
     <section className="tt-hero">
       <span className="tt-kicker">A shared, real Earth-Moon system{flying > 0 && <em className="tt-live"><i />{flying} {flying === 1 ? 'pilot' : 'pilots'} flying now</em>}</span>
       <h1><span>Periapsis</span><span>Zero</span></h1>
-      <p className="tt-tag">2091. The Moon is the frontier, L1 is the boomtown, and you owe the wrong people forty thousand credits.</p>
+      <p className="tt-tag">2091. You survived a convoy that should never have been found. Now you owe your rescuer forty thousand credits, and someone out there knows why.</p>
       {isPhone ? <div className="tt-phone">
         <strong>The game needs a bigger screen.</strong>
         <p>Flying and reading a job board at once does not fit on a phone: play on a computer or a tablet. The simulator works here, and what you fly in it counts in the game later.</p>
@@ -167,9 +167,9 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
     <section className="tt-how tt-reveal">
       <h2>How to play</h2>
       <div>
-        <p><strong>Mouse</strong> aims; the ship follows. <strong>W / S</strong> throttle, <strong>Shift</strong> boost, <strong>click</strong> to fire, <strong>double-tap A or D</strong> to barrel-roll.</p>
+        <p><strong>Mouse</strong> aims; the ship follows. <strong>hold W</strong> to fly, release to brake, <strong>Shift</strong> boost, <strong>click</strong> to fire, <strong>double-tap A or D</strong> to barrel-roll.</p>
         <p><strong>F</strong> docks at a station's lit bay; missions and jobs are inside. <strong>M</strong> opens the map; <strong>J</strong> lights the drive.</p>
-        <p>The first mission teaches all of it, one thing at a time. <strong>Esc</strong> pauses; <strong>H</strong> shows every control.</p>
+        <p>A two-minute narrated prologue tells you why you are here. The first mission teaches the ship, one thing at a time. <strong>Esc</strong> pauses; <strong>H</strong> shows every control.</p>
       </div>
     </section>
 

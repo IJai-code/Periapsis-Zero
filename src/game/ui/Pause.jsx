@@ -9,6 +9,7 @@ export function Pause({ game: g, touch, help, quality, setQuality, controls, onR
   const [snd, setSnd] = useState(soundSettings)
   const [sens, setSens] = useState(controls.settings.sensitivity)
   const [inv, setInv] = useState(controls.settings.invert)
+  const [throttle, setThrottle] = useState(controls.settings.throttle ?? 'hold')
   return <div className="gm-pause" role="dialog" aria-label="Paused">
     <section>
       <span className="st-eyebrow">{g.pilot.name} · paused</span>
@@ -39,6 +40,7 @@ export function Pause({ game: g, touch, help, quality, setQuality, controls, onR
         <label>Music <input type="range" min="0" max="1" step="0.05" value={snd.music} onChange={(e) => { setMusic(+e.target.value); setSnd(soundSettings()) }} /></label>
         <label>Effects <input type="range" min="0" max="1" step="0.05" value={snd.sfx} onChange={(e) => { setSfx(+e.target.value); setSnd(soundSettings()) }} /></label>
         <label className="check"><input type="checkbox" checked={snd.muted} onChange={(e) => { setMuted(e.target.checked); setSnd(soundSettings()) }} /> Mute everything</label>
+        {!touch && <label>Throttle style <select value={throttle} onChange={(e) => { const mode = e.target.value; controls.settings.throttle = mode; controls.throttleSet = 0; setThrottle(mode); try { localStorage.setItem('pz-throttle-mode', mode) } catch { /* private storage */ } }}><option value="hold">Simple: hold W, release to brake</option><option value="latched">Advanced: W / S adjust a latched throttle</option></select></label>}
         {!touch && <label>Mouse sensitivity <input type="range" min="0.3" max="2.5" step="0.05" value={sens} onChange={(e) => { controls.settings.sensitivity = +e.target.value; setSens(+e.target.value) }} /></label>}
         {!touch && <label className="check"><input type="checkbox" checked={inv} onChange={(e) => { controls.settings.invert = e.target.checked; setInv(e.target.checked) }} /> Invert mouse</label>}
         {!g.skirmish && <label className="check"><input type="checkbox" checked={sky} onChange={(e) => { const on = e.target.checked; setSky(on); try { localStorage.setItem('pz-sky', on ? 'on' : 'off') } catch { /* fine */ } onSky?.(on) }} /> Shared sky: see other pilots flying, and be seen</label>}

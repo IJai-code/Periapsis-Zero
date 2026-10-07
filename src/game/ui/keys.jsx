@@ -26,7 +26,7 @@ export function Hint({ text, touch }) {
 /** The full controls card, for help and the first launch. */
 export const CONTROL_LIST = [
   ['Aim and steer', 'Mouse (click the view to take the stick)', 'Left stick'],
-  ['Throttle up / down', 'W / S', 'Throttle slider'],
+  ['Fly / brake', 'Hold W to fly; release or S to brake (assist on)', 'Throttle slider'],
   ['Stop', 'X', 'Stop'],
   ['Strafe', 'A / D, Space / C', '(assist handles it)'],
   ['Roll', 'Q / E', '(automatic)'],
@@ -34,7 +34,7 @@ export const CONTROL_LIST = [
   ['Boost', 'Shift (hold)', 'Boost (hold)'],
   ['Fire', 'Left click (hold)', 'Fire (hold)'],
   ['Target next', 'T or right click', 'Target'],
-  ['Flight assist on / off', 'Z', 'Assist'],
+  ['Advanced: flight assist on / off', 'Z (off: release W to coast)', 'Assist'],
   ['Dock / land / interact', 'F', 'Action button'],
   ['Map and destinations', 'M', 'Map'],
   ['Transfer to destination', 'J', 'Action button'],

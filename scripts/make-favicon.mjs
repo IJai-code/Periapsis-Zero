@@ -8,10 +8,9 @@
  * the chart's chevron naming it. Periapsis. The sim is named for that moment;
  * the mark *is* the name.
  *
- * Colour is the product's own: obsidian ground, a champagne hairline for the
- * orbit, an ember tick at closest approach. The values are converted from the
- * oklch in `src/index.css`, so the mark cannot drift from the interface it
- * belongs to — change the palette there and re-running this re-derives it.
+ * Colour comes directly from the current hex tokens in src/index.css:
+ * void ground, bone orbit, ember closest-approach marker. The heavier orbit
+ * and larger planet prioritise legibility at 16 and 32 pixels.
  *
  *   node scripts/make-favicon.mjs            write the set
  *   node scripts/make-favicon.mjs --check    verify only, exit 1 on a mismatch
@@ -87,9 +86,15 @@ const hex = ([r, g, b]) =>
   '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
 
 /** The floor the interface stands on, and the two accents, straight from the CSS. */
-const OBSIDIAN = oklchToSrgb(0.145, 0.006, 250) // --color-obsidian is #0a0b0d; this is its oklch reading
-const HUD = oklchToSrgb(0.83, 0.052, 88)
-const EMBER = oklchToSrgb(0.66, 0.142, 47)
+const css = readFileSync(join(ROOT, 'src/index.css'), 'utf8')
+const token = (name) => {
+  const value = css.match(new RegExp(`--color-${name}:\\s*(#[0-9a-fA-F]{6});`))?.[1]
+  if (!value) throw new Error(`Missing hex palette token: ${name}`)
+  return [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16))
+}
+const OBSIDIAN = token('obsidian')
+const HUD = token('hud')
+const EMBER = token('ember')
 const OBSIDIAN_HEX = hex(OBSIDIAN)
 const HUD_HEX = hex(HUD)
 const EMBER_HEX = hex(EMBER)
@@ -125,21 +130,21 @@ function geom(width, height) {
     S,
     cx,
     cy,
-    pr: 0.155 * S,
+    pr: 0.205 * S,
     // The orbit: the planet sits at the focus, so the ellipse is lifted away
     // from periapsis by c = 0.115 S. Its lower vertex (ey + eb) lands exactly
     // on periY below — keep the three numbers agreeing if any of them move.
     ex: 0.5 * S,
-    ey: 0.5 * S - 0.115 * S,
-    ea: 0.375 * S,
-    eb: 0.26 * S,
+    ey: 0.47 * S,
+    ea: 0.385 * S,
+    eb: 0.23 * S,
     periX: cx,
-    periY: cy + 0.145 * S,
-    periR: 0.034 * S,
-    strokeNear: Math.max(1.25, 0.028 * S),
-    strokeFar: Math.max(1, 0.02 * S),
+    periY: 0.7 * S,
+    periR: 0.044 * S,
+    strokeNear: Math.max(1.5, 0.038 * S),
+    strokeFar: Math.max(1, 0.026 * S),
     tick: 0.085 * S,
-    tipY: cy + 0.205 * S,
+    tipY: cy + 0.29 * S,
     // The same floor the near stroke carries: an annotation that vanishes at
     // the size it is most needed at is decoration, not an annotation.
     tickStroke: Math.max(1.25, 0.032 * S),

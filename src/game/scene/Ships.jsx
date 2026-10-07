@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { instance, onModelsChange, paintPilot, preload } from './models.js'
 import { suitById } from '../core/pilot.js'
-import { BOARD_SEATED } from './Boarding.jsx'
+import { BOARD_DUR, BOARD_SEATED, COCKPIT } from './Boarding.jsx'
 
 const pilotMaterials = (o) => { const out = new Set(); o.traverse((m) => { if (m.isMesh) for (const x of [m.material].flat()) if (/^pilot/.test(x?.name ?? '')) out.add(x) }); return [...out] }
 
@@ -51,8 +51,15 @@ export function Ships({ game }) {
       if (e.kind === 'player') {
         if (s.suit !== g.pilot.suit) { s.suit = g.pilot.suit; paintPilot(s.group, suitById(g.pilot.suit)); s.pilotMats = pilotMaterials(s.group) }
         // The seat is empty until the pilot has climbed in.
-        const aboard = !(g.cine?.kind === 'board' && g.cine.t < BOARD_SEATED)
+        const boarding = g.cine?.kind === 'board'
+        const aboard = !boarding || g.cine.t >= BOARD_DUR
         for (const m of s.pilotMats ?? []) m.visible = aboard
+        // Raise the canopy before the crossing, lower it after the pilot has
+        // sat down. The actor is visible until the seated model takes over.
+        const t = boarding ? g.cine.t : BOARD_DUR
+        const opening = Math.min(1, Math.max(0, (t - 9) / 2))
+        const closing = Math.min(1, Math.max(0, (t - BOARD_SEATED) / (BOARD_DUR - BOARD_SEATED)))
+        for (const hatch of s.canopies) hatch.rotation.x = -0.85 * opening * (1 - closing)
       }
       s.group.position.copy(e.pos)
       s.group.quaternion.copy(e.q)
@@ -80,10 +87,21 @@ function make(kind, e, plumeGeo, plumeMats) {
   object.traverse((o) => { if (o.isMesh) o.castShadow = !/canopy|glass/.test([o.material].flat()[0]?.name ?? '') })
   const group = new THREE.Group()
   group.add(object)
+  const canopies = []
+  if (COCKPIT[kind]) {
+    const [x, y, z] = COCKPIT[kind]
+    const glass = []
+    object.traverse((o) => { if (o.isMesh && [o.material].flat().every((m) => m?.name === 'canopy')) glass.push(o) })
+    group.updateMatrixWorld(true)
+    for (const mesh of glass) {
+      const hinge = new THREE.Group(); hinge.position.set(x, y + 0.8, z - 1.6)
+      group.add(hinge); group.updateMatrixWorld(true); hinge.attach(mesh); canopies.push(hinge)
+    }
+  }
   const plumeMat = plumeMats[e.team] ?? plumeMats.civil
   const scale = e.radius / 9
   const plumes = nozzles.map((n) => { const m = new THREE.Mesh(plumeGeo, plumeMat); m.position.set(...n); m.renderOrder = 5; group.add(m); return m })
-  return { kind, group, plumes, plumeMat, scale, nozzleR: Math.max(0.6, e.radius * 0.11) }
+  return { kind, group, plumes, plumeMat, canopies, scale, nozzleR: Math.max(0.6, e.radius * 0.11) }
 }
 
 function plumeMaterial(colour) {

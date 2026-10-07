@@ -104,10 +104,9 @@ export function stepShip(e, dt, time) {
   e.thrust = _a.length() / (s.accel * kick)
   _a.applyQuaternion(e.q)
   e.vel.addScaledVector(_a, dt)
-  // A hard ceiling, assist or not: the hull's structural limit on what the
-  // drive will push it to locally.
-  const sp = e.vel.length()
-  if (sp > cap * 1.6) e.vel.multiplyScalar(cap * 1.6 / sp)
+  // maxSpeed is an assist setpoint, not vacuum drag or a structural speed
+  // limit. Coasting above it retains momentum; braking costs thrust. In
+  // manual flight the drive can keep accelerating beyond the local setpoint.
   e.pos.addScaledVector(e.vel, dt)
 
   if (time - e.hitAt > SHIELD_DELAY) e.shield = Math.min(s.shield, e.shield + s.shield * (s.recharge ?? 0.06) * dt)

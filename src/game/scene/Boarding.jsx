@@ -19,74 +19,8 @@ import { play } from '../audio.js'
  * of the door, deck at -keel. The skywalk (art/game-hangar) is in the
  * hangar model's own frame, which sits 6 - keel higher.
  */
-// Walking pace, not running: about 2 m/s between cuts, easing in and out of each stretch.
-export const BOARD_T = { outside: 4.6, inside: 4.4, bridge: 1.3, cross: 5.0, climb: 1.5, settle: 1.9 }
-export const BOARD_DUR = Object.values(BOARD_T).reduce((a, b) => a + b, 0)
-/** When the pilot is in the seat, s from the start. */
-export const BOARD_SEATED = BOARD_T.outside + BOARD_T.inside + BOARD_T.bridge + BOARD_T.cross + BOARD_T.climb
-/** Where each hull's seat is, in its own frame (art/lib/craft.py `pilot_seat`), and how far its keel hangs below its centre. */
-export const COCKPIT = { kestrel: [0, 1.1, -4.7], lance: [0, 0.72, -3.0], mule: [0, 2.6, -13.2] }
-export const KEEL = { kestrel: 2.9, mule: 3.0, lance: 1.2 }
-const SKY = { z: -4.25, floor: -2.6, out0: 50, out1: 41.5, in0: 21, in1: 12.8, end: 12 }
-
-const ease = (x) => { const f = Math.min(1, Math.max(0, x)); return f * f * (3 - 2 * f) }
-/** A walk's distance over time: speeding up for the first fifth, steady, slowing for the last fifth. */
-const stroll = (x) => { const f = Math.min(1, Math.max(0, x)), r = 0.2, v = 1 / (1 - r); return f < r ? v * f * f / (2 * r) : f > 1 - r ? 1 - v * (1 - f) ** 2 / (2 * r) : v * (f - r / 2) }
-const _s = new THREE.Vector3(), _e = new THREE.Vector3()
-
-/** The skywalk's end and the bridge's far end, in the bay's frame. */
-export function bridgeEnds(hull, start, end) {
-  const [cx, cy, cz] = COCKPIT[hull] ?? COCKPIT.kestrel
-  const lift = 6 - (KEEL[hull] ?? 2.9)
-  start.set(SKY.end, SKY.floor + lift, SKY.z)
-  end.set(cx + (hull === 'mule' ? 2.2 : 1.5), cy - 0.25, cz)
-  return [start, end]
-}
-
-/** The pilot's place, heading, gait and phase at time t, in the bay's frame. */
-export function boardPose(hull, t, out) {
-  const T = BOARD_T
-  const [cx, cy, cz] = COCKPIT[hull] ?? COCKPIT.kestrel
-  const floor = SKY.floor + 6 - (KEEL[hull] ?? 2.9)
-  bridgeEnds(hull, _s, _e)
-  out.hidden = false
-  out.stride = 0
-  out.walk = 0
-  out.bridge = 0
-  let k = t
-  const walk = (a, b, dur, kk, steps) => {
-    const s = stroll(kk / dur)
-    out.pos.lerpVectors(a, b, s)
-    out.heading = Math.atan2(b.x - a.x, b.z - a.z)
-    out.walk = (kk / dur) * steps * Math.PI
-    out.stride = Math.sin(Math.PI * Math.min(1, kk / dur)) ** 0.4
-  }
-  if (k < T.outside) { out.phase = 'outside'; walk(_v1.set(SKY.out0, floor, SKY.z), _v2.set(SKY.out1, floor, SKY.z), T.outside, k, 13); return out }
-  k -= T.outside
-  if (k < T.inside) { out.phase = 'inside'; walk(_v1.set(SKY.in0, floor, SKY.z), _v2.set(SKY.in1, floor, SKY.z), T.inside, k, 9); return out }
-  k -= T.inside
-  if (k < T.bridge) { out.phase = 'bridge'; out.pos.set(SKY.in1, floor, SKY.z); out.heading = Math.atan2(_e.x - _s.x, _e.z - _s.z) * ease(k / T.bridge) + (-Math.PI / 2) * (1 - ease(k / T.bridge)); out.bridge = ease(k / T.bridge); return out }
-  k -= T.bridge
-  out.bridge = 1
-  if (k < T.cross) { out.phase = 'cross'; walk(_v1.set(SKY.in1, floor, SKY.z), _e, T.cross, k, 7); return out }
-  k -= T.cross
-  if (k < T.climb) {
-    // Over the sill and down into the seat.
-    out.phase = 'climb'
-    const s = ease(k / T.climb)
-    out.pos.set(_e.x + (cx - _e.x) * s, _e.y + (cy - 1.0 - _e.y) * s + Math.sin(Math.PI * s) * 0.7, _e.z + (cz - _e.z) * s)
-    out.heading = Math.PI
-    return out
-  }
-  k -= T.climb
-  out.phase = 'settle'
-  out.pos.set(cx, cy - 1.0, cz)
-  out.hidden = true
-  out.bridge = 1 - ease(k / (T.settle * 0.7))
-  return out
-}
-const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3()
-
+import { BOARD_T, BOARD_DUR, BOARD_SEATED, COCKPIT, KEEL, boardPose, bridgeEnds } from '../core/boarding.js'
+export { BOARD_T, BOARD_DUR, BOARD_SEATED, COCKPIT, KEEL, boardPose, bridgeEnds } from '../core/boarding.js'
 /** The walking pilot and the boarding bridge, drawn while a boarding plays. */
 export function Boarding({ game }) {
   const root = useRef()
@@ -126,16 +60,22 @@ export function Boarding({ game }) {
     const S = state.current, rig = S.rig
     if (S.suit !== g.pilot.suit) { S.suit = g.pilot.suit; dress(parts, suitById(g.pilot.suit), rig?.mats) }
     boardPose(g.ship.hull, c.t, pose)
-    // Speed over the ground, smoothed: it sets the stride, so the feet do not slide.
-    const v = dt > 0 ? pose.pos.distanceTo(S.last) / dt : 0
+    // Ignore the deliberate camera cut between outside and inside, rather
+    // than interpreting it as a 20-metre running stride.
+    const cut = S.phase !== pose.phase
+    if (cut) S.last.copy(pose.pos)
+    S.phase = pose.phase
+    const frame = Math.max(0, Math.min(0.1, c.t - (S.time ?? c.t)))
+    S.time = c.t
+    const v = frame > 0 ? pose.pos.distanceTo(S.last) / frame : 0
     S.last.copy(pose.pos)
-    S.speed += (Math.min(4, v) - S.speed) * Math.min(1, dt * 8)
+    S.speed += (Math.min(4, v) - S.speed) * Math.min(1, frame * 8)
     figure.visible = !pose.hidden
     figure.position.copy(pose.pos)
     // Turn toward the heading at a walker's rate, not instantly.
     let dh = pose.heading - figure.rotation.y
     dh = Math.atan2(Math.sin(dh), Math.cos(dh))
-    figure.rotation.set(0, figure.rotation.y + dh * Math.min(1, dt * 7), 0)
+    figure.rotation.set(0, figure.rotation.y + dh * Math.min(1, frame * 7), 0)
     shadow.position.set(pose.pos.x, pose.pos.y + 0.02, pose.pos.z)
     shadow.visible = !pose.hidden && pose.phase !== 'climb'
     if (rig) {
@@ -145,15 +85,19 @@ export function Boarding({ game }) {
       if (!seated) S.sat = false
       rig.act.walk?.setEffectiveWeight(walking).setEffectiveTimeScale(Math.max(0.4, S.speed / 1.5))
       rig.act.idle?.setEffectiveWeight(seated ? 0 : 1 - walking)
-      rig.act.sit?.setEffectiveWeight(seated ? Math.min(1, (rig.act.sit.time ?? 0) * 3 + 0.2) : 0)
-      rig.mixer.update(Math.min(dt, 0.05))
+      rig.act.sit?.setEffectiveWeight(seated ? 1 : 0)
+      rig.mixer.update(Math.min(frame, 0.05))
+      // Choreography controls the sit clip, so pause and low frame rates
+      // cannot leave the actor standing as the root enters the cockpit.
+      if (seated && rig.act.sit) { rig.act.sit.time = pose.entry * rig.act.sit.getClip().duration; rig.mixer.update(0) }
     } else {
       const sw = Math.sin(pose.walk) * 0.55 * pose.stride
       parts.legL.rotation.x = sw; parts.legR.rotation.x = -sw
       parts.armL.rotation.x = -sw * 0.8; parts.armR.rotation.x = sw * 0.8
     }
     // The bridge: out from the skywalk's end toward the cockpit, as far as it has extended.
-    const [s, e, d] = bridgeEnds(g.ship.hull, ends[0], ends[1]).concat(ends[2])
+    bridgeEnds(g.ship.hull, ends[0], ends[1])
+    const [s, e, d] = ends
     d.copy(e).sub(s)
     const len = d.length()
     bridge.visible = pose.bridge > 0.001
@@ -204,7 +148,11 @@ function makeFigure() {
   const glow = new THREE.MeshBasicMaterial({ color: '#2fd3ff', toneMapped: false })
   const piece = (w, h, d, m, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(1, h, d), m); b.geometry.translate(0.5, 0, 0); b.position.set(0, y, z); b.scale.x = w; return b }
   bridge.add(piece(1, 0.12, 1.4, bdark, -0.06, 0))
-  for (const s of [-1, 1]) { bridge.add(piece(1, 0.05, 0.06, glow, 0.02, s * 0.66)); bridge.add(piece(1, 0.06, 0.06, bgold, 1.0, s * 0.68)) }
+  for (const s of [-1, 1]) {
+    bridge.add(piece(1, 0.025, 0.035, glow, 0.02, s * 0.66)); bridge.add(piece(1, 0.045, 0.045, bgold, 1.0, s * 0.68))
+    for (let i = 0; i < 10; i++) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.96, 0.04), bdark); post.position.set((i + 0.5) / 10, 0.48, s * 0.68); bridge.add(post) }
+  }
+  for (let i = 0; i < 24; i++) { const tread = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.016, 1.15), bgold); tread.position.set((i + 0.5) / 24, 0.014, 0); bridge.add(tread) }
   bridge.traverse((o) => { if (o.isMesh) o.castShadow = true })
   bridge.visible = false
   // A soft contact shadow under the feet: the figure stands on the deck instead of floating over it.

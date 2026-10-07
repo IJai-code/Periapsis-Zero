@@ -170,6 +170,8 @@ const GATES = [
   ['verify-audio', false],
   ['verify-expeditions', false],
   ['verify-game', false],
+  ['verify-game-opening', false],
+  ['verify-game-quality', false],
   ['verify-squadron', false],
   ['verify-pilot', false],
   ['verify-art', false],

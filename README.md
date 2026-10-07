@@ -1,49 +1,82 @@
-# Periapsis Zero — fly, land, explore
+# Periapsis Zero: fly, land, explore
 
-A space game and simulator with three experiences in one app: **Expeditions**, **Story**, and the historical **Simulator**. Built with React Three Fiber and Three.js.
+An Earth-Moon space game, Squadron battle mode, and historical solar-system
+simulator. React 19, React Three Fiber, Three.js and Vite.
 
-## The hybrid release
+## The game
 
-- **Expeditions:** approach the Moon, Mars, or Europa in a fictional reusable survey lander. Land with optional assistance, leave the vehicle, deploy the rover, drive out to three instrument sites, collect paired samples, return everything, and take off. Finite propellant, inertia, real body gravity, hard-landings, and retry are active mechanics; the rover runs on a battery with mass-driven traction.
-- **Story:** *The ground truth*, a three-flight survey campaign with crew briefings, field objectives, debriefs, and locally saved sequential unlocks. The old six orbital chapters remain in Simulator as **Flight school**.
-- **Simulator:** measured Sun/Earth/Moon dynamics integrated by RK4, planetary rails, Apollo/Artemis missions, orbit planning, and the historical mission library. The initial cockpit is quieter; Missions and Mode select are visible in the top bar. Escape also opens a mode menu during a broadcast.
+2091. You survived the Aster convoy attack. Rook paid for your rescue and
+repairs; now you owe him forty thousand credits. A **120-second narrated,
+captioned real-time film** explains the incident before your first mission.
+Pause it, skip to the briefing, or replay before boarding. Existing saves
+continue without restarting the film.
 
-**Scope:** surface regions are deterministic procedural geology, not measured reconstructions. Expeditions use a local metre-scale renderer and fictional vehicle; they are not yet seamless continuations of the historical orbital simulation. Only survey completion is saved, not an in-progress flight. Each playable survey sector extends 700 m from its center, with a wider rendered horizon. There is no multiplayer, combat, inhabited city, or whole-planet terrain streaming.
+Two acts of contracts, combat, salvage, transfers, a surface survey and a
+choice between Rook and Commander Chen. The Aster recorder connects the
+opening to the later investigation. Ships and the industrial bay are authored
+in Blender; the pilot walks a bridge, enters an opening canopy and sits.
 
-### Expedition controls
+### Start with four controls
 
 | Input | Action |
 | --- | --- |
-| H | Toggle landing assistance, which uses the same thrust and fuel model |
-| R / F | Increase / decrease manual throttle |
-| W A S D | Tilt the lander; move on foot; drive and steer the rover |
-| Q / Z | Yaw the lander |
-| E | Leave or board the landed vehicle; collect a nearby sample; board or leave the rover; deploy an instrument |
-| G | Deploy the rover, once you are down |
-| T | Take off after touchdown |
-| Drag / wheel | Look / adjust chase distance |
-| Left / right arrows | Turn your view on foot |
-| Shift / Space | Run / jump on foot |
-| Escape | Pause menu, retry, or return to mode selection |
+| Mouse | Click the view to capture the pointer, then steer |
+| W | Hold to fly; release to brake with flight assist on |
+| Left click | Fire after taking the stick |
+| F | Dock or interact when the prompt appears |
 
-Touch buttons provide movement, looking, jumping, driving, and thrust adjustment on narrow/coarse-pointer screens. The throttle slider also supports pointer and keyboard control. Samples require standing within 5 m; instruments deploy from the driver's seat within 6 m; boarding the lander requires returning within 11 m of it, and whichever of the lander or rover you are further inside is the one `E` takes.
+Enter launches, Shift boosts, M opens destinations, J starts a transfer,
+Esc pauses, H shows help. The existing **latched W/S throttle** is available
+under Settings. With assist off (Z), releasing W coasts instead of braking.
+The HUD shows approximate braking distance. Ships keep momentum beyond the
+assist setpoint: there is no hidden vacuum speed clamp.
 
-### Pilot profile (optional)
+Computer and tablet gameplay; phones are directed to the simulator. Touch
+uses its own stick and throttle. Saves are local, with optional account sync
+when configured. Shared sky and Squadron use the project's existing Realtime
+configuration; neither is required for offline story play.
 
-The front door offers a name for your logbook. It is stored in this browser only, there is no account and no server, and the game is identical with or without it. See `npm run verify:pilot` for the gate that holds it that way.
+## Simulator and surfaces
 
-See [hybrid-rebuild.md](docs/hybrid-rebuild.md) for acceptance criteria, architecture, verification, and remaining work. Run `npm run verify:expeditions` for the physics/terrain/rover/progression gate; `npm run verify:all` runs all 70 gates.
+Apollo and Artemis, orbital planning, historical missions, real Sun/Earth/Moon
+dynamics, and thirteen worlds to land on. Surface geology is procedural, not
+measured terrain. Surface missions use a regional metre-scale renderer; no
+seamless whole-planet streaming or populated city is claimed.
+
+## Run and verify
 
 ```bash
 npm install
 npm run dev
+npm run lint
+npm run verify:all
+npm run build
+npm run smoke
+node scripts/check-game-opening.mjs  # dev server on 5174 by default; PZ_URL overrides
+node scripts/check-game-quality.mjs  # both graphics tiers, timed on software WebGL
 ```
 
-Then open <http://localhost:5173>. The front door now shows a rendered Martian landscape and three mode choices; it does not wait for the historical simulator's texture worker. Direct links:
+The suite has 77 gates, including both campaign branches, the opening's clock,
+boarding, controls and physics, and the graphics tiers. The browser check
+watches all six film chapters, pauses, mutes, skips/replays, boards, launches
+and checks settings. The second check runs the film twice, at High and at
+Fast, in a Chrome whose GPU is only SwiftShader, and reports what each costs:
+currently 116.7 ms a frame at High and 66.6 ms at Fast, which is 43% off on
+the weakest device that can run this at all.
+`node scripts/make-prologue.mjs` regenerates the synthetic narration on macOS
+using its installed Daniel voice and AAC encoder. CI consumes the committed
+audio and authored GLBs; it does not need Blender or macOS voices.
 
-- <http://localhost:5173/#flight> — Simulator (existing query-string mission links still work).
-- <http://localhost:5173/#story> — Survey campaign.
-- <http://localhost:5173/#expedition/moon>, <http://localhost:5173/#expedition/mars>, <http://localhost:5173/#expedition/europa> — Free expeditions.
+Direct links:
+
+- <https://periapsiszero.dev/#play>: game.
+- <https://periapsiszero.dev/#squadron>: Squadron.
+- <https://periapsiszero.dev/#sim>: simulator; historical query links still work.
+- <https://periapsiszero.dev/#land/moon>: Moon landing (and twelve other worlds).
+
+See [AGENT.md](AGENT.md) for the current architecture and [game-design.md](docs/game-design.md)
+for the campaign. [hybrid-rebuild.md](docs/hybrid-rebuild.md) documents the older
+surface release, not today's game routes.
 
 The sections below describe the historical simulator unless stated otherwise.
 

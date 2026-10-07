@@ -11,8 +11,11 @@ import { Banners } from './ui/Banners.jsx'
 import { Pause } from './ui/Pause.jsx'
 import { Touch } from './ui/Touch.jsx'
 import { NewPilot } from './ui/NewPilot.jsx'
+import { Prologue } from './ui/Prologue.jsx'
 import { Log } from './ui/Log.jsx'
 import { updateMarkers } from './ui/markers.js'
+import { checkpointTier, initialQuality, readChoice, readTier, rememberTier, writeChoice } from './core/quality.js'
+import { recentFrameMean } from '../gfx/frameStats.js'
 import { createSky, syncSky, hail, closeSky } from './net/sky.js'
 import { connectRoom } from './net/realtime.js'
 import { realtimeConfig } from '../sim/account.js'
@@ -26,8 +29,13 @@ const Surface = lazy(() => import('../ui/Surface.jsx'))
  * view and every overlay. React re-renders the interface ten times a second
  * from the game object; the things that move every frame (markers, the
  * reticle, the speed) are written straight to the DOM by the frame loop.
+ *
+ * Which graphics tier this machine gets, and the evidence behind it, lives in
+ * `core/quality.js`: a first guess from what the browser will say about the
+ * device, the lesson the opening film's own frames taught, and one measured
+ * checkpoint a few seconds into play. This file only carries the answer and
+ * hands it to the canvas.
  */
-const QUALITY_KEY = 'pz-game-quality'
 export default function GameApp({ onExit, fresh = false, onFresh }) {
   const game = useRef(null)
   const controls = useRef(createControls())
@@ -36,13 +44,18 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   const [, setTick] = useState(0)
   const [overlay, setOverlay] = useState(null) // 'map' | 'log' | 'pause' | null
   const [touch] = useState(isTouch)
-  const [quality, setQuality] = useState(() => { try { return localStorage.getItem(QUALITY_KEY) ?? 'high' } catch { return 'high' } })
-  const chooseQuality = useCallback((q) => { setQuality(q); try { localStorage.setItem(QUALITY_KEY, q) } catch { /* fine */ } }, [])
+  const [quality, setQuality] = useState(() => initialQuality())
+  const qualityRef = useRef(quality)
+  qualityRef.current = quality
+  // A choice made here is the player's, and outranks every measurement: it is
+  // written under its own key, and the checkpoint below never argues with it.
+  const chooseQuality = useCallback((q) => { setQuality(q); qualityRef.current = q; writeChoice(q) }, [])
   const [placeKey, setPlaceKey] = useState('')
   const overlayRef = useRef(overlay)
   overlayRef.current = overlay
   const markers = useRef(null)
   const seen = useRef(0)
+  const newPilot = useRef(null)
   // The shared sky (net/sky.js): other pilots, live. Off in settings, or without the online service.
   const sky = useRef(null)
   const online = useRef(null)
@@ -55,6 +68,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
     // For the browser checks in scripts/: the running game, in development only.
     if (import.meta.env.DEV) {
       window.__game = game.current
+      window.__pzControls = controls.current
       // Staging helpers for screenshots and checks: aim at a local point, or jump to a place.
       window.__pzLook = (x, y, z) => { const g = game.current, p = g.player; p.q.setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, new THREE.Vector3(x, y, z), worldUp(g, new THREE.Vector3()))); p.vel.set(0, 0, 0); p.ctrl.throttle = 0 }
       window.__pzGo = (place, x = 0, y = 300, z = 4200) => { const g = game.current; g.mode = 'flight'; g.docked = null; loadPlace(g, place); g.player.pos.set(x, y, z); g.player.vel.set(0, 0, 0) }
@@ -65,6 +79,9 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       window.__pzTransfer = (dest) => { const g = game.current; setDestination(g, dest); return startTransfer(g, dest) }
     }
     setPlaceKey(`${game.current.place}:${Date.now()}`)
+    controls.current.keys.clear()
+    controls.current.actions.length = 0
+    seen.current = 0
     setPhase('play')
     startSound()
   }, [])
@@ -92,20 +109,29 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
     const onUi = (what) => {
       const g = game.current
       if (!g) return
+      if (what === 'lock-failed') { g.emit({ type: 'toast', text: 'Mouse capture is unavailable here. Drag the view to steer; K fires. Arrow keys also steer.' }); return }
       if (what === 'unlocked') { if (g.mode === 'flight' && !overlayRef.current) setOverlay('pause'); return }
-      if (what === 'pause') { if (g.cine) { g.cine = null; return } setOverlay((o) => (o ? null : 'pause')); return }
+      if (what === 'pause') { if (g.cine) { setOverlay((o) => (o ? null : 'pause')); return } setOverlay((o) => (o ? null : 'pause')); return }
       if (what === 'map') { if (g.mode === 'flight' || g.mode === 'docked') { document.exitPointerLock?.(); setOverlay((o) => (o === 'map' ? null : 'map')) } return }
       if (what === 'log') { document.exitPointerLock?.(); setOverlay((o) => (o === 'log' ? null : 'log')); return }
       if (what === 'help') { document.exitPointerLock?.(); setOverlay('help'); return }
       if (what === 'respawn' && g.mode === 'dead') respawn(g)
       if (what === 'hail') hail(g, sky.current)
     }
-    const canvas = c.canvas ?? document.querySelector('canvas')
+    // A lazy scene can mount after this effect. Bind to its actual canvas,
+    // never to the old film canvas or body (which would capture menu clicks).
+    let bound = null, unbind = () => {}
+    const attach = () => {
+      if (c.canvas?.isConnected && c.canvas !== bound) {
+        unbind(); bound = c.canvas; unbind = bindDesktop(c, bound, onUi)
+      }
+    }
+    attach()
+    const binding = setInterval(attach, 100)
     // Space skips a cutscene.
     const skip = (e) => { if (e.code === 'Space' && game.current?.cine) { game.current.cine = null; e.preventDefault() } }
     window.addEventListener('keydown', skip)
-    const unbind = bindDesktop(c, canvas ?? document.body, onUi)
-    return () => { window.removeEventListener('keydown', skip); unbind() }
+    return () => { clearInterval(binding); window.removeEventListener('keydown', skip); unbind() }
   }, [phase, touch])
 
   // Ten times a second: re-render the interface, play sounds for new events, save now and then.
@@ -129,29 +155,37 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
     return () => clearInterval(id)
   }, [phase])
 
-  useEffect(() => { pauseSound(overlay === 'pause') }, [overlay])
+  useEffect(() => {
+    controls.current.keys.clear(); controls.current.actions.length = 0
+    controls.current.mouse.down = false
+    controls.current.mouse.dx = controls.current.mouse.dy = 0
+    pauseSound(overlay === 'pause')
+    if (overlay) document.exitPointerLock?.()
+  }, [overlay])
 
-  // Automatic quality: if the first seconds of flight run slower than about
-  // 25 frames a second, drop to the fast settings (lower resolution, no
-  // bloom, fewer stars), once, and say so. A choice made in settings wins.
-  const perf = useRef({ t0: 0, frames: 0, done: false })
+  // The one quality decision the game makes about itself, pure policy in
+  // core/quality.js and measured here on the same sampler the resolution
+  // governor steers by. It fires once, a few seconds in, and it covers the
+  // bay, the boarding and the first flight alike, because all three are drawn
+  // before the player has any reason to visit Settings about it.
+  const perf = useRef({ t0: 0, done: false })
   const onFrame = useCallback((g, camera) => {
     if (markers.current) updateMarkers(markers.current, g, camera, controls.current)
     const pf = perf.current
-    if (pf.done || g.mode !== 'flight') return
+    if (pf.done) return
     const now = performance.now()
     if (!pf.t0) { pf.t0 = now; return }
-    pf.frames++
-    if (now - pf.t0 > 4000) {
-      pf.done = true
-      const fps = pf.frames / ((now - pf.t0) / 1000)
-      let chosen = null
-      try { chosen = localStorage.getItem(QUALITY_KEY) } catch { /* none */ }
-      if (fps < 25 && !chosen) { setQuality('low'); g.emit({ type: 'toast', text: 'Switched to fast graphics for this machine. Change it in Menu, Settings.' }) }
-    }
+    if (now - pf.t0 < 4500) return
+    pf.done = true
+    const mean = recentFrameMean(90)
+    const d = checkpointTier(qualityRef.current, mean, { explicit: Boolean(readChoice()), learned: readTier(), measured: mean > 0 })
+    if (d.tier !== qualityRef.current) { setQuality(d.tier); qualityRef.current = d.tier }
+    if (d.remember) rememberTier(d.tier)
+    if (d.reason === 'slow') g.emit({ type: 'toast', text: `This machine is drawing at about ${Math.round(1000 / mean)} frames a second, so the game has switched to Fast graphics. High is in Menu, Settings.` })
   }, [])
 
-  if (phase === 'new') return <NewPilot onBegin={(name, suit) => { deleteSave(); begin(newSave(name, suit), true) }} onExit={onExit} />
+  if (phase === 'new') return <NewPilot onBegin={(name, suit) => { newPilot.current = newSave(name, suit); startSound(); setPhase('prologue') }} onExit={onExit} />
+  if (phase === 'prologue') return <Prologue onComplete={(tier) => { deleteSave(); if (tier) { qualityRef.current = tier; setQuality(tier) } begin(newPilot.current, true) }} />
   const g = game.current
   if (!g) return <div className="gm-loading">Loading</div>
 
@@ -164,18 +198,19 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       <Surface world="moon" mode="game" title="Shackleton" upgrades={{}} onExit={(result) => { returnFromSurface(g, result ?? null); setTick((n) => n + 1) }} />
     </Suspense>}
     {g.mode !== 'surface' && <>
-      <div className="gm-markers" ref={markers} />
+      <div className="gm-markers" ref={markers} hidden={Boolean(g.cine)} />
       {g.mode !== 'docked' && <Hud game={g} touch={touch} controls={controls.current} onOverlay={setOverlay} />}
       {g.cine && <button className="gm-skip" onClick={() => { g.cine = null; play('click') }}>Skip{!touch && <kbd className="gk">Space</kbd>}</button>}
-      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click') }} onOverlay={setOverlay} />}
-      <Comms game={g} />
+      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click'); controls.current.canvas?.focus() }} onOverlay={setOverlay} />}
+      {!g.cine && <Comms game={g} />}
+      {g.cine?.kind === 'board' && <div className="boarding-label"><span className="st-eyebrow">Hearth / Berth 09</span><strong>Flight clearance pending</strong><p>Your first job begins with a ship you can trust.</p></div>}
       <Banners game={g} touch={touch} onRespawn={() => respawn(g)} />
       {touch && (g.mode === 'flight' || g.mode === 'transfer') && !overlay && <Touch controls={controls.current} game={g} onOverlay={(o) => (o === 'hail' ? hail(g, sky.current) : setOverlay(o))} />}
       {overlay === 'map' && <MapView game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {overlay === 'log' && <Log game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current} onSky={setSkyOn}
         onResume={() => setOverlay(null)} onQuit={() => { autosave(g); onExit?.() }} />}
-      {g.mode === 'flight' && !touch && !controls.current.mouse.locked && !overlay && <div className="gm-takestick">Click the view to take the stick</div>}
+      {g.mode === 'flight' && !touch && !controls.current.mouse.locked && !overlay && <div className="gm-takestick">{controls.current.mouse.fallback ? 'Drag the view to steer · K to fire' : 'Click the view to take the stick'}</div>}
     </>}
   </div>
 }

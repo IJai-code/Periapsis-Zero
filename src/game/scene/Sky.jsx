@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { decodeStars, equatorialToScene } from '../../gfx/stars.js'
+import { tierOf } from '../core/quality.js'
 import { BODIES, EARTH, SUN_DIR } from '../core/world.js'
 
 /**
@@ -29,14 +30,23 @@ export function Sky({ game, quality }) {
   ])
   useMemo(() => { for (const t of [day, night, cloudTex, moonColor]) t.colorSpace = THREE.SRGBColorSpace; for (const t of [day, night, cloudTex, moonColor, moonNormal, spec]) t.anisotropy = 4 }, [day, night, cloudTex, moonColor, moonNormal, spec])
 
-  const octaves = quality === 'low' ? 3 : 6
+  // How many noise octaves the air, the land and the cloud are drawn with,
+  // and how deep into the star catalogue to go: one table, in core/quality.js,
+  // read by both canvases, so the film and the game cannot disagree about
+  // what Fast gives up.
+  const cfg = tierOf(quality)
+  const octaves = cfg.octaves
   const earthMat = useMemo(() => earthMaterial(day, night, spec, octaves), [day, night, spec, octaves])
   const cloudMat = useMemo(() => cloudMaterial(cloudTex, octaves), [cloudTex, octaves])
   const atmoMat = useMemo(() => atmosphereMaterial(), [])
   const moonMat = useMemo(() => new THREE.MeshStandardMaterial({ map: moonColor, normalMap: moonNormal, normalScale: new THREE.Vector2(1.4, 1.4), roughness: 0.96, metalness: 0 }), [moonColor, moonNormal])
-  const sphere = useMemo(() => new THREE.SphereGeometry(1, 128, 96), [])
+  // One sphere, shared by the Earth, its clouds, its air and the Moon. On Fast
+  // it is a third of the vertices for a silhouette nobody can see at these
+  // distances: the limb of a 96-segment sphere is under a pixel wide from any
+  // camera in the game.
+  const sphere = useMemo(() => new THREE.SphereGeometry(1, cfg.segments[0], cfg.segments[1]), [cfg])
 
-  const stars = useStars(quality)
+  const stars = useStars(cfg.stars)
   const milky = useMemo(() => milkyWay(), [])
   const sunTex = useMemo(() => glowTexture(), [])
   const streakTex = useMemo(() => streakTexture(), [])
@@ -97,15 +107,15 @@ export function Sky({ game, quality }) {
 }
 
 /* ------------------------------------------------------------------ *
- * The stars: Hipparcos, to magnitude 7.5 (high) or 6.5 (low)
+ * The stars: Hipparcos, to magnitude 7.8 (high) or 6.5 (fast)
  * ------------------------------------------------------------------ */
-function useStars(quality) {
+function useStars(magnitude) {
   const [stars, setStars] = useState(null)
   useEffect(() => {
     let dead = false
     fetch(`${BASE}stars/hipparcos.bin`).then((r) => r.arrayBuffer()).then((buf) => {
       if (dead) return
-      const s = decodeStars(buf, quality === 'low' ? 6.5 : 7.8)
+      const s = decodeStars(buf, magnitude)
       const geo = new THREE.BufferGeometry()
       const pos = new Float32Array(s.count * 3)
       const size = new Float32Array(s.count)
@@ -119,7 +129,7 @@ function useStars(quality) {
       setStars({ geometry: geo, material: starMaterial() })
     }).catch(() => {})
     return () => { dead = true }
-  }, [quality])
+  }, [magnitude])
   return stars
 }
 
@@ -257,7 +267,7 @@ function earthMaterial(day, night, spec, octaves) {
         vec3 dayc = albedo * (0.01 + 0.62 * max(ndl, 0.0)) + vec3(0.025, 0.055, 0.11) * max(ndl, 0.0);
         vec3 nightc = texture2D(uNight, vUv).rgb * vec3(1.0, 0.82, 0.55) * (1.0 - lit) * 1.4 * (0.6 + 0.8 * n);
         vec3 H = normalize(uSun + V);
-        float glint = pow(max(dot(N, H), 0.0), 120.0) * ocean * lit * 0.9;
+        float glint = pow(max(dot(N, H), 0.0), 320.0) * ocean * lit * 0.35;
         float fres = pow(1.0 - max(dot(N, V), 0.0), 2.5);
         vec3 air = mix(vec3(0.25, 0.5, 1.0), vec3(1.0, 0.55, 0.3), smoothstep(0.35, -0.05, ndl)) * fres * smoothstep(-0.25, 0.3, ndl) * 0.45;
         gl_FragColor = vec4(dayc + nightc + glint * vec3(1.0, 0.95, 0.85) + air, 1.0);
@@ -287,7 +297,11 @@ function cloudMaterial(tex, octaves) {
         vec2 uv = vUv + vec2(w1 - 0.5, w2 - 0.5) * vec2(0.006, 0.008) * near;
         // Cover is the map's alpha (its colour is white wherever it is clear).
         float c0 = smoothstep(0.004, 0.42, texture2D(uClouds, uv).a);
-        float c = mix(c0, smoothstep(0.28, 0.62, c0 + (n - 0.5) * 0.95), near);
+        // The old low-resolution mask alone formed continent-shaped white
+        // cutouts. Synthetic weather structure supplies soft, broken cover;
+        // the source mask contributes only a small broad-scale bias.
+        float weather = fbmAA(vP + vec3(w1 - 0.5, w2 - 0.5, 0.0) * 0.16, 9.0, foot);
+        float c = smoothstep(0.50, 0.74, weather + (n - 0.5) * 0.16 + c0 * 0.03);
         float ndl = dot(normalize(vN), uSun);
         float lit = smoothstep(-0.1, 0.3, ndl);
         vec3 col = vec3(0.02 + 0.72 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)) * mix(1.0, 0.72 + 0.4 * n, near);

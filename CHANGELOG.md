@@ -5,6 +5,74 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Graphics that fit the machine drawing them, 6 October 2026
+
+- **One tier table, read by everything that draws**: High keeps bloom, shadow
+  mapping, antialiasing, the 7.8-magnitude star catalogue, six noise octaves
+  in the Earth and its cloud, 100 debris plates and the bay's Cycles panorama;
+  Fast gives those up and drops the distant bodies to a third of their
+  vertices. Nothing else changes: same film, same six shots, same ships, same
+  simulation, same campaign, at both settings.
+- **A first guess from the device itself**, before any frame is drawn: a
+  software rasteriser, four cores, four gigabytes, or a phone-sized screen at
+  three device pixels each. A machine that reports nothing is High, and real
+  phone GPUs (Mali, Adreno) report through ANGLE like the software one does,
+  so only explicit software markers count.
+- **The film measures its own frames and the game inherits the answer.** The
+  opening is the one benchmark every player runs; a machine that cannot hold
+  it is remembered, and the game begins Fast instead of relearning the same
+  fact. The film also keeps its own resolution governor and can spend bloom
+  and sky detail mid-shot, once, when its pixels are already at the floor.
+- **A paused or hidden film stops drawing altogether**: measured as zero
+  frames in a second and a half, against 42 frames per 700 ms while it plays.
+  Its overlay now re-renders six times a second instead of sixty.
+- **One checkpoint a few seconds into play** drops a slow machine and keeps
+  the downgrade; a machine guessed Fast that plainly has headroom is lifted
+  for that session only, so a bad guess costs seconds and not a session; a
+  machine the film taught Fast is not argued with; and a choice made in
+  Settings is never argued with at all. Models are compiled three at a time
+  rather than twelve at once, so the bay's first frame is not the hitch.
+- **Measured, not asserted**: on a SwiftShader software rasteriser at
+  1280×800, the film's frame time is 116.7 ms at High and 66.6 ms at Fast —
+  43% off, 117 frames drawn in fifteen seconds against 223. That is a floor
+  and not a promise: Fast is 15 frames a second there, because software
+  rasterisation is the weakest possible device and not a typical one. No
+  claim of 60 fps on weak hardware is made, and none was measured.
+- New gate `verify-game-quality` (77 in total) holds the tier table, the
+  guess, the film's learner, the checkpoint policy and every wire between
+  them. `node scripts/check-game-quality.mjs` is the A/B measurement above,
+  kept out of the suite because it needs a browser and two minutes.
+
+### The Aster incident: opening film and flight upgrade, 6 October 2026
+
+- Six real-time 3D chapters make a 120-second opening film, with original
+  story, captioned synthetic narration, pause, skip-to-mission and replay.
+  Playback stops in hidden tabs. The mission briefing states the immediate
+  objective and reward before boarding; existing saves continue normally.
+- The Aster convoy attack explains the rescue debt. Its recorder ties into
+  Chen's offer, Ghost Signal's discovery, and the final resolution, instead
+  of introducing a mystery the campaign never addresses.
+- Default desktop controls hold W to fly and release to brake with assist
+  on. With assist off release coasts. Latched throttle remains in Settings.
+  Taking the mouse no longer fires an accidental shot, and the HUD gives
+  an approximate braking-distance cue.
+- Manual flight no longer deletes velocity at an arbitrary ceiling. Assist
+  still brakes using bounded thruster acceleration. Both story branches are
+  checked by the same scripted pilot as before.
+- The bay has service couplings, hoses, cable trays, maintenance covers,
+  louvres and berth signage. Narrow guidance lamps, restrained bloom and
+  quieter fill avoid relying on broad glow strips for detail. Suit fittings,
+  a longer bridge crossing, a hinged canopy and a choreographed seat entry
+  replace the short floating hop. Boarding pauses with the game.
+- The tab mark has a larger planet, heavier orbit and brighter periapsis
+  point, generated directly from the actual interface palette.
+- New numerical gate: film boundaries, narration assets, pause behavior,
+  boarding continuity on three hulls, throttle modes and high-speed momentum.
+  The separate browser check plays the full film and opens the mission,
+  boards, launches and checks settings. No claim of EVE-equivalent realism,
+  device-wide 60 fps, or actual Safari validation is made.
+
+
 ### A suit with a body in it, and surfaces up close: 6 October 2026
 
 - **The pilot's suit is one continuous body** grown along the skeleton with
@@ -399,13 +467,13 @@ alone, so no chunk cycle can form), and `deps` for the rest. The landing
 backdrop moved to `src/ui/ScenicBackdrop.jsx` and the expedition mode loads
 lazily, which is what let three leave the entry at all.
 
-Two build warnings went with them. The circular-chunk warning (`deps ->
-three -> deps`, caused by bucketing drei and fiber together with the package
-they import) is gone by construction. The 500 kB chunk-size warning is
-addressed honestly rather than muzzled: every application chunk is 51 kB or
-under, and `chunkSizeWarningLimit` is set to 760 kB with the reason written
-into `vite.config.js`, because the one chunk above 500 kB is three.js's
-pre-bundled module, which npm ships as a single file rollup cannot divide.
+The circular-chunk warning (`deps -> three -> deps`, caused by bucketing
+drei and fiber together with three) is gone. Correction, 6 October: the
+original entry claimed every application chunk was at most 51 kB. That was
+incorrect: the lazy simulator application chunk also exceeded 500 kB.
+Raising the warning threshold to 760 kB suppressed a warning, not the size.
+The ordinary 500 kB threshold is restored. These download-byte measurements
+were not a measurement of first-paint or loading-time improvement.
 
 **Safari.** The pilot dialog and expedition modal blur was written only as
 `backdrop-filter`, which WebKit did not ship unprefixed until 18; the

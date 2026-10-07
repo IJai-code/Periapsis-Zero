@@ -61,10 +61,10 @@ export const STORY = [
   {
     id: 'arrival', title: 'Arrival', giver: 'mara', at: 'hearth', pitch: 'Mara Voss wants to see you fly before anyone gives you work.',
     reward: { credits: 1500 },
-    intro: [['mara', 'Berth nine, the Kestrel. You are Rook\'s new pilot.'], ['mara', 'Mara Voss, dockmaster. Before anyone on this station gives you work, I want to see you fly. Launch when you are ready.']],
+    intro: [['mara', 'Berth nine, the Kestrel. I heard about the Aster. You made it back. That counts.'], ['mara', 'Mara Voss, dockmaster. Rook owns your debt, not your next decision. First, let us see if that patched ship still flies. Launch when you are ready.']],
     steps: [
       { text: 'Launch from the berth with [launch]', done: (g) => g.story.s.launched },
-      { text: 'Aim with [aim] and throttle up with [thrust]. Fly through the marker.', at: () => V(0, 250, 2200), say: [['mara', 'Point the nose where you want to go. The throttle stays where you leave it.']], done: (g) => dist(g, V(0, 250, 2200)) < 70 },
+      { text: 'Aim with [aim] and throttle up with [thrust]. Fly through the marker.', at: () => V(0, 250, 2200), say: [['mara', 'Point the nose where you want to go. Hold [thrust] to fly. Release it to brake with assist on. Advanced throttle is in Settings.']], done: (g) => dist(g, V(0, 250, 2200)) < 70 },
       { text: 'Hold [boost] and race to the next marker', at: () => V(1600, 700, 5200), say: [['mara', 'Boost runs on a battery. Use it, then let it recharge.']], done: (g) => dist(g, V(1600, 700, 5200)) < 90 },
       { text: 'Turn flight assist off with [fa] and feel the drift. Then turn it back on.', say: [['mara', 'With assist on, the thrusters hold the velocity you ask for. Off, it is just you and Newton.']], done: (g) => g.story.s.faOff && g.player.ctrl.fa },
       {
@@ -143,7 +143,7 @@ export const STORY = [
   {
     id: 'chen', title: 'Chen', giver: 'chen', at: 'hearth', after: 'down-low', pitch: 'Commander Chen is waiting in your berth.',
     reward: {},
-    intro: [['chen', 'Elias Chen, Lunar Compact. Sit down.'], ['chen', 'Gateway. Two crates of grey chips, a dead drop, and a Kestrel running dark. I could take your ship today.'], ['chen', 'Or. The Hollow have bled these lanes for a year. Their boss calls himself the Warden. Help me find him, and Gateway never happened.'], ['chen', 'Think about who you owe. Rook will not.']],
+    intro: [['chen', 'Elias Chen, Lunar Compact. Sit down. The Aster recorder is why I came. Someone sold your convoy’s route.'], ['chen', 'Gateway. Two crates of grey chips, a dead drop, and a Kestrel running dark. I could take your ship today.'], ['chen', 'Or. The Hollow have bled these lanes for a year. Their boss calls himself the Warden. Help me find him, and Gateway never happened.'], ['chen', 'Think about who you owe. Rook will not.']],
     steps: [
       { text: 'Choose: help Chen, or stay with Rook', docked: true, choice: { prompt: 'Who do you fly for?', options: [{ id: 'chen', label: 'Help Chen take down the Hollow' }, { id: 'rook', label: 'Stay with Rook' }] }, done: (g) => Boolean(g.story.choice) },
     ],
@@ -314,7 +314,7 @@ export const STORY = [
       },
       { text: 'Take the recorder to Mara at Hearth, not to Okafor', place: 'hearth', at: () => port('hearth'), done: (g) => g.story.s.docked === 'hearth' },
     ],
-    outro: [['mara', 'The Halcyon was not hit by the Hollow. Her recorder logged Ceres Line security codes on the ships that killed her.'], ['mara', 'And the Providence filed no manifest. The Ceres Line is arming somebody. Six thousand from me; it is not fourteen, but it is clean. Chen needs to hear this.']],
+    outro: [['mara', 'The Halcyon was not hit by the Hollow. Her recorder logged Ceres Line security codes on the ships that killed her.'], ['mara', 'I compared the Halcyon’s dispatch signature with your Aster recorder. Same relay key. The route was sold through a Ceres shell company before the Hollow ever saw it.'], ['mara', 'And the Providence filed no manifest. The Ceres Line is arming somebody. Six thousand from me; it is not fourteen, but it is clean. Chen needs to hear this.']],
   },
   {
     id: 'loop', title: 'The Loop', giver: 'chen', at: 'hearth', after: 'ghost-signal', pitch: 'Get close to Okafor\'s yacht at Harbor. The way in is a race.',
@@ -377,7 +377,7 @@ export const STORY = [
       },
       { text: 'Dock at Gateway', place: 'gateway', at: () => port('gateway'), done: (g) => g.story.s.docked === 'gateway' },
     ],
-    outro: [['chen', 'The Meridian is scrap and Okafor is in a Compact cell. The Ceres Line\'s charter is revoked as of this hour.'], ['mara', 'Drinks at Hearth. All of them. And pilot: thank you.']],
+    outro: [['chen', 'The Meridian is scrap and Okafor is in a Compact cell. The Ceres Line\'s charter is revoked as of this hour.'], ['mara', 'The Aster crew’s families have the record now. Not a rumour, not a company statement. What actually happened. You brought it home.'], ['mara', 'Drinks at Hearth. All of them. And pilot: thank you.']],
     epilogue: 'The story is complete. The Hollow are gone, the Ceres Line is finished, and you owe nobody anything. The lanes, the job board, the market and every station are yours.',
   },
 ]

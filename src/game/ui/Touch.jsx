@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { play } from '../audio.js'
 
 /**
@@ -7,6 +7,7 @@ import { play } from '../audio.js'
  */
 export function Touch({ controls: c, game: g, onOverlay }) {
   const stick = useRef(null), knob = useRef(null), throttle = useRef(null)
+  useEffect(() => { c.touch.enabled = true; return () => { c.touch.enabled = false; c.touch.active = c.touch.fire = c.touch.boost = false; c.touch.x = c.touch.y = 0 } }, [c])
   const startStick = (e) => { c.touch.active = true; moveStick(e) }
   const moveStick = (e) => {
     const r = stick.current.getBoundingClientRect(), t = e.touches ? e.touches[0] : e
@@ -21,11 +22,11 @@ export function Touch({ controls: c, game: g, onOverlay }) {
     const v = Math.max(-0.3, Math.min(1, 1 - (t.clientY - r.top) / r.height * 1.3))
     c.throttleSet = v
   }
-  const hold = (key) => ({ onTouchStart: (e) => { e.preventDefault(); c.touch[key] = true }, onTouchEnd: () => { c.touch[key] = false }, onMouseDown: () => { c.touch[key] = true }, onMouseUp: () => { c.touch[key] = false } })
+  const hold = (key) => ({ onTouchStart: (e) => { e.preventDefault(); c.touch[key] = true }, onTouchEnd: () => { c.touch[key] = false }, onTouchCancel: () => { c.touch[key] = false }, onMouseDown: () => { c.touch[key] = true }, onMouseUp: () => { c.touch[key] = false } })
   const tap = (action) => ({ onClick: () => { c.actions.push(action); play('click') } })
   const prompt = g.prompt
   return <div className="gm-touch">
-    <div className="tc-stick" ref={stick} onTouchStart={startStick} onTouchMove={moveStick} onTouchEnd={endStick} onMouseDown={startStick} onMouseUp={endStick}><i ref={knob} /></div>
+    <div className="tc-stick" ref={stick} onTouchStart={startStick} onTouchMove={moveStick} onTouchEnd={endStick} onTouchCancel={endStick} onMouseDown={startStick} onMouseUp={endStick}><i ref={knob} /></div>
     <div className="tc-right">
       <div className="tc-throttle" ref={throttle} onTouchStart={setThrottle} onTouchMove={setThrottle}><i style={{ height: `${Math.max(0, g.player.ctrl.throttle) * 100}%` }} /><span>Throttle</span></div>
       <div className="tc-buttons">

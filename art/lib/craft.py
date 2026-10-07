@@ -823,7 +823,8 @@ def hangar():
     # The pad: a gold-ringed disc, a ring of light, lanes to the door.
     lathe_y('pad', [(0, 0.15), (13.4, 0.15), (13, 0)], m['trim'], 0, H0 + 0.02, 0, seg=64)
     lathe_y('padgold', [(13.4, 0.18), (14.2, 0.18), (14.0, 0.0)], m['accent'], 0, H0 + 0.02, 0, seg=64)
-    lathe_y('padring', [(12.2, 0.2), (12.8, 0.2)], m['ion'], 0, H0 + 0.05, 0, seg=64)
+    # Inset guidance lamps, not a broad neon doughnut around the ship.
+    lathe_y('padring', [(12.42, 0.2), (12.49, 0.2)], m['lights'], 0, H0 + 0.05, 0, seg=64)
     for k in range(16):
         a = k / 16 * math.tau
         box(f'padmark{k}', (0.3, 0.05, 1.6), (math.sin(a) * 10.5, H0 + 0.2, math.cos(a) * 10.5), m['accent'])
@@ -837,7 +838,7 @@ def hangar():
     robot_arm(m, 'armB', -16, 30, math.radians(140), reach=0.8)
     for i, (x, z, n) in enumerate([(24, 28, 3), (-27, -22, 2), (26, -30, 2), (-24, 36, 3)]):
         for k in range(n):
-            box(f'crate{i}{k}', (4.2, 3.2, 4.2), (x + (k % 2) * 0.6, H0 + 1.6 + k * 3.25, z + (k % 2) * 0.4), m['accent'] if (i + k) % 2 else m['trim'], chamfer=0.15)
+            box(f'crate{i}{k}', (4.2, 3.2, 4.2), (x + (k % 2) * 0.6, H0 + 1.6 + k * 3.25, z + (k % 2) * 0.4), m['hull'] if (i + k) % 2 else m['trim'], chamfer=0.15)
     for k in range(3):
         lathe_y(f'tank{k}', [(0, 0), (2.0, 0.2), (2.2, 1.2), (2.2, 7.0), (2.0, 8.0), (0, 8.2)], m['metal'], 30, H0, 8 + k * 5.2)
         tube(f'fuelline{k}', (30, H0 + 7.6, 8 + k * 5.2), (W - 0.4, H0 + 7.6, 8 + k * 5.2), 0.22, m['dark'], seg=8)
@@ -886,6 +887,46 @@ def hangar():
     for k in range(4):
         x = X0 + 3 + k * 6
         tube(f'swhang{k}', (x, TY + TR, TZ), (x, H1 - 2.5, TZ), 0.09, m['metal'], seg=6)
+    # Human-scale service hardware. A bay is a working place, not an empty
+    # box with luminous stripes: replace colour blocks with readable function.
+    for side in (-1, 1):
+        for j, z in enumerate((-29, 11, 29)):
+            x = side * 28
+            box(f'service{side}{j}', (1.4, 2.2, 1.0), (x, H0 + 1.1, z), m['metal'], chamfer=0.06)
+            box(f'serviceface{side}{j}', (0.035, 1.8, 0.82), (x - side * 0.72, H0 + 1.1, z), m['dark'])
+            for row in range(4):
+                lathe_z(f'coupler{side}{j}{row}', [(0.12, z - 0.3), (0.15, z - 0.25), (0.15, z - 0.15), (0.11, z - 0.12)], m['metal'], x, H0 + 0.5 + row * 0.4, seg=12)
+                light(m, f'status{side}{j}{row}', (x - side * 0.75, H0 + 0.5 + row * 0.4, z + 0.23), 0.045, 'ion')
+            # Curved hoses between service points, with realistic collars.
+            for hose in range(2):
+                pts = [(x, H0 + 0.6 + hose * 0.4, z + 0.4), (x - side * 1.5, H0 + 0.3, z + 1.2), (x - side * 2.1, H0 + 0.16, z + 3.0), (x - side * 1.8, H0 + 0.12, z + 4.1)]
+                for seg in range(len(pts) - 1):
+                    tube(f'hose{side}{j}{hose}{seg}', pts[seg], pts[seg + 1], 0.06, m['dark'], seg=8)
+        # Cable trays under the catwalk and expansion joints with fastening heads.
+        for z in range(-38, 43, 9):
+            box(f'tray{side}{z}', (1.1, 0.08, 8.3), (side * 31, 5.7, z), m['dark'])
+            for k in range(5):
+                box(f'traycable{side}{z}{k}', (0.055, 0.04, 8.0), (side * 31 - 0.4 + k * 0.2, 5.76, z), m['metal'])
+            for y in (0, 8, 16):
+                box(f'fastener{side}{z}{y}', (0.08, 0.15, 0.15), (side * 34.85, y, z), m['metal'])
+        decal(m, f'bayid{side}', '09', (side * 35.35, 9.5, -15), 5.0, -side, mat='metal', depth=0)
+        decal(m, f'serviceword{side}', 'SERVICE / KEEP CLEAR', (side * 35.3, -1.0, 18), 0.62, -side, mat='metal', depth=0)
+    # Raised maintenance access panels around the landing clamps.
+    for k in range(8):
+        a = k / 8 * math.tau
+        x, z = math.sin(a) * 17, math.cos(a) * 17
+        box(f'access{k}', (1.8, 0.06, 2.6), (x, H0 + 0.045, z), m['hull'], chamfer=0.04)
+        for sx in (-1, 1):
+            for sz in (-1, 1):
+                lathe_y(f'accessbolt{k}{sx}{sz}', [(0.05, 0), (0.05, 0.025)], m['metal'], x + sx * 0.74, H0 + 0.08, z + sz * 1.08, seg=6)
+    # Overhead environmental plant: louvres, insulated ducts, hanging chains.
+    for side in (-1, 1):
+        box(f'duct{side}', (3.4, 2.2, 70), (side * 23, 22.4, 0), m['trim'], chamfer=0.12)
+        for j in range(7):
+            z = -30 + j * 10
+            box(f'ductflange{side}{j}', (3.6, 2.4, 0.16), (side * 23, 22.4, z), m['metal'])
+            for slat in range(6):
+                box(f'louvre{side}{j}{slat}', (2.6, 0.07, 0.16), (side * 23, 21.23, z + 0.6 + slat * 0.3), m['dark'])
     return m, 2.5
 
 

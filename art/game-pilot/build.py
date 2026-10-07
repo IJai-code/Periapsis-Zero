@@ -65,7 +65,7 @@ bpy.ops.object.mode_set(mode='OBJECT')
 
 # ---------------------------------------------------------------- the suit
 parts = []
-def ellipsoid(name, bone, centre, radii, mat, axis=None, segs=(20, 12)):
+def ellipsoid(name, bone, centre, radii, mat, axis=None, segs=(16, 10)):
     """A smooth ellipsoid, its long axis along `axis` (a direction), bound to `bone`."""
     bpy.ops.mesh.primitive_uv_sphere_add(segments=segs[0], ring_count=segs[1], radius=1, location=centre)
     o = bpy.context.active_object
@@ -96,6 +96,19 @@ for s, n in ((1, 'L'), (-1, 'R')):
     ellipsoid(f'knee{n}', f'shin.{n}', (s * 0.1, -0.06, 0.55), (0.06, 0.04, 0.06), 'stripe')
     ellipsoid(f'boot{n}', f'foot.{n}', (s * 0.1, -0.05, 0.06), (0.08, 0.14, 0.065), 'dark')
     ellipsoid(f'glove{n}', f'hand.{n}', (s * 0.265, -0.035, 0.92), (0.045, 0.04, 0.06), 'dark')
+
+# Pressure-suit fittings: seams, chest control pack, connector rings and
+# helmet hardware. Rigid only where hardware really is rigid; fabric stays skinned.
+ellipsoid('chestcontrol', 'chest', (0, -0.155, 1.39), (0.105, 0.035, 0.12), 'dark')
+for row in range(3):
+    ellipsoid(f'control{row}', 'chest', (-0.055 + row * 0.055, -0.191, 1.43), (0.013, 0.008, 0.013), 'stripe', segs=(12, 8))
+for s, n in ((1, 'L'), (-1, 'R')):
+    ellipsoid(f'earring{n}', 'head', (s * 0.151, 0, 1.76), (0.026, 0.065, 0.065), 'dark')
+    ellipsoid(f'earcap{n}', 'head', (s * 0.171, 0, 1.76), (0.009, 0.044, 0.044), 'stripe')
+    ellipsoid(f'cuff{n}', f'forearm.{n}', (s * 0.254, -0.02, 1.01), (0.063, 0.065, 0.025), 'dark')
+    ellipsoid(f'connector{n}', 'hips', (s * 0.12, -0.12, 1.1), (0.034, 0.032, 0.034), 'dark')
+    for rib in range(4):
+        ellipsoid(f'kneerib{n}{rib}', f'shin.{n}', (s * 0.1, -0.067, 0.6 - rib * 0.024), (0.062, 0.012, 0.007), 'dark', segs=(12, 6))
 
 # The suit itself: one continuous body grown along the joints with a Skin
 # modifier, smoothed, and weighted to the rig automatically (bone heat), so

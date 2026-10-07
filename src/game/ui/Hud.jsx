@@ -87,6 +87,7 @@ function Cluster({ g, p }) {
     <div className="hud-bars left">
       <Bar label="Shield" v={p.shield / s.shield} cls="ion" />
       <Bar label="Hull" v={p.hull / s.hull} cls={p.hull / s.hull < 0.3 ? 'warn' : 'bone'} />
+      <span className="hud-stop">Brake distance ≈ {fmt(speed * speed / (2 * s.accel * 0.6))}</span>
     </div>
     <div className="hud-speed">
       <svg viewBox="0 0 120 120" aria-hidden>

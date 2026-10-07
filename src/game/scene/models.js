@@ -203,13 +203,19 @@ export function preload(kinds) {
         if (/^nozzle_\d+/.test(o.name)) nozzles.push(o.getWorldPosition(new THREE.Vector3()).toArray())
         if (!o.isMesh) return
         o.castShadow = false; o.receiveShadow = false
+        // Keep navigation lamps legible without turning white hulls and
+        // brushed deck plates into clipped bloom blobs in the bay.
+        for (const m of [o.material].flat()) if (m?.emissive && /^(lights|ion)$/.test(m.name)) m.emissiveIntensity = k === 'hangar' ? 1.4 : 1.8
         // Canopies are glass you can see the pilot through.
         for (const m of [o.material].flat()) if (m?.name === 'canopy') { m.transparent = true; m.opacity = 0.34; m.depthWrite = false; m.roughness = 0.04; m.metalness = 0.5 }
         // The skywalk's glass: thin, cool, and see-through from both sides.
         for (const m of [o.material].flat()) if (m?.name === 'skyglass') { m.transparent = true; m.opacity = 0.16; m.depthWrite = false; m.side = THREE.DoubleSide; m.roughness = 0.05; m.metalness = 0.6 }
       })
       // Close-up detail (scene/detail.js): deck plate in the bay, fine plate on hulls.
-      if (k === 'hangar') detailModel(root, 'plate', { scale: 0.5, strength: 0.55, wear: 0.55 })
+      if (k === 'hangar') {
+        root.traverse((o) => { if (o.isMesh) for (const m of [o.material].flat()) if (m.name === 'hangar') m.color.multiplyScalar(0.68) })
+        detailModel(root, 'plate', { scale: 0.5, strength: 0.55, wear: 0.55 })
+      }
       else if (SHIPS.has(k)) detailModel(root, 'hull', { scale: k === 'freighter' ? 0.35 : 0.8, strength: 0.35, wear: 0.4 })
       cache.set(k, { object: root, nozzles })
       listeners.forEach((fn) => fn(k))

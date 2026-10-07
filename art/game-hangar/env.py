@@ -29,8 +29,8 @@ world = scene.world or bpy.data.worlds.new('w'); scene.world = world
 world.use_nodes = True
 world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.002, 0.002, 0.004, 1)
 # The game's lamps (src/game/scene/Props.jsx), in the hangar model's frame (the bay frame is 3.1 m lower).
-for name, at, power, colour in [('key', (0, 18 - 3.1, 6), 52000, (1, 0.94, 0.85)), ('fillA', (-22, 12 - 3.1, -24), 17000, (1, 0.84, 0.66)),
-                                ('fillB', (22, 12 - 3.1, 26), 17000, (1, 0.84, 0.66)), ('rim', (-30, 3 - 3.1, 0), 11000, (0.18, 0.83, 1))]:
+for name, at, power, colour in [('key', (0, 18 - 3.1, 6), 24000, (1, 0.94, 0.85)), ('fillA', (-22, 12 - 3.1, -24), 10000, (1, 0.84, 0.66)),
+                                ('fillB', (22, 12 - 3.1, 26), 10000, (1, 0.84, 0.66)), ('rim', (-30, 3 - 3.1, 0), 6000, (0.18, 0.83, 1))]:
     L = bpy.data.lights.new(name, 'POINT'); L.energy = power; L.color = colour; L.shadow_soft_size = 0.6
     o = bpy.data.objects.new(name, L); o.location = pz.from_three(*at); scene.collection.objects.link(o)
 cam = bpy.data.cameras.new('pano')

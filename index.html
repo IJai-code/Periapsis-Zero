@@ -59,14 +59,14 @@
       #boot {
         position: fixed; inset: 0; z-index: 100;
         display: flex; align-items: center; justify-content: center;
-        background: #080a0d;
+        background: #120b22;
         opacity: 1; transition: opacity 0.6s ease;
       }
       #boot.boot-done { opacity: 0; pointer-events: none; }
       #boot .boot-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; }
       #boot .boot-title {
         font-family: 'Rubik Dirt', Impact, fantasy; font-weight: 400;
-        font-size: 15px; letter-spacing: 0.34em; text-indent: 0.34em; color: #d5c6a1;
+        font-size: 15px; letter-spacing: 0.34em; text-indent: 0.34em; color: #f4e8cf;
       }
     </style>
     <div id="boot" aria-hidden="true">
@@ -74,34 +74,34 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="72" height="72" role="img" aria-label="Periapsis Zero">
         <defs>
           <radialGradient id="pz-halo" cx="0.44" cy="0.43" r="0.52">
-            <stop offset="0" stop-color="#d5c6a1" stop-opacity="0.16"/>
-            <stop offset="1" stop-color="#d5c6a1" stop-opacity="0"/>
+            <stop offset="0" stop-color="#f4e8cf" stop-opacity="0.16"/>
+            <stop offset="1" stop-color="#f4e8cf" stop-opacity="0"/>
           </radialGradient>
           <radialGradient id="pz-planet" cx="0.36" cy="0.30" r="0.92">
-            <stop offset="0" stop-color="#ded3b6"/>
-            <stop offset="0.52" stop-color="#8d846d"/>
-            <stop offset="1" stop-color="#252422"/>
+            <stop offset="0" stop-color="#f6edda"/>
+            <stop offset="0.52" stop-color="#a59b92"/>
+            <stop offset="1" stop-color="#322a3a"/>
           </radialGradient>
           <radialGradient id="pz-peri">
-            <stop offset="0" stop-color="#d7733e" stop-opacity="0.55"/>
-            <stop offset="1" stop-color="#d7733e" stop-opacity="0"/>
+            <stop offset="0" stop-color="#ff6b2c" stop-opacity="0.55"/>
+            <stop offset="1" stop-color="#ff6b2c" stop-opacity="0"/>
           </radialGradient>
         </defs>
-        <rect width="512" height="512" fill="#080a0d"/>
+        <rect width="512" height="512" fill="#120b22"/>
         <rect width="512" height="512" fill="url(#pz-halo)"/>
-        <circle cx="74.24" cy="79.36" r="2.6" fill="#d5c6a1" opacity="0.75"/>
-        <circle cx="432.64" cy="58.88" r="1.9" fill="#d5c6a1" opacity="0.6"/>
-        <circle cx="463.36" cy="174.08" r="2.3" fill="#d5c6a1" opacity="0.7"/>
-        <circle cx="43.52" cy="192" r="1.7" fill="#d5c6a1" opacity="0.5"/>
-        <circle cx="368.64" cy="448" r="2" fill="#d5c6a1" opacity="0.55"/>
-        <circle cx="94.72" cy="440.32" r="1.6" fill="#d5c6a1" opacity="0.5"/>
-        <path id="orbit-far" d="M 64 197.12 A 192 133.12 0 0 1 448 197.12" fill="none" stroke="#d5c6a1" stroke-width="10.24" stroke-linecap="round" opacity="0.45"/>
-        <circle cx="256" cy="256" r="79.36" fill="url(#pz-planet)"/>
-        <circle cx="256" cy="256" r="79.36" fill="none" stroke="#ded3b6" stroke-width="2.56" opacity="0.35"/>
-        <circle cx="256" cy="330.24" r="52.22" fill="url(#pz-peri)"/>
-        <circle cx="256" cy="330.24" r="17.41" fill="#d7733e"/>
-        <path id="orbit-near" d="M 64 197.12 A 192 133.12 0 0 0 448 197.12" fill="none" stroke="#d5c6a1" stroke-width="14.34" stroke-linecap="round"/>
-        <path d="M 256 360.96 L 212.48 400.13 M 256 360.96 L 299.52 400.13" fill="none" stroke="#d7733e" stroke-width="16.38" stroke-linecap="round"/>
+        <circle cx="74.24" cy="79.36" r="2.6" fill="#f4e8cf" opacity="0.75"/>
+        <circle cx="432.64" cy="58.88" r="1.9" fill="#f4e8cf" opacity="0.6"/>
+        <circle cx="463.36" cy="174.08" r="2.3" fill="#f4e8cf" opacity="0.7"/>
+        <circle cx="43.52" cy="192" r="1.7" fill="#f4e8cf" opacity="0.5"/>
+        <circle cx="368.64" cy="448" r="2" fill="#f4e8cf" opacity="0.55"/>
+        <circle cx="94.72" cy="440.32" r="1.6" fill="#f4e8cf" opacity="0.5"/>
+        <path id="orbit-far" d="M 58.88 240.64 A 197.12 117.76 0 0 1 453.12 240.64" fill="none" stroke="#f4e8cf" stroke-width="13.31" stroke-linecap="round" opacity="0.45"/>
+        <circle cx="256" cy="256" r="104.96" fill="url(#pz-planet)"/>
+        <circle cx="256" cy="256" r="104.96" fill="none" stroke="#f6edda" stroke-width="2.56" opacity="0.35"/>
+        <circle cx="256" cy="358.4" r="67.58" fill="url(#pz-peri)"/>
+        <circle cx="256" cy="358.4" r="22.53" fill="#ff6b2c"/>
+        <path id="orbit-near" d="M 58.88 240.64 A 197.12 117.76 0 0 0 453.12 240.64" fill="none" stroke="#f4e8cf" stroke-width="19.46" stroke-linecap="round"/>
+        <path d="M 256 404.48 L 212.48 443.65 M 256 404.48 L 299.52 443.65" fill="none" stroke="#ff6b2c" stroke-width="16.38" stroke-linecap="round"/>
       </svg>
       
         <div class="boot-title">PERIAPSIS ZERO</div>

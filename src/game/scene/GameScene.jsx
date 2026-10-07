@@ -6,6 +6,8 @@ import { STATIONS, SUN_DIR } from '../core/world.js'
 import { BARREL } from '../core/flight.js'
 import { STEP, stepGame, BERTH, DOCK_T, LAUNCH_T, berthQuat } from '../core/game.js'
 import { resolveInput } from '../ui/controls.js'
+import { tierOf } from '../core/quality.js'
+import { pushFrameTime } from '../../gfx/frameStats.js'
 import { Sky } from './Sky.jsx'
 import { Ships } from './Ships.jsx'
 import { Props, BayEnvironment, Warmup } from './Props.jsx'
@@ -19,14 +21,17 @@ import { BOARD_DUR, BOARD_SEATED, COCKPIT, boardPose } from './Boarding.jsx'
  * and `onFrame` hands the interface the camera for its markers.
  */
 export default function GameScene({ game, controls, quality, placeKey, paused, onFrame }) {
-  const hi = quality !== 'low'
+  // What this tier means lives in core/quality.js, beside the guess that
+  // chose it and the lessons that can change it; this is only where the
+  // numbers reach the canvas.
+  const cfg = tierOf(quality)
   return <Canvas
-    shadows={hi ? 'soft' : false}
-    dpr={hi ? [1, 1.75] : [0.7, 1]}
-    gl={{ antialias: hi, logarithmicDepthBuffer: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+    shadows={cfg.shadows ? 'soft' : false}
+    dpr={cfg.dpr}
+    gl={{ antialias: cfg.antialias, logarithmicDepthBuffer: true, powerPreference: cfg.power, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
     camera={{ fov: 62, near: 0.5, far: 4.5e6, position: [0, 30, 120] }}
     style={{ position: 'fixed', inset: 0, background: '#000' }}>
-    <Loop game={game} controls={controls} paused={paused} onFrame={onFrame} maxDpr={hi ? 1.75 : 1} />
+    <Loop game={game} controls={controls} paused={paused} onFrame={onFrame} maxDpr={cfg.dpr[1]} minDpr={cfg.dpr[0]} />
     <ambientLight intensity={0.06} color="#9fb4ff" />
     <hemisphereLight intensity={0.12} color="#b8c8ff" groundColor="#2a1a12" />
     <directionalLight name="sun" position={SUN_DIR.clone().multiplyScalar(1e4)} intensity={3.2} color="#fff4e2" />
@@ -35,13 +40,13 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
     <Suspense fallback={null}>
       <Sky game={game} quality={quality} />
     </Suspense>
-    <Props game={game} placeKey={placeKey} />
-    <BayEnvironment />
+    <Props game={game} placeKey={placeKey} quality={quality} />
+    <BayEnvironment quality={quality} />
     <Warmup />
     <Ships game={game} />
     <Fx game={game} />
-    {hi && <EffectComposer disableNormalPass multisampling={0}>
-      <Bloom mipmapBlur intensity={0.85} luminanceThreshold={0.85} luminanceSmoothing={0.2} radius={0.65} />
+    {cfg.bloom && <EffectComposer disableNormalPass multisampling={0}>
+      <Bloom mipmapBlur intensity={0.28} luminanceThreshold={1.5} luminanceSmoothing={0.2} radius={0.5} />
       <Vignette offset={0.3} darkness={0.55} />
     </EffectComposer>}
   </Canvas>
@@ -49,40 +54,59 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
 
 const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _up = new THREE.Vector3(), _f = new THREE.Vector3(), _q = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _z = new THREE.Vector3(0, 0, 1), _bay = new THREE.Vector3(), _qbay = new THREE.Quaternion(), _pose = { pos: new THREE.Vector3() }
 
-function Loop({ game, controls, paused, onFrame, maxDpr }) {
+function Loop({ game, controls, paused, onFrame, maxDpr, minDpr }) {
   const { camera, gl, setDpr } = useThree()
   const acc = useRef(0)
   // Resolution that follows the frame rate: down a step when frames run long,
-  // back up when there is room. The pixels are the cost that scales.
+  // back up when there is room. The pixels are the cost that scales, and a
+  // machine that is nowhere near the frame budget gives up three steps at once
+  // rather than crawling to the floor one rung every 1.5 s.
   const res = useRef({ ema: 1 / 60, at: 0, dpr: Math.min(maxDpr, window.devicePixelRatio || 1) })
   const rig = useRef({ pos: new THREE.Vector3(0, 30, 120), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), orbit: 0, init: false })
-  useEffect(() => { controls.current.canvas = gl.domElement }, [gl, controls])
+  useEffect(() => { controls.current.canvas = gl.domElement; gl.domElement.tabIndex = -1 }, [gl, controls])
+  // A tier change moves the ceiling: take the new one at once instead of
+  // climbing down to it a tenth of a pixel per second and a half.
+  useEffect(() => {
+    const next = Math.min(maxDpr, window.devicePixelRatio || 1)
+    res.current.dpr = next
+    setDpr(next)
+  }, [maxDpr, setDpr])
 
   useFrame((state, delta) => {
     const g = game.current, c = controls.current
     if (!g) return
     const dt = Math.min(delta, 0.1)
     const r = res.current
+    const ms = Math.min(delta, 0.25) * 1000
     r.ema += (Math.min(delta, 0.25) - r.ema) * 0.05
+    // The shared sampler (gfx/frameStats.js), the same ring the diagnostics
+    // report and the quality checkpoint read: one measurement, one place. A
+    // frozen tab is no frame at all, so nothing is recorded for one.
+    if (!stoppedNow()) pushFrameTime(ms)
     if (state.clock.elapsedTime - r.at > 1.5) {
       r.at = state.clock.elapsedTime
       const top = Math.min(maxDpr, window.devicePixelRatio || 1)
-      const next = r.ema > 1 / 45 ? Math.max(0.6, r.dpr - 0.15) : r.ema < 1 / 57 ? Math.min(top, r.dpr + 0.1) : r.dpr
+      const step = r.ema > 1 / 25 ? 0.3 : r.ema > 1 / 45 ? 0.15 : 0
+      const next = step ? Math.max(minDpr, r.dpr - step) : r.ema < 1 / 57 ? Math.min(top, r.dpr + 0.1) : r.dpr
       if (Math.abs(next - r.dpr) > 0.01) { r.dpr = next; setDpr(next) }
     }
     const flying = g.mode === 'flight'
-    resolveInput(c, g.player, camera, flying && !paused)
-    if (!paused) {
+    const stopped = paused || document.hidden
+    resolveInput(c, g.player, camera, flying && !stopped)
+    if (!stopped && !g.cine) {
       acc.current += dt
       let n = 0
       while (acc.current >= STEP && n < 6) { stepGame(g, c); acc.current -= STEP; n++ }
       if (n === 6) acc.current = 0
-    }
-    placeCamera(g, c, camera, rig.current, dt, state.clock.elapsedTime)
+    } else acc.current = 0
+    if (!stopped) placeCamera(g, c, camera, rig.current, dt, state.clock.elapsedTime)
     onFrame?.(g, camera)
   }, -1)
   return null
 }
+
+/** A hidden tab is not drawing frames, and a 250 ms wake-up is not a slow one. */
+const stoppedNow = () => typeof document !== 'undefined' && document.hidden
 
 /** Where the camera goes, by what the game is doing. */
 function placeCamera(g, c, cam, rig, dt, t) {
@@ -104,7 +128,8 @@ function placeCamera(g, c, cam, rig, dt, t) {
     let snap = false
     if (_pose.phase === 'outside') { _v.set(P.x - 3.5, P.y + 2.4, P.z - 9.5); _t.set(P.x - 1.5, P.y + 1.5, P.z) }
     else if (_pose.phase === 'inside') { _v.set(P.x + 5.5, P.y + 2.6, P.z + 8.5); _t.set(P.x - 2, P.y + 1.3, P.z) }
-    else if (c.t < BOARD_SEATED) { _v.set(cx + 13, cy + 5, cz + 11); _t.set((P.x + cx) / 2, P.y + 1, (P.z + cz) / 2) }
+    else if (_pose.phase === 'climb') { _v.set(cx + 5, cy + 2.5, cz + 3.5); _t.set(cx + 0.5, cy + 0.5, cz) }
+    else if (c.t < BOARD_SEATED) { _v.set(cx + 9, cy + 4, cz + 7); _t.set((P.x + cx) / 2, P.y + 1, (P.z + cz) / 2) }
     else { _v.set(9, 6, 9); _t.set(0, 0, 0) }
     if (rig.boardPhase !== _pose.phase) { snap = rig.boardPhase === undefined || _pose.phase === 'inside' || _pose.phase === 'outside'; rig.boardPhase = _pose.phase }
     _v.applyQuaternion(_qbay).add(_bay)

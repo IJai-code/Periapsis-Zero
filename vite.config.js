@@ -139,15 +139,10 @@ export default defineConfig({
   base,
   plugins: [react(), tailwindcss(), provideDraco(), pruneUnusedModels(), stampModules()],
   build: {
-    // 760 kB, which is above every chunk this build actually produces except
-    // none: the entry is 51 kB, its react vendor 193 kB, and the only chunk
-    // that ever crosses the default 500 is `three` itself, whose core ships
-    // from npm as one already-bundled module that rollup cannot divide
-    // further. The warning exists to catch application code that should have
-    // been split; this application's own chunks are 51, 16, and 11 kB. The
-    // figures are asserted by hand in the build output, not guessed: if a
-    // future chunk passes 760, the limit should move with it deliberately.
-    chunkSizeWarningLimit: 760,
+    // Retain Vite's ordinary warning: both the lazy simulator application
+    // chunk and the three vendor chunk exceed 500 kB. A lean title entry
+    // does not imply that every route is small.
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         /**
