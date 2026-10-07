@@ -54,12 +54,16 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
       else if (e.code === 'KeyF') act(toggleWalk)
       else if (e.code === 'KeyT') act(launch)
       else if (e.code === 'KeyH') act(toggleAssist)
+      else if (e.code === 'KeyA') { controls.current.steerLeft = true; e.preventDefault(); return }
+      else if (e.code === 'KeyD') { controls.current.steerRight = true; e.preventDefault(); return }
     }
     const up = (e) => {
       if (MOVE[e.code]) controls.current[MOVE[e.code]] = false
       if (e.code === 'Space') controls.current.thrust = false
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') controls.current.warp = false
       if (e.code === 'KeyC') controls.current.down = false
+      if (e.code === 'KeyA') controls.current.steerLeft = false
+      if (e.code === 'KeyD') controls.current.steerRight = false
     }
     const blur = () => { controls.current = { camYaw: controls.current.camYaw } }
     const vis = () => { setHidden(document.hidden); if (document.hidden) blur() }
@@ -85,6 +89,7 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
   const survivalLeft = session.survival !== null && session.landedAt !== null ? session.survival - (session.time - session.landedAt) : null
   const toast = session.events.length ? session.events[session.events.length - 1] : null
   const fresh = toast && session.time - toast.t < 3
+  const showedHowTo = session.steps > 0
 
   return <div className="sv-screen">
     <Canvas shadows frameloop={hidden ? 'never' : 'always'} dpr={Math.min(window.devicePixelRatio || 1, quality.dpr)} gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, powerPreference: 'high-performance' }} camera={{ position: [0, 220, 230], fov: 55, near: 0.1, far: 90000 }}>
@@ -116,8 +121,7 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
       {fresh && <div className={`sv-toast ${toast.points ? 'points' : ''}`} role="status" key={toast.t}>{toast.points ? <strong>+{toast.points}</strong> : null}{toast.text}</div>}
 
       <footer className="sv-bottom">
-        <div className="sv-readouts">
-          {(flight || session.mode === 'ascent') ? <>
+        <div className="sv-readouts">            {(flight || session.mode === 'ascent') ? <>
             <Readout name="Altitude" value={altitude(session).toFixed(0)} unit="m" />
             <Readout name="Descent" value={(-session.vy).toFixed(1)} unit="m/s" warn={session.vy < -session.vehicle.safeVertical && altitude(session) < 25} />
             <Readout name="Drift" value={Math.hypot(session.vx, session.vz).toFixed(1)} unit="m/s" />
@@ -145,16 +149,16 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
           {flight && session.landed && <button className={o.ready ? 'primary' : ''} onClick={() => act(launch)}>{kb('T', touch)}{o.ready ? 'Lift off' : 'Leave early'}</button>}
           {(onGround || (flight && session.assist && !session.landed)) && !touch && <span className="sv-hint">Hold Shift to warp time</span>}
         </div>
-      </footer>
-      {touch && !done && !crashed && <TouchPad controls={controls} session={session} />}
+      </footer>      {touch && !done && !crashed && <TouchPad controls={controls} session={session} />}
     </div>
 
-    {howTo && <Modal title="How to play" eyebrow={w.name} onPrimary={closeHowTo} primary="Start">
-      <ol className="sv-howto">
-        <li><strong>Land.</strong> Landing assist flies you down; {touch ? 'the arrows' : <><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></>} steer it. Turn it off ({touch ? 'Assist button' : <kbd>H</kbd>}) and fly with {touch ? 'Thrust' : <kbd>Space</kbd>} for a better score. Touch down under 3 m/s.</li>
-        <li><strong>Survey.</strong> {w.hopper ? 'No rover here: hop the lander between sites.' : 'The rover rolls out on landing.'} Drive to the beacons and {touch ? 'tap Collect' : <>press <kbd>E</kbd></>}: three samples and the station.</li>
-        <li><strong>Scan.</strong> Some finds hide in dashed search zones. Drive into one and {touch ? 'tap Scan' : <>press <kbd>Q</kbd></>}.{!touch && <> Hold <kbd>Shift</kbd> to warp time.</>}</li>
-        <li><strong>Lift off.</strong> Back at the lander, {touch ? 'tap Board, then Lift off' : <><kbd>E</kbd> to board and <kbd>T</kbd> to lift off</>}. The anomaly is a bonus worth 500.</li>
+    {howTo && !showedHowTo && <Modal title="How to play" eyebrow={w.name} onPrimary={closeHowTo} primary="Start">
+      <ol className="sv-howto" style={{ listStyle: 'none', paddingLeft: 0 }}>
+        <li><h2>Reach the map marker.</h2><p>The marker is where you are going. Turn the view with the mouse; {touch ? 'the arrows point the lander' : <><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></>} steer it. The arrow and the ring on the radar point the way.</p></li>
+        <li><h2>Land on the pad.</h2><p>Hold <kbd>Space</kbd> for the engine. Release it to brake with the computer. Touch down under 3 m/s, near the centre of the circle.</p></li>
+        <li><h2>{w.hopper ? 'Hop to each site.' : 'Drive to the beacons.'}</h2><p>{w.hopper ? 'Lift off with <kbd>Space</kbd>, steer to the next marker, and press <kbd>H</kbd> to hop down beside it.' : 'The rover rolls out. Press <kbd>A</kbd> and <kbd>D</kbd> to turn, then <kbd>W</kbd> to drive. Press <kbd>E</kbd> at a beacon to collect.'}</p></li>
+        <li><h2>Scan and collect.</h2><p>Some finds hide in dashed zones. Drive into one and press <kbd>Q</kbd> to scan. Three samples and the station complete the survey.</p></li>
+        <li><h2>Go home.</h2><p>Back at the lander, press <kbd>E</kbd> to board and <kbd>T</kbd> to lift off.</p></li>
       </ol>
     </Modal>}
     {paused && !done && !crashed && <Modal title="Paused" eyebrow={`${w.name} · ${w.site}`} onPrimary={() => setPaused(false)} primary="Resume" secondary={[['Restart landing', retry], ['How to play', () => { setPaused(false); setHowTo(true) }], [backLabel(mode), () => onExit?.(null)]]}>
@@ -165,6 +169,7 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
       <p>{session.message}</p>
     </Modal>}
     {done && result && <Results world={w} result={result} session={session} mode={mode} onContinue={finish} onRetry={retry} onNext={onNext} />}
+    {howTo && showedHowTo && !done && !crashed && <div className="sv-impact" role="status" aria-live="polite"><h3>{w.name} · 2091</h3><p>{w.hopper ? 'Too little gravity here for a rover — you will hop the lander between sites.' : 'A surface survey. Three samples and the station complete the job; the anomaly is a bonus.'}</p></div>}
   </div>
 }
 
