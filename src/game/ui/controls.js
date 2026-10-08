@@ -105,7 +105,8 @@ export function resolveInput(c, ship, camera, flying) {
   c.boost = has(c, KEYS.boost) || c.touch.boost
   c.fire = flying && (c.mouse.locked && c.mouse.down || has(c, KEYS.fire) || c.touch.fire)
   _f.set(0, 0, -1).applyQuaternion(ship.q)
-  if ((c.mouse.locked || c.mouse.fallback) && flying) {
+  const keyboardSteering = has(c, KEYS.pitchUp) || has(c, KEYS.pitchDown) || has(c, KEYS.yawLeft) || has(c, KEYS.yawRight)
+  if ((c.mouse.locked || c.mouse.fallback) && flying && !keyboardSteering) {
     // The aim point moves with the mouse, round the camera's own axes.
     const s = 0.0022 * c.settings.sensitivity
     _u.set(0, 1, 0).applyQuaternion(camera.quaternion)

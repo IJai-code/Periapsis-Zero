@@ -88,9 +88,13 @@ export function updateMarkers(root, g, cam, c) {
     }
     m.obj.style.display = ''
     m.obj.classList.toggle('off', off)
+    const range = p.pos.distanceTo(at)
+    m.obj.classList.toggle('in-zone', Boolean(o.radius && range <= o.radius))
+    const diamond = m.obj.querySelector('.mk-diamond')
+    diamond.style.transform = off ? `rotate(${Math.atan2(x - W / 2, -(y - H / 2))}rad)` : ''
     place(m.obj, x, y)
     const d = m.obj.querySelector('.mk-dist')
-    const txt = fmt(p.pos.distanceTo(at))
+    const txt = `${o.label ?? 'Objective'} · ${fmt(range)}${o.radius ? ` / ${o.radius} m zone` : ''}`
     if (d.textContent !== txt) d.textContent = txt
   } else m.obj.style.display = 'none'
 

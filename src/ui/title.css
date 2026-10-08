@@ -4,14 +4,26 @@
 .tt-art { position: fixed; inset: -2%; background-color: #0b0716; background-position: center; background-size: cover; animation: tt-drift 40s ease-in-out infinite alternate; will-change: transform; }
 .tt-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #05030bf2 0%, #05030bb3 38%, #05030b33 70%, #05030b11 100%), linear-gradient(0deg, #05030b 0%, #05030b00 34%); }
 @keyframes tt-drift { from { transform: scale(1.06) translate3d(0, 0, 0); } to { transform: scale(1.0) translate3d(-1.2%, -0.6%, 0); } }
+/*
+ * The keyart is 16:9. Cropped to a portrait window (`cover`) it magnifies until
+ * the ship is an abstract white wedge across the headline: at 820x1180 the
+ * window shows 39% of the frame. On portrait it becomes a band at its own
+ * scale instead, scrolling away with the hero rather than magnified 2.5x.
+ */
+@media (max-aspect-ratio: 1/1) {
+  .tt-art { position: absolute; inset: 0 0 auto; height: 58vh; background-size: 100% auto; background-position: center top; background-repeat: no-repeat; }
+  .tt-art::after { background: linear-gradient(180deg, #05030b00 0%, #05030b2e 34%, #05030bcc 74%, #05030b 94%), linear-gradient(90deg, #05030bd9 0%, #05030b44 58%, #05030b11 100%); }
+}
 @keyframes tt-up { from { opacity: 0; transform: translateY(18px); } }
 @keyframes tt-in { from { opacity: 0; } }
 
 .tt-bar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; padding: 16px clamp(16px, 4vw, 56px); background: linear-gradient(#05030bf2, #05030bd0); backdrop-filter: blur(10px); border-bottom: 1px solid #f4e8cf12; animation: tt-in .8s ease both; }
 .tt-brand { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; letter-spacing: .32em; }
-.tt-bar nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; font-size: 13px; }
-.tt-bar nav button, .tt-bar nav a, .tt-bar .quiet-button { padding: 0; border: none; background: none; color: #f4e8cfcc; text-decoration: none; transition: color .15s ease; }
+.tt-bar nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; font-size: 13px; }
+.tt-bar nav button, .tt-bar nav a, .tt-bar .quiet-button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 2px; border: none; background: none; color: #f4e8cfcc; text-decoration: none; transition: color .15s ease; }
 .tt-bar nav button:hover, .tt-bar nav a:hover { color: #ff6b2c; }
+/* A thumb is not a pointer: the floor AGENT.md sets for a touch target. */
+@media (pointer: coarse) { .tt-bar nav button, .tt-bar nav a, .tt-bar .quiet-button { min-height: 44px; padding: 0 6px; } }
 
 .tt-hero { position: relative; z-index: 1; max-width: 1180px; min-height: calc(100vh - 70px); display: flex; flex-direction: column; justify-content: center; padding: 20px clamp(16px, 4vw, 56px) 70px; }
 .tt-kicker { margin-bottom: 14px; font-size: 12px; font-weight: 700; letter-spacing: .26em; text-transform: uppercase; color: #2fd3ff; animation: tt-up .7s .1s cubic-bezier(.2,.8,.2,1) both; }

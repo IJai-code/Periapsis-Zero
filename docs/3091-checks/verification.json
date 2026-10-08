@@ -1,0 +1,21 @@
+{
+  "suite": "78/78 passed on isolated final run",
+  "priorConcurrentFailure": "verify-horizon: timing ratio 5.00 > 4; three isolated runs 3.11–3.13 passed unchanged",
+  "build": "passed; existing large-chunk warnings remain",
+  "productionSmoke": "8/8 routes, no errors",
+  "controls": {
+    "pausedFilmClock": {
+      "before": 3,
+      "resumed": 3
+    },
+    "holdFlightSpeed": 109.0362737588137,
+    "latchedThrottle": 0.5599999999999995,
+    "capture": {
+      "locked": false,
+      "fallback": true
+    },
+    "errors": []
+  },
+  "configuredTypecheck": false,
+  "deployed": false
+}

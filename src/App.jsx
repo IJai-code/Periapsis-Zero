@@ -124,9 +124,13 @@ export default function App() {
       <Suspense fallback={null}>{assets.ready && <Scene textures={assets.textures} />}</Suspense>
     </Canvas>
     <LicenceToast />
-    {assets.ready ? intro ? <MissionIntro preset={intro.preset} finalFocus={intro.focus} onBegin={introDone} onSkip={introSkipped} /> : (surface ? null : <Hud onLibrary={() => setLibrary(true)} />) : <div className="simulator-loading"><span className="eyebrow">Simulator</span><h1>Preparing the solar system.</h1><p>{assets.label} · {Math.round(assets.progress * 100)}%</p><progress max="1" value={assets.progress} /><button className="quiet-button" onClick={() => { window.location.hash = '' }}>← Home</button></div>}
+    {/* A landing does not wait for the solar system's imagery. Textures feed
+        Scene alone, and Scene does not draw while a surface expedition holds
+        the screen, so gating the landing behind them only made a phone wait
+        on megabytes it was never going to look at. */}
+    {surface ? null : assets.ready ? intro ? <MissionIntro preset={intro.preset} finalFocus={intro.focus} onBegin={introDone} onSkip={introSkipped} /> : <Hud onLibrary={() => setLibrary(true)} /> : <div className="simulator-loading" role="status" aria-live="polite"><span className="eyebrow">Simulator</span><h1>Preparing the solar system.</h1><p>{assets.label} · {Math.round(assets.progress * 100)}%</p><progress max="1" value={assets.progress} aria-label="Loading the solar system" /><button className="quiet-button" onClick={() => { window.location.hash = '' }}>← Home</button></div>}
     {library && <Suspense fallback={null}><MissionLibrary open onClose={() => setLibrary(false)} /></Suspense>}
-    {surface && <Suspense fallback={<div className="simulator-loading"><span className="eyebrow">Descent</span><h1>Preparing the surface.</h1></div>}><Surface key={`${surface.world}/${surface.mode}`} world={surface.world} mode={surface.mode} upgrades={surface.upgrades} onExit={leaveSurface} /></Suspense>}
+    {surface && <Suspense fallback={<div className="simulator-loading" role="status" aria-live="polite"><span className="eyebrow">Descent</span><h1>Preparing the surface.</h1></div>}><Surface key={`${surface.world}/${surface.mode}`} world={surface.world} mode={surface.mode} upgrades={surface.upgrades} onExit={leaveSurface} /></Suspense>}
     {graphicsLost && <div role="alertdialog" aria-label="Graphics interrupted" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-8"><div className="max-w-md text-hud"><h2 className="font-display text-3xl">Graphics interrupted</h2><p className="mt-3 text-sm text-hud/65">The browser lost its GPU context. Reload to recreate the drawing buffer.</p><button className="control mt-6 border border-ember px-4 py-2 text-ember" onClick={() => window.location.reload()}>Reload safely</button></div></div>}
   </div>
 }

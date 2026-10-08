@@ -44,21 +44,16 @@
 .sv-readout b { display: block; height: 3px; margin-top: 4px; background: #f4e8cf1f; }
 .sv-readout b i { display: block; height: 100%; background: #ff6b2c; }
 .sv-message { font-size: 13px; color: #f4e8cf; text-shadow: 0 1px 3px #000; line-height: 1.5; }
-.sv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: auto; }
-.sv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; pointer-events: auto; }
-.sv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; pointer-events: auto; }
-.sv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; pointer-events: auto; }
 .sv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; pointer-events: auto; }
 .sv-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; background: #120b22e6; border: 1px solid #f4e8cf3d; color: #f4e8cf; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; min-height: 44px; }
 .sv-actions button:hover { border-color: #ff6b2c; }
 .sv-actions button.primary { background: #ff6b2c; border-color: #ff6b2c; color: #120b22; font-weight: 600; border-radius: 6px; padding: 10px 14px; font-size: 14px; min-height: 44px; }
 .sv-actions button.on { border-color: #2fd3ff; color: #2fd3ff; border-radius: 6px; }
-.sv-readout.warn { background: #120b22; border-color: #ff6b2c; }
 .sv-hint { font-size: 12px; color: #f4e8cf80; }
-kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px solid currentColor; border-radius: 3px; font: 600 11px/1.4 ui-monospace, monospace; text-align: center; opacity: .85; }
+.sv-screen kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px solid currentColor; border-radius: 3px; font: 600 11px/1.4 ui-monospace, monospace; text-align: center; opacity: .85; }
 
 .sv-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: #020307b3; backdrop-filter: blur(4px); }
-.sv-modal section { width: min(560px, 100vw); max-height: calc(100vh - 48px); overflow: auto; padding: 28px 30px; background: #120b22; border: 1px solid #f4e8cf2e; border-radius: 8px; border-left: 3px solid #ff6b2c; }
+.sv-modal section { width: min(600px, 100%); max-height: calc(100vh - 48px); overflow: auto; padding: 28px 30px; background: #120b22; border: 1px solid #f4e8cf2e; border-radius: 8px; border-left: 3px solid #ff6b2c; }
 .sv-eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: #ff6b2c; }
 .sv-modal h2 { margin: 8px 0 16px; font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
 .sv-modal p { color: #f4e8cfcc; font-size: 15px; line-height: 1.6; }
@@ -66,24 +61,13 @@ kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px soli
 .sv-modal-actions button { padding: 11px 18px; background: transparent; border: 1px solid #f4e8cf3d; color: #f4e8cf; border-radius: 4px; cursor: pointer; font-size: 14px; }
 .sv-modal-actions button.primary { background: #ff6b2c; border-color: #ff6b2c; color: #120b22; font-weight: 600; }
 .sv-modal-actions button:focus-visible { outline: 2px solid #2fd3ff; outline-offset: 2px; }
-.sv-modal .sv-howto { padding: 0; }
+.sv-modal .sv-howto { padding: 0; list-style: none; }
 .sv-modal .sv-howto li { display: block; }
-.sv-modal .sv-howto h2 { margin: 16px 0 2px; font-size: 15px; font-weight: 700; color: #ff6b2c; }
+.sv-modal .sv-howto h2 { margin: 16px 0 2px; font-size: 20px; font-weight: 700; color: #ff6b2c; }
 .sv-modal .sv-howto h2:first-child { margin-top: 0; }
 .sv-modal .sv-howto p { margin: 0 0 6px; }
-.sv-impact { margin-top: 18px; padding: 16px 18px; background: #120b22; border-left: 3px solid #ff6b2c; border-radius: 4px; }
-.sv-impact h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: #ff6b2c; letter-spacing: .04em; text-transform: uppercase; }
-.sv-impact p { margin: 0; font-size: 14px; line-height: 1.55; color: #f4e8cfcc; }
-.sv-howto { margin: 0; padding: 0; display: grid; gap: 0; font-size: 14px; line-height: 1.5; color: #f4e8cfd9; }
-.sv-howto li { display: block; }
-.sv-howto h2 { margin: 14px 0 4px; font-size: 15px; font-weight: 700; color: #ff6b2c; }
-.sv-howto h2:first-child { margin-top: 0; }
-.sv-howto p { margin: 0 0 6px; }
-.sv-howto strong { color: #ff6b2c; }
-.sv-howto kbd { min-width: 20px; padding: 2px 6px; font-size: 12px; }
-.sv-impact { margin-top: 18px; padding: 16px 18px; background: #120b22; border-left: 3px solid #ff6b2c; border-radius: 4px; }
-.sv-impact h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: #ff6b2c; letter-spacing: .04em; text-transform: uppercase; }
-.sv-impact p { margin: 0; font-size: 14px; line-height: 1.55; color: #f4e8cfcc; }
+.sv-howto { margin: 0; display: grid; gap: 14px; color: #f4e8cfd9; }
+.sv-howto kbd { min-width: 24px; padding: 3px 7px; font-size: 15px; }
 .sv-graphics { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; font-size: 13px; }
 .sv-graphics span { margin-right: 6px; color: #f4e8cfb3; }
 .sv-graphics button { padding: 6px 10px; border: 1px solid #f4e8cf3d; background: transparent; color: #f4e8cf; border-radius: 3px; cursor: pointer; }

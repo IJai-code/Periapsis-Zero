@@ -32,6 +32,8 @@ export function NewPilot({ onBegin, onExit }) {
     </section>}
     {step === 1 && <section className="np-card np-name" key="name">
       <span className="st-eyebrow">New game · 2 of 2</span>
+      <p className="st-eyebrow">Hearth Station · 3091</p>
+      <p className="np-sub">A thousand years of settlement changed where humans live, not what keeps them alive: air, water, a working ship, and someone willing to pay. Mara will teach you the essentials before you choose your own work.</p>
       <div className="np-who"><SuitArt suit={SUITS.find((x) => x.id === suit) ?? SUITS[0]} size={72} /><h1>Who is wearing it?</h1></div>
       <input aria-label="Pilot name" autoFocus maxLength={24} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') begin() }} />
       <div className="np-actions"><button className="st-primary" onClick={begin}>Watch the prologue</button><button className="st-ghost" onClick={() => go(0)}>Back</button></div>

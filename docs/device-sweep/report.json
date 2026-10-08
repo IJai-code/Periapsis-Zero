@@ -1,0 +1,807 @@
+{
+  "date": "2026-10-08T04:35:20.814Z",
+  "url": "http://127.0.0.1:5175",
+  "environment": "Headless Chrome",
+  "rows": [
+    {
+      "viewport": "desktop",
+      "route": "title",
+      "size": "1600x900",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "PERIAPSIS ZERO\nSquadron\nSimulator\nFeedback ↗\nA SHARED, REAL EARTH-MOON SYSTEM\nPERIAPSIS\nZERO\n\n3091. Humanity lives under",
+      "overflow": {
+        "scrollWidth": 1600,
+        "innerWidth": 1600,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "tt-root",
+          "scrollHeight": 3734,
+          "clientHeight": 900
+        },
+        {
+          "cls": "tt-worlds",
+          "scrollHeight": 233,
+          "clientHeight": 233
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "simulator",
+      "size": "1600x900",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "AP—\nPE—\n—\n—\nOSCULATING—\n+TERRA\n+APOLLO 8\n+ISS\n+HUBBLE\nPERIAPSIS ZERO\n← HOME\nCAREER · 3091\nLAND ▾\nFLY\nMISSIONS\nMAP · M\nLO",
+      "overflow": {
+        "scrollWidth": 1600,
+        "innerWidth": 1600,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "absolute top-[3.25rem] left-4 flex max-h",
+          "scrollHeight": 85,
+          "clientHeight": 85
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "squadron",
+      "size": "1600x900",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "SQUADRON\nHOLD THE SKY\n\nWaves of raiders, four ships against them, six ships in reserve. Fly with AI wingmates, or share ",
+      "overflow": {
+        "scrollWidth": 1600,
+        "innerWidth": 1600,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "sq-root",
+          "scrollHeight": 900,
+          "clientHeight": 900
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "game",
+      "size": "1600x900",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "NEW GAME · 1 OF 2\nChoose your suit\n\nYou will see it on the walk to your ship, and through the canopy in flight. Change i",
+      "overflow": {
+        "scrollWidth": 1600,
+        "innerWidth": 1600,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "np-card np-suits",
+          "scrollHeight": 617,
+          "clientHeight": 617
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "surface",
+      "size": "1600x900",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "❚❚ Menu\nFREE LANDING\nMoon / The southern highlands\n1.62 m/s² · no air\nLand on the pad\nLand on the pad\nSamples 0 of 3\nSet",
+      "overflow": {
+        "scrollWidth": 1600,
+        "innerWidth": 1600,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "",
+          "scrollHeight": 852,
+          "clientHeight": 850
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "title",
+      "size": "1280x800",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "PERIAPSIS ZERO\nSquadron\nSimulator\nFeedback ↗\nA SHARED, REAL EARTH-MOON SYSTEM\nPERIAPSIS\nZERO\n\n3091. Humanity lives under",
+      "overflow": {
+        "scrollWidth": 1280,
+        "innerWidth": 1280,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "tt-root",
+          "scrollHeight": 3661,
+          "clientHeight": 800
+        },
+        {
+          "cls": "tt-worlds",
+          "scrollHeight": 233,
+          "clientHeight": 233
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "simulator",
+      "size": "1280x800",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "AP—\nPE—\n—\n—\nOSCULATING—\n+TERRA\n+APOLLO 8\n+ISS\n+HUBBLE\nPERIAPSIS ZERO\n← HOME\nCAREER · 3091\nLAND ▾\nFLY\nMISSIONS\nMAP · M\nLO",
+      "overflow": {
+        "scrollWidth": 1280,
+        "innerWidth": 1280,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "absolute top-[3.25rem] left-4 flex max-h",
+          "scrollHeight": 85,
+          "clientHeight": 85
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "squadron",
+      "size": "1280x800",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "SQUADRON\nHOLD THE SKY\n\nWaves of raiders, four ships against them, six ships in reserve. Fly with AI wingmates, or share ",
+      "overflow": {
+        "scrollWidth": 1280,
+        "innerWidth": 1280,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "sq-root",
+          "scrollHeight": 800,
+          "clientHeight": 800
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "game",
+      "size": "1280x800",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "NEW GAME · 1 OF 2\nChoose your suit\n\nYou will see it on the walk to your ship, and through the canopy in flight. Change i",
+      "overflow": {
+        "scrollWidth": 1280,
+        "innerWidth": 1280,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "np-card np-suits",
+          "scrollHeight": 617,
+          "clientHeight": 617
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "surface",
+      "size": "1280x800",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "❚❚ Menu\nFREE LANDING\nMoon / The southern highlands\n1.62 m/s² · no air\nLand on the pad\nLand on the pad\nSamples 0 of 3\nSet",
+      "overflow": {
+        "scrollWidth": 1280,
+        "innerWidth": 1280,
+        "wide": [],
+        "wideCount": 0
+      },
+      "scrollers": [
+        {
+          "cls": "",
+          "scrollHeight": 852,
+          "clientHeight": 750
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "title",
+      "size": "820x1180",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "PERIAPSIS ZERO\nSquadron\nSimulator\nFeedback ↗\nA SHARED, REAL EARTH-MOON SYSTEM\nPERIAPSIS\nZERO\n\n3091. Humanity lives under",
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "tt-root",
+          "scrollHeight": 6286,
+          "clientHeight": 1180
+        },
+        {
+          "cls": "tt-worlds",
+          "scrollHeight": 233,
+          "clientHeight": 233
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "simulator",
+      "size": "820x1180",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "AP—\nPE—\n—\n—\nOSCULATING—\n+TERRA\n+APOLLO 8\n+ISS\n+HUBBLE\nPERIAPSIS ZERO\n← HOME\nCAREER · 3091\nLAND ▾\nFLY\nMISSIONS\nMAP · M\nLO",
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "flex min-w-0 flex-1 items-center gap-0.5",
+          "scrollHeight": 36,
+          "clientHeight": 36
+        },
+        {
+          "cls": "absolute top-[3.25rem] left-4 flex max-h",
+          "scrollHeight": 137,
+          "clientHeight": 137
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "simulator/map · m",
+      "size": "820x1180",
+      "checks": {},
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "simulator/settings · s",
+      "size": "820x1180",
+      "checks": {},
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "simulator/missions",
+      "size": "820x1180",
+      "checks": {},
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "squadron",
+      "size": "820x1180",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "SQUADRON\nHOLD THE SKY\n\nWaves of raiders, four ships against them, six ships in reserve. Fly with AI wingmates, or share ",
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "sq-root",
+          "scrollHeight": 1180,
+          "clientHeight": 1180
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "game",
+      "size": "820x1180",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "NEW GAME · 1 OF 2\nChoose your suit\n\nYou will see it on the walk to your ship, and through the canopy in flight. Change i",
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "np-card np-suits",
+          "scrollHeight": 617,
+          "clientHeight": 617
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "surface",
+      "size": "820x1180",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "❚❚ Menu\nFREE LANDING\nMoon / The southern highlands\n1.62 m/s² · no air\nLand on the pad\nLand on the pad\nSamples 0 of 3\nSet",
+      "overflow": {
+        "scrollWidth": 820,
+        "innerWidth": 820,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "",
+          "scrollHeight": 774,
+          "clientHeight": 774
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "title",
+      "size": "390x844",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "PERIAPSIS ZERO\nSquadron\nSimulator\nFeedback ↗\nA SHARED, REAL EARTH-MOON SYSTEM\nPERIAPSIS\nZERO\n\n3091. Humanity lives under",
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "tt-root",
+          "scrollHeight": 7015,
+          "clientHeight": 844
+        },
+        {
+          "cls": "tt-worlds",
+          "scrollHeight": 233,
+          "clientHeight": 233
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "simulator",
+      "size": "390x844",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "AP—\nPE—\n—\n—\nOSCULATING—\n+TERRA\n+APOLLO 8\n+ISS\n+HUBBLE\n← HOME\nCAREER · 3091\nLAND ▾\nFLY\nMISSIONS\nMAP · M\nLOGBOOK\nSETTINGS ",
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "flex min-w-0 flex-1 items-center gap-0.5",
+          "scrollHeight": 36,
+          "clientHeight": 36
+        },
+        {
+          "cls": "absolute top-[3.25rem] left-4 flex max-h",
+          "scrollHeight": 182,
+          "clientHeight": 182
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "simulator/map · m",
+      "size": "390x844",
+      "checks": {},
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "simulator/settings · s",
+      "size": "390x844",
+      "checks": {},
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "simulator/missions",
+      "size": "390x844",
+      "checks": {},
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "squadron",
+      "size": "390x844",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "SQUADRON\nHOLD THE SKY\n\nWaves of raiders, four ships against them, six ships in reserve. Fly with AI wingmates, or share ",
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "sq-root",
+          "scrollHeight": 1019,
+          "clientHeight": 844
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "game",
+      "size": "390x844",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "NEW GAME · 1 OF 2\nChoose your suit\n\nYou will see it on the walk to your ship, and through the canopy in flight. Change i",
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "np-card np-suits",
+          "scrollHeight": 1204,
+          "clientHeight": 774
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "phone",
+      "route": "surface",
+      "size": "390x844",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "❚❚ Menu\nFREE LANDING\nMoon\nLand on the pad\nLand on the pad\nSamples 0 of 3\nSet up the survey station\nInvestigate the cold ",
+      "overflow": {
+        "scrollWidth": 390,
+        "innerWidth": 390,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "sv-readouts",
+          "scrollHeight": 60,
+          "clientHeight": 60
+        },
+        {
+          "cls": "",
+          "scrollHeight": 1038,
+          "clientHeight": 794
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "small",
+      "route": "title",
+      "size": "360x740",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "PERIAPSIS ZERO\nSquadron\nSimulator\nFeedback ↗\nA SHARED, REAL EARTH-MOON SYSTEM\nPERIAPSIS\nZERO\n\n3091. Humanity lives under",
+      "overflow": {
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "tt-root",
+          "scrollHeight": 7199,
+          "clientHeight": 740
+        },
+        {
+          "cls": "tt-worlds",
+          "scrollHeight": 233,
+          "clientHeight": 233
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "small",
+      "route": "simulator",
+      "size": "360x740",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "AP—\nPE—\n—\n—\nOSCULATING—\n+TERRA\n+APOLLO 8\n+ISS\n+HUBBLE\n← HOME\nCAREER · 3091\nLAND ▾\nFLY\nMISSIONS\nMAP · M\nLOGBOOK\nSETTINGS ",
+      "overflow": {
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "flex min-w-0 flex-1 items-center gap-0.5",
+          "scrollHeight": 36,
+          "clientHeight": 36
+        },
+        {
+          "cls": "absolute top-[3.25rem] left-4 flex max-h",
+          "scrollHeight": 182,
+          "clientHeight": 182
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        },
+        {
+          "cls": "panel flex max-w-[calc(100vw-1.5rem)] it",
+          "scrollHeight": 52,
+          "clientHeight": 52
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "small",
+      "route": "squadron",
+      "size": "360x740",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "SQUADRON\nHOLD THE SKY\n\nWaves of raiders, four ships against them, six ships in reserve. Fly with AI wingmates, or share ",
+      "overflow": {
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "sq-root",
+          "scrollHeight": 1101,
+          "clientHeight": 740
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "small",
+      "route": "game",
+      "size": "360x740",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "NEW GAME · 1 OF 2\nChoose your suit\n\nYou will see it on the walk to your ship, and through the canopy in flight. Change i",
+      "overflow": {
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "np-card np-suits",
+          "scrollHeight": 1245,
+          "clientHeight": 679
+        }
+      ],
+      "errors": []
+    },
+    {
+      "viewport": "small",
+      "route": "surface",
+      "size": "360x740",
+      "found": true,
+      "checks": {
+        "noText": false
+      },
+      "text": "❚❚ Menu\nFREE LANDING\nMoon\nLand on the pad\nLand on the pad\nSamples 0 of 3\nSet up the survey station\nInvestigate the cold ",
+      "overflow": {
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "wide": [],
+        "wideCount": 0
+      },
+      "smallTargets": [],
+      "scrollers": [
+        {
+          "cls": "sv-readouts",
+          "scrollHeight": 60,
+          "clientHeight": 60
+        },
+        {
+          "cls": "",
+          "scrollHeight": 1134,
+          "clientHeight": 690
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "problems": []
+}

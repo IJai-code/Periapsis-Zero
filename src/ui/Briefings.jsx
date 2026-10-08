@@ -38,7 +38,7 @@ export function Briefings() {
               <p className="mt-1 text-[10px] leading-snug text-hud/50">{c.brief}</p>
               <button
                 onClick={() => beginDef(c)}
-                className={`control mt-1.5 w-full border px-2 py-1.5 font-mono text-[9px] tracking-[0.18em] uppercase outline-none transition-colors duration-300 focus-visible:border-ember focus-visible:text-ember ${
+                className={`control mt-1.5 inline-flex min-h-9 w-full items-center justify-center border px-2 font-mono text-[9px] tracking-[0.18em] uppercase outline-none transition-colors duration-300 focus-visible:border-ember focus-visible:text-ember ${
                   armed
                     ? 'border-ember/60 text-ember'
                     : 'border-hud/20 text-hud/60 hover:border-ember/70 hover:text-ember'

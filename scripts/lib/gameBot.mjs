@@ -9,7 +9,9 @@ import { STEP, stepGame, setDestination, startGame, newSave, dockable, returnFro
 import { STATIONS } from '../../src/game/core/world.js'
 import { leadPoint } from '../../src/game/core/combat.js'
 import { hostile } from '../../src/game/core/ai.js'
+import { playMission } from './surfaceBot.mjs'
 
+const env = typeof process === 'undefined' ? {} : process.env
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _lead = new THREE.Vector3()
 
 export function createPilot(name = 'Bot', save = null) {
@@ -20,7 +22,7 @@ export function createPilot(name = 'Bot', save = null) {
   // The last few things that hurt you, for the report when something does not come home.
   const hurt = []
   const emit = g.emit
-  g.emit = (ev) => { if (ev.player && (ev.type === 'hit' || ev.type === 'bump')) { hurt.push({ t: g.time, who: ev.type === 'bump' ? 'collision' : (g.byId(ev.by)?.label ?? 'unknown') + (process.env.STORY_DEBUG ? ` [${g.byId(ev.by)?.tag}/${g.byId(ev.by)?.team}]` : '') }); if (hurt.length > 12) hurt.shift() } return emit(ev) }
+  g.emit = (ev) => { if (ev.player && (ev.type === 'hit' || ev.type === 'bump')) { hurt.push({ t: g.time, who: ev.type === 'bump' ? 'collision' : (g.byId(ev.by)?.label ?? 'unknown') + (env.STORY_DEBUG ? ` [${g.byId(ev.by)?.tag}/${g.byId(ev.by)?.team}]` : '') }); if (hurt.length > 12) hurt.shift() } return emit(ev) }
   const hurtBy = () => [...new Set(hurt.filter((h) => g.time - h.t < 20).map((h) => h.who))].join(', ')
   const step = (n = 1) => { for (let i = 0; i < n; i++) { stepGame(g, c); bot.steps++ } }
   const until = (cond, seconds, why) => {
@@ -167,7 +169,7 @@ export function createPilot(name = 'Bot', save = null) {
     clear()
     let tick = 0
     until(() => {
-      if (process.env.CHASE && tick++ % 300 === 0) { const p0 = g.player; const cs = g.ships.filter((e) => e.alive && e.team === 'compact'); console.log(`heat ${g.heat.level} seen ${g.heat.seen} cold ${g.heat.cold} cutters ${cs.length} nearest ${Math.round(Math.min(...cs.map((e) => e.pos.distanceTo(p0.pos))))} speed ${Math.round(p0.vel.length())} sh ${Math.round(p0.shield)} hull ${Math.round(p0.hull)} modes ${cs.map((e) => e.ai.mode).join(',')}`) }
+      if (env.CHASE && tick++ % 300 === 0) { const p0 = g.player; const cs = g.ships.filter((e) => e.alive && e.team === 'compact'); console.log(`heat ${g.heat.level} seen ${g.heat.seen} cold ${g.heat.cold} cutters ${cs.length} nearest ${Math.round(Math.min(...cs.map((e) => e.pos.distanceTo(p0.pos))))} speed ${Math.round(p0.vel.length())} sh ${Math.round(p0.shield)} hull ${Math.round(p0.hull)} modes ${cs.map((e) => e.ai.mode).join(',')}`) }
       if (g.heat.level === 0) return true
       const p = g.player
       const cutters = g.ships.filter((e) => e.alive && e.team === 'compact')
@@ -217,10 +219,15 @@ export function createPilot(name = 'Bot', save = null) {
     clear()
   }
 
-  bot.surface = (result = { complete: true, stars: 2, total: 2200, science: 220 }) => {
+  bot.surface = (result = null) => {
     bot.flyTo(new THREE.Vector3(0, 0, 0), 400, 300)
     c.actions.push('dock')
     until(() => g.mode === 'surface', 10, 'descending')
+    if (!result) {
+      const survey = playMission('moon')
+      if (survey.s.mode !== 'complete') throw new Error(`surface mission failed: ${survey.why}`)
+      result = survey.s.result
+    }
     returnFromSurface(g, result)
     step(2)
   }

@@ -1,9 +1,9 @@
 /** Original fiction. Seconds on an active, visible playback clock, not game time. */
 export const PROLOGUE_SECONDS = 120
 export const PROLOGUE = [
-  { id: 'frontier', start: 0, end: 18, label: 'Earth orbit · 2091', title: 'Everything we needed', shot: 'earth', audio: '01-frontier', captions: [
-    [0, 'By 2091, the Moon supplied the water. Earth supplied the people.'],
-    [8, 'Between them, ships carried everything a settlement needed to stay alive.'],
+  { id: 'frontier', start: 0, end: 18, label: 'Earth orbit · 3091', title: 'Everything we needed', shot: 'earth', audio: '01-frontier', captions: [
+    [0, 'By 3091, people were born under glass, on Earth, the Moon, and orbital cities.'],
+    [8, 'Medicine lengthened lives. Recycled air and lunar water kept them alive. Nothing was free.'],
   ] },
   { id: 'convoy', start: 18, end: 38, label: 'The Hearth corridor · 17 days earlier', title: 'One ordinary crossing', shot: 'convoy', audio: '02-convoy', captions: [
     [0, 'You flew escort for a convoy called the Aster. Six ships. Medical cargo. No weapons declared.'],
@@ -29,7 +29,7 @@ export const PROLOGUE = [
 export const FIRST_MISSION = {
   title: 'Arrival', contact: 'Mara Voss · Hearth dockmaster',
   premise: 'You survived the Aster attack. Rook paid for your recovery, and now you owe him ₡ 40,000. A flight recorder is the only account of what happened.',
-  objective: 'Prove your ship is flightworthy before Mara gives you paid work.',
+  objective: 'Learn to move, stop, navigate, defend yourself, and dock. Then choose your own work in the open lanes.',
   steps: ['Launch from berth 09.', 'Follow Mara’s flight markers and test the ship.', 'Return to Hearth and dock.'],
   reward: '₡ 1,500 · access to your first paid contract',
 }

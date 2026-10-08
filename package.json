@@ -69,6 +69,8 @@
     "verify:frames": "node --expose-gc scripts/verify-frames.mjs",
     "verify:navigation": "node --expose-gc scripts/verify-navigation.mjs",
     "verify:all": "node scripts/verify-all.mjs",
+    "verify:devices": "node scripts/check-device-sweep.mjs",
+    "measure:load": "node scripts/measure-route-load.mjs",
     "verify:expeditions": "node scripts/verify-expeditions.mjs",
     "verify:game": "node scripts/verify-game.mjs",
     "verify:game-quality": "node scripts/verify-game-quality.mjs",

@@ -51,6 +51,15 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
   const [flown] = useState(() => logbookLine())
   const earned = useMemo(() => earnedLicences(), [])
   const root = useRef(null)
+  // The front door is ready on React's first paint, not a 2.5-second timer.
+  // Leaving the splash on top makes a visible New game button ignore clicks.
+  useEffect(() => {
+    const boot = document.getElementById('boot')
+    if (!boot) return
+    boot.classList.add('boot-done')
+    const timer = setTimeout(() => boot.remove(), 700)
+    return () => clearTimeout(timer)
+  }, [])
   // Sections ease in as they scroll into view; once each.
   useEffect(() => {
     const els = root.current?.querySelectorAll('.tt-reveal') ?? []
@@ -88,7 +97,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
     <section className="tt-hero">
       <span className="tt-kicker">A shared, real Earth-Moon system{flying > 0 && <em className="tt-live"><i />{flying} {flying === 1 ? 'pilot' : 'pilots'} flying now</em>}</span>
       <h1><span>Periapsis</span><span>Zero</span></h1>
-      <p className="tt-tag">2091. You survived a convoy that should never have been found. Now you owe your rescuer forty thousand credits, and someone out there knows why.</p>
+      <p className="tt-tag">3091. Humanity lives under glass, on Earth, the Moon, and orbital cities. Air, water, and passage have a price. You survived a convoy ambush. Learn to stay alive, earn your freedom, and decide who deserves the truth.</p>
       {isPhone ? <div className="tt-phone">
         <strong>The game needs a bigger screen.</strong>
         <p>Flying and reading a job board at once does not fit on a phone: play on a computer or a tablet. The simulator works here, and what you fly in it counts in the game later.</p>
@@ -98,7 +107,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
           <span>Continue</span>
           <small>{save.pilot.name} · ₡ {Math.round(save.credits).toLocaleString()}{save.story?.active ? ' · mission in progress' : ''}</small>
         </button>}
-        {!confirmNew ? <button className={save ? 'tt-second' : 'tt-play'} onClick={() => (save ? setConfirmNew(true) : onNew())}><span>New game</span><small>{save ? 'A new pilot, from the start' : 'Two acts of story, and an open world after'}</small></button>
+        {!confirmNew ? <button className={save ? 'tt-second' : 'tt-play'} onClick={() => (save ? setConfirmNew(true) : onNew())}><span>New game</span><small>{save ? 'A new pilot, from the start' : 'Learn the essentials, then choose your own work'}</small></button>
           : <div className="tt-confirm"><p>Start over? Your current pilot will be replaced.</p><button className="tt-second" onClick={onNew}>Start a new game</button><button className="tt-link" onClick={() => setConfirmNew(false)}>Keep my pilot</button></div>}
         <button className="tt-second tt-sq" onClick={onSquadron}><span>Squadron</span><small>Waves of raiders. Bots, or friends with a code</small></button>
       </div>}
@@ -133,9 +142,9 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
         </article>
         <article onClick={onSimulator}>
           <img src={`${BASE}stills/world-mars.webp`} alt="" loading="lazy" />
-          <span className="tt-eyebrow">The companion</span>
-          <h3>The real thing</h3>
-          <p>The simulator the game is built on: the whole solar system where it is today, Apollo and Artemis on real orbits, and landings on thirteen worlds. Works on phones.</p>
+          <span className="tt-eyebrow">Flight school</span>
+          <h3>Learn the real thing</h3>
+          <p>Your career’s training simulator: historical Apollo and Artemis flights, real orbital mechanics, and surveys on thirteen worlds. Earn licences and bonuses for your game pilot. Works on phones.</p>
         </article>
       </div>
     </section>
@@ -176,8 +185,8 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
     <section className="tt-sim tt-reveal">
       <header>
         <span className="tt-eyebrow">The simulator</span>
-        <h2>Land anywhere. It is all real.</h2>
-        <p>Every planet and moon where it is today, real stars, real orbits. Pick a world and you are on its surface in a lander.</p>
+        <h2>Thirteen worlds. Real gravity.</h2>
+        <p>Real stars and orbital mechanics, with regional procedural terrain for surface practice. These are training scenarios, not a seamless planetary open world.</p>
         {flown && <p className="tt-log">Your flight log: {flown}</p>}
       </header>
       <div className="tt-worlds">

@@ -55,8 +55,24 @@ function Objective({ g, touch }) {
     return nextUp && g.mode === 'flight' ? <div className="hud-objective quiet"><p><Hint text={nextUp} touch={touch} /></p></div> : null
   }
   return <div className="hud-objective">
-    {o.mission && <span className="hud-mission">{o.mission}</span>}
-    <p><Hint text={o.text} touch={touch} /></p>
+    {o.mission && <span className="hud-mission">{o.lesson ? `Flight clearance · ${o.lesson} / ${o.lessons}` : o.mission}</span>}
+    {o.title && <h2>{o.title}</h2>}
+    <p className={o.lesson ? 'hud-instruction' : ''}><Hint text={o.text} touch={touch} /></p>
+    {o.detail && <p className="hud-detail">{touch ? o.detail.replace('Click the view to steer, or use arrow keys. ', '').replace('X also clears an advanced latched throttle. ', '').replace('Drag-to-steer fallback: K fires.', '') : o.detail}</p>}
+    {o.at && <Navigation g={g} o={o} touch={touch} />}
+  </div>
+}
+
+/** Range to the same volume that the mission tests, never a second arrival rule. */
+function Navigation({ g, o, touch }) {
+  const d = g.player.pos.distanceTo(o.at)
+  const speed = g.player.vel.length()
+  const stop = speed * speed / (2 * g.player.stats.accel * 0.6)
+  const remaining = Math.max(0, d - (o.radius ?? 0))
+  const braking = speed > 30 && stop >= remaining
+  return <div className={`hud-navigation ${braking ? 'brake' : ''}`}>
+    <strong>{o.label ?? 'Objective'} · {fmt(d)}{o.radius ? ` / ${o.radius} m zone` : ''}</strong>
+    <span>{braking ? (touch ? 'Slow down: lower the throttle or tap Stop.' : 'Brake now: release W or press X.') : 'Follow the orange diamond. An edge arrow means turn toward it.'}</span>
   </div>
 }
 
@@ -141,12 +157,13 @@ function Transfer({ g, touch }) {
 /** Recent short messages: payments, pickups, warnings. */
 function Toasts({ g }) {
   const now = g.time
-  const list = g.events.filter((e) => now - e.t < 4 && (e.type === 'toast' || e.type === 'paid' || e.type === 'pickup' || e.type === 'denied' || e.type === 'fined' || e.type === 'interdicted' || e.type === 'race-done' || e.type === 'ring' || e.type === 'burn-rated')).slice(-4)
+  const list = g.events.filter((e) => now - e.t < 4 && (e.type === 'objective-done' || e.type === 'toast' || e.type === 'paid' || e.type === 'pickup' || e.type === 'denied' || e.type === 'fined' || e.type === 'interdicted' || e.type === 'race-done' || e.type === 'ring' || e.type === 'burn-rated')).slice(-4)
   if (!list.length) return null
   return <div className="hud-toasts">{list.map((e) => <p key={e.n} className={e.type}>{toastText(e)}</p>)}</div>
 }
 function toastText(e) {
   switch (e.type) {
+    case 'objective-done': return `✓ ${e.text ?? 'Objective complete'}`
     case 'paid': return `+₡ ${e.amount.toLocaleString()} · ${e.why}`
     case 'pickup': return 'Canister scooped'
     case 'burn-rated': return `Burn rated ${e.grade}${e.back > 0 ? `: ${e.pct}% of the propellant back` : ''}${e.auto ? ' (computer flip)' : ''}`

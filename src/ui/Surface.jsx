@@ -28,12 +28,17 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
   const [, setTick] = useState(0)
   const update = useCallback(() => setTick((t) => t + 1), [])
   const [paused, setPaused] = useState(false)
-  const [howTo, setHowTo] = useState(() => { try { return !localStorage.getItem(HOWTO_KEY) } catch { return false } })
+  const [howTo, setHowTo] = useState(() => { try { return !localStorage.getItem(HOWTO_KEY) } catch { return true } })
   const [hidden, setHidden] = useState(() => document.hidden)
   const [touch] = useState(touchDevice)
   const quality = useSyncExternalStore(subscribeSurfaceQuality, surfaceQuality)
   const reported = useRef(false)
   useEffect(() => { reported.current = false }, [session])
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    window.__pzSurface = session
+    return () => { if (window.__pzSurface === session) delete window.__pzSurface }
+  }, [session])
 
   const act = useCallback((fn) => { if (fn(session)) update() }, [session, update])
   const flight = session.mode === 'flight'
@@ -42,7 +47,7 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
   useEffect(() => {
     const down = (e) => {
       if (editable(e.target)) return
-      if (e.code === 'Escape') { setPaused((p) => !p); return }
+      if (e.code === 'Escape') { if (howTo) setHowTo(false); else setPaused((p) => !p); return }
       if (paused || howTo) return
       if (MOVE[e.code]) { controls.current[MOVE[e.code]] = true; e.preventDefault(); return }
       if (e.code === 'Space') { controls.current.thrust = true; if (session.mode === 'eva') controls.current.jump = true; e.preventDefault(); return }
@@ -54,16 +59,12 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
       else if (e.code === 'KeyF') act(toggleWalk)
       else if (e.code === 'KeyT') act(launch)
       else if (e.code === 'KeyH') act(toggleAssist)
-      else if (e.code === 'KeyA') { controls.current.steerLeft = true; e.preventDefault(); return }
-      else if (e.code === 'KeyD') { controls.current.steerRight = true; e.preventDefault(); return }
     }
     const up = (e) => {
       if (MOVE[e.code]) controls.current[MOVE[e.code]] = false
       if (e.code === 'Space') controls.current.thrust = false
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') controls.current.warp = false
       if (e.code === 'KeyC') controls.current.down = false
-      if (e.code === 'KeyA') controls.current.steerLeft = false
-      if (e.code === 'KeyD') controls.current.steerRight = false
     }
     const blur = () => { controls.current = { camYaw: controls.current.camYaw } }
     const vis = () => { setHidden(document.hidden); if (document.hidden) blur() }
@@ -89,7 +90,9 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
   const survivalLeft = session.survival !== null && session.landedAt !== null ? session.survival - (session.time - session.landedAt) : null
   const toast = session.events.length ? session.events[session.events.length - 1] : null
   const fresh = toast && session.time - toast.t < 3
-  const showedHowTo = session.steps > 0
+  // Opening any modal releases held controls. Resuming cannot leave thrust
+  // or warp latched when the key was released behind the dialog.
+  useEffect(() => { if (paused || howTo) controls.current = { camYaw: controls.current.camYaw } }, [paused, howTo])
 
   return <div className="sv-screen">
     <Canvas shadows frameloop={hidden ? 'never' : 'always'} dpr={Math.min(window.devicePixelRatio || 1, quality.dpr)} gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, powerPreference: 'high-performance' }} camera={{ position: [0, 220, 230], fov: 55, near: 0.1, far: 90000 }}>
@@ -121,7 +124,8 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
       {fresh && <div className={`sv-toast ${toast.points ? 'points' : ''}`} role="status" key={toast.t}>{toast.points ? <strong>+{toast.points}</strong> : null}{toast.text}</div>}
 
       <footer className="sv-bottom">
-        <div className="sv-readouts">            {(flight || session.mode === 'ascent') ? <>
+        <div className="sv-readouts">
+          {(flight || session.mode === 'ascent') ? <>
             <Readout name="Altitude" value={altitude(session).toFixed(0)} unit="m" />
             <Readout name="Descent" value={(-session.vy).toFixed(1)} unit="m/s" warn={session.vy < -session.vehicle.safeVertical && altitude(session) < 25} />
             <Readout name="Drift" value={Math.hypot(session.vx, session.vz).toFixed(1)} unit="m/s" />
@@ -149,16 +153,17 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
           {flight && session.landed && <button className={o.ready ? 'primary' : ''} onClick={() => act(launch)}>{kb('T', touch)}{o.ready ? 'Lift off' : 'Leave early'}</button>}
           {(onGround || (flight && session.assist && !session.landed)) && !touch && <span className="sv-hint">Hold Shift to warp time</span>}
         </div>
-      </footer>      {touch && !done && !crashed && <TouchPad controls={controls} session={session} />}
+      </footer>
+      {touch && !done && !crashed && <TouchPad controls={controls} session={session} />}
     </div>
 
-    {howTo && !showedHowTo && <Modal title="How to play" eyebrow={w.name} onPrimary={closeHowTo} primary="Start">
-      <ol className="sv-howto" style={{ listStyle: 'none', paddingLeft: 0 }}>
-        <li><h2>Reach the map marker.</h2><p>The marker is where you are going. Turn the view with the mouse; {touch ? 'the arrows point the lander' : <><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></>} steer it. The arrow and the ring on the radar point the way.</p></li>
-        <li><h2>Land on the pad.</h2><p>Hold <kbd>Space</kbd> for the engine. Release it to brake with the computer. Touch down under 3 m/s, near the centre of the circle.</p></li>
-        <li><h2>{w.hopper ? 'Hop to each site.' : 'Drive to the beacons.'}</h2><p>{w.hopper ? 'Lift off with <kbd>Space</kbd>, steer to the next marker, and press <kbd>H</kbd> to hop down beside it.' : 'The rover rolls out. Press <kbd>A</kbd> and <kbd>D</kbd> to turn, then <kbd>W</kbd> to drive. Press <kbd>E</kbd> at a beacon to collect.'}</p></li>
-        <li><h2>Scan and collect.</h2><p>Some finds hide in dashed zones. Drive into one and press <kbd>Q</kbd> to scan. Three samples and the station complete the survey.</p></li>
-        <li><h2>Go home.</h2><p>Back at the lander, press <kbd>E</kbd> to board and <kbd>T</kbd> to lift off.</p></li>
+    {howTo && <Modal title="How to play" eyebrow={w.name} onPrimary={closeHowTo} primary="Start">
+      <ol className="sv-howto">
+        <li><h2>1. Land safely.</h2><p>Assist starts ON and flies to the pad. {touch ? 'Tap Assist to take manual control; hold Thrust for the engine and use the arrows to tilt.' : <>Press <kbd>H</kbd> for manual control, hold <kbd>Space</kbd> for the engine, and use W A S D to tilt.</>} Releasing thrust with assist OFF means falling, not braking. Touch down under 3 m/s.</p></li>
+        <li><h2>2. Reach a beacon.</h2><p>{w.hopper ? 'Use Hop to next site after landing. This world has too little gravity for a rover.' : touch ? 'Use the arrows: up drives forward, left and right turn the rover. Release to slow down.' : <>The rover rolls out. <kbd>A</kbd> turns left, <kbd>D</kbd> turns right, <kbd>W</kbd> drives, <kbd>S</kbd> reverses. Release to slow down.</>} Follow the orange radar ring and the distance readout.</p></li>
+        <li><h2>3. Collect and deploy.</h2><p>A Collect sample or Deploy station button appears when you are in reach. {touch ? 'Tap it.' : <>Press <kbd>E</kbd> or click it.</>} Three samples and the station complete the required survey.</p></li>
+        <li><h2>4. Optional discoveries.</h2><p>Enter a dashed search zone and {touch ? 'tap Scan' : <>press <kbd>Q</kbd></>} to reveal a rare sample or anomaly. Hold still beside the anomaly for four seconds. These are bonuses, not required work.</p></li>
+        <li><h2>5. Return home.</h2><p>Follow the lander marker back. {touch ? 'Tap Board lander, then Lift off.' : <>Press <kbd>E</kbd> to board, then <kbd>T</kbd> to lift off.</>} The results screen confirms your survey. Terrain is procedural geology, not measured topography.</p></li>
       </ol>
     </Modal>}
     {paused && !done && !crashed && <Modal title="Paused" eyebrow={`${w.name} · ${w.site}`} onPrimary={() => setPaused(false)} primary="Resume" secondary={[['Restart landing', retry], ['How to play', () => { setPaused(false); setHowTo(true) }], [backLabel(mode), () => onExit?.(null)]]}>
@@ -169,7 +174,6 @@ export function Surface({ world, mode = 'free', upgrades, title, onExit, onNext 
       <p>{session.message}</p>
     </Modal>}
     {done && result && <Results world={w} result={result} session={session} mode={mode} onContinue={finish} onRetry={retry} onNext={onNext} />}
-    {howTo && showedHowTo && !done && !crashed && <div className="sv-impact" role="status" aria-live="polite"><h3>{w.name} · 2091</h3><p>{w.hopper ? 'Too little gravity here for a rover — you will hop the lander between sites.' : 'A surface survey. Three samples and the station complete the job; the anomaly is a bonus.'}</p></div>}
   </div>
 }
 
@@ -262,7 +266,7 @@ const backLabel = (mode) => (mode === 'game' ? 'Back up to orbit' : 'Back to the
 
 function Modal({ title, eyebrow, children, primary, onPrimary, secondary = [] }) {
   useEffect(() => {
-    const t = requestAnimationFrame(() => document.querySelector('.sv-modal button')?.focus())
+    const t = requestAnimationFrame(() => document.querySelector('.sv-modal button')?.focus({ preventScroll: true }))
     return () => cancelAnimationFrame(t)
   }, [])
   return <div className="sv-modal" role="dialog" aria-modal="true" aria-label={title}>

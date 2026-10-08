@@ -69,7 +69,7 @@ export function playMission(id, { upgrades = {}, anomaly = true, maxMinutes = 30
     let err = Math.atan2(ax, -az) - r.yaw
     while (err > Math.PI) err -= Math.PI * 2
     while (err < -Math.PI) err += Math.PI * 2
-    keys.left = err > 0.06; keys.right = err < -0.06
+    keys.left = err < -0.06; keys.right = err > 0.06
     keys.forward = Math.abs(err) < 1.2
     keys.back = false
   }

@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-08T04:45:51.835Z",
+  "environment": "Headless Chrome with ANGLE Metal on macOS; timings are not a visible-device guarantee",
+  "checks": [
+    "Real Launch, W and X input advances separate thrust and braking lessons",
+    "Arrival boundary matches the 250 m HUD zone and produces visible confirmation",
+    "Map stops physics and recurring 3D rendering",
+    "Story, paid-work and flight-school choices are visible; school round trip preserves career",
+    "Actual A/D/W keyboard input turns the rover correctly and drives along its heading",
+    "Surface help reopens after simulation steps and dismisses normally; assisted touchdown renders rover"
+  ],
+  "timings": {
+    "bay": {
+      "samples": 479,
+      "p50": 16.69999999999891,
+      "p95": 16.700000000000728,
+      "p99": 16.80000000000109,
+      "viewport": [
+        1280,
+        713
+      ]
+    },
+    "flight": {
+      "samples": 481,
+      "p50": 16.69999999999709,
+      "p95": 16.799999999995634,
+      "p99": 16.80000000000291,
+      "viewport": [
+        1280,
+        713
+      ]
+    },
+    "mapIdle": {
+      "before": {
+        "time": 34.56666666666599,
+        "frame": 38755
+      },
+      "after": {
+        "time": 34.56666666666599,
+        "frame": 38755
+      }
+    }
+  },
+  "errors": []
+}

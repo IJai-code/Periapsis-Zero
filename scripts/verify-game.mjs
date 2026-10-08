@@ -196,8 +196,13 @@ function playStory(choice) {
   const missions = {
     arrival: () => {
       if (g.mode === 'docked') b.launch()
-      b.flyTo(V3(0, 250, 2200), 60); b.flyTo(V3(1600, 700, 5200), 80)
+      b.c.throttleSet = 1; b.step(120)
+      b.c.throttleSet = 0; b.until(() => g.story.step >= 3, 15, 'learning to brake')
+      b.flyTo(V3(0, 250, 2200), 60)
+      b.c.throttleSet = 1; b.c.boost = true; b.step(60); b.c.boost = false
+      b.flyTo(V3(1600, 700, 5200), 80)
       b.c.actions.push('fa'); b.step(60); b.c.actions.push('fa'); b.step(60)
+      b.target(); b.step(2)
       b.fightTag('m:drone', 120); b.dock('hearth')
     },
     'honest-work': () => { b.transfer('harbor'); b.dock('harbor') },

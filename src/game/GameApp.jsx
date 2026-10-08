@@ -195,7 +195,8 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   const g = game.current
   if (!g) return <div className="gm-loading">Loading</div>
 
-  const paused = overlay === 'pause' || overlay === 'help' || g.mode === 'surface'
+  const paused = Boolean(overlay) || g.mode === 'surface'
+  const enterSchool = () => { autosave(g); window.location.hash = '#sim' }
   return <div className={`gm-root ${touch ? 'is-touch' : ''}`}>
     {g.mode !== 'surface' && <Suspense fallback={<div className="gm-loading">Loading the Earth-Moon system</div>}>
       <GameScene game={game} controls={controls} quality={quality} placeKey={placeKey} paused={paused} onFrame={onFrame} />
@@ -207,14 +208,14 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       <div className="gm-markers" ref={markers} hidden={Boolean(g.cine)} />
       {g.mode !== 'docked' && <Hud game={g} touch={touch} controls={controls.current} onOverlay={setOverlay} />}
       {g.cine && <button className="gm-skip" onClick={() => { g.cine = null; play('click') }}>Skip{!touch && <kbd className="gk">Space</kbd>}</button>}
-      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click'); controls.current.canvas?.focus() }} onOverlay={setOverlay} />}
+      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click'); controls.current.canvas?.focus() }} onOverlay={setOverlay} onSchool={enterSchool} />}
       {!g.cine && <Comms game={g} />}
       {g.cine?.kind === 'board' && <div className="boarding-label"><span className="st-eyebrow">Hearth / Berth 09</span><strong>Flight clearance pending</strong><p>Your first job begins with a ship you can trust.</p></div>}
       <Banners game={g} touch={touch} onRespawn={() => respawn(g)} />
       {touch && (g.mode === 'flight' || g.mode === 'transfer') && !overlay && <Touch controls={controls.current} game={g} onOverlay={(o) => (o === 'hail' ? hail(g, sky.current) : setOverlay(o))} />}
       {overlay === 'map' && <MapView game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {overlay === 'log' && <Log game={g} touch={touch} onClose={() => setOverlay(null)} />}
-      {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current} onSky={setSkyOn}
+      {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current} onSky={setSkyOn} onSchool={enterSchool}
         onResume={() => setOverlay(null)} onQuit={() => { autosave(g); onExit?.() }} />}
       {g.mode === 'flight' && !touch && !controls.current.mouse.locked && !overlay && <div className="gm-takestick">{controls.current.mouse.fallback ? 'Drag the view to steer · K to fire' : 'Click the view to take the stick'}</div>}
     </>}

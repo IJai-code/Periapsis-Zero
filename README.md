@@ -5,11 +5,20 @@ simulator. React 19, React Three Fiber, Three.js and Vite.
 
 ## The game
 
-2091. You survived the Aster convoy attack. Rook paid for your rescue and
+3091. Humanity lives on Earth, the Moon, and in orbital cities, dependent on
+recycled air, lunar water, and paid passage. You survived the Aster convoy attack. Rook paid for your rescue and
 repairs; now you owe him forty thousand credits. A **120-second narrated,
 captioned real-time film** explains the incident before your first mission.
 Pause it, skip to the briefing, or replay before boarding. Existing saves
 continue without restarting the film.
+
+Ten one-skill flight-clearance checks teach launch, thrust, braking, waypoint
+navigation, boost, momentum, targeting, firing, and docking. Training checkpoints
+are explicit 250 m / 350 m volumes with direction arrows, range, braking guidance,
+and visible completion messages. Old tutorial saves migrate their step indices.
+After clearance, choose a story contract, paid work, or flight school. Flight
+school saves your career and the simulator's Career button returns to it; existing
+simulator milestones grant licence bonuses and suits.
 
 Two acts of contracts, combat, salvage, transfers, a surface survey and a
 choice between Rook and Commander Chen. The Aster recorder connects the
@@ -54,15 +63,20 @@ npm run build
 npm run smoke
 node scripts/check-game-opening.mjs  # dev server on 5174 by default; PZ_URL overrides
 node scripts/check-game-quality.mjs  # both graphics tiers, timed on software WebGL
+PZ_URL=http://127.0.0.1:5175 node scripts/check-product-3091.mjs  # input, arrival, career round trip, surface help and timings
+PZ_URL=http://127.0.0.1:5175 npm run verify:devices   # every route at five viewports: overflow, touch targets, errors
+PZ_URL=http://127.0.0.1:5175 npm run measure:load     # time until each mode is on screen and usable
 ```
 
-The suite has 77 gates, including both campaign branches, the opening's clock,
+The suite has 78 gates, including both campaign branches, the opening's clock,
 boarding, controls and physics, and the graphics tiers. The browser check
 watches all six film chapters, pauses, mutes, skips/replays, boards, launches
 and checks settings. The second check runs the film twice, at High and at
 Fast, in a Chrome whose GPU is only SwiftShader, and reports what each costs:
-166.7 ms a frame at High against 83.3 ms at Fast in the latest run, which is
-half the frame time on the weakest device that can run this at all.
+an earlier software-WebGL run reported 166.7 ms at High and 83.3 ms at Fast.
+Those are historical film measurements, not device requirements or evidence of
+playable performance on every weak device. Fresh 3091 measurements and the candid
+product assessment live in [3091-product-review.md](docs/3091-product-review.md).
 `node scripts/make-prologue.mjs` regenerates the synthetic narration on macOS
 using its installed Daniel voice and AAC encoder. CI consumes the committed
 audio and authored GLBs; it does not need Blender or macOS voices.
@@ -489,6 +503,24 @@ warning rather than obeyed, on the same rule `sim/requested.js` sets out: an
 address is something a person was sent or typed, and a blank page is a worse
 answer to that than the default.
 
+## Every route, at the sizes people hold
+
+A route that passes at 1280x800 can still be broken on a tablet. `verify:devices`
+drives the title, the career, the squadron lobby, the simulator and a landing at
+1600x900, 1280x800, 820x1180, 390x844 and 360x740 — thirty-one route/viewport
+combinations counting the simulator's map, settings drawer and mission library —
+and asserts the three things a screenshot does not say: no uncaught error, no
+horizontal overflow (an element counts only if nothing clips it; the simulator
+parks off-screen markers inside clipping parents on purpose), and on touch
+sizes no button under 36 px. Inline links inside a sentence are exempt, which is
+the exception WCAG 2.5.8 names, and a field is measured by the label that
+focuses it rather than by its own box.
+
+The first run found the real faults: nav rows 20 px tall on glass, a 16:9 keyart
+magnified until the ship was an abstract white wedge across the tablet headline,
+and a landing that waited for the whole solar system before it would let go of
+the loading screen.
+
 ## What a visitor waits for
 
 Thirteen and a half megabytes of imagery, and every visitor used to wait for all
@@ -510,6 +542,20 @@ than registering its own callback — so the only late-arrival callback that
 exists belongs to the run that was cancelled. Guarding it with the usual
 `cancelled` flag threw away the one notification there was, and the Moon kept
 its stand-in for the whole session.
+
+### A landing does not wait for the sky above it
+
+Textures feed `Scene`, and `Scene` does not draw while a surface expedition holds
+the screen (`frameloop` is `never`). The landing was gated behind them anyway, so
+a visitor who opened `#land/moon` — the route the title offers first on a phone —
+watched "Preparing the solar system" until megabytes it was never going to look
+at had arrived. Measured on the dev server in headless Chrome, time from
+the address bar to a surface that answers the keyboard: **3684 ms before, 430 ms
+after at 1280x800; 3106 ms before, 656 ms after at 390x844**. The simulator's own
+wait is unchanged (about 3.3 s here, and its assets are measured against the
+files on disk by `verify-assets`); the game was already immediate. `npm run
+measure:load` re-runs the comparison, and counts a route ready only when nothing
+is covering it — a modal mounted behind the loading screen is not usable.
 
 ## The logarithmic depth buffer, and why it is still here
 

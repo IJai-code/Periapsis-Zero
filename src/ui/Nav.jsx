@@ -35,7 +35,7 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
   /* The things people use, and the rest one click away under More. */
   const items = [
     { id: 'home', label: '← home', on: false, go: () => { window.location.hash = '' } },
-    { id: 'game', label: 'play the game', on: false, go: () => { window.location.hash = '#play' } },
+    { id: 'game', label: 'career · 3091', on: false, go: () => { window.location.hash = '#play' } },
     { id: 'land', label: 'land ▾', on: Boolean(landAt), go: (e) => { setMore(false); const r = e.currentTarget.getBoundingClientRect(); setLandAt((v) => v ? null : r.left) } },
     { id: 'flight', label: 'fly', on: clean, go: () => setUi({ boards: null, setup: false, map: false, broadcast: false }) },
     { id: 'library', label: 'missions', on: false, go: onLibrary },
@@ -52,26 +52,31 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
 
   return (
     <div className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex h-10 items-center gap-3 border-b border-hud/15 bg-void/60 px-3 backdrop-blur-[10px]">
+      {/* Below sm the wordmark is the Mark alone: on a 390 px phone it spent
+          190 px of the row on a name the visitor just read, and the ten doors
+          it hides are the ones they came to open. */}
       <div className="flex shrink-0 items-center gap-2">
         <Mark size={17} />
-        <span className="font-display text-[11px] leading-none tracking-[0.28em] text-hud/85">PERIAPSIS ZERO</span>
+        <span className="hidden font-display text-[11px] leading-none tracking-[0.28em] text-hud/85 sm:inline">PERIAPSIS ZERO</span>
       </div>
-      <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+      {/* The row scrolls, so its last visible item is faded: a menu that runs
+          off the edge should look like it does. */}
+      <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [mask-image:linear-gradient(90deg,#000_86%,transparent)] sm:[mask-image:none]">
         {items.map((it) => (
           <button key={it.id} onClick={it.go} aria-current={it.on ? 'page' : undefined}
-            className={`control shrink-0 rounded-sm px-2.5 py-1.5 text-[10px] tracking-[0.16em] uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/65 hover:text-ember'}`}>
+            className={`control inline-flex min-h-9 shrink-0 items-center rounded-sm px-2.5 text-[10px] tracking-[0.16em] whitespace-nowrap uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/65 hover:text-ember'}`}>
             {it.label}
           </button>
         ))}
         {<div className="relative shrink-0">
-          <button onClick={() => { setLandAt(null); setMore((m) => !m) }} aria-expanded={more} className={`control rounded-sm px-2.5 py-1.5 text-[10px] tracking-[0.16em] uppercase outline-none ${more || boards || broadcast ? 'text-ember' : 'text-hud/65 hover:text-ember'}`}>more ▾</button>
+          <button onClick={() => { setLandAt(null); setMore((m) => !m) }} aria-expanded={more} className={`control inline-flex min-h-9 items-center rounded-sm px-2.5 text-[10px] tracking-[0.16em] whitespace-nowrap uppercase outline-none ${more || boards || broadcast ? 'text-ember' : 'text-hud/65 hover:text-ember'}`}>more ▾</button>
         </div>}
       </nav>
       {landAt !== null && <div className="fixed top-10 z-40 grid max-h-[70vh] grid-cols-2 gap-0.5 overflow-y-auto rounded-sm border border-hud/15 bg-void/95 p-1" style={{ left: `min(${Math.round(landAt)}px, calc(100vw - 300px))`, width: 290 }} role="menu" aria-label="Land on a world">
-        {LANDABLE.map((id) => <button key={id} role="menuitem" onClick={() => { setLandAt(null); setUi({ focus: id, map: false, boards: null, surface: { world: id, mode: 'free' } }) }} className="control px-3 py-2 text-left text-[11px] tracking-[0.12em] text-hud/80 uppercase hover:text-ember">{WORLDS[id].name}</button>)}
+        {LANDABLE.map((id) => <button key={id} role="menuitem" onClick={() => { setLandAt(null); setUi({ focus: id, map: false, boards: null, surface: { world: id, mode: 'free' } }) }} className="control inline-flex min-h-9 items-center px-3 text-left text-[11px] tracking-[0.12em] text-hud/80 uppercase hover:text-ember">{WORLDS[id].name}</button>)}
       </div>}
       {more && <div className="fixed top-10 z-40 flex flex-col rounded-sm border border-hud/15 bg-void/95 p-1" style={{ left: 'min(560px, 60vw)' }} role="menu">
-        {extra.map((it) => <button key={it.id} role="menuitem" onClick={it.go} className="control px-4 py-2 text-left text-[11px] tracking-[0.12em] text-hud/80 uppercase hover:text-ember">{it.label}</button>)}
+        {extra.map((it) => <button key={it.id} role="menuitem" onClick={it.go} className="control inline-flex min-h-9 items-center px-4 text-left text-[11px] tracking-[0.12em] text-hud/80 uppercase hover:text-ember">{it.label}</button>)}
       </div>}
     </div>
   )

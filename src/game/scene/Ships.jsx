@@ -17,6 +17,7 @@ const PLUME_COLOURS = { player: '#ffb070', ally: '#7fe2ff', compact: '#7fe2ff', 
 export function Ships({ game }) {
   const root = useRef()
   const live = useRef(new Map())
+  const frame = useRef(0)
   // A cone with its wide end at the nozzle and its tip a unit behind (+z).
   const plumeGeo = useMemo(() => { const g = new THREE.ConeGeometry(1, 1, 16, 1, true); g.translate(0, 0.5, 0); g.rotateX(Math.PI / 2); return g }, [])
   const plumeMats = useMemo(() => Object.fromEntries(Object.entries(PLUME_COLOURS).map(([k, c]) => [k, plumeMaterial(c)])), [])
@@ -33,11 +34,10 @@ export function Ships({ game }) {
   useFrame((state) => {
     const g = game.current
     if (!g || !root.current) return
-    const seen = new Set()
+    const seenFrame = ++frame.current
     const t = state.clock.elapsedTime
     for (const e of g.ships) {
       if (!e.alive) continue
-      seen.add(e.id)
       let s = live.current.get(e.id)
       const kind = e.kind === 'player' ? g.ship.hull : e.kind
       if (!s || s.kind !== kind) {
@@ -46,6 +46,7 @@ export function Ships({ game }) {
         live.current.set(e.id, s)
         root.current.add(s.group)
       }
+      s.seenFrame = seenFrame
       // Your pilot, in your suit, under the canopy.
       if (e.remote && s.suit !== e.suit) { s.suit = e.suit; paintPilot(s.group, suitById(e.suit)) }
       if (e.kind === 'player') {
@@ -76,7 +77,7 @@ export function Ships({ game }) {
         p.visible = thrust > 0.04 || transfer
       }
     }
-    for (const [id, s] of live.current) if (!seen.has(id)) { root.current.remove(s.group); live.current.delete(id) }
+    for (const [id, s] of live.current) if (s.seenFrame !== seenFrame) { root.current.remove(s.group); live.current.delete(id) }
   })
   return <group ref={root} />
 }

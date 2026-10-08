@@ -67,7 +67,7 @@ function Row({ craftId }) {
         value={selected}
         disabled={busy}
         onChange={(e) => assign(craftId, e.target.value)}
-        className="w-full rounded-[2px] border border-white/10 bg-black/60 px-1.5 py-1 font-mono text-[10px] text-white/85 outline-none transition-colors hover:border-hud/40 focus:border-hud/60 disabled:cursor-progress disabled:opacity-50"
+        className="min-h-9 w-full rounded-[2px] border border-white/10 bg-black/60 px-1.5 font-mono text-[10px] text-white/85 outline-none transition-colors hover:border-hud/40 focus:border-hud/60 disabled:cursor-progress disabled:opacity-50"
       >
         <option value="">procedural placeholder</option>
         {MODEL_GROUPS.map((group) => (

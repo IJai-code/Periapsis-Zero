@@ -17,7 +17,7 @@ import { play } from '../audio.js'
  */
 const TABS = [['missions', 'Contacts'], ['jobs', 'Job board'], ['market', 'Market'], ['shipyard', 'Shipyard'], ['outfit', 'Outfitting'], ['services', 'Services'], ['pilot', 'Pilot']]
 
-export function Station({ game: g, touch, onLaunch, onOverlay }) {
+export function Station({ game: g, touch, onLaunch, onOverlay, onSchool }) {
   const st = STATIONS[g.docked]
   const storyHere = storyOffers(g, st.id)
   const [tab, setTab] = useState(() => (storyHere.length || g.story.active ? 'missions' : 'jobs'))
@@ -41,13 +41,13 @@ export function Station({ game: g, touch, onLaunch, onOverlay }) {
     </nav>
     <section className="st-panel" key={tab}>
       {msg && <p className="st-msg">{msg}</p>}
-      {tab === 'missions' && <Missions g={g} st={st} touch={touch} offersHere={storyHere} act={act} />}
+      {tab === 'missions' && <Missions g={g} st={st} touch={touch} offersHere={storyHere} act={act} onJobs={() => setTab('jobs')} onSchool={onSchool} />}
       {tab === 'jobs' && <Jobs g={g} st={st} act={act} />}
       {tab === 'market' && <Market g={g} st={st} act={act} />}
       {tab === 'shipyard' && <Shipyard g={g} act={act} />}
       {tab === 'outfit' && <Outfit g={g} act={act} />}
       {tab === 'services' && <Services g={g} st={st} act={act} />}
-      {tab === 'pilot' && <Pilot g={g} act={act} />}
+      {tab === 'pilot' && <Pilot g={g} act={act} onSchool={onSchool} />}
     </section>
     <div className="st-launch">
       <ShipCard g={g} />
@@ -61,10 +61,19 @@ function Portrait({ who, big }) {
   return <span className={`portrait ${who} ${big ? 'big' : ''}`} aria-hidden><img src={`${import.meta.env.BASE_URL}game/portrait-${who}.webp`} alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} /><b>{c?.name?.split(' ').map((w) => w[0]).join('').slice(0, 2)}</b></span>
 }
 
-function Missions({ g, st, touch, offersHere, act }) {
+function Missions({ g, st, touch, offersHere, act, onJobs, onSchool }) {
   const active = g.story.active ? mission(g.story.active) : null
   const elsewhere = storyNext(g).filter((m) => m.at !== st.id)
   return <div className="st-missions">
+    {g.story.done.includes('arrival') && !active && <section className="st-next-actions" aria-label="Choose your next move">
+      <span className="st-eyebrow">Flight clearance granted · 3091</span>
+      <h2>Your next move is yours.</h2>
+      <p>Earn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.</p>
+      {offersHere[0] && <button className="st-primary" onClick={() => act(() => startStory(g, offersHere[0].id))}>Continue the story: {offersHere[0].title}</button>}
+      <button className="st-ghost" onClick={onJobs}>Make a living: open the job board</button>
+      <button className="st-ghost" onClick={onSchool}>Flight school: earn simulator licences</button>
+      <small>Flight school saves this career. Return here through the simulator’s Career button.</small>
+    </section>}
     {g.choice && <div className="st-choice">
       <h2>{g.choice.prompt}</h2>
       <div>{g.choice.options.map((o) => <button key={o.id} onClick={() => { chooseStory(g, o.id); play('objective') }}>{o.label}</button>)}</div>
@@ -189,7 +198,7 @@ function Services({ g, st, act }) {
   </div>
 }
 
-function Pilot({ g, act }) {
+function Pilot({ g, act, onSchool }) {
   const s = g.stats
   const earned = earnedLicences()
   const held = g.pilot.licences ?? []
@@ -199,7 +208,7 @@ function Pilot({ g, act }) {
     <dl>
       <div><dt>Earned</dt><dd>₡ {s.earned.toLocaleString()}</dd></div><div><dt>Jobs done</dt><dd>{s.jobs}</dd></div>
       <div><dt>Transfers flown</dt><dd>{s.trips}</dd></div><div><dt>Kills</dt><dd>{s.kills}</dd></div>
-      <div><dt>Ships lost</dt><dd>{s.deaths}</dd></div><div><dt>Story</dt><dd>{g.story.done.length} of {STORY.length} missions</dd></div>
+      <div><dt>Ships lost</dt><dd>{s.deaths}</dd></div><div><dt>Story</dt><dd>{g.story.done.length} of {STORY.length - 1} on your branch</dd></div>
     </dl>
     <h3>Licences, earned in the Simulator</h3>
     <div className="st-licences">
@@ -209,7 +218,7 @@ function Pilot({ g, act }) {
       </div>)}
     </div>
     {unclaimed.length > 0 ? <button className="st-primary" onClick={() => act(() => { const got = claimLicences(g); return got.length ? null : 'Nothing to claim.' })}>Claim ₡ {unclaimed.reduce((n, l) => n + l.bonus, 0).toLocaleString()} in licence bonuses</button>
-      : <a className="st-ghost st-simlink" href="#sim" target="_blank" rel="noreferrer">Open the Simulator to earn licences</a>}
+      : <button className="st-ghost st-simlink" onClick={onSchool}>Save career and enter flight school</button>}
     <h3>Suit</h3>
     <div className="suit-grid">
       {SUITS.map((u) => {

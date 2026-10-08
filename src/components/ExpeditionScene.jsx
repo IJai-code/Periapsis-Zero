@@ -143,7 +143,7 @@ export function ExpeditionScene({ session, controls, paused, scenic = false, onP
         const terrain = terrainFor(s.id)
         const ahead = terrain.height(r.x + Math.sin(r.yaw) * 1.2, r.z - Math.cos(r.yaw) * 1.2)
         const behind = terrain.height(r.x - Math.sin(r.yaw) * 1.2, r.z + Math.cos(r.yaw) * 1.2)
-        rover.current.rotation.set(Math.atan2(behind - ahead, 2.4), r.yaw, 0, 'YXZ')
+        rover.current.rotation.set(Math.atan2(ahead - behind, 2.4), -r.yaw, 0, 'YXZ')
         const roll = (s.mode === 'rover' ? r.speed : 0) * Math.min(delta, 0.05) * (s.warping ? WARP : 1)
         if (roverWheels) for (const wheel of roverWheels) wheel.rotation.x -= roll / ROVER_ROLLING_RADIUS
         else for (const wheel of Object.values(wheels.current)) if (wheel) wheel.rotation.x += roll / 0.26

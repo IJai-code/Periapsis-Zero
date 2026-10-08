@@ -54,6 +54,18 @@ function canisters(g, n, center, tag, spread = 1500) {
 }
 const nearestCan = (g, tag) => g.canisters.find((c) => !c.taken && c.tag === tag)?.at ?? null
 const kills = (g, tag) => g.story.s.kills?.[tag] ?? 0
+
+// Training volumes, not precision docking points. The HUD and completion test
+// share the same radius; entering the volume is enough, with no invisible hold.
+export const TRAINING_TARGETS = [
+  { at: V(0, 250, 2200), radius: 250, label: 'Flight checkpoint' },
+  { at: V(1600, 700, 5200), radius: 350, label: 'Long-range checkpoint' },
+]
+const checkpoint = (i) => ({ at: () => TRAINING_TARGETS[i].at, radius: TRAINING_TARGETS[i].radius, label: TRAINING_TARGETS[i].label })
+const reached = (g, i) => dist(g, TRAINING_TARGETS[i].at) <= TRAINING_TARGETS[i].radius
+export const TUTORIAL_VERSION = 2
+// Version-one saves stored numeric step indices. Preserve what was learned.
+const OLD_ARRIVAL_STEPS = [0, 3, 5, 6, 8, 9]
 /** The jamming countdown, while it lasts. */
 const jam = (g) => { const left = (g.story.jamUntil ?? 0) - g.time; return left > 0 ? ` · jammed ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}` : '' }
 
@@ -63,18 +75,24 @@ export const STORY = [
     reward: { credits: 1500 },
     intro: [['mara', 'Berth nine, the Kestrel. I heard about the Aster. You made it back. That counts.'], ['mara', 'Mara Voss, dockmaster. Rook owns your debt, not your next decision. First, let us see if that patched ship still flies. Launch when you are ready.']],
     steps: [
-      { text: 'Launch from the berth with [launch]', done: (g) => g.story.s.launched },
-      { text: 'Aim with [aim] and throttle up with [thrust]. Fly through the marker.', at: () => V(0, 250, 2200), say: [['mara', 'Point the nose where you want to go. Hold [thrust] to fly. Release it to brake with assist on. Advanced throttle is in Settings.']], done: (g) => dist(g, V(0, 250, 2200)) < 70 },
-      { text: 'Hold [boost] and race to the next marker', at: () => V(1600, 700, 5200), say: [['mara', 'Boost runs on a battery. Use it, then let it recharge.']], done: (g) => dist(g, V(1600, 700, 5200)) < 90 },
-      { text: 'Turn flight assist off with [fa] and feel the drift. Then turn it back on.', say: [['mara', 'With assist on, the thrusters hold the velocity you ask for. Off, it is just you and Newton.']], done: (g) => g.story.s.faOff && g.player.ctrl.fa },
+      { title: 'Leave your berth', text: 'Launch with [launch].', detail: 'Mara is checking your survival skills. The ship will clear the bay for you.', doneText: 'Berth cleared', done: (g) => g.story.s.launched },
+      { title: 'Make the ship move', text: 'Hold [thrust] to accelerate.', detail: 'Stay pointed into open space. Watch the speed number below rise. No target yet.', doneText: 'Thrust check passed', done: (g) => g.mode === 'flight' && g.player.ctrl.throttle > 0.5 && g.player.vel.length() > 30 },
+      { title: 'Learn to stop', text: 'Release [thrust], then press [stop] to stop.', detail: 'With assist on, thrusters brake gradually. X also clears an advanced latched throttle. Wait until speed is below 5 m/s.', doneText: 'Braking check passed', done: (g) => g.mode === 'flight' && g.player.ctrl.fa && g.player.ctrl.throttle === 0 && g.player.vel.length() < 5 },
+      { title: 'Reach the orange checkpoint', text: 'Steer with [aim], then hold [thrust] toward the diamond.', detail: 'Click the view to steer, or use arrow keys. An edge arrow points toward an off-screen target. Enter the 250 m zone; you do not need to hit its exact centre.', ...checkpoint(0), doneText: 'Checkpoint reached', done: (g) => reached(g, 0) },
+      { title: 'Try a short boost', text: 'Hold [thrust] and [boost] together.', detail: 'Boost spends battery and takes longer to brake from. One short burst is enough.', doneText: 'Boost check passed', done: (g) => g.player.boosting },
+      { title: 'Read the distance', text: 'Fly toward the next diamond with [thrust].', detail: 'Enter its 350 m zone. Release thrust early if the braking warning appears. Passing through the zone counts immediately.', ...checkpoint(1), doneText: 'Second checkpoint reached', done: (g) => reached(g, 1) },
+      { title: 'Understand momentum', text: 'Press [fa] to coast, then [fa] again to restore assist.', detail: 'Assist OFF does not brake when you release thrust. Your velocity continues until thrusters change it.', doneText: 'Flight assist check passed', say: [['mara', 'Off, it is just you and Newton. Switch assist back on before the next check.']], done: (g) => g.story.s.faOff && g.player.ctrl.fa },
       {
-        text: 'Target the practice drone with [target] and shoot it with [fire]', say: [['mara', 'Bolts take time to arrive. Aim at the lead marker, not the drone.']],
-        enter: (g) => { const e = spawn(g, 'raider', 'drone', V(1600, 600, 3600), 'm:drone', { mode: 'patrol', center: V(1600, 600, 3600), radius: 260, speed: 0.25 }, 'Practice drone'); e.stats = { ...e.stats, guns: 0 }; e.hull = 30; e.shield = 20 },
-        ship: (g) => alive(g, 'm:drone')[0]?.id, done: (g) => kills(g, 'm:drone') >= 1,
+        title: 'Choose a contact', text: 'Press [target] until Practice drone is selected.', detail: 'Look for its name and brackets. This drone has no weapons. Next we will test your guns.', doneText: 'Practice drone selected',
+        enter: (g) => { if (alive(g, 'm:drone').length || kills(g, 'm:drone')) return; const e = spawn(g, 'raider', 'drone', V(1600, 600, 3600), 'm:drone', { mode: 'patrol', center: V(1600, 600, 3600), radius: 260, speed: 0.25 }, 'Practice drone'); e.stats = { ...e.stats, guns: 0 }; e.hull = 30; e.shield = 20 },
+        ship: (g) => alive(g, 'm:drone')[0]?.id, done: (g) => kills(g, 'm:drone') >= 1 || g.byId(g.target)?.tag === 'm:drone',
       },
-      { text: 'Fly back to Hearth\'s docking port, slow down, and press [dock]', at: () => port('hearth'), say: [['mara', 'The port is the lit bay on the station\'s face. Come in under seventy metres a second.']], done: (g) => g.story.s.docked === 'hearth' },
+      { title: 'Defend yourself', text: 'Aim toward the drone and hold [fire].', detail: 'The small lead circle shows where a moving target will be when your shots arrive. Drag-to-steer fallback: K fires.', doneText: 'Weapons check passed',
+        enter: (g) => { if (!alive(g, 'm:drone').length && !kills(g, 'm:drone')) STORY[0].steps[7].enter(g) },
+        ship: (g) => alive(g, 'm:drone')[0]?.id, done: (g) => kills(g, 'm:drone') >= 1 },
+      { title: 'Come home safely', text: 'Return to Hearth’s lit bay and press [dock] when prompted.', detail: 'Release thrust or press X to brake. Docking requires under 70 m/s, within 350 m of the port. The Action prompt confirms when you can dock.', at: () => port('hearth'), label: 'Hearth docking port', radius: 350, doneText: 'Docked safely', done: (g) => g.story.s.docked === 'hearth' },
     ],
-    outro: [['mara', 'You will do.'], ['mara', 'Rook has fixed you a debt, I hear. Forty thousand. Honest work is on the job board, and I have a run to Harbor if you want it.']],
+    outro: [['mara', 'You can move, stop, navigate, defend yourself, and come home. Flight clearance granted.'], ['mara', 'The lanes are yours now. Take Honest Work here for a guided first delivery, choose a paid job, or visit flight school. Rook owns your debt, not your time.']],
   },
   {
     id: 'honest-work', title: 'Honest Work', giver: 'mara', at: 'hearth', after: 'arrival', pitch: 'A sealed case for Harbor. Your first transfer.',
@@ -451,6 +469,7 @@ export function startStory(g, id) {
   g.story.active = id
   g.story.step = 0
   g.story.s = {}
+  if (id === 'arrival') g.story.tutorialVersion = TUTORIAL_VERSION
   if (m.start) m.start(g)
   applyFlags(g, m)
   for (const [who, text] of val(m.introFor, g) ?? m.intro ?? []) g.say(who, text)
@@ -464,6 +483,12 @@ export function storyOnLoad(g) {
   const m = BY_ID[g.story.active]
   if (!m) { g.story.active = null; return }
   g.story.s = g.story.s ?? {}
+  if (m.id === 'arrival' && g.story.tutorialVersion !== TUTORIAL_VERSION) {
+    g.story.step = OLD_ARRIVAL_STEPS[g.story.step] ?? 0
+    // Spoken-line indices changed too. Do not suppress the current instruction.
+    g.story.s.said = {}
+    g.story.tutorialVersion = TUTORIAL_VERSION
+  }
   g.story.s.entered = false
   applyFlags(g, m)
   if (!g.story.s.introduced) { for (const [who, text] of val(m.introFor, g) ?? m.intro ?? []) g.say(who, text); g.story.s.introduced = true }
@@ -513,7 +538,7 @@ export function storyTick(g) {
     step.finish?.(g)
     g.story.step++
     s.entered = false
-    g.emit({ type: 'objective-done' })
+    g.emit({ type: 'objective-done', text: step.doneText ?? 'Objective complete', mission: m.id, step: g.story.step - 1 })
     if (g.story.step >= m.steps.length) complete(g, m)
   }
 }
@@ -567,5 +592,7 @@ export function storyObjective(g) {
   const text = val(step.text, g)
   if (g.mode === 'docked' && !step.docked && g.story.step > 0) return { text: 'Launch with [launch]', mission: m.title }
   if (step.place && g.place !== step.place) return { text: `Transfer to ${PLACES[step.place].name}: [map], then [transfer]`, place: step.place, mission: m.title }
-  return { text, at: step.at?.(g) ?? null, ship: step.ship?.(g) ?? null, mission: m.title }
+  return { text, at: step.at?.(g) ?? null, ship: step.ship?.(g) ?? null, mission: m.title,
+    title: step.title, detail: step.detail, label: step.label ?? 'Objective', radius: step.radius,
+    lesson: m.id === 'arrival' ? g.story.step + 1 : null, lessons: m.id === 'arrival' ? m.steps.length : null }
 }

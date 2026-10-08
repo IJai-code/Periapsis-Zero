@@ -1,0 +1,100 @@
+import assert from 'node:assert/strict'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { launch, wait } from './lib/chrome.mjs'
+const url = process.env.PZ_URL ?? 'http://127.0.0.1:5175'
+const out = process.env.PZ_SHOTS ?? 'docs/3091-checks'
+mkdirSync(out, { recursive: true })
+const p = await launch({ width: 1280, height: 800 })
+const report = { date: new Date().toISOString(), environment: 'Headless Chrome with ANGLE Metal on macOS; timings are not a visible-device guarantee', checks: [], timings: {} }
+const click = async (label) => {
+  await p.evaluate(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim().startsWith(${JSON.stringify(label)}));if(!b)throw Error('Missing '+${JSON.stringify(label)}+': '+document.body.innerText);b.scrollIntoView({block:'center',behavior:'instant'})})()`)
+  await wait(500)
+  const point = await p.evaluate(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim().startsWith(${JSON.stringify(label)}));const r=b.getBoundingClientRect();if(!b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)))throw Error('Button is occluded: '+${JSON.stringify(label)});return {x:r.x+r.width/2,y:r.y+r.height/2}})()`)
+  await p.mouse('mousePressed', point.x, point.y, { clickCount: 1 }); await p.mouse('mouseReleased', point.x, point.y, { clickCount: 1 }); await wait(250)
+}
+const until = async (expression, seconds = 20) => {
+  for (let i = 0; i < seconds * 4; i++) { if (await p.evaluate(expression)) return; await wait(250) }
+  throw Error('Timed out: ' + expression)
+}
+const check = (name) => { report.checks.push(name); console.log('  ✓ ' + name) }
+const hold = async (code, key, n, ms) => { await p.send('Input.dispatchKeyEvent', { type: 'keyDown', code, key, windowsVirtualKeyCode: n }); await wait(ms); await p.send('Input.dispatchKeyEvent', { type: 'keyUp', code, key, windowsVirtualKeyCode: n }) }
+const shot = async (name) => writeFileSync(`${out}/${name}.png`, await p.shot())
+const sample = () => p.evaluate(`new Promise(resolve=>{const a=[];let prev=performance.now(),start=prev;function f(t){a.push(t-prev);prev=t;if(t-start<8000)requestAnimationFrame(f);else{a.sort((a,b)=>a-b);resolve({samples:a.length,p50:a[Math.floor(a.length*.5)],p95:a[Math.floor(a.length*.95)],p99:a[Math.floor(a.length*.99)],viewport:[innerWidth,innerHeight]})}}requestAnimationFrame(f)})`)
+try {
+  await p.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
+  await p.goto(url, 2000)
+  await p.evaluate("localStorage.setItem('pz-sky','off');localStorage.setItem('pz-game-quality','high')")
+  await click('New game'); await until("document.body.innerText.includes('Choose your suit')")
+  await click('Suit up'); await click('Watch the prologue'); await until("!!document.querySelector('.film-caption')")
+  assert.match(await p.evaluate("document.querySelector('.film-chapter').textContent"), /3091/)
+  await shot('prologue'); await click('Skip to mission'); await click('Board your Kestrel')
+  await until('!!window.__game && !!__pzRenderer', 30); await wait(1500); await p.key('Space', ' '); await wait(300)
+  assert.match(await p.evaluate("document.body.innerText"), /3091/)
+  report.timings.bay = await sample()
+  await click('Launch'); await until("__game.mode==='flight'")
+  assert.equal(await p.evaluate('__game.story.step'), 1)
+  await p.mouse('mousePressed', 640, 360); await p.mouse('mouseReleased', 640, 360); await wait(250)
+  await hold('KeyW', 'w', 87, 1500)
+  await until('__game.story.step===2'); await p.key('KeyX', 'x', 'x'); await until('__game.story.step===3')
+  check('Real Launch, W and X input advances separate thrust and braking lessons')
+  await shot('navigation')
+  const heading = await p.evaluate('__game.player.q.toArray()')
+  await hold('ArrowRight', 'ArrowRight', 39, 500)
+  assert.notDeepEqual(await p.evaluate('__game.player.q.toArray()'), heading, 'arrow fallback steers after mouse capture attempt')
+  const font = await p.evaluate("({instruction:parseFloat(getComputedStyle(document.querySelector('.hud-instruction')).fontSize),key:parseFloat(getComputedStyle(document.querySelector('.hud-instruction .gk')).fontSize)})")
+  assert.ok(font.instruction >= 20 && font.key >= 18, JSON.stringify(font))
+  // Position staging isolates the exact boundary; actual movement is exercised above and by campaign bots.
+  await p.evaluate("__game.player.pos.set(251,250,2200);__game.player.vel.set(0,0,0)"); await wait(300)
+  assert.equal(await p.evaluate('__game.story.step'), 3)
+  await p.evaluate("__game.player.pos.set(249,250,2200)"); await until('__game.story.step===4')
+  assert.match(await p.evaluate("document.querySelector('.hud-toasts').textContent"), /Checkpoint reached/)
+  check('Arrival boundary matches the 250 m HUD zone and produces visible confirmation')
+  await shot('checkpoint-reached')
+  report.timings.flight = await sample()
+  await p.key('KeyM', 'm', 'm'); await until("!!document.querySelector('.map-root')"); await wait(700)
+  const before = await p.evaluate('({time:__game.time,frame:__pzRenderer.info.render.frame})'); await wait(2000)
+  const after = await p.evaluate('({time:__game.time,frame:__pzRenderer.info.render.frame})')
+  assert.equal(after.time, before.time)
+  assert.ok(after.frame - before.frame <= 2, JSON.stringify({before, after}))
+  report.timings.mapIdle = { before, after }; check('Map stops physics and recurring 3D rendering')
+  await p.key('Escape', 'Escape'); await wait(300)
+  // An established pilot: verify the release into the open-world choice panel and school handoff.
+  await p.evaluate("(async()=>{const {newSave}=await import('/src/game/core/game.js');const s=newSave('Career round trip');s.credits=12345;s.story.active=null;s.story.done=['arrival'];localStorage.setItem('pz-game-v1',JSON.stringify(s))})()")
+  await p.evaluate('location.reload()'); await wait(4500); await until("!!document.querySelector('.st-next-actions')")
+  await shot('career-choices'); await click('Flight school: earn simulator licences')
+  await until("location.hash==='#sim' && [...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='career · 3091')", 40)
+  assert.equal(await p.evaluate("JSON.parse(localStorage.getItem('pz-game-v1')).credits"), 12345)
+  await click('career · 3091'); await until("!!document.querySelector('.st-next-actions') && window.__game?.pilot.name==='Career round trip'", 30)
+  assert.equal(await p.evaluate('__game.credits'), 12345)
+  check('Story, paid-work and flight-school choices are visible; school round trip preserves career')
+  await p.goto(`${url}/#land/moon`, 5000); await until("!!document.querySelector('.sv-modal')")
+  await click('Start'); await wait(1000); await click('❚❚'); await click('How to play')
+  assert.match(await p.evaluate("document.querySelector('.sv-modal').textContent"), /Releasing thrust with assist OFF means falling/)
+  assert.equal(await p.evaluate("document.querySelector('.sv-modal section').scrollTop"), 0, 'help starts at its first instruction')
+  await shot('surface-help'); await click('Start')
+  await until("!document.querySelector('.sv-modal')")
+  await hold('ShiftLeft', 'Shift', 16, 18000)
+  await until("window.__pzSurface?.mode==='rover'", 40)
+  await shot('rover')
+  const yaw0 = await p.evaluate('__pzSurface.rover.yaw')
+  await hold('KeyD', 'd', 68, 750)
+  assert.ok(await p.evaluate('__pzSurface.rover.yaw') > yaw0, 'D turns right')
+  await hold('KeyA', 'a', 65, 750)
+  assert.ok(Math.abs(await p.evaluate('__pzSurface.rover.yaw') - yaw0) < 0.05, 'A returns left')
+  await hold('KeyW', 'w', 87, 2000)
+  const direction = await p.evaluate(`(()=>{const r=__pzSurface.rover,n=Math.hypot(r.vx,r.vz);return {speed:n,alignment:(Math.sin(r.yaw)*r.vx-Math.cos(r.yaw)*r.vz)/n}})()`)
+  assert.ok(direction.speed > 1 && direction.alignment > .95, JSON.stringify(direction))
+  check('Actual A/D/W keyboard input turns the rover correctly and drives along its heading')
+  await p.key('Escape','Escape'); await click('How to play'); await click('Start')
+  await until("!document.querySelector('.sv-modal')")
+  check('Surface help reopens after simulation steps and dismisses normally; assisted touchdown renders rover')
+  report.errors = p.logs().filter(l => /^error/.test(l))
+  assert.deepEqual(report.errors, [])
+  writeFileSync(`${out}/results.json`, JSON.stringify(report, null, 2) + '\n')
+  console.log(JSON.stringify(report, null, 2))
+} catch (error) {
+  console.error(await p.evaluate('document.body.innerText'))
+  console.error(p.logs())
+  await shot('failure')
+  throw error
+} finally { p.close() }

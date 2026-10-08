@@ -163,6 +163,18 @@ body {
     }
   }
 
+  /**
+   * A finger is not a pointer. The floor AGENT.md sets for a touch target is
+   * added here, once, rather than at each of the hundred buttons the boards,
+   * the job lists and the flight lists build a row at a time: a control that
+   * is 8 px tall in a dense list is fine under a mouse and a miss under a
+   * thumb, and the miss is silent. Growth is bounded at 36 px and the strips
+   * these live in already scroll.
+   */
+  @media (pointer: coarse) {
+    min-height: 36px;
+  }
+
   &:active {
     transform: translate(1px, 2px) scale(0.98);
     box-shadow:

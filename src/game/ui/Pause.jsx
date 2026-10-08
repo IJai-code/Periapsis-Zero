@@ -3,7 +3,7 @@ import { soundSettings, setMusic, setSfx, setMuted } from '../audio.js'
 import { CONTROL_LIST } from './keys.jsx'
 
 /** Esc: resume, controls, settings, quit to the title. */
-export function Pause({ game: g, touch, help, quality, setQuality, controls, onResume, onQuit, onSky }) {
+export function Pause({ game: g, touch, help, quality, setQuality, controls, onResume, onQuit, onSky, onSchool }) {
   const [sky, setSky] = useState(() => { try { return localStorage.getItem('pz-sky') !== 'off' } catch { return true } })
   const [tab, setTab] = useState(help ? 'controls' : 'menu')
   const [snd, setSnd] = useState(soundSettings)
@@ -19,9 +19,10 @@ export function Pause({ game: g, touch, help, quality, setQuality, controls, onR
       {tab === 'menu' && <div className="gm-pause-menu">
         <button className="st-primary" onClick={onResume}>Resume</button>
         <button onClick={() => setTab('controls')}>How to play</button>
+        {!g.skirmish && <button onClick={onSchool}>Save career and enter flight school</button>}
         <button onClick={onQuit}>{g.skirmish ? 'Leave the skirmish' : 'Save and quit to title'}</button>
         <p className="st-empty">{g.skirmish ? (g.skirmish.net ? 'A squadron does not pause: the fight goes on while this menu is open.' : 'Paused. Your best wave on each battlefield is kept.') : 'The game saves itself whenever you dock and every minute in flight. Loading puts you back at your last station.'}</p>
-        {!g.skirmish && <p className="gm-pause-elsewhere">Also: <a href="#squadron" onClick={() => onQuit()}>Squadron</a>, waves of raiders with bots or friends · <a href="#sim" target="_blank" rel="noreferrer">the Simulator</a>, where pilot licences are earned</p>}
+        {!g.skirmish && <p className="gm-pause-elsewhere">Also: <a href="#squadron" onClick={() => onQuit()}>Squadron</a>, waves of raiders with bots or friends · flight school shares your licences and pays bonuses in this career</p>}
       </div>}
       {tab === 'controls' && <div className="gm-controls">
         <table><thead><tr><th /><th>{touch ? 'Touch' : 'Keyboard and mouse'}</th></tr></thead>

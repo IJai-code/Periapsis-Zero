@@ -654,7 +654,7 @@ function stepWalker(s, keys, dt, w, terrain) {
 function stepRover(s, keys, dt, w, terrain) {
   const r = s.rover, spec = s.roverSpec
   const throttle = (keys.forward ? 1 : 0) - (keys.back ? 1 : 0)
-  const steer = (keys.left ? 1 : 0) - (keys.right ? 1 : 0)
+  const steer = (keys.right ? 1 : 0) - (keys.left ? 1 : 0)
   const drive = r.battery > 0 ? throttle * spec.drive / spec.mass : 0
   r.yaw += steer * dt * 1.5 * Math.min(1, 0.25 + Math.abs(r.speed) / spec.maxSpeed)
   const slopeX = (terrain.height(r.x + 1, r.z) - terrain.height(r.x - 1, r.z)) / 2
@@ -662,6 +662,12 @@ function stepRover(s, keys, dt, w, terrain) {
   const fx = Math.sin(r.yaw) * drive - slopeX * w.gravity * spec.grip
   const fz = -Math.cos(r.yaw) * drive - slopeZ * w.gravity * spec.grip
   r.vx += fx * dt; r.vz += fz * dt
+  // Wheels oppose sideways slip with finite Coulomb traction, not an
+  // instantaneous velocity rotation. Low gravity really gives less grip.
+  const rightX = Math.cos(r.yaw), rightZ = Math.sin(r.yaw)
+  const slip = r.vx * rightX + r.vz * rightZ
+  const correction = clamp(slip, -w.gravity * spec.grip * dt, w.gravity * spec.grip * dt)
+  r.vx -= correction * rightX; r.vz -= correction * rightZ
   const speed = Math.hypot(r.vx, r.vz)
   if (speed > spec.maxSpeed) { r.vx *= spec.maxSpeed / speed; r.vz *= spec.maxSpeed / speed }
   const roll = Math.max(0, 1 - dt * (r.battery > 0 ? 0.55 : 3.4))

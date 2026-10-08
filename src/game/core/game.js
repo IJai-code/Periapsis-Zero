@@ -7,7 +7,7 @@ import { stepAI, hostile } from './ai.js'
 import { followNet } from '../net/puppet.js'
 import { addHeat, stepHeat, stepScans, inhibited, dockAllowed, clearHeat } from './heat.js'
 import { jobBoard, GOODS, FUEL_PER_KMS, REPAIR_PER_HP, buyPrice, sellPrice } from './economy.js'
-import { storyTick, storyEvent, storyObjective, storyFail, storyOnLoad } from './story.js'
+import { storyTick, storyEvent, storyObjective, storyFail, storyOnLoad, TUTORIAL_VERSION } from './story.js'
 
 /**
  * The game: one object holding everything, stepped at a fixed 60 Hz.
@@ -18,12 +18,14 @@ import { storyTick, storyEvent, storyObjective, storyFail, storyOnLoad } from '.
  * the way a safehouse works.
  */
 export const STEP = 1 / 60
-/** The game clock's zero: 06:00 UTC, 2 April 2091. */
-export const EPOCH = Date.UTC(2091, 3, 2, 6, 0)
+/** The game clock's zero: 06:00 UTC, 2 April 3091. */
+export const EPOCH = Date.UTC(3091, 3, 2, 6, 0)
 export const SAVE_KEY = 'pz-game-v1'
 export const MAX_JOBS = 3
 /** Where a docked ship sits: just outside its station's bay. */
 export const BERTH = 20
+export const DOCK_RADIUS = 350
+export const DOCK_SPEED = 70
 /** The docking and launch sequences, s: outside to the door, through it, the turntable; lift, then out. */
 export const DOCK_T = { approach: 2.6, inside: 2.8, turn: 1.6 }, LAUNCH_T = { lift: 1.1, out: 3.3 }
 
@@ -67,7 +69,7 @@ export function newSave(name, suit = 'hearth') {
     credits: 2500, debt: 40000,
     ship: { hull: 'kestrel', up: {}, hp: 1, prop: HULLS.kestrel.tank, cargo: {} },
     home: 'hearth', time: 0, heat: 0,
-    story: { active: 'arrival', step: 0, done: [], choice: null, offered: [] },
+    story: { active: 'arrival', tutorialVersion: TUTORIAL_VERSION, step: 0, done: [], choice: null, offered: [] },
     jobs: [], flags: {},
     stats: { kills: 0, earned: 0, jobs: 0, trips: 0, deaths: 0, fines: 0 },
   }
@@ -211,7 +213,7 @@ export function dockable(g) {
   const p = g.player
   for (const st of g.stations) {
     const d = p.pos.distanceTo(st.port.at)
-    if (d < 350 && p.vel.length() < 70) return st
+    if (d < DOCK_RADIUS && p.vel.length() < DOCK_SPEED) return st
   }
   return null
 }

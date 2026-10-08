@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -25,7 +25,14 @@ export default function GameScene({ game, controls, quality, placeKey, paused, o
   // chose it and the lessons that can change it; this is only where the
   // numbers reach the canvas.
   const cfg = tierOf(quality)
+  const [hidden, setHidden] = useState(() => document.hidden)
+  useEffect(() => {
+    const change = () => setHidden(document.hidden)
+    document.addEventListener('visibilitychange', change)
+    return () => document.removeEventListener('visibilitychange', change)
+  }, [])
   return <Canvas
+    frameloop={hidden || paused ? 'never' : 'always'}
     shadows={cfg.shadows ? 'soft' : false}
     dpr={cfg.dpr}
     gl={{ antialias: cfg.antialias, logarithmicDepthBuffer: true, powerPreference: cfg.power, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
@@ -63,7 +70,11 @@ function Loop({ game, controls, paused, onFrame, maxDpr, minDpr }) {
   // rather than crawling to the floor one rung every 1.5 s.
   const res = useRef({ ema: 1 / 60, at: 0, dpr: Math.min(maxDpr, window.devicePixelRatio || 1) })
   const rig = useRef({ pos: new THREE.Vector3(0, 30, 120), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), orbit: 0, init: false })
-  useEffect(() => { controls.current.canvas = gl.domElement; gl.domElement.tabIndex = -1 }, [gl, controls])
+  useEffect(() => {
+    controls.current.canvas = gl.domElement; gl.domElement.tabIndex = -1
+    if (import.meta.env.DEV) window.__pzRenderer = gl
+    return () => { if (import.meta.env.DEV && window.__pzRenderer === gl) delete window.__pzRenderer }
+  }, [gl, controls])
   // A tier change moves the ceiling: take the new one at once instead of
   // climbing down to it a tenth of a pixel per second and a half.
   useEffect(() => {

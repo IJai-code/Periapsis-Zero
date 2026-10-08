@@ -1,0 +1,450 @@
+{
+  "kind": "Scripted full-branch browser play; numerical flight commands, not manual keyboard play",
+  "branches": {
+    "chen": {
+      "done": [
+        "arrival",
+        "honest-work",
+        "scrap",
+        "friend",
+        "down-low",
+        "chen",
+        "raid",
+        "periapsis",
+        "new-money",
+        "ghost-signal",
+        "loop",
+        "apoapsis"
+      ],
+      "choice": "chen",
+      "debt": 0,
+      "hours": 61.90634942711196,
+      "trips": 26,
+      "kills": 39,
+      "retries": 5,
+      "missions": [
+        {
+          "id": "arrival",
+          "done": [
+            "arrival"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 4000,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n02 Apr 3091 · 06:01\n₡ 4,000\nOwed to Rook: ₡ 40,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Honest Work\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nMV\nMARA VOSS · DOCKMASTER, HEARTH STATION\nHonest Work\n\nA sealed case for Harbor. Your first transfer.\n\n₡ 4,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nY▍\n\n1 more\nMISSION PASSED\n\nARRIVAL\n\n+₡ 1,500"
+        },
+        {
+          "id": "honest-work",
+          "done": [
+            "arrival",
+            "honest-work"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 7235,
+          "place": "harbor",
+          "ui": "LUNAR COMPACT · 420 KM ABOVE EARTH\nHARBOR\n02 Apr 3091 · 11:51\n₡ 7,235\nOwed to Rook: ₡ 40,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nMV\nScrap · Mara Voss at Hearth Station\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nC▍\n\n1 more"
+        },
+        {
+          "id": "scrap",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 14645,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n02 Apr 3091 · 19:48\n₡ 14,645\nOwed to Rook: ₡ 40,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nR\nA Friend of a Friend · Rook at The Shackle\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nN▍\n\n1 more\nMISSION PASSED\n\nSCRAP\n\n+₡ 6,000"
+        },
+        {
+          "id": "friend",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 13672,
+          "place": "drift",
+          "ui": "NO FLAG · 2,400 KM FROM HEARTH\nTHE SHACKLE\n03 Apr 3091 · 04:31\n₡ 13,672\nOwed to Rook: ₡ 30,000\nContacts\nJob board\nMarket\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Down Low\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nR\nROOK · FIXER, THE SHACKLE\nDown Low\n\nA survey core lost at Shackleton. Land and get it.\n\n₡ 8,000 · ₡ 5,000 off your debt\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nR\nRook\nFIXER, THE SHACKLE\n\nT▍"
+        },
+        {
+          "id": "down-low",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 22092,
+          "place": "drift",
+          "ui": "NO FLAG · 2,400 KM FROM HEARTH\nTHE SHACKLE\n03 Apr 3091 · 10:26\n₡ 22,092\nOwed to Rook: ₡ 25,000\nContacts\nJob board\nMarket\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nCE\nChen · Cmdr. Elias Chen at Hearth Station\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nR\nRook\nFIXER, THE SHACKLE\n\nB▍\n\n1 more\nMISSION PASSED\n\nDOWN LOW\n\n+₡ 8,000 ₡ 5,000 off your debt"
+        },
+        {
+          "id": "chen",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen"
+          ],
+          "choice": "chen",
+          "mode": "docked",
+          "credits": 6026,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n03 Apr 3091 · 10:57\n₡ 6,026\nOwed to Rook: ₡ 25,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: The Raid\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nCE\nCMDR. ELIAS CHEN · LUNAR COMPACT PATROL\nThe Raid\n\nHit the Hollow in the Drift with Chen's wing.\n\n₡ 15,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nCE\nCmdr. Elias Chen\nLUNAR COMPACT PATROL\n\nElias Chen, Lunar Compact. Sit down▍\n\n4 more"
+        },
+        {
+          "id": "raid",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "raid"
+          ],
+          "choice": "chen",
+          "mode": "flight",
+          "credits": 25901,
+          "place": "drift",
+          "ui": "Compact wingman · 690 m\nTHE DRIFT\n\n2,400 km from Hearth · 03 Apr 3091 · 11:59\n\nOpen the map to pick a destination, or dock and take a job.\n\n₡ 25,901\nDebt ₡ 25,000\nCONTACTS\nThe Shackle\n3.8 km\nThe Warden\n4.3 km\nCompact wingman\n290 m\nCompact wingman\n649 m\nCmdr. Chen\n1.2 km\nHelios water tanker\n3.3 km\nHelios water tanker\n8.4 km\nTycho ore barge\n10.4 km\nSHIELD\nHULL\nBrake distance ≈ 1.7 km\n219\nm/s\nASSIST\nBOOST\nPROPELLANT\n\n+₡ 720 · bounty\n\n✓ Objective complete\n\nM\nMap\nTab\nJobs\nH\nControls\nEsc\nMenu\nCE\nCmdr. Elias Chen\nLUNAR COMPACT PATROL\n\nHe ran. Toward the Moon, by his vector. He has a bolt-▍\n\n1 more\nMISSION PASSED\n\nTHE RAID\n\n+₡ 15,000\n\nClick the view to take the stick"
+        },
+        {
+          "id": "periapsis",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "raid",
+            "periapsis"
+          ],
+          "choice": "chen",
+          "mode": "flight",
+          "credits": 67929,
+          "place": "shackleton",
+          "ui": "Cmdr. Chen · 953 m\nCompact wingman · 854 m\nSHACKLETON\n\n60 km over the lunar south pole · 03 Apr 3091 · 15:00\n\nOpen the map to pick a destination, or dock and take a job.\n\n₡ 67,929\nCONTACTS\nCompact wingman\n821 m\nCmdr. Chen\n914 m\nCompact wingman\n919 m\nCompact cutter\n1.2 km\nSHIELD\nHULL\nBrake distance ≈ 2.0 km\n238\nm/s\nASSIST\nDRIFT\nBOOST\nPROPELLANT\nM\nMap\nTab\nJobs\nH\nControls\nEsc\nMenu\nClick the view to take the stick"
+        },
+        {
+          "id": "new-money",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "raid",
+            "periapsis",
+            "new-money"
+          ],
+          "choice": "chen",
+          "mode": "docked",
+          "credits": 16936,
+          "place": "harbor",
+          "ui": "LUNAR COMPACT · 420 KM ABOVE EARTH\nHARBOR\n03 Apr 3091 · 23:22\n₡ 16,936\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Ghost Signal\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nIO\nINES OKAFOR · FACTOR, THE CERES LINE\nGhost Signal\n\nA Ceres tug went silent in the Drift. Okafor wants its recorder.\n\n₡ 6,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nIO\nInes Okafor\nFACTOR, THE CERES LINE\n\nP▍\n\n1 more\nMISSION PASSED\n\nNEW MONEY\n\n+₡ 12,000"
+        },
+        {
+          "id": "ghost-signal",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "raid",
+            "periapsis",
+            "new-money",
+            "ghost-signal"
+          ],
+          "choice": "chen",
+          "mode": "docked",
+          "credits": 24264,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n04 Apr 3091 · 05:44\n₡ 24,264\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: The Loop\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nCE\nCMDR. ELIAS CHEN · LUNAR COMPACT PATROL\nThe Loop\n\nGet close to Okafor's yacht at Harbor. The way in is a race.\n\n₡ 10,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nT▍\n\n2 more"
+        },
+        {
+          "id": "loop",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "raid",
+            "periapsis",
+            "new-money",
+            "ghost-signal",
+            "loop"
+          ],
+          "choice": "chen",
+          "mode": "docked",
+          "credits": 32735,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n04 Apr 3091 · 17:26\n₡ 32,735\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Apoapsis\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nCE\nCMDR. ELIAS CHEN · LUNAR COMPACT PATROL\nApoapsis\n\nThe Ceres Line is going for Gateway. Meet them there.\n\n₡ 40,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nT▍\n\n1 more\nMISSION PASSED\n\nTHE LOOP\n\n+₡ 10,000"
+        },
+        {
+          "id": "apoapsis",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "raid",
+            "periapsis",
+            "new-money",
+            "ghost-signal",
+            "loop",
+            "apoapsis"
+          ],
+          "choice": "chen",
+          "mode": "docked",
+          "credits": 86017,
+          "place": "gateway",
+          "ui": "LUNAR COMPACT · LUNAR HALO ORBIT\nGATEWAY\n04 Apr 3091 · 19:54\n₡ 86,017\nContacts\nJob board\nMarket\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nThe story is complete. The lanes are yours; the job board never closes.\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nCE\nCmdr. Elias Chen\nLUNAR COMPACT PATROL\n\nT▍\n\n2 more"
+        }
+      ]
+    },
+    "rook": {
+      "done": [
+        "arrival",
+        "honest-work",
+        "scrap",
+        "friend",
+        "down-low",
+        "chen",
+        "convoy",
+        "periapsis",
+        "new-money",
+        "ghost-signal",
+        "loop",
+        "apoapsis"
+      ],
+      "choice": "rook",
+      "debt": 0,
+      "hours": 69.65320894449435,
+      "trips": 24,
+      "kills": 38,
+      "retries": 2,
+      "missions": [
+        {
+          "id": "arrival",
+          "done": [
+            "arrival"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 4000,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n02 Apr 3091 · 06:01\n₡ 4,000\nOwed to Rook: ₡ 40,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Honest Work\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nMV\nMARA VOSS · DOCKMASTER, HEARTH STATION\nHonest Work\n\nA sealed case for Harbor. Your first transfer.\n\n₡ 4,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nY▍\n\n1 more"
+        },
+        {
+          "id": "honest-work",
+          "done": [
+            "arrival",
+            "honest-work"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 7237,
+          "place": "harbor",
+          "ui": "LUNAR COMPACT · 420 KM ABOVE EARTH\nHARBOR\n02 Apr 3091 · 11:51\n₡ 7,237\nOwed to Rook: ₡ 40,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nMV\nScrap · Mara Voss at Hearth Station\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nC▍\n\n1 more\nMISSION PASSED\n\nHONEST WORK\n\n+₡ 4,000"
+        },
+        {
+          "id": "scrap",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 13241,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n02 Apr 3091 · 18:45\n₡ 13,241\nOwed to Rook: ₡ 40,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nR\nA Friend of a Friend · Rook at The Shackle\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nN▍\n\n1 more"
+        },
+        {
+          "id": "friend",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 16149,
+          "place": "drift",
+          "ui": "NO FLAG · 2,400 KM FROM HEARTH\nTHE SHACKLE\n03 Apr 3091 · 00:32\n₡ 16,149\nOwed to Rook: ₡ 30,000\nContacts\nJob board\nMarket\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Down Low\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nR\nROOK · FIXER, THE SHACKLE\nDown Low\n\nA survey core lost at Shackleton. Land and get it.\n\n₡ 8,000 · ₡ 5,000 off your debt\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nR\nRook\nFIXER, THE SHACKLE\n\nT▍\n\nMISSION PASSED\n\nA FRIEND OF A FRIEND\n\n+₡ 2,000 ₡ 10,000 off your debt"
+        },
+        {
+          "id": "down-low",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low"
+          ],
+          "choice": null,
+          "mode": "docked",
+          "credits": 23507,
+          "place": "drift",
+          "ui": "NO FLAG · 2,400 KM FROM HEARTH\nTHE SHACKLE\n03 Apr 3091 · 06:27\n₡ 23,507\nOwed to Rook: ₡ 25,000\nContacts\nJob board\nMarket\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nCE\nChen · Cmdr. Elias Chen at Hearth Station\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nR\nRook\nFIXER, THE SHACKLE\n\nB▍\n\n1 more"
+        },
+        {
+          "id": "chen",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen"
+          ],
+          "choice": "rook",
+          "mode": "docked",
+          "credits": 8881,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n03 Apr 3091 · 06:58\n₡ 8,881\nOwed to Rook: ₡ 25,000\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nWAITING ELSEWHERE\n\nR\nThe Convoy · Rook at The Shackle\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nCE\nCmdr. Elias Chen\nLUNAR COMPACT PATROL\n\nElias Chen, Lunar Compact. Sit down▍\n\n5 more\nMISSION PASSED\n\nCHEN"
+        },
+        {
+          "id": "convoy",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "convoy"
+          ],
+          "choice": "rook",
+          "mode": "docked",
+          "credits": 16123,
+          "place": "drift",
+          "ui": "NO FLAG · 2,400 KM FROM HEARTH\nTHE SHACKLE\n03 Apr 3091 · 08:35\n₡ 16,123\nOwed to Rook: ₡ 10,000\nContacts\nJob board\nMarket\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Periapsis\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nR\nROOK · FIXER, THE SHACKLE\nPeriapsis\n\nThe Warden. The Moon. The lowest point.\n\n₡ 30,000 · your debt cleared\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nR\nRook\nFIXER, THE SHACKLE\n\nF▍\n\n1 more"
+        },
+        {
+          "id": "periapsis",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "convoy",
+            "periapsis"
+          ],
+          "choice": "rook",
+          "mode": "flight",
+          "credits": 59003,
+          "place": "shackleton",
+          "ui": "Compact cutter · 358 m\nCmdr. Chen · 264 m\nCompact wingman · 188 m\nSHACKLETON\n\n60 km over the lunar south pole · 03 Apr 3091 · 11:02\n\nOpen the map to pick a destination, or dock and take a job.\n\n₡ 59,003\nCONTACTS\nCompact wingman\n182 m\nCmdr. Chen\n253 m\nCompact cutter\n337 m\nSHIELD\nHULL\nBrake distance ≈ 64 m\n43\nm/s\nASSIST\nBOOST\nPROPELLANT\n\n+₡ 10,000 · bounty\n\n✓ Objective complete\n\nM\nMap\nTab\nJobs\nH\nControls\nEsc\nMenu\nCE\nCmdr. Elias Chen\nLUNAR COMPACT PATROL\n\nThat is the Warden done. And Rook, I think, is about t▍\n\n1 more\nACT ONE COMPLETE\n\nPERIAPSIS\n\n+₡ 30,000 Debt cleared\n\nAct One complete. The Hollow are broken and the debt is gone. Mara has news at Hearth: Act Two, Apoapsis, begins there.\n\nClick the view to take the stick"
+        },
+        {
+          "id": "new-money",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "convoy",
+            "periapsis",
+            "new-money"
+          ],
+          "choice": "rook",
+          "mode": "docked",
+          "credits": 32358,
+          "place": "harbor",
+          "ui": "LUNAR COMPACT · 420 KM ABOVE EARTH\nHARBOR\n04 Apr 3091 · 07:07\n₡ 32,358\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Ghost Signal\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nIO\nINES OKAFOR · FACTOR, THE CERES LINE\nGhost Signal\n\nA Ceres tug went silent in the Drift. Okafor wants its recorder.\n\n₡ 6,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nIO\nInes Okafor\nFACTOR, THE CERES LINE\n\nP▍\n\n1 more"
+        },
+        {
+          "id": "ghost-signal",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "convoy",
+            "periapsis",
+            "new-money",
+            "ghost-signal"
+          ],
+          "choice": "rook",
+          "mode": "docked",
+          "credits": 39685,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n04 Apr 3091 · 13:28\n₡ 39,685\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: The Loop\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nCE\nCMDR. ELIAS CHEN · LUNAR COMPACT PATROL\nThe Loop\n\nGet close to Okafor's yacht at Harbor. The way in is a race.\n\n₡ 10,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nT▍\n\n2 more\nMISSION PASSED\n\nGHOST SIGNAL\n\n+₡ 6,000"
+        },
+        {
+          "id": "loop",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "convoy",
+            "periapsis",
+            "new-money",
+            "ghost-signal",
+            "loop"
+          ],
+          "choice": "rook",
+          "mode": "docked",
+          "credits": 48157,
+          "place": "hearth",
+          "ui": "FREE PORT · EARTH-MOON L1\nHEARTH STATION\n05 Apr 3091 · 01:11\n₡ 48,157\nContacts\nJob board\nMarket\nShipyard\nOutfitting\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nContinue the story: Apoapsis\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\nCE\nCMDR. ELIAS CHEN · LUNAR COMPACT PATROL\nApoapsis\n\nThe Ceres Line is going for Gateway. Meet them there.\n\n₡ 40,000\n\nTake the mission\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nMV\nMara Voss\nDOCKMASTER, HEARTH STATION\n\nT▍\n\n1 more"
+        },
+        {
+          "id": "apoapsis",
+          "done": [
+            "arrival",
+            "honest-work",
+            "scrap",
+            "friend",
+            "down-low",
+            "chen",
+            "convoy",
+            "periapsis",
+            "new-money",
+            "ghost-signal",
+            "loop",
+            "apoapsis"
+          ],
+          "choice": "rook",
+          "mode": "docked",
+          "credits": 101440,
+          "place": "gateway",
+          "ui": "LUNAR COMPACT · LUNAR HALO ORBIT\nGATEWAY\n05 Apr 3091 · 03:39\n₡ 101,440\nContacts\nJob board\nMarket\nServices\nPilot\nMap\nMenu\nFLIGHT CLEARANCE GRANTED · 3091\nYour next move is yours.\n\nEarn credits, upgrade your ship, explore the lanes, or follow the Aster investigation. Story contracts are optional after training.\n\nMake a living: open the job board\nFlight school: earn simulator licences\nFlight school saves this career. Return here through the simulator’s Career button.\n\nNobody here has story work for you right now.\n\nThe story is complete. The lanes are yours; the job board never closes.\n\nKestrel\nHull 100% · Prop 100% · Hold 0/8\nLAUNCH\nENTER\nCE\nCmdr. Elias Chen\nLUNAR COMPACT PATROL\n\nT▍\n\n2 more\nTHE STORY IS COMPLETE\n\nAPOAPSIS\n\n+₡ 40,000\n\nThe story is complete. The Hollow are gone, the Ceres Line is finished, and you owe nobody anything. The lanes, the job board, the market and every station are yours."
+        }
+      ]
+    }
+  },
+  "errors": []
+}

@@ -341,7 +341,7 @@ export function SearchBar({ compact = false }) {
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setQuery('')}
             aria-label="Clear"
-            className="control grid h-7 w-7 place-items-center text-white/40 hover:text-ember"
+            className="control grid h-9 w-9 shrink-0 place-items-center text-white/40 hover:text-ember"
           >
             ×
           </button>

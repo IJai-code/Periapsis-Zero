@@ -69,6 +69,8 @@ check('simple controls request flight only while W is held; assist-off release c
   c.mouse.fallback = true; c.mouse.down = true; c.mouse.dx = 20
   resolveInput(c, ship, cam, true); assert.equal(c.aiming, true); assert.equal(c.fire, false)
   c.keys.add('KeyK'); resolveInput(c, ship, cam, true); assert.equal(c.fire, true)
+  c.keys.add('ArrowRight'); resolveInput(c, ship, cam, true)
+  assert.equal(c.aiming, false); assert.equal(c.aim, null); assert.equal(c.yaw, -1, 'arrow steering works after pointer capture or fallback')
 })
 check('manual coasting preserves high-speed momentum after boost ends; braking spends finite acceleration', () => {
   const s = playerShip('kestrel', {}); s.ctrl.fa = false; s.vel.set(400, -80, -1500)

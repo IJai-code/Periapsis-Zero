@@ -59,7 +59,7 @@ export function Hotbar() {
             key={s.id}
             onClick={() => setUi({ focus: s.id })}
             title={`${s.title ?? s.name} · key ${s.key}`}
-            className={`control flex h-8 shrink-0 items-baseline gap-1.5 rounded-sm px-2.5 outline-none focus-visible:text-ember ${on ? 'lit text-ember' : 'text-hud/50 hover:text-ember'}`}
+            className={`control flex h-9 shrink-0 items-baseline gap-1.5 rounded-sm px-2.5 outline-none focus-visible:text-ember ${on ? 'lit text-ember' : 'text-hud/50 hover:text-ember'}`}
           >
             <span className="font-mono text-[8px] text-white/30">{s.key}</span>
             <span className="text-[9px] tracking-[0.2em] uppercase">{s.name}</span>

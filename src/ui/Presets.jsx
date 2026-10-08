@@ -30,12 +30,14 @@ export function Presets() {
         {PRESETS.map((preset) => {
           const on = preset.id === active
           return (
+            /* Two lines of 11 px and 9 px are 27 px: a fine row for a mouse,
+               a miss for a thumb. The floor is set on the row itself. */
             <a
               key={preset.id}
               href={presetHref(preset)}
               onClick={(event) => open(event, preset)}
               aria-current={on ? 'true' : undefined}
-              className={`block w-full rounded-[2px] px-1.5 py-1 text-left transition-colors ${
+              className={`flex min-h-9 w-full flex-col justify-center rounded-[2px] px-1.5 py-1 text-left transition-colors ${
                 on ? 'bg-hud/12' : 'hover:bg-white/5'
               }`}
             >
@@ -47,13 +49,13 @@ export function Presets() {
       </div>
       <button
         onClick={() => setLibrary(true)}
-        className="control mt-2 w-full border-t border-white/8 pt-2 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
+        className="control mt-2 inline-flex min-h-9 w-full items-center border-t border-white/8 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
       >
         Open the mission library →
       </button>
       <button
         onClick={() => setPlanner(true)}
-        className="control w-full pt-1.5 text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
+        className="control inline-flex min-h-9 w-full items-center text-left text-[9px] tracking-[0.18em] text-white/45 uppercase transition-colors hover:text-ember"
       >
         Plan your own flight →
       </button>

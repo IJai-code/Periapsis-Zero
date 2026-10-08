@@ -1,7 +1,11 @@
-.mode-loading, .simulator-loading { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; background: #120b22; color: #f4e8cf; z-index: 105; }
-.simulator-loading h1 { font-family: var(--font-sans); font-size: 30px; font-weight: 500; }
-.simulator-loading p { font-size: 12px; color: #ff6b2c; }
-.simulator-loading progress { width: min(320px, 80vw); accent-color: #ff6b2c; }
+/* The screen that stands between a visitor and the sky, so it has to hold its
+   own at 360 px as well as at 1600: padded, centred, and never wider than the
+   window (the heading used to run to the very edge and clip on a small phone). */
+.mode-loading, .simulator-loading { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 24px; text-align: center; background: #120b22; color: #f4e8cf; z-index: 105; }
+.mode-loading { font-family: var(--font-display); font-size: clamp(18px, 5vw, 26px); letter-spacing: .16em; text-transform: uppercase; }
+.simulator-loading h1 { margin: 0; max-width: 22ch; font-family: var(--font-sans); font-size: clamp(21px, 6.4vw, 30px); font-weight: 500; line-height: 1.15; }
+.simulator-loading p { margin: 0; font-size: 12px; color: #ff6b2c; }
+.simulator-loading progress { width: min(320px, 76vw); accent-color: #ff6b2c; }
 .sim-mode-menu { pointer-events: auto; position: fixed; inset: 0; z-index: 70; background: #120b22ed; display: grid; place-items: center; padding: 24px; }
 .sim-mode-menu section { width: min(390px, 100%); display: flex; flex-direction: column; gap: 12px; }
 .sim-mode-menu h2 { font-family: var(--font-sans); font-size: 40px; margin: 8px 0 24px; }
