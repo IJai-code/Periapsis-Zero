@@ -57,6 +57,7 @@ function Objective({ g, touch }) {
   return <div className="hud-objective">
     {o.mission && <span className="hud-mission">{o.lesson ? `Flight clearance · ${o.lesson} / ${o.lessons}` : o.mission}</span>}
     {o.title && <h2>{o.title}</h2>}
+    {o.lesson && <div className="hud-lesson-track" aria-label={`Flight check ${o.lesson} of ${o.lessons}`}>{Array.from({ length: o.lessons }, (_, i) => <i key={i} className={i + 1 < o.lesson ? 'done' : i + 1 === o.lesson ? 'current' : ''} />)}</div>}
     <p className={o.lesson ? 'hud-instruction' : ''}><Hint text={o.text} touch={touch} /></p>
     {o.detail && <p className="hud-detail">{touch ? o.detail.replace('Click the view to steer, or use arrow keys. ', '').replace('X also clears an advanced latched throttle. ', '').replace('Drag-to-steer fallback: K fires.', '') : o.detail}</p>}
     {o.at && <Navigation g={g} o={o} touch={touch} />}
@@ -103,7 +104,7 @@ function Cluster({ g, p }) {
     <div className="hud-bars left">
       <Bar label="Shield" v={p.shield / s.shield} cls="ion" />
       <Bar label="Hull" v={p.hull / s.hull} cls={p.hull / s.hull < 0.3 ? 'warn' : 'bone'} />
-      <span className="hud-stop">Brake distance ≈ {fmt(speed * speed / (2 * s.accel * 0.6))}</span>
+      <span className="hud-stop">Stopping distance ≈ {fmt(speed * speed / (2 * s.accel * 0.6))}</span>
     </div>
     <div className="hud-speed">
       <svg viewBox="0 0 120 120" aria-hidden>

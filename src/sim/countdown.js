@@ -133,9 +133,20 @@ export function steamLevel(T, throttle) {
  * so the call sites stay one line.
  */
 export function padLevels(out, T, throttle) {
-  out[0] = ventLevel(T)
-  out[1] = delugeLevel(T) * (1 - ignitionThrottle(T))
-  out[2] = steamLevel(T, throttle)
+  // Keep doubles inside this frame-path function even before V8 inlines
+  // the exported helpers (Linux CI observed boxed return values).
+  const vent = (EVENTS.ventEnd - T) / 2
+  out[0] = (vent > 0 ? (vent < 1 ? vent : 1) : 0) * (T >= EVENTS.ventStart ? 1 : 0)
+  const on0 = (T - EVENTS.deluge) / 2
+  const on = on0 > 0 ? (on0 < 1 ? on0 : 1) : 0
+  const off0 = (T - 15) / 10
+  const off = off0 > 0 ? (off0 < 1 ? off0 : 1) : 0
+  const water = on * on * (3 - 2 * on) * (1 - off * off * (3 - 2 * off))
+  const ignition0 = (T - EVENTS.ignition) / EVENTS.spinUp
+  const ignition = ignition0 > 0 ? (ignition0 < 1 ? ignition0 : 1) : 0
+  out[1] = water * (1 - ignition * ignition * (3 - 2 * ignition))
+  const steam = throttle * 1.25
+  out[2] = water * (steam > 0 ? (steam < 1 ? steam : 1) : 0)
   return out
 }
 

@@ -1,211 +1,89 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AccountButton } from './Account.jsx'
 import { Mark } from './Mark.jsx'
 import { logbookLine } from '../sim/logbook.js'
 import { LICENCES, earnedLicences } from '../game/core/pilot.js'
-import { realtimeConfig } from '../sim/account.js'
 import './title.css'
 
-/**
- * The front page. Plain React and pictures, so it paints at once on
- * anything; the game, the squadron and the simulator are separate
- * downloads behind their buttons.
- *
- * Its argument, top to bottom: a game in the real Earth-Moon system; three
- * ways to fly (the story, a squadron, the simulator); one career across
- * them (licences earned in the simulator count in the game); and the
- * simulator itself, which is still being built.
- */
 export const FEEDBACK_URL = 'https://github.com/IJai-code/Periapsis-Zero/issues/new?template=feedback.md'
 const BASE = import.meta.env.BASE_URL
-const SAVE_KEY = 'pz-game-v1'
-
 function readSave() {
-  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null'); return s && s.version === 1 && s.pilot ? s : null } catch { return null }
+  try { const s = JSON.parse(localStorage.getItem('pz-game-v1') ?? 'null'); return s?.version === 1 && s.pilot ? s : null } catch { return null }
 }
-/** A phone: too small to fly and read a job board at once. Tablets and computers play. */
-function phone() {
-  const coarse = window.matchMedia?.('(pointer: coarse)').matches
-  return Boolean(coarse && Math.min(window.screen?.width ?? 1e4, window.screen?.height ?? 1e4) < 600)
-}
-
-const FEATURES = [
-  { img: 'shot-story.webp', title: 'People, not quest givers', text: 'Mara runs the docks. Rook holds your debt. Commander Chen knows what you did at Gateway. Then the Ceres Line arrives. Two acts, thirteen missions, one choice that splits them.' },
-  { img: 'shot-flight.webp', title: 'Flown, not driven', text: 'Six-axis thrusters and momentum you have to kill. Barrel-roll out of a burst. Turn flight assist off and it is you and Newton.' },
-  { img: 'shot-heat.webp', title: 'Wanted', text: 'Carry the wrong cargo past a patrol scan and the Lunar Compact comes for you. Break their sight, run cold, or run for the Shackle.' },
-  { img: 'shot-transfer.webp', title: 'The real Earth and Moon', text: 'Hearth at L1, Harbor in low orbit, Gateway over the lunar pole. Every trip is a true torch-drive transfer: burn, flip at the midpoint, brake.' },
+function phone() { return Boolean(window.matchMedia?.('(pointer: coarse)').matches && Math.min(window.screen.width, window.screen.height) < 600) }
+const TRAINING = [
+  { id: 'orbit', title: '01 / Make orbit', text: 'Watch the launch sequence, follow the flight computer and reach a stable Earth orbit.', preset: 'apollo8-launch', vessel: 'apollo8', site: 'ksc', image: 'game/shot-transfer.webp', tag: 'Start here · Earth', action: 'Start orbital training' },
+  { id: 'lunar', title: '02 / Cross to the Moon', text: 'Join Apollo 8 at trans-lunar ignition. Follow the burn and learn why the departure window matters.', preset: 'apollo8-tli', vessel: 'apollo8', site: 'ksc', image: 'game/shot-flight.webp', tag: 'Burn planning · Apollo 8', action: 'Start translunar training' },
+  { id: 'rendezvous', title: '03 / Meet another craft', text: 'Eagle brakes toward Columbia. Follow the closing speed and docking sequence above the Moon.', preset: 'apollo11-docking', vessel: 'apollo11', site: 'tranquility', image: 'game/shot-hangar.webp', tag: 'Precision flight · Apollo 11', action: 'Start rendezvous training' },
+  { id: 'lander', title: '04 / Leave the surface', text: 'Lift off from Tranquility Base, reach lunar orbit and meet the command module.', preset: 'apollo11-liftoff', vessel: 'apollo11', site: 'tranquility', image: 'stills/world-moon.webp', tag: 'Lunar ascent · Apollo 11', action: 'Start lunar ascent training' },
+  { id: 'splashdown', title: '05 / Bring them home', text: 'Join the crew before re-entry. Follow the corridor, parachutes and Pacific splashdown.', preset: 'apollo8-reentry', vessel: 'apollo8', site: 'ksc', image: 'game/shot-story.webp', tag: 'Atmospheric entry · Apollo 8', action: 'Start homecoming training' },
 ]
 const WORLDS = ['moon', 'mars', 'europa', 'titan', 'io', 'mercury', 'venus', 'ganymede', 'callisto', 'phobos', 'deimos', 'pluto', 'halley']
-const NAMES = { moon: 'The Moon', halley: "Halley's Comet" }
-const SIM_NEWS = [
-  ['Thirteen worlds to land on', 'From the Moon and Mars to Titan\'s lakes and the nucleus of Halley\'s Comet, each with its own ground.'],
-  ['Apollo and Artemis, flown on real orbits', 'Launch, trans-lunar injection, the far side, and home, with the real burns.'],
-  ['The Gateway\'s halo orbit', 'The near-rectilinear halo the Gateway flies, kept by hand.'],
-  ['Flight school', 'Four wings, from Trainee (the computer flies) to Kármán (you fly, on 84% of the fuel).'],
-]
+const worldName = (id) => id === 'moon' ? 'The Moon' : id === 'halley' ? "Halley's Comet" : id[0].toUpperCase() + id.slice(1)
 
-export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand }) {
+export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training = false }) {
   const save = useMemo(readSave, [])
-  const isPhone = useMemo(phone, [])
-  const [confirmNew, setConfirmNew] = useState(false)
-  const [flown] = useState(() => logbookLine())
   const earned = useMemo(() => earnedLicences(), [])
-  const root = useRef(null)
-  // The front door is ready on React's first paint, not a 2.5-second timer.
-  // Leaving the splash on top makes a visible New game button ignore clicks.
+  const isPhone = useMemo(phone, [])
+  const flown = useMemo(() => logbookLine(), [])
+  const [tab, setTab] = useState(training ? 'training' : 'career')
+  const [confirm, setConfirm] = useState(false)
   useEffect(() => {
     const boot = document.getElementById('boot')
-    if (!boot) return
-    boot.classList.add('boot-done')
-    const timer = setTimeout(() => boot.remove(), 700)
+    boot?.classList.add('boot-done')
+    const timer = setTimeout(() => boot?.remove(), 700)
     return () => clearTimeout(timer)
   }, [])
-  // Sections ease in as they scroll into view; once each.
-  useEffect(() => {
-    const els = root.current?.querySelectorAll('.tt-reveal') ?? []
-    if (!('IntersectionObserver' in window)) { els.forEach((e) => e.classList.add('in')); return }
-    const io = new IntersectionObserver((list) => list.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('in'); io.unobserve(x.target) } }), { threshold: 0.12 })
-    els.forEach((e) => io.observe(e))
-    return () => io.disconnect()
-  }, [])
-  // How many pilots are in the shared sky right now: presence on one room,
-  // read without joining it as a pilot. Opened after the page has painted.
-  const [flying, setFlying] = useState(null)
-  useEffect(() => {
-    const cfg = realtimeConfig()
-    if (!cfg) return
-    let room = null
-    const t = setTimeout(() => import('../game/net/realtime.js').then(({ connectRoom }) => {
-      room = connectRoom({ url: cfg.url, key: cfg.key, room: 'pz-online', id: `v${Math.random().toString(36).slice(2, 9)}`, track: false })
-      room.onPresence = (r) => setFlying(r.size)
-    }).catch(() => {}), 1200)
-    return () => { clearTimeout(t); room?.close() }
-  }, [])
-  const land = (id) => (onLand ? onLand(id) : (window.location.hash = `#land/${id}`))
-  return <main className="tt-root" ref={root}>
-    <div className="tt-art" style={{ backgroundImage: `url(${BASE}game/keyart.webp)` }} />
+  const next = TRAINING.find((t) => !earned.has(t.id)) ?? TRAINING[0]
+  const newGame = () => save && !confirm ? setConfirm(true) : onNew()
+  return <main className="tt-root">
     <header className="tt-bar">
-      <div className="tt-brand"><Mark size={22} /><span>PERIAPSIS ZERO</span></div>
-      <nav>
-        <button onClick={onSquadron}>Squadron</button>
-        <button onClick={onSimulator}>Simulator</button>
-        <a href={FEEDBACK_URL} target="_blank" rel="noreferrer">Feedback ↗</a>
+      <a className="tt-brand" href="#" aria-label="Periapsis Zero home"><Mark size={26} /><span>PERIAPSIS ZERO<small>FLIGHT OPERATIONS</small></span></a>
+      <nav aria-label="Flight operations">
+        <button className={tab === 'career' ? 'on' : ''} onClick={() => setTab('career')}>Career</button>
+        <button className={tab === 'training' ? 'on' : ''} onClick={() => setTab('training')}>Flight school</button>
+        <button className={tab === 'worlds' ? 'on' : ''} onClick={() => setTab('worlds')}>Explore</button>
         <AccountButton />
       </nav>
     </header>
-
-    <section className="tt-hero">
-      <span className="tt-kicker">A shared, real Earth-Moon system{flying > 0 && <em className="tt-live"><i />{flying} {flying === 1 ? 'pilot' : 'pilots'} flying now</em>}</span>
-      <h1><span>Periapsis</span><span>Zero</span></h1>
-      <p className="tt-tag">3091. Humanity lives under glass, on Earth, the Moon, and orbital cities. Air, water, and passage have a price. You survived a convoy ambush. Learn to stay alive, earn your freedom, and decide who deserves the truth.</p>
-      {isPhone ? <div className="tt-phone">
-        <strong>The game needs a bigger screen.</strong>
-        <p>Flying and reading a job board at once does not fit on a phone: play on a computer or a tablet. The simulator works here, and what you fly in it counts in the game later.</p>
-        <button className="tt-play" onClick={onSimulator}><span>Open the simulator</span></button>
-      </div> : <div className="tt-actions">
-        {save && <button className="tt-play" onClick={onPlay}>
-          <span>Continue</span>
-          <small>{save.pilot.name} · ₡ {Math.round(save.credits).toLocaleString()}{save.story?.active ? ' · mission in progress' : ''}</small>
-        </button>}
-        {!confirmNew ? <button className={save ? 'tt-second' : 'tt-play'} onClick={() => (save ? setConfirmNew(true) : onNew())}><span>New game</span><small>{save ? 'A new pilot, from the start' : 'Learn the essentials, then choose your own work'}</small></button>
-          : <div className="tt-confirm"><p>Start over? Your current pilot will be replaced.</p><button className="tt-second" onClick={onNew}>Start a new game</button><button className="tt-link" onClick={() => setConfirmNew(false)}>Keep my pilot</button></div>}
-        <button className="tt-second tt-sq" onClick={onSquadron}><span>Squadron</span><small>Waves of raiders. Bots, or friends with a code</small></button>
-      </div>}
-      <p className="tt-devices">Computer: keyboard and mouse · Tablet: touch controls · Free, nothing to install</p>
-      <span className="tt-scroll" aria-hidden>Scroll</span>
-    </section>
-
-    <section className="tt-pillars tt-reveal">
-      <h2>What makes it different</h2>
-      <ol>
-        <li><b>01</b><strong>One live sky</strong><span>Every pilot playing flies in the same Earth-Moon system at once. At Hearth you see who else is at Hearth, by name and suit, and hail them.</span></li>
-        <li><b>02</b><strong>Real flight, flown</strong><span>The Earth and Moon where they really are, Newtonian ships, and transfers you fly yourself: hold the burn, call the flip, get graded.</span></li>
-        <li><b>03</b><strong>One career, two cockpits</strong><span>Licences come from the simulator next door: make orbit, reach the Moon, land, come home, and your game pilot is promoted.</span></li>
-        <li><b>04</b><strong>A squadron in a link</strong><span>Share five letters and friends are flying beside you in seconds. No accounts, nothing to install.</span></li>
-      </ol>
-    </section>
-
-    <section className="tt-ways tt-reveal">
-      <h2>Three ways to fly</h2>
-      <div>
-        <article onClick={save ? onPlay : onNew}>
-          <img src={`${BASE}game/shot-hangar.webp`} alt="" loading="lazy" />
-          <span className="tt-eyebrow">The game</span>
-          <h3>Make a living</h3>
-          <p>Pick a suit, walk out to your ship, and work the lanes alongside every other pilot online: couriers, salvage, smuggling, bounties, and a story with a choice in it.</p>
-        </article>
-        <article onClick={onSquadron}>
-          <img src={`${BASE}game/shot-squadron.webp`} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = `${BASE}game/shot-flight.webp` }} />
-          <span className="tt-eyebrow">Squadron</span>
-          <h3>Hold the sky</h3>
-          <p>Four ships against waves of raiders and an ace every third wave. Fly with AI wingmates, or share a five-letter code and friends take their seats.</p>
-        </article>
-        <article onClick={onSimulator}>
-          <img src={`${BASE}stills/world-mars.webp`} alt="" loading="lazy" />
-          <span className="tt-eyebrow">Flight school</span>
-          <h3>Learn the real thing</h3>
-          <p>Your career’s training simulator: historical Apollo and Artemis flights, real orbital mechanics, and surveys on thirteen worlds. Earn licences and bonuses for your game pilot. Works on phones.</p>
-        </article>
+    <div className="tt-dashboard">
+      <aside className="tt-pilot">
+        <span className="tt-eyebrow">Pilot record / local save</span>
+        <h2>{save?.pilot.name ?? 'New pilot'}</h2>
+        <p>{save ? 'Your career is safe. Training records and licences belong to this same pilot journey.' : 'A ship. A living. A way home. Start your career or learn the real flight mechanics first.'}</p>
+        <dl><div><dt>Credits</dt><dd>₡ {Math.round(save?.credits ?? 0).toLocaleString()}</dd></div><div><dt>Licences</dt><dd>{earned.size} / {LICENCES.length}</dd></div><div><dt>Story missions</dt><dd>{save?.story?.done?.length ?? 0}</dd></div></dl>
+        <div className="tt-licence-list">{LICENCES.map((l) => <div key={l.id} className={earned.has(l.id) ? 'earned' : ''}><b>{earned.has(l.id) ? '✓' : '○'}</b><span>{l.name}</span><small>₡ {l.bonus.toLocaleString()}</small></div>)}</div>
+        {save && <button className="tt-primary control" onClick={onPlay}>Return to career →</button>}
+        <small className="tt-record">{flown ? `Flight log: ${flown}` : 'Progress saves in this browser.'}<br />Training awards unlock suits and one-time career bonuses.</small>
+      </aside>
+      <div className="tt-content">
+        {tab === 'career' && <>
+          <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart.webp)` }}>
+            <div className="tt-hero-copy"><span className="tt-eyebrow">Earth-Moon frontier / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
+              <p>You survived the ambush. Now learn your ship, take paid work, and earn your freedom.</p>
+              {isPhone ? <><p className="tt-device-note">Career flight needs a computer or tablet. Flight school and surface exploration work on this phone.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <div className="tt-actions">
+                {save && <button className="tt-primary control" onClick={onPlay}>Continue career →</button>}
+                <button className={`${save ? 'tt-secondary' : 'tt-primary'} control`} onClick={newGame}>{save ? 'New pilot' : 'Start your career →'}</button>
+                {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
+              </div>}
+              <small>Free to play · Keyboard & mouse / tablet touch · Music only</small>
+            </div>
+            <div className="tt-hero-coordinate" aria-hidden>HEARTH STATION<br />EARTH-MOON L1 / BERTH 09</div>
+          </section>
+          <section className="tt-briefing"><div><span className="tt-eyebrow">Your first flight</span><h2>Know what you are doing.</h2><p>The opening film is captioned and skippable. Mara then guides one action at a time. Your first flight is protected from random interdictions.</p></div><ol><li><b>01</b><span><strong>Clear the berth</strong>Launch at Hearth and test thrust and brakes.</span></li><li><b>02</b><span><strong>Follow the marker</strong>Steer toward the orange diamond and finish the flight checks.</span></li><li><b>03</b><span><strong>Dock. Get paid.</strong>Return to the lit bay. Choose story work or a paid contract.</span></li></ol></section>
+          <section className="tt-paths" aria-label="Choose your next flight">
+            <button className="tt-path control" onClick={() => setTab('training')}><img src={`${BASE}game/shot-transfer.webp`} alt="Earth beneath an orbital flight" /><span className="tt-eyebrow">Same career / real physics</span><h2>Train to fly</h2><p>Five simulator licences. New suits. ₡ 27,000 in career bonuses.</p><strong>Open flight school →</strong></button>
+            <button className="tt-path control" onClick={onSquadron}><img src={`${BASE}game/shot-flight.webp`} alt="A ship flying through the Earth-Moon system" /><span className="tt-eyebrow">Combat / separate wave mode</span><h2>Hold the sky</h2><p>Squadron combat with AI wingmates or friends by invitation code.</p><strong>Enter Squadron →</strong></button>
+          </section>
+        </>}
+        {tab === 'training' && <section className="tt-school">
+          <header className="tt-section-head"><span className="tt-eyebrow">Flight school / career companion</span><h1>Real flight.<br />Lasting progress.</h1><p>Choose a training scenario below. The simulator flies its historical mission sequence; its milestone records award your licences. Return to the career and claim each bonus in Pilot.</p><div className="tt-actions"><a className="tt-primary control" href={`?preset=${next.preset}&vessel=${next.vessel}&site=${next.site}#flight`}>Next licence: {LICENCES.find((l) => l.id === next.id).name} →</a><button className="tt-secondary control" onClick={onSimulator}>Open simulator sandbox</button></div></header>
+          <div className="tt-training-grid">{TRAINING.map((t) => { const l = LICENCES.find((l) => l.id === t.id); return <article key={t.id} className={`tt-training ${earned.has(t.id) ? 'earned' : ''}`}><img src={`${BASE}${t.image}`} alt="" /><div><span className="tt-eyebrow">{earned.has(t.id) ? '✓ Licence earned' : t.tag}</span><h2>{t.title}</h2><p>{t.text}</p><small>{l.earn} Bonus: ₡ {l.bonus.toLocaleString()}.</small><a className="tt-secondary control" href={`?preset=${t.preset}&vessel=${t.vessel}&site=${t.site}#flight`}>{t.action} →</a></div></article> })}</div>
+          <p className="tt-training-note">This is a true-scale simulator, not the career’s torch-drive flight model. The flight computer sequences the historical burns. Use Missions for more scenarios, Settings for flight controls, and Career to return. Existing deep links still work.</p>
+        </section>}
+        {tab === 'worlds' && <section className="tt-explore"><header className="tt-section-head"><span className="tt-eyebrow">Surface expeditions / simulator</span><h1>Thirteen worlds.<br />Different gravity.</h1><p>Land, collect samples, deploy instruments and lift off. Regional procedural terrain and authored survey hardware; not a seamless planetary open world.</p><button className="tt-secondary control" onClick={onSimulator}>Explore the orbital sandbox →</button></header><div className="tt-worlds">{WORLDS.map((w) => <button className="control" key={w} onClick={() => onLand(w)}><img src={`${BASE}stills/world-${w}.webp`} alt="" loading="lazy" /><span>{worldName(w)}<small>Start surface expedition →</small></span></button>)}</div></section>}
+        <footer className="tt-foot"><span>Built by Ishaan Jha · NASA Earth and Moon imagery</span><a href={FEEDBACK_URL} target="_blank" rel="noreferrer">Report a problem ↗</a><span>Ships and stations authored in Blender · saves stored locally</span></footer>
       </div>
-    </section>
-
-    <section className="tt-career tt-reveal">
-      <div className="tt-career-text">
-        <span className="tt-eyebrow">One career, two cockpits</span>
-        <h2>Earn your licences in the simulator. Wear them in the game.</h2>
-        <p>Make orbit, cross to the Moon, dock, lift off the lunar surface, bring a crew home: each one, flown for real in the simulator, puts a pilot licence in your game pilot's pocket, a suit in their locker and a signing bonus in their account.</p>
-        <button className="tt-second" onClick={onSimulator}><span>Earn one now</span><small>Opens the simulator</small></button>
-      </div>
-      <ol className="tt-licences">
-        {LICENCES.map((l, i) => <li key={l.id} className={earned.has(l.id) ? 'on' : ''} style={{ animationDelay: `${i * 0.08}s` }}>
-          <b>{earned.has(l.id) ? '✓' : i + 1}</b>
-          <span><strong>{l.name}</strong><small>{earned.has(l.id) ? 'Earned' : l.earn.replace(' in the Simulator', '')}</small></span>
-          <em>₡ {l.bonus.toLocaleString()}</em>
-        </li>)}
-      </ol>
-    </section>
-
-    <section className="tt-features tt-reveal">
-      {FEATURES.map((f) => <article key={f.title}>
-        <img src={`${BASE}game/${f.img}`} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
-        <h2>{f.title}</h2>
-        <p>{f.text}</p>
-      </article>)}
-    </section>
-
-    <section className="tt-how tt-reveal">
-      <h2>How to play</h2>
-      <div>
-        <p><strong>Mouse</strong> aims; the ship follows. <strong>hold W</strong> to fly, release to brake, <strong>Shift</strong> boost, <strong>click</strong> to fire, <strong>double-tap A or D</strong> to barrel-roll.</p>
-        <p><strong>F</strong> docks at a station's lit bay; missions and jobs are inside. <strong>M</strong> opens the map; <strong>J</strong> lights the drive.</p>
-        <p>A two-minute narrated prologue tells you why you are here. The first mission teaches the ship, one thing at a time. <strong>Esc</strong> pauses; <strong>H</strong> shows every control.</p>
-      </div>
-    </section>
-
-    <section className="tt-sim tt-reveal">
-      <header>
-        <span className="tt-eyebrow">The simulator</span>
-        <h2>Thirteen worlds. Real gravity.</h2>
-        <p>Real stars and orbital mechanics, with regional procedural terrain for surface practice. These are training scenarios, not a seamless planetary open world.</p>
-        {flown && <p className="tt-log">Your flight log: {flown}</p>}
-      </header>
-      <div className="tt-worlds">
-        {WORLDS.map((w) => <button key={w} onClick={() => land(w)}>
-          <img src={`${BASE}stills/world-${w}.webp`} alt="" loading="lazy" />
-          <span>{NAMES[w] ?? w[0].toUpperCase() + w.slice(1)}</span>
-        </button>)}
-      </div>
-      <div className="tt-news">
-        <h3>Still flying: the simulator keeps getting updates</h3>
-        <ul>{SIM_NEWS.map(([t, d]) => <li key={t}><strong>{t}</strong><span>{d}</span></li>)}</ul>
-        <button className="tt-play" onClick={onSimulator}><span>Open the simulator</span><small>Solar system, flight school, landings</small></button>
-      </div>
-    </section>
-
-    <footer className="tt-foot">
-      <span>Built by Ishaan Jha</span>
-      <span>Earth and Moon imagery: NASA · ships, stations and pilots built in Blender · detail textures: Poly Haven (CC0)</span>
-      <span>Saves live in this browser; sign in to keep them on every device</span>
-    </footer>
+    </div>
   </main>
 }

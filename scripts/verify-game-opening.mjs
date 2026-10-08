@@ -19,9 +19,7 @@ check('the six-shot film runs exactly 120 seconds with no missing chapter or cap
     assert.equal(c.captions[0][0], 0)
     for (const [at, text] of c.captions) { assert.ok(at >= 0 && at < c.end - c.start); assert.ok(text.length > 15); assert.ok(!text.includes('—')) }
     assert.equal(prologueAt(c.start).chapter.id, c.id)
-    const audio = readFileSync(`public/audio/prologue/${c.audio}.m4a`)
-    assert.equal(audio.toString('ascii', 4, 8), 'ftyp')
-    assert.ok(audio.length > 10000 && audio.length < 180000)
+    assert.equal(c.audio, undefined, 'captioned chapters must not depend on narration assets')
   }
   assert.equal(PROLOGUE.at(-1).end, 120)
   assert.equal(prologueAt(119.9).complete, false); assert.equal(prologueAt(120).complete, true)

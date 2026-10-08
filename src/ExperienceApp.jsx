@@ -59,5 +59,5 @@ export default function ExperienceApp() {
   if (experience.mode !== 'home') {
     return <Suspense fallback={<div className="mode-loading">Preparing the solar system…</div>}><Simulator /></Suspense>
   }
-  return <Title onPlay={() => navigate('#play')} onNew={() => { sessionStorage.setItem(NEW_GAME, '1'); navigate('#play') }} onSimulator={() => navigate('#sim')} onSquadron={() => navigate('#squadron')} onLand={(id) => navigate(`#land/${id}`)} />
+  return <Title key={experience.training ? 'training' : 'home'} training={experience.training} onPlay={() => navigate('#play')} onNew={() => { sessionStorage.setItem(NEW_GAME, '1'); navigate('#play') }} onSimulator={() => navigate('#sim')} onSquadron={() => navigate('#squadron')} onLand={(id) => navigate(`#land/${id}`)} />
 }

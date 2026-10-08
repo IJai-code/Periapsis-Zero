@@ -75,7 +75,7 @@ check('the ambience is a leaf: only the HUD clock and the toggle reach it', () =
   // Walk every src module and assert the importer set is exactly the two
   // surfaces that are allowed. A third importer is a wiring mistake that
   // would drag an AudioContext into a place without a gesture.
-  const allowed = new Set(['src/ui/uiClock.js', 'src/ui/Toggles.jsx'])
+  const allowed = new Set(['src/ui/uiClock.js', 'src/ui/Toggles.jsx', 'src/game/audio.js'])
   const found = []
   const walk = (dir) => {
     for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
@@ -89,7 +89,7 @@ check('the ambience is a leaf: only the HUD clock and the toggle reach it', () =
   }
   walk('src')
   for (const f of found) assert.ok(allowed.has(f), `${f} imports the ambience; only ${[...allowed].join(', ')} may`)
-  assert.equal(found.length, allowed.size, `expected both consumers to import it; found ${found.length}`)
+  assert.equal(found.length, allowed.size, `expected all declared consumers to import it; found ${found.length}`)
 })
 
 check('the generated score stays gone — the supplied bed is the only music', () => {
@@ -127,16 +127,19 @@ check('the ambience still gates on a gesture', () => {
   assert.ok(at > 0 && ctor > at, 'the AudioContext must be constructed inside setAmbience, after the gesture arrives')
 })
 
-check('the game has its music: the owner\'s track, real, looped, and only the game loads it', () => {
-  const path = join(ROOT, 'public/audio/lexin-space-ambient-sci-fi.mp3')
+check('the game loops the simulator bed and cannot create voices or synthesized effects', () => {
+  const path = join(ROOT, 'public/audio/monume-space-ambient.mp3')
   assert.ok(existsSync(path), 'the game track is missing')
   const bytes = readFileSync(path)
   const id3 = bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33
   const sync = bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0
   assert.ok((id3 || sync) && bytes.length > 2e6, 'the game track is not the supplied MP3')
   const audio = readFileSync(join(ROOT, 'src/game/audio.js'), 'utf8')
-  assert.ok(audio.includes('lexin-space-ambient-sci-fi.mp3') && /loop\s*=\s*true/.test(audio), 'the game does not loop the track')
-  assert.ok(/export function startSound/.test(audio) && /setMusic/.test(audio) && /setSfx/.test(audio) && /setMuted/.test(audio), 'music and effects each need their own control')
+  assert.ok(audio.includes('monume-space-ambient.mp3') && /loop\s*=\s*true/.test(audio), 'the game does not loop the simulator track')
+  assert.ok(/export function startSound/.test(audio) && /setMusic/.test(audio) && /setMuted/.test(audio), 'music needs gesture and volume controls')
+  assert.doesNotMatch(audio, /createOscillator|createBufferSource|speechSynthesis|prologue\/.+m4a|lexin-space/, 'non-music audio returned')
+  const prologue = readFileSync(join(ROOT, 'src/game/ui/Prologue.jsx'), 'utf8')
+  assert.doesNotMatch(prologue, /<audio|speechSynthesis|\.m4a/, 'speech playback returned')
   // The simulator stays silent: nothing outside src/game reaches the game's sound.
   const found = []
   const walk = (dir) => {

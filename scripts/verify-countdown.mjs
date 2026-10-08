@@ -46,6 +46,9 @@ const {
   ignitionThrottle,
   padLevels,
   stageOfCount,
+  ventLevel,
+  delugeLevel,
+  steamLevel,
 } = await import('../src/sim/countdown.js')
 const { EYE_FOV, EYE_HEIGHT, STAND_OFF, groundViewpoint, lastPlacement } = await import('../src/gfx/groundView.js')
 const { padFor } = await import('../src/gfx/pads.js')
@@ -68,6 +71,13 @@ padLevels(padChecks, EVENTS.ignition, 1)
 const noSteamWithoutWater =
   padChecks[2] === padChecks[1] * 1 && (padLevels(padChecks, -30, 1), padChecks[2] === 0)
 const ventsClosedAtIgnition = (padLevels(padChecks, EVENTS.ignition, 0), padChecks[0] === 0)
+let packedLevelsAgree = true
+for (let T = -65; T <= 35; T += 0.125) {
+  for (const throttle of [0, 0.2, 0.8, 1, 1.4]) {
+    padLevels(padChecks, T, throttle)
+    if (Math.abs(padChecks[0] - ventLevel(T)) > 1e-12 || Math.abs(padChecks[1] - delugeLevel(T) * (1 - ignitionThrottle(T))) > 1e-12 || Math.abs(padChecks[2] - steamLevel(T, throttle)) > 1e-12) packedLevelsAgree = false
+  }
+}
 
 /* ---------------------------------------------------------------- *
  * 2. The minute, flown at real time
@@ -323,6 +333,7 @@ const checks = [
   ['no thrust before ignition, and full thrust by release', noThrustBeforeIgnition && fullThrustAtRelease],
   ['no steam without deluge water, however hard the engines burn', noSteamWithoutWater],
   ['the count is a minute', COUNT_LENGTH === 60],
+  ['packed frame-path levels agree with every standalone level across the full timeline', packedLevelsAgree],
   // Flown.
   ['flown, the events happen in that order', seen.map((s) => s[0]).join(',') === 'hold,arms,deluge,ignition'],
   ['the engines light at ignition, not before', firstThrust !== null && Math.abs(firstThrust - EVENTS.ignition) < 0.05],

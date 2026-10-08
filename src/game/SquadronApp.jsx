@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { bindDesktop, createControls, isTouch } from './ui/controls.js'
-import { duck, engineLevel, pauseSound, play, startSound } from './audio.js'
+import { duck, engineLevel, pauseSound, play, startSound, stopSound } from './audio.js'
 import { Hud } from './ui/Hud.jsx'
 import { Comms } from './ui/Comms.jsx'
 import { Touch } from './ui/Touch.jsx'
@@ -47,7 +47,7 @@ export default function SquadronApp({ joinCode = null, onExit }) {
   const earned = useMemo(() => earnedLicences(), [])
 
   useEffect(() => { try { localStorage.setItem(PREFS, JSON.stringify({ id: me, name, suit, hull, arena })) } catch { /* fine */ } }, [me, name, suit, hull, arena])
-  useEffect(() => () => net.current?.close(), [])
+  useEffect(() => () => { net.current?.close(); stopSound() }, [])
   // Counted among the pilots flying now (the front page's number).
   useEffect(() => {
     const cfg = realtimeConfig()

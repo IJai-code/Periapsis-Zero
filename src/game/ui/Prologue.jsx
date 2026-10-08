@@ -35,6 +35,7 @@ export function Prologue({ onComplete }) {
     frame = requestAnimationFrame(tick)
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', visibility) }
   }, [paused, brief])
+  useEffect(() => { pauseSound(paused || hidden); return () => pauseSound(false) }, [paused, hidden])
   // The film's own measurement is good for one run of the film: a replay, or
   // coming back to it, is a fresh look at the machine.
   useEffect(() => () => resetFilmLearner(), [])
@@ -46,7 +47,7 @@ export function Prologue({ onComplete }) {
   }}>
     <Suspense fallback={<div className="gm-loading">Preparing the opening film</div>}><Scene clock={clock} reduced={reduced} tier={initialTier} stopped={paused || brief || hidden} /></Suspense>
     {!brief ? <div className="film-overlay">
-      <header><span>Periapsis Zero / Prologue</span><span>{timecode(time)} / 2:00</span></header>
+      <header><span>Periapsis Zero / Prologue · captions + music only</span><span>{timecode(time)} / 2:00</span></header>
       <div className="film-chapter" key={chapter.id}><span className="st-eyebrow">{chapter.label}</span><h1>{chapter.title}</h1></div>
       <p className="film-caption" aria-live="polite" aria-atomic="true">{caption}</p>
       {paused && <div className="film-paused">Film paused</div>}

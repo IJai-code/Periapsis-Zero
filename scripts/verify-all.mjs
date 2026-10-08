@@ -171,6 +171,7 @@ const GATES = [
   ['verify-expeditions', false],
   ['verify-game', false],
   ['verify-game-opening', false],
+  ['verify-product-remake', false],
   ['verify-game-onboarding', false],
   ['verify-game-quality', false],
   ['verify-squadron', false],

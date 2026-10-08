@@ -88,7 +88,7 @@ export function Sky({ game, quality }) {
     earthMat.uniforms.uSun.value.copy(SUN_DIR)
     cloudMat.uniforms.uSun.value.copy(SUN_DIR)
     atmoMat.uniforms.uSun.value.copy(SUN_DIR)
-  })
+  }, -0.5) // After the simulation/camera (-1), before rendering and markers.
 
   return <group ref={group}>
     {stars && <points geometry={stars.geometry} material={stars.material} renderOrder={-20} frustumCulled={false} />}
@@ -155,7 +155,7 @@ function starMaterial() {
       void main() {
         #include <logdepthbuf_fragment>
         vec2 d = gl_PointCoord - 0.5; float r = length(d);
-        float a = smoothstep(0.5, 0.0, r);
+        float a = (1.0 - smoothstep(0.0, 0.5, r));
         gl_FragColor = vec4(vColor * vI * a * 1.6, 1.0);
       }`,
     blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false,
@@ -174,35 +174,39 @@ function milkyWay() {
   const material = new THREE.ShaderMaterial({
     uniforms: { uPole: { value: new THREE.Vector3(...pole).normalize() }, uCentre: { value: new THREE.Vector3(...centre).normalize() } },
     vertexShader: `varying vec3 vDir;
-      #include <common>
-      #include <logdepthbuf_pars_vertex>
-      void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      #include <logdepthbuf_vertex>
-      }`,
+      void main() { vDir = normalize(position); vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = vec4(clip.xy, clip.w * 0.9999, clip.w); }`,
     fragmentShader: `varying vec3 vDir; uniform vec3 uPole, uCentre;
-      #include <logdepthbuf_pars_fragment>
-      float h(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
+      // Polynomial hash avoids large sine products with driver-dependent precision.
+      float h(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
       float n3(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(mix(h(i), h(i + vec3(1,0,0)), f.x), mix(h(i + vec3(0,1,0)), h(i + vec3(1,1,0)), f.x), f.y),
                    mix(mix(h(i + vec3(0,0,1)), h(i + vec3(1,0,1)), f.x), mix(h(i + vec3(0,1,1)), h(i + vec3(1,1,1)), f.x), f.y), f.z); }
       float fbm(vec3 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 6; i++) { s += a * n3(p); p *= 2.07; a *= 0.5; } return s; }
       void main() {
-        #include <logdepthbuf_fragment>
-        float lat = dot(vDir, uPole);
-        float core = dot(vDir, uCentre) * 0.5 + 0.5;
-        float band = exp(-pow(lat / (0.11 + 0.08 * core), 2.0));
-        float clouds = fbm(vDir * 7.0);
-        float dust = smoothstep(0.45, 0.75, fbm(vDir * 14.0 + 3.0)) * exp(-pow(lat / 0.035, 2.0));
+        vec3 dir = normalize(vDir);
+        float lat = dot(dir, uPole);
+        float core = clamp(dot(dir, uCentre) * 0.5 + 0.5, 0.0, 1.0);
+        // GLSL pow(x, y) is undefined for negative x, even when y is 2.
+        // Galactic latitude crosses zero: square by multiplication, never pow.
+        float broad = lat / (0.11 + 0.08 * core);
+        float narrow = lat / 0.035;
+        float emission = lat / 0.2;
+        float oxygen = lat / 0.28;
+        float band = exp(-broad * broad);
+        float clouds = fbm(dir * 7.0);
+        float dust = smoothstep(0.45, 0.75, fbm(dir * 14.0 + 3.0)) * exp(-narrow * narrow);
         float glow = band * (0.35 + 0.9 * clouds) * (0.35 + 1.2 * pow(core, 3.0)) * (1.0 - 0.75 * dust);
         vec3 col = mix(vec3(0.5, 0.58, 0.9), vec3(0.95, 0.82, 0.7), pow(core, 3.0));
         // Emission nebulae along the plane, where the real ones are: hydrogen
         // red and oxygen teal in patches, faint, under the dust lanes.
-        float hII = smoothstep(0.56, 0.86, fbm(vDir * 4.0 + 11.0)) * exp(-pow(lat / 0.2, 2.0));
-        float oIII = smoothstep(0.6, 0.9, fbm(vDir * 5.5 + 29.0)) * exp(-pow(lat / 0.28, 2.0));
+        float hII = smoothstep(0.56, 0.86, fbm(dir * 4.0 + 11.0)) * exp(-emission * emission);
+        float oIII = smoothstep(0.6, 0.9, fbm(dir * 5.5 + 29.0)) * exp(-oxygen * oxygen);
         vec3 neb = (vec3(1.0, 0.32, 0.3) * hII + vec3(0.22, 0.72, 0.92) * oIII * 0.75) * (0.6 + 0.8 * clouds) * (1.0 - 0.6 * dust);
         gl_FragColor = vec4(col * glow * 0.026 + neb * 0.015, 1.0);
       }`,
-    side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending, transparent: true, toneMapped: false,
+    // Background emission has no role in local occlusion. Drawing it at a
+    // fixed far depth avoids interpolated log-depth seams on this giant sphere.
+    side: THREE.BackSide, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, transparent: false, toneMapped: false,
   })
   return { geometry: new THREE.SphereGeometry(MILKY_R, 64, 32), material }
 }
@@ -269,7 +273,7 @@ function earthMaterial(day, night, spec, octaves) {
         vec3 H = normalize(uSun + V);
         float glint = pow(max(dot(N, H), 0.0), 320.0) * ocean * lit * 0.35;
         float fres = pow(1.0 - max(dot(N, V), 0.0), 2.5);
-        vec3 air = mix(vec3(0.25, 0.5, 1.0), vec3(1.0, 0.55, 0.3), smoothstep(0.35, -0.05, ndl)) * fres * smoothstep(-0.25, 0.3, ndl) * 0.45;
+        vec3 air = mix(vec3(0.25, 0.5, 1.0), vec3(1.0, 0.55, 0.3), (1.0 - smoothstep(-0.05, 0.35, ndl))) * fres * smoothstep(-0.25, 0.3, ndl) * 0.45;
         gl_FragColor = vec4(dayc + nightc + glint * vec3(1.0, 0.95, 0.85) + air, 1.0);
       }`,
   })
@@ -296,12 +300,12 @@ function cloudMaterial(tex, octaves) {
         float n = fbmAA(vP + vec3(w1 - 0.5, w2 - 0.5, w1 - w2) * 0.02, 300.0, foot);
         vec2 uv = vUv + vec2(w1 - 0.5, w2 - 0.5) * vec2(0.006, 0.008) * near;
         // Cover is the map's alpha (its colour is white wherever it is clear).
-        float c0 = smoothstep(0.004, 0.42, texture2D(uClouds, uv).a);
-        // The old low-resolution mask alone formed continent-shaped white
-        // cutouts. Synthetic weather structure supplies soft, broken cover;
-        // the source mask contributes only a small broad-scale bias.
+        float c0 = texture2D(uClouds, uv).a;
+        // Preserve the source's graded coverage rather than thresholding
+        // it into white cutouts; weather detail modulates, never replaces it.
         float weather = fbmAA(vP + vec3(w1 - 0.5, w2 - 0.5, 0.0) * 0.16, 9.0, foot);
-        float c = smoothstep(0.50, 0.74, weather + (n - 0.5) * 0.16 + c0 * 0.03);
+        // Real cloud coverage leads; synthetic detail only breaks up its edges.
+        float c = clamp(c0 * (0.82 + 0.18 * weather) + (n - 0.5) * near * c0 * 0.12, 0.0, 1.0);
         float ndl = dot(normalize(vN), uSun);
         float lit = smoothstep(-0.1, 0.3, ndl);
         vec3 col = vec3(0.02 + 0.72 * max(ndl, 0.0)) * mix(vec3(1.0, 0.7, 0.5), vec3(1.0), smoothstep(0.0, 0.25, ndl)) * mix(1.0, 0.72 + 0.4 * n, near);
@@ -324,7 +328,7 @@ function atmosphereMaterial() {
         vec3 N = normalize(vN), V = normalize(cameraPosition - vW);
         float rim = pow(1.0 - abs(dot(N, V)), 5.0);
         float ndl = dot(N, uSun);
-        vec3 col = mix(vec3(0.3, 0.6, 1.0), vec3(1.0, 0.5, 0.25), smoothstep(0.3, -0.1, ndl));
+        vec3 col = mix(vec3(0.3, 0.6, 1.0), vec3(1.0, 0.5, 0.25), (1.0 - smoothstep(-0.1, 0.3, ndl)));
         gl_FragColor = vec4(col * rim * smoothstep(-0.3, 0.25, ndl) * 0.9, 1.0);
       }`,
     blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,

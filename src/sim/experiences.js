@@ -14,6 +14,7 @@ import { isLandable } from './worlds.js'
  */
 export function experienceFromHash(hash) {
   if (hash === '#play' || hash === '#campaign' || hash === '#story') return { mode: 'play' }
+  if (hash === '#training') return { mode: 'home', training: true }
   if (hash === '#sim' || hash === '#flight') return { mode: 'simulator' }
   const sq = /^#squadron(?:\/([A-Za-z0-9]{5}))?$/.exec(hash)
   if (sq) return { mode: 'squadron', code: sq[1]?.toUpperCase() ?? null }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { soundSettings, setMusic, setSfx, setMuted } from '../audio.js'
+import { soundSettings, setMusic, setMuted } from '../audio.js'
 import { CONTROL_LIST } from './keys.jsx'
 
 /** Esc: resume, controls, settings, quit to the title. */
@@ -39,7 +39,7 @@ export function Pause({ game: g, touch, help, quality, setQuality, controls, onR
       </div>}
       {tab === 'settings' && <div className="gm-settings">
         <label>Music <input type="range" min="0" max="1" step="0.05" value={snd.music} onChange={(e) => { setMusic(+e.target.value); setSnd(soundSettings()) }} /></label>
-        <label>Effects <input type="range" min="0" max="1" step="0.05" value={snd.sfx} onChange={(e) => { setSfx(+e.target.value); setSnd(soundSettings()) }} /></label>
+        <p className="st-empty">Simulator background music only. No voices or sound effects.</p>
         <label className="check"><input type="checkbox" checked={snd.muted} onChange={(e) => { setMuted(e.target.checked); setSnd(soundSettings()) }} /> Mute everything</label>
         {!touch && <label>Throttle style <select value={throttle} onChange={(e) => { const mode = e.target.value; controls.settings.throttle = mode; controls.throttleSet = 0; setThrottle(mode); try { localStorage.setItem('pz-throttle-mode', mode) } catch { /* private storage */ } }}><option value="hold">Simple: hold W, release to brake</option><option value="latched">Advanced: W / S adjust a latched throttle</option></select></label>}
         {!touch && <label>Mouse sensitivity <input type="range" min="0.3" max="2.5" step="0.05" value={sens} onChange={(e) => { controls.settings.sensitivity = +e.target.value; setSens(+e.target.value) }} /></label>}

@@ -1,0 +1,50 @@
+[
+  {
+    "quality": "high",
+    "audio": {
+      "started": true,
+      "paused": false,
+      "effects": false,
+      "music": {
+        "time": 5.547661,
+        "paused": false,
+        "loop": true,
+        "src": "monume-space-ambient.mp3",
+        "ready": 4
+      }
+    },
+    "film": {
+      "tier": "high",
+      "fast": false,
+      "dpr": 1,
+      "pace": 16.700000762939453,
+      "frames": 315,
+      "slow": 0,
+      "windows": 2
+    }
+  },
+  {
+    "quality": "low",
+    "audio": {
+      "started": true,
+      "paused": false,
+      "effects": false,
+      "music": {
+        "time": 5.549443,
+        "paused": false,
+        "loop": true,
+        "src": "monume-space-ambient.mp3",
+        "ready": 4
+      }
+    },
+    "film": {
+      "tier": "low",
+      "fast": false,
+      "dpr": 1,
+      "pace": 16.65000057220459,
+      "frames": 299,
+      "slow": 0,
+      "windows": 2
+    }
+  }
+]

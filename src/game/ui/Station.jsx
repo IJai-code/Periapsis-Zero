@@ -31,11 +31,12 @@ export function Station({ game: g, touch, onLaunch, onOverlay, onSchool }) {
       <div className="st-money"><strong>₡ {Math.round(g.credits).toLocaleString()}</strong>{g.debt > 0 && <small>Owed to Rook: ₡ {g.debt.toLocaleString()}</small>}</div>
     </header>
     <nav className="st-tabs">
-      {tabs.map(([id, label]) => <button key={id} className={tab === id ? 'on' : ''} onClick={() => { setTab(id); setMsg(null); play('click') }}>
+      {tabs.map(([id, label]) => <button key={id} aria-current={tab === id ? 'page' : undefined} className={tab === id ? 'on' : ''} onClick={() => { setTab(id); setMsg(null); play('click') }}>
         {label}{id === 'missions' && (storyHere.length > 0 || g.choice) && <i className="st-dot" />}
       </button>)}
       <div className="st-tabs-foot">
         <button onClick={() => onOverlay('map')}>Map</button>
+        <button onClick={onSchool}>Flight school</button>
         <button onClick={() => onOverlay('pause')}>Menu</button>
       </div>
     </nav>
@@ -50,8 +51,9 @@ export function Station({ game: g, touch, onLaunch, onOverlay, onSchool }) {
       {tab === 'pilot' && <Pilot g={g} act={act} onSchool={onSchool} />}
     </section>
     <div className="st-launch">
+      <div className="st-flight-plan"><span className="st-eyebrow">Next flight</span><strong>{g.objective?.title ?? (g.jobs.length ? 'Your tracked contract' : 'Choose work before departure')}</strong><p><Hint text={g.objective?.text ?? 'Contacts for the story. Job board for paid work. Map for a destination.'} touch={touch} /></p><small>Your ship clears the bay automatically. Then hold thrust to fly, release to brake.</small></div>
       <ShipCard g={g} />
-      <button className="st-go" onClick={onLaunch}>Launch{!touch && <kbd className="gk">Enter</kbd>}</button>
+      <button className="st-go" onClick={onLaunch}>{g.story.active === 'arrival' ? 'Begin flight check' : 'Launch'}{!touch && <kbd className="gk">Enter</kbd>}</button>
     </div>
   </div>
 }

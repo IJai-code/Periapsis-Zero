@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp, spawnRaiders, setDestination, startTransfer, addHeat, requestDock } from './core/game.js'
 import * as THREE from 'three'
 import { bindDesktop, createControls, isTouch } from './ui/controls.js'
-import { duck, engineLevel, pauseSound, play, startSound } from './audio.js'
+import { duck, engineLevel, pauseSound, play, startSound, stopSound } from './audio.js'
 import { Hud } from './ui/Hud.jsx'
 import { Station } from './ui/Station.jsx'
 import { MapView } from './ui/MapView.jsx'
@@ -37,6 +37,7 @@ const Surface = lazy(() => import('../ui/Surface.jsx'))
  * hands it to the canvas.
  */
 export default function GameApp({ onExit, fresh = false, onFresh }) {
+  useEffect(() => () => stopSound(), [])
   const game = useRef(null)
   const controls = useRef(createControls())
   const [phase, setPhase] = useState(() => (!fresh && loadSave() ? 'loading' : 'new'))
@@ -196,7 +197,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   if (!g) return <div className="gm-loading">Loading</div>
 
   const paused = Boolean(overlay) || g.mode === 'surface'
-  const enterSchool = () => { autosave(g); window.location.hash = '#sim' }
+  const enterSchool = () => { autosave(g); window.location.hash = '#training' }
   return <div className={`gm-root ${touch ? 'is-touch' : ''}`}>
     {g.mode !== 'surface' && <Suspense fallback={<div className="gm-loading">Loading the Earth-Moon system</div>}>
       <GameScene game={game} controls={controls} quality={quality} placeKey={placeKey} paused={paused} onFrame={onFrame} />

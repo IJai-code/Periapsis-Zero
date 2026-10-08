@@ -36,7 +36,7 @@ const BENIGN = [
   /AudioContext was not allowed to start/i,
 ]
 
-const server = await preview()
+const server = await preview(Number(process.env.PZ_SMOKE_PORT ?? 4180))
 let failed = 0
 try {
   for (const p of PAGES) {

@@ -36,6 +36,7 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
   const items = [
     { id: 'home', label: '← home', on: false, go: () => { window.location.hash = '' } },
     { id: 'game', label: 'career · 3091', on: false, go: () => { window.location.hash = '#play' } },
+    { id: 'school', label: 'flight school', on: false, go: () => { window.location.hash = '#training' } },
     { id: 'land', label: 'land ▾', on: Boolean(landAt), go: (e) => { setMore(false); const r = e.currentTarget.getBoundingClientRect(); setLandAt((v) => v ? null : r.left) } },
     { id: 'flight', label: 'fly', on: clean, go: () => setUi({ boards: null, setup: false, map: false, broadcast: false }) },
     { id: 'library', label: 'missions', on: false, go: onLibrary },
@@ -51,7 +52,7 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
   ]
 
   return (
-    <div className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex h-10 items-center gap-3 border-b border-hud/15 bg-void/60 px-3 backdrop-blur-[10px]">
+    <div className="pointer-events-auto absolute inset-x-0 top-0 z-30 flex h-10 items-center gap-3 border-b border-hud/15 bg-void/90 px-3 backdrop-blur-[10px]">
       {/* Below sm the wordmark is the Mark alone: on a 390 px phone it spent
           190 px of the row on a name the visitor just read, and the ten doors
           it hides are the ones they came to open. */}
@@ -64,12 +65,12 @@ export function Nav({ onMap, onLogbook, onLibrary }) {
       <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [mask-image:linear-gradient(90deg,#000_86%,transparent)] sm:[mask-image:none]">
         {items.map((it) => (
           <button key={it.id} onClick={it.go} aria-current={it.on ? 'page' : undefined}
-            className={`control inline-flex min-h-9 shrink-0 items-center rounded-sm px-2.5 text-[10px] tracking-[0.16em] whitespace-nowrap uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/65 hover:text-ember'}`}>
+            className={`control inline-flex min-h-9 shrink-0 items-center rounded-sm px-2.5 text-[12px] tracking-[0.08em] whitespace-nowrap uppercase outline-none focus-visible:text-ember ${it.on ? 'lit text-ember' : 'text-hud/65 hover:text-ember'}`}>
             {it.label}
           </button>
         ))}
         {<div className="relative shrink-0">
-          <button onClick={() => { setLandAt(null); setMore((m) => !m) }} aria-expanded={more} className={`control inline-flex min-h-9 items-center rounded-sm px-2.5 text-[10px] tracking-[0.16em] whitespace-nowrap uppercase outline-none ${more || boards || broadcast ? 'text-ember' : 'text-hud/65 hover:text-ember'}`}>more ▾</button>
+          <button onClick={() => { setLandAt(null); setMore((m) => !m) }} aria-expanded={more} className={`control inline-flex min-h-9 items-center rounded-sm px-2.5 text-[12px] tracking-[0.08em] whitespace-nowrap uppercase outline-none ${more || boards || broadcast ? 'text-ember' : 'text-hud/65 hover:text-ember'}`}>more ▾</button>
         </div>}
       </nav>
       {landAt !== null && <div className="fixed top-10 z-40 grid max-h-[70vh] grid-cols-2 gap-0.5 overflow-y-auto rounded-sm border border-hud/15 bg-void/95 p-1" style={{ left: `min(${Math.round(landAt)}px, calc(100vw - 300px))`, width: 290 }} role="menu" aria-label="Land on a world">

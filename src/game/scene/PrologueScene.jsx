@@ -69,7 +69,8 @@ export default function PrologueScene({ clock, reduced, tier = 'high', stopped =
  * begin Fast. Both are numbers on the frame path, nothing allocated.
  */
 function Pace({ cfg, spent, onSlow, dbg }) {
-  const { setDpr } = useThree()
+  const { setDpr, scene, gl } = useThree()
+  useEffect(() => { if (import.meta.env.DEV) window.__pzFilmView = { scene, gl }; return () => { if (import.meta.env.DEV) delete window.__pzFilmView } }, [scene, gl])
   const res = useRef(null)
   if (!res.current) {
     const max = Math.min(cfg.filmDpr[1], (typeof window !== 'undefined' && window.devicePixelRatio) || 1)
@@ -134,7 +135,7 @@ function Shots({ clock, game, reduced, budget }) {
   useEffect(() => () => { art.debris.geometry.dispose(); art.debris.material.dispose() }, [art])
   const position = useMemo(() => new THREE.Vector3(), [])
   const target = useMemo(() => new THREE.Vector3(), [])
-  const limbAxis = useMemo(() => PLACES.harbor.anchor.clone().normalize().cross(new THREE.Vector3(0, 1, 0)).normalize(), [])
+  const limbAxis = useMemo(() => new THREE.Vector3(0.9, 0.2, -0.4).normalize().cross(new THREE.Vector3(0, 1, 0)).normalize(), [])
   useFrame(({ camera }) => {
     const t = clock.current.time, { chapter, local } = prologueAt(t)
     const f = reduced ? 0.5 : local / (chapter.end - chapter.start)
@@ -163,7 +164,7 @@ function Shots({ clock, game, reduced, budget }) {
         position.set(0, 100, 0)
         // A grazing orbital view, not a straight-down magnification of the
         // cloud map. Centre just beyond the limb so Earth and black sky share the shot.
-        target.copy(game.current.anchor).negate().normalize().applyAxisAngle(limbAxis, 0.12 + f * 0.03).multiplyScalar(1e6)
+        target.copy(game.current.anchor).negate().normalize().applyAxisAngle(limbAxis, 0.24 + f * 0.03).multiplyScalar(1e6)
         camera.up.set(0, 1, 0); break
       case 'convoy': position.set(130 - f * 80, 45, 180 - f * 110); target.set(-20, 0, -280); break
       case 'wreck': position.set(-85 + f * 90, 22, 80); target.set(0, 0, -180); break
@@ -172,6 +173,6 @@ function Shots({ clock, game, reduced, budget }) {
       default: position.set(24 - f * 10, 7 - f * 2, 22); target.set(0, 0, -3)
     }
     camera.position.copy(position); camera.lookAt(target)
-  })
+  }, -1) // Establish this frame's camera and anchor before Sky samples them.
   return <group ref={root}><primitive object={art.group} /></group>
 }
