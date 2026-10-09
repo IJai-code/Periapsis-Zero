@@ -34,3 +34,13 @@ __pycache__/
 
 # Local scratch scripts for checks.
 scripts/scratch/
+
+# Capture artefacts from local verification runs. None of these are committed;
+# they are the raw outputs of smoke/allocation/live checks and are rerunnable.
+# The one deliberate exception is the campaign browser report tree under
+# docs/3091-checks, which is a real verification artefact.
+.freebuff/
+docs/device-sweep-built/
+docs/remake-review/production/
+public/audio/prologue/*.wav
+.git-commit-msg.tmp
