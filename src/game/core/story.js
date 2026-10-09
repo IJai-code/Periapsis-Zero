@@ -4,10 +4,12 @@ import { makeShip } from './flight.js'
 import { shipStats } from './ships.js'
 
 /**
- * The story, in two acts. Act One, "Periapsis": a debt, a choice between a
+ * The story, in three acts. Act One, "Periapsis": a debt, a choice between a
  * fixer and a patrol commander, and the Warden at the lunar south pole.
  * Act Two, "Apoapsis": the Ceres Line moves into the lanes the Hollow left,
- * and is not what it says it is.
+ * and is not what it says it is. Act Three, "Escape Velocity": the deep
+ * lanes, and the truth about the Aster: who sold the convoy's route, and
+ * what you do with the proof once it is in your hands.
  *
  * A mission is a list of steps; each step has an objective line, an
  * optional place it happens in (until you are there, the objective is to
@@ -28,6 +30,8 @@ export const CHARACTERS = {
   vex: { name: 'Vex', role: 'Rook\'s gun', tone: 'ember' },
   patrol: { name: 'Compact patrol', role: 'Lunar Compact', tone: 'ion' },
   control: { name: 'Station control', role: 'Traffic', tone: 'ion' },
+  sable: { name: 'Adm. Imani Sable', role: 'Compact deep lanes command', tone: 'ion' },
+  renn: { name: 'Renn Ayers', role: 'Second engineer, the Aster', tone: 'ember' },
 }
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z)
@@ -396,10 +400,145 @@ export const STORY = [
       { text: 'Dock at Gateway', place: 'gateway', at: () => port('gateway'), done: (g) => g.story.s.docked === 'gateway' },
     ],
     outro: [['chen', 'The Meridian is scrap and Okafor is in a Compact cell. The Ceres Line\'s charter is revoked as of this hour.'], ['mara', 'The Aster crew’s families have the record now. Not a rumour, not a company statement. What actually happened. You brought it home.'], ['mara', 'Drinks at Hearth. All of them. And pilot: thank you.']],
-    epilogue: 'The story is complete. The Hollow are gone, the Ceres Line is finished, and you owe nobody anything. The lanes, the job board, the market and every station are yours.',
+    epilogue: 'Act Two complete. The Ceres Line is finished, but the Halcyon recorder is still playing in Mara\'s office, and the relay key it named has an owner. Act Three, Escape Velocity, begins at Hearth.',
+  },
+
+  /* ---------------------------------------------------------------- *
+   * Act Three: Escape Velocity
+   * ---------------------------------------------------------------- */
+  {
+    id: 'yard-work', title: 'Yard Work', giver: 'mara', at: 'hearth', after: 'apoapsis', pitch: 'The ledger that proves who sold the Aster is drifting at Vesper Yards.',
+    reward: { credits: 12000 },
+    intro: [
+      ['mara', 'The Halcyon recorder named a relay key. That key has an owner, and the owner kept a ledger.'],
+      ['mara', 'Vesper Yards. The deep fleet was built there, then the yards went quiet in a week. A yard tender is still drifting at the cradles with its manifest core installed.'],
+      ['mara', 'Dock at the yards first: it is a long burn and the tank is not a rumour. Then pull the core and bring it home.'],
+    ],
+    steps: [
+      { text: 'Transfer to Vesper Yards', place: 'vesper', done: (g) => g.place === 'vesper' },
+      { text: 'Dock at Vesper Yards', place: 'vesper', at: () => port('vesper'), say: [['control', 'Vesper Yards: you are the first visitor in eleven days. Salvage rights are posted; the cradles are not.']], done: (g) => g.story.s.docked === 'vesper' },
+      {
+        text: 'Find the derelict yard tender', place: 'vesper', at: () => YARD_WRECK,
+        enter: (g) => { if (!alive(g, 'm:yard').length) { const e = spawn(g, 'freighter', 'civil', YARD_WRECK.clone(), 'm:yard', { mode: 'hold', passive: true }, 'Yard tender (derelict)'); e.q.setFromEuler(new THREE.Euler(0.3, 1.2, 2.2)); e.hull = e.stats.hull * 0.2; e.shield = 0; e.derelict = true } },
+        ship: (g) => alive(g, 'm:yard')[0]?.id, done: (g) => dist(g, YARD_WRECK) < 600,
+      },
+      {
+        text: (g) => `Hold within 150 m and nearly still to pull the manifest core (${Math.round(Math.min(1, pull(g) / 6) * 100)}%)`, place: 'vesper', at: () => YARD_WRECK,
+        say: [['mara', 'Same clamps as the Halcyon. Close in, almost stopped, and hold it while the clamps bite.']],
+        done: (g) => {
+          const s = g.story.s
+          if (dist(g, YARD_WRECK) < 150 && g.player.vel.length() < 25) { if (s.pullFrom == null) s.pullFrom = g.time } else s.pullFrom = null
+          return pull(g) >= 6
+        },
+        finish: (g) => { g.story.s.ledger = true; g.say('mara', 'Core is out. Reading it on the way home. Oh. Oh, that is a name, and it is one I know.') },
+      },
+      {
+        text: (g) => `Ceres security, still working: destroy them (${kills(g, 'm:remnant')} of 3)`, place: 'vesper',
+        enter: (g) => {
+          const n = 3 - kills(g, 'm:remnant')
+          if (n > 0 && !alive(g, 'm:remnant').length) {
+            raiders(g, n, g.player.pos.clone().add(V(2200, 300, -1800)), 'm:remnant', 'attack', 0.5)
+            for (const e of alive(g, 'm:remnant')) e.label = 'Ceres security'
+            g.say('mara', 'Three ships lighting up the yard\'s own beacons. Ceres security, or what is left of it. They want that core back badly.')
+          }
+        },
+        ship: (g) => alive(g, 'm:remnant')[0]?.id, done: (g) => kills(g, 'm:remnant') >= 3,
+      },
+      { text: 'Bring the manifest core to Mara at Hearth', place: 'hearth', at: () => port('hearth'), done: (g) => g.story.s.docked === 'hearth' },
+    ],
+    outro: [
+      ['mara', 'The manifest is a work order. Twelve ships, built off the books, paid through a shell inside the Ceres Line. And one signature on every page.'],
+      ['mara', 'Admiral Imani Sable. Compact deep lanes command. The woman who polices these lanes wrote the Hollow\'s purchase order.'],
+      ['mara', 'There is one witness who can swear to it. She has been hiding on the Arbor for two years, and she will not trust a radio. Bring her home.'],
+    ],
+  },
+  {
+    id: 'the-witness', title: 'The Witness', giver: 'mara', at: 'hearth', after: 'yard-work', pitch: 'One engineer survived the Aster. She has been hiding on the Arbor since.',
+    reward: { credits: 15000 },
+    intro: [
+      ['mara', 'Renn Ayers. Second engineer on the Aster, and the only one who reached an escape pod. Two years on the Arbor under a name that is not hers.'],
+      ['mara', 'Dock at the habitat, take her aboard, and bring her to Hearth. If Ceres knows she is alive, they will be watching the lanes.'],
+    ],
+    steps: [
+      { text: 'Transfer to the Arbor, at Earth-Moon L5', place: 'arbor', done: (g) => g.place === 'arbor' },
+      { text: 'Dock at the Arbor and take Renn aboard', place: 'arbor', at: () => port('arbor'), done: (g) => g.story.s.docked === 'arbor', finish: (g) => g.say('renn', 'Renn Ayers. Do not say my name on the radio. Get me to Hearth and I will tell you what they did to the Aster.') },
+      { text: 'Bring Renn to Hearth', place: 'hearth', at: () => port('hearth'), done: (g) => g.story.s.docked === 'hearth' },
+      {
+        text: (g) => `Ceres came for her: defend Hearth (${kills(g, 'm:cstrike')} of 4)`, place: 'hearth',
+        enter: (g) => {
+          if (kills(g, 'm:cstrike') >= 4) return
+          if (!alive(g, 'm:cstrike').length) {
+            raiders(g, 4 - kills(g, 'm:cstrike'), g.player.pos.clone().add(V(3200, 500, -3600)), 'm:cstrike', 'attack', 0.55)
+            for (const e of alive(g, 'm:cstrike')) e.label = 'Ceres strike craft'
+            g.say('control', 'Hearth control: four unmarked contacts on a hot vector. All traffic, stay in your berths.')
+            g.say('renn', 'They followed me. Of course they followed me. That is Sable\'s signature: never let a witness land.')
+          }
+        },
+        ship: (g) => alive(g, 'm:cstrike')[0]?.id, done: (g) => kills(g, 'm:cstrike') >= 4,
+      },
+    ],
+    outro: [
+      ['renn', 'The Aster was not ambushed. It was scheduled. Our route was sold the day before we left Hearth, and the Hollow were paid through a Compact account.'],
+      ['renn', 'Twelve crew, for one ship lost badly enough to hand the lanes to the Ceres Line. My captain\'s daughter works in Harbor traffic and still thinks it was weather.'],
+      ['chen', 'So did I, until tonight. I have heard all of it and I believe her. Citadel is Sable\'s house and her flagship is the Perseverance. I am done taking orders from a woman who sells routes.'],
+    ],
+  },
+  {
+    id: 'clean-hands', title: 'Clean Hands', giver: 'chen', at: 'hearth', after: 'the-witness', pitch: 'Sable runs the program from Citadel. Take the proof to her house and end it.',
+    reward: { credits: 40000, clearDebt: true }, quiet: true, noPatrol: true,
+    intro: [
+      ['chen', 'Citadel. Deep lanes command, a hundred thousand hours of quiet, and Sable\'s whole program running on one server aboard her flagship.'],
+      ['renn', 'Every payment, every route sale, every Hollow contract. If we take that server, the truth is not a rumour any more. It is evidence.'],
+      ['chen', 'And when it is over, you decide what truth becomes. Not her. Not me. You. That is the part I cannot order.'],
+    ],
+    steps: [
+      { text: 'Transfer to Citadel', place: 'citadel', done: (g) => g.place === 'citadel' },
+      {
+        text: (g) => `Break the guard wing (${kills(g, 'm:cguard')} of 4)`, place: 'citadel',
+        enter: (g) => {
+          const n = 4 - kills(g, 'm:cguard')
+          if (n > 0 && !alive(g, 'm:cguard').length) {
+            raiders(g, n, g.player.pos.clone().add(V(3800, 600, -4200)), 'm:cguard', 'attack', 0.6)
+            for (const e of alive(g, 'm:cguard')) e.label = 'Ceres strike craft'
+            g.say('sable', 'Kestrel on approach. I know exactly which Kestrel. Name your price, pilot. I have bought better people than you for less.')
+            g.say('renn', 'She is on the open channel. She has never once been on the open channel. She is stalling.')
+          }
+        },
+        ship: (g) => alive(g, 'm:cguard')[0]?.id, done: (g) => kills(g, 'm:cguard') >= 4,
+        finish: (g) => g.say('sable', 'So be it. Perseverance: launch everything you have.'),
+      },
+      {
+        text: 'Destroy Sable\'s flagship, the Perseverance', place: 'citadel', ship: (g) => alive(g, 'm:sable')[0]?.id,
+        enter: (g) => {
+          if (alive(g, 'm:sable').length || kills(g, 'm:sable')) return
+          const w = spawn(g, 'warden', 'hollow', g.player.pos.clone().add(V(3600, 700, -3800)), 'm:sable', { mode: 'attack', target: g.player.id, skill: 0.8, brave: true, range: 14000 }, 'Perseverance (Sable)')
+          w.ai.passive = false
+          if (!g.story.s.escort2) {
+            g.story.s.escort2 = true
+            raiders(g, 2, g.player.pos.clone().add(V(3800, 500, -3600)), 'm:cguard2', 'attack', 0.6)
+            for (const e of alive(g, 'm:cguard2')) e.label = 'Ceres escort'
+          }
+        },
+        done: (g) => kills(g, 'm:sable') >= 1,
+        finish: (g) => g.say('renn', 'Her server is venting with the hull. I have it. Every ledger, every route, every name. Mara, it is all here.'),
+      },
+      {
+        text: 'Choose what happens to the truth', docked: true, field: 'ending',
+        choice: { prompt: 'The ledger, the recordings, and the Aster crew\'s families. What happens to the truth?', options: [
+          { id: 'broadcast', label: 'Broadcast it: every relay, everywhere, at once' },
+          { id: 'sealed', label: 'Give it to Chen: let the Compact judge its own' },
+        ] },
+        done: (g) => Boolean(g.story.ending),
+      },
+    ],
+    outroFor: (g) => (g.story.ending === 'broadcast'
+      ? [['renn', 'It is out. Every station, every ship, every kitchen on Harbor is hearing what happened to the Aster.'], ['mara', 'Then the families get the truth instead of a company statement, and Sable gets a hearing she cannot adjourn. Well flown, pilot.'], ['chen', 'The Compact will survive its own truth. It is people like Sable who will not.']]
+      : [['chen', 'The server goes to the tribunal, closed court. Sable answers to the Compact, in the Compact\'s own way, and the record stays whole.'], ['renn', 'Quiet justice is still justice. My crewmates rest easier either way. Thank you.'], ['mara', 'You chose the hard, clean way. The proof is safe with Chen, and so are we.']]),
+    epilogue: 'Act Three complete. The Periapsis program is finished, the debt is gone, and the deep lanes from Harbor to Citadel are open to you. The job board, the market and every station are yours.',
   },
 ]
 const HALCYON = V(-5200, -600, 4200)
+const YARD_WRECK = V(-6200, -400, 4800)
 const LOOP_PAR = 120
 const MERIDIAN = V(2600, 500, -2200)
 /**
@@ -546,7 +685,9 @@ export function chooseStory(g, option) {
   const m = BY_ID[g.story.active]
   const step = m?.steps[g.story.step]
   if (!step?.choice) return
-  g.story.choice = option
+  // A step may keep its answer somewhere other than the Act One branch
+  // (which side you flew for), so a later choice cannot rewrite history.
+  g.story[step.field ?? 'choice'] = option
   g.choice = null
   g.story.step++
   if (g.story.step >= m.steps.length) complete(g, m)

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { PLACES, STATIONS, ARRIVAL, RACE_RINGS, driftRocks, BODIES } from './world.js'
+import { PLACES, STATIONS, ARRIVAL, RACE_RINGS, RADIO, driftRocks, BODIES } from './world.js'
 import { HULLS, shipStats, UPGRADES } from './ships.js'
 import { makeShip, playerShip, stepShip, steerToward, clamp, barrelRoll } from './flight.js'
 import { makeBolts, stepBolts, fire, leadPoint } from './combat.js'
@@ -133,7 +133,7 @@ export function loadPlace(g, id, deep = null) {
   g.race = null
   g.traffic = { next: 2 }
   // The patrol: how much law each place has.
-  const patrol = { hearth: 1, harbor: 2, gateway: 2, shackleton: 1, drift: 0 }[id] ?? 0
+  const patrol = { hearth: 1, harbor: 2, gateway: 2, shackleton: 1, drift: 0, arbor: 1, vesper: 1, citadel: 2 }[id] ?? 0
   for (let i = 0; i < patrol; i++) {
     const st = g.stations[0]
     const e = makeShip('cutter', 'compact', shipStats('cutter'), (st?.at ?? new THREE.Vector3()).clone().add(new THREE.Vector3(Math.cos(i * 2.1) * 2600, 200 * i, Math.sin(i * 2.1) * 2600)))
@@ -662,6 +662,20 @@ function upkeep(g, dt) {
     if (!g.edgeWarned || g.time - g.edgeWarned > 8) { g.edgeWarned = g.time; g.emit({ type: 'toast', text: 'Edge of the area. Pick a destination on the map (M) and transfer (J).' }) }
   }
   g.sinceSave += dt
+  radio(g)
+}
+
+/**
+ * The open channels, in the background: a line of local traffic now and
+ * then while you fly with nothing on the comms and no mission in progress.
+ * The lanes should sound like places whether or not anyone is talking to you.
+ */
+function radio(g) {
+  const band = RADIO[g.place]
+  if (!band || g.story.active || g.comms.length || g.time < (g.radioAt ?? 0)) return
+  g.radioAt = g.time + 110 + Math.random() * 120
+  const [who, text] = band[(g.radioN = ((g.radioN ?? -1) + 1)) % band.length]
+  g.say(who, text)
 }
 
 function prompt(g) {

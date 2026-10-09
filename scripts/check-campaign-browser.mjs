@@ -66,7 +66,7 @@ try {
     }
     const result = report.branches[choice]
     assert.ok(result, `branch ${choice} did not finish`)
-    assert.equal(result.done.length, 12); assert.equal(result.choice, choice); assert.equal(result.debt, 0)
+    assert.equal(result.done.length, 15); assert.equal(result.choice, choice); assert.equal(result.debt, 0)
   }
   report.errors = p.logs().filter(l => /^error/.test(l)); assert.deepEqual(report.errors, [])
   writeFileSync(`${out}/campaign-results.json`, JSON.stringify(report, null, 2) + '\n')

@@ -61,8 +61,22 @@ export const PLACES = {
     id: 'shackleton', name: 'Shackleton', where: '60 km over the lunar south pole', anchor: MOON.position.clone().add(V(0, -(MOON.radius + 60e3), 0)), region: 30e3,
     blurb: 'The ice mines at the south pole. Everything here is a landing.',
   },
+  // The deep lanes: past the Earth-Moon system, where the drive is the only
+  // road and a full tank is a round trip. L5 first, then the far dark.
+  arbor: {
+    id: 'arbor', name: 'The Arbor', where: 'Earth-Moon L5', anchor: V(MOON.position.x * 0.5, 0, -MOON.position.x * Math.sqrt(3) / 2), region: 30e3,
+    blurb: 'An L5 habitat that turns for its gravity and grows its own air. Neutral ground, and the quiet end of everywhere.',
+  },
+  vesper: {
+    id: 'vesper', name: 'Vesper Yards', where: '600 million km from Earth, on the far lanes', anchor: V(620e6, 60e6, -520e6), region: 30e3,
+    blurb: 'The construction yards that built the deep fleet, gone quiet overnight. Salvage rights are posted at the cradles.',
+  },
+  citadel: {
+    id: 'citadel', name: 'Citadel', where: '1,100 million km from Earth, deep lanes command', anchor: V(-420e6, -140e6, -800e6), region: 30e3,
+    blurb: 'The Lunar Compact\'s deep lanes command: a station that logs every arrival and answers to nobody on the radio.',
+  },
 }
-export const PLACE_ORDER = ['hearth', 'harbor', 'drift', 'gateway', 'shackleton']
+export const PLACE_ORDER = ['hearth', 'harbor', 'drift', 'gateway', 'shackleton', 'arbor', 'vesper', 'citadel']
 
 /**
  * Stations: what you dock with. Local position in the place's frame (m),
@@ -88,6 +102,21 @@ export const STATIONS = {
     id: 'gateway', place: 'gateway', name: 'Gateway', model: 'gateway', at: V(0, 0, 0), radius: 260,
     port: { at: V(0, 0, 270), axis: V(0, 0, 1) }, faction: 'compact', law: 1,
     services: ['jobs', 'market', 'repair', 'fines'],
+  },
+  arbor: {
+    id: 'arbor', place: 'arbor', name: 'The Arbor', model: 'harbor', at: V(0, 0, 0), radius: 360,
+    port: { at: V(0, 0, 400), axis: V(0, 0, 1) }, faction: 'free', law: 2,
+    services: ['jobs', 'market', 'outfit', 'repair'],
+  },
+  vesper: {
+    id: 'vesper', place: 'vesper', name: 'Vesper Yards', model: 'shackle', at: V(5200, 600, -3800), radius: 520,
+    port: { at: V(5200, 600, -3170), axis: V(0, 0, 1) }, faction: 'free', law: 4,
+    services: ['jobs', 'market', 'shipyard', 'outfit', 'repair', 'fence'],
+  },
+  citadel: {
+    id: 'citadel', place: 'citadel', name: 'Citadel', model: 'gateway', at: V(0, 0, 0), radius: 300,
+    port: { at: V(0, 0, 310), axis: V(0, 0, 1) }, faction: 'compact', law: 1,
+    services: ['jobs', 'market', 'outfit', 'repair', 'fines'],
   },
 }
 
@@ -116,3 +145,49 @@ export function driftRocks() {
 
 /** Distance between two places' anchors, m. */
 export const placeDistance = (a, b) => PLACES[a].anchor.distanceTo(PLACES[b].anchor)
+
+/**
+ * The open channels, per place: who is talking and what they say. Flown as
+ * background radio while you are out and about with nothing on the comms,
+ * the way a city sounds like itself whether or not you are in a hurry.
+ */
+export const RADIO = {
+  hearth: [
+    ['control', 'Hearth control: berths nine through twelve are open. Mind the ore hauler on the way in.'],
+    ['mara', 'Dockmaster to all berths: the fuel barge is on the port side tonight. Plan your departures.'],
+    ['control', 'Hearth traffic: keep your transponder on and your questions to yourself.'],
+  ],
+  harbor: [
+    ['control', 'Harbor control: Loop traffic has right of way through the ring corridor.'],
+    ['control', 'Harbor insurers: hull surveys by appointment. Fly carefully; premiums are watching.'],
+    ['control', 'Courier tender Indus, requesting departure clearance to the deep lanes. Granted, Indus.'],
+  ],
+  drift: [
+    ['control', 'Open channel: rock and salvage claims in the Drift are first come, first served.'],
+    ['hollow', 'The Drift is ours, little bird. Keep your scoops to yourself.'],
+    ['control', 'Freighter Tycho Maru, two days late and short one thruster. As usual.'],
+  ],
+  gateway: [
+    ['patrol', 'Gateway patrol: transponder checks in effect on all approaches.'],
+    ['control', 'Compact dispatch: the deep lanes are open to licensed traffic. Fly the corridor.'],
+  ],
+  shackleton: [
+    ['control', 'Shackleton descent: corridor is clear. The ice does not care how good you are.'],
+    ['control', 'Consortium hauler: loading water at pad three. Watch your plume.'],
+  ],
+  arbor: [
+    ['control', 'Arbor habitat: the ring is spinning for gravity today. Dock at the axis, legs first.'],
+    ['control', 'Arbor garden: visitors are welcome on the ring. No boots in the orchard.'],
+    ['control', 'L5 is the quiet end of everywhere. That is the whole point of it.'],
+  ],
+  vesper: [
+    ['control', 'Vesper Yards: salvage rights are posted at the cradles. Read them before you cut.'],
+    ['control', 'The forge is cold and the cradles are empty. Somebody left here in a hurry.'],
+    ['control', 'Vesper traffic: one ship in the pattern. Be about your business.'],
+  ],
+  citadel: [
+    ['control', 'Citadel control: all arrivals are logged. All of them.'],
+    ['patrol', 'Compact deep lanes command: state your business and hold your course.'],
+    ['control', 'Citadel dispatch: the lanes are secure. Continue about your lawful work.'],
+  ],
+}

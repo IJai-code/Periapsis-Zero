@@ -255,8 +255,28 @@ function playStory(choice) {
       b.until(() => { if (g.story.step >= 2) return true; b.fightTag('m:strike', 200); b.step(30); return false }, 900, 'defending Gateway')
       b.fightTag('m:flag', 400); b.dock('gateway')
     },
+    // Act Three: the deep lanes and the truth about the Aster.
+    'yard-work': () => {
+      b.transfer('vesper'); b.dock('vesper'); b.launch()
+      b.flyTo(V3(-6200, -400, 4800), 110, 12, 400)
+      b.c.throttleSet = 0
+      b.until(() => g.story.step >= 4, 30, 'pulling the manifest core')
+      b.fightTag('m:remnant'); b.dock('hearth')
+    },
+    'the-witness': () => {
+      b.transfer('arbor'); b.dock('arbor')
+      b.dock('hearth')
+      if (g.mode === 'docked') b.launch()
+      b.fightTag('m:cstrike', 300)
+    },
+    'clean-hands': () => {
+      b.transfer('citadel')
+      b.until(() => { if (g.story.step >= 2) return true; b.fightTag('m:cguard', 200); b.step(30); return false }, 900, 'breaking the guard wing')
+      b.fightTag('m:sable', 400)
+      b.step(30); chooseStory(g, 'broadcast'); b.step(5)
+    },
   }
-  const order = ['arrival', 'honest-work', 'scrap', 'friend', 'down-low', 'chen', choice === 'chen' ? 'raid' : 'convoy', 'periapsis', 'new-money', 'ghost-signal', 'loop', 'apoapsis']
+  const order = ['arrival', 'honest-work', 'scrap', 'friend', 'down-low', 'chen', choice === 'chen' ? 'raid' : 'convoy', 'periapsis', 'new-money', 'ghost-signal', 'loop', 'apoapsis', 'yard-work', 'the-witness', 'clean-hands']
   for (const id of order) {
     for (let attempt = 1; ; attempt++) {
       try {
@@ -285,7 +305,8 @@ for (const choice of ['chen', 'rook']) {
     const { g, deaths } = playStory(choice)
     assert.equal(g.story.done.length, STORY.length - 1, g.story.done.join(','))
     assert.equal(g.debt, 0, 'the finale clears the debt')
-    assert.equal(g.story.choice, choice)
+    assert.equal(g.story.choice, choice, 'the Act One branch is never rewritten')
+    assert.equal(g.story.ending, 'broadcast', 'the scripted play broadcasts the truth')
     console.log(`    ${(g.time / 3600).toFixed(1)} game hours, ${g.stats.trips} transfers, ${g.stats.kills} kills, ${deaths} retries, ₡ ${Math.round(g.credits).toLocaleString()}`)
   })
 }

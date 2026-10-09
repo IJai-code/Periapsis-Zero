@@ -9,7 +9,7 @@ import { play } from '../audio.js'
  * The map of the Earth-Moon system. Not to scale (the Moon's neighbourhood
  * would be a dot): positions are schematic, distances and times are real.
  */
-const SPOT = { harbor: [17, 52], hearth: [70, 50], drift: [72, 30], gateway: [86, 24], shackleton: [88, 78] }
+const SPOT = { harbor: [17, 52], hearth: [70, 50], drift: [72, 30], gateway: [86, 24], shackleton: [88, 78], vesper: [12, 24], arbor: [40, 82], citadel: [62, 88] }
 
 export function MapView({ game: g, touch, onClose }) {
   const [sel, setSel] = useState(g.dest ?? (g.place === 'hearth' ? 'harbor' : 'hearth'))
@@ -22,7 +22,7 @@ export function MapView({ game: g, touch, onClose }) {
   const tank = g.player.stats.tank ?? 1
   const h = (s) => `${Math.floor(s / 3600)} h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')} min`
   return <div className="map-root" role="dialog" aria-label="Map">
-    <header><h1>Earth-Moon system</h1><button className="map-close" onClick={onClose}>Close{!touch && <kbd className="gk">M</kbd>}</button></header>
+    <header><h1>The system and the deep lanes</h1><button className="map-close" onClick={onClose}>Close{!touch && <kbd className="gk">M</kbd>}</button></header>
     <div className="map-body">
       <div className="map-chart">
         <div className="map-earth" style={{ left: '6%', top: '50%' }}><span>Earth</span></div>
@@ -35,7 +35,7 @@ export function MapView({ game: g, touch, onClose }) {
           <i />
           <span>{PLACES[id].name}{g.place === id && <em>You are here</em>}{objectivePlace === id && <em className="goal">Objective</em>}</span>
         </button>)}
-        <p className="map-scale">Schematic. Earth to Moon is 384,400 km.</p>
+        <p className="map-scale">Schematic. Earth to Moon is 384,400 km; the deep lanes are a hundred times further.</p>
       </div>
       <aside className="map-info">
         <span className="st-eyebrow">{p.where}</span>

@@ -25,6 +25,9 @@ const DEMAND = {
   harbor: { water: 1.0, food: 0.7, alloys: 1.2, parts: 0.8, medical: 0.75, helium3: 1.35, chips: null },
   shackle: { water: 1.15, food: 1.4, alloys: 0.8, parts: 1.25, medical: 1.6, helium3: 0.9, chips: 0.55 },
   gateway: { water: 1.45, food: 1.35, alloys: 0.85, parts: 1.15, medical: 1.2, helium3: 0.75, chips: null },
+  arbor: { water: 0.85, food: 0.75, alloys: 1.1, parts: 1.2, medical: 0.9, helium3: 1.15, chips: null },
+  vesper: { water: 1.25, food: 1.3, alloys: 0.7, parts: 0.75, medical: 1.35, helium3: 1.1, chips: 0.85 },
+  citadel: { water: 1.2, food: 1.15, alloys: 1.15, parts: 1.3, medical: 1.05, helium3: 0.85, chips: null },
 }
 
 const DAY = 86400
@@ -54,6 +57,9 @@ const BOARDS = {
   harbor: ['courier', 'haul', 'race', 'bounty', 'haul'],
   shackle: ['smuggle', 'smuggle', 'salvage', 'courier'],
   gateway: ['bounty', 'haul', 'survey', 'courier'],
+  arbor: ['courier', 'haul', 'haul', 'survey'],
+  vesper: ['salvage', 'bounty', 'haul', 'courier'],
+  citadel: ['bounty', 'haul', 'courier', 'survey'],
 }
 const DOCKABLE = Object.keys(STATIONS)
 const placeOf = (stationId) => STATIONS[stationId].place
@@ -76,7 +82,7 @@ function makeJob(type, from, day, i, time) {
   const dist = km(from, to)
   const travel = 2 * Math.sqrt(dist * 1000 / 2.94) // brachistochrone at 0.3 g, s
   const deadline = time + Math.max(6 * 3600, travel * 3 + 8 * 3600)
-  const names = { hearth: 'Hearth', harbor: 'Harbor', shackle: 'the Shackle', gateway: 'Gateway' }
+  const names = { hearth: 'Hearth', harbor: 'Harbor', shackle: 'the Shackle', gateway: 'Gateway', arbor: 'the Arbor', vesper: 'Vesper Yards', citadel: 'Citadel' }
   switch (type) {
     case 'courier': {
       const reward = Math.round((1200 + 9 * Math.sqrt(dist)) / 50) * 50

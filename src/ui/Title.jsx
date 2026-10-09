@@ -60,7 +60,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
         {tab === 'career' && <>
           <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart.webp)` }}>
             <div className="tt-hero-copy"><span className="tt-eyebrow">Earth-Moon frontier / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
-              <p>You survived the ambush. Now learn your ship, take paid work, and earn your freedom.</p>
+              <p>You survived the ambush. A debt, a dead convoy, and one true story about who sold the Aster. Learn your ship, take the work, and fly the deep lanes to the end of it.</p>
               {isPhone ? <><p className="tt-device-note">Career flight needs a computer or tablet. Flight school and surface exploration work on this phone.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <div className="tt-actions">
                 {save && <button className="tt-primary control" onClick={onPlay}>Continue career →</button>}
                 <button className={`${save ? 'tt-secondary' : 'tt-primary'} control`} onClick={newGame}>{save ? 'New pilot' : 'Start your career →'}</button>
