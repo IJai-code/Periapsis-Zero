@@ -39,7 +39,10 @@ export function Props({ game, placeKey, quality }) {
 const BAY_LIGHT = {
   hearth: ['#fff1d8', '#ffd7a8', 1], harbor: ['#f2f6ff', '#dfe9ff', 1.1],
   shackle: ['#ffb27a', '#ff8a52', 0.7], gateway: ['#d8ecff', '#9fd2ff', 1],
+  arbor: ['#dfffe9', '#a9ffd1', 0.85], vesper: ['#ffd8c2', '#ff9a72', 0.75],
+  citadel: ['#c7f4ff', '#76dcff', 1.15],
 }
+const STATION_GLOW = { arbor: '#a9ffd1', vesper: '#ff9a72', citadel: '#76dcff' }
 function Hangar({ game, quality }) {
   const ref = useRef()
   const rig = useRef()
@@ -160,12 +163,12 @@ export function Warmup() {
   const { gl, scene, camera } = useThree()
   useEffect(() => {
     let alive = true
-    const kinds = ['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle']
+    const kinds = ['kestrel', 'mule', 'lance', 'raider', 'warden', 'cutter', 'freighter', 'canister', 'hearth', 'harbor', 'gateway', 'shackle', 'arbor', 'vesper', 'citadel']
     const run = async () => {
-      // Four at a time, awaited in order, rather than all twelve at once: the
-      // same programs are built either way, but the peak is a third of it and
-      // the frames in between still get drawn. Twelve programs compiled in one
-      // turn is a visible hitch on exactly the machine this is meant to spare.
+      // Four at a time, awaited in order, rather than all at once: the
+      // same programs are built either way, but the peak is bounded and the
+      // frames in between still get drawn. A large compile burst is a visible
+      // hitch on exactly the machine this is meant to spare.
       for (let i = 0; i < kinds.length && alive; i += 4) {
         const group = new THREE.Group()
         for (const k of kinds.slice(i, i + 4)) group.add(instance(k).object)
@@ -207,12 +210,17 @@ function StationsOutside({ children }) {
 
 function Station({ st }) {
   const obj = useMemo(() => instance(st.model).object, [st.model])
+  const habitatRing = useMemo(() => obj.getObjectByName('habitat-ring'), [obj])
   const ref = useRef()
-  useFrame((_, dt) => { if (ref.current && st.model === 'hearth') ref.current.rotation.z += dt * 0.035 })
-  // Hearth's ring turns for its gravity (about 0.3 g at 380 m, one turn a minute and a half).
+  useFrame((_, dt) => {
+    if (!ref.current) return
+    if (st.model === 'hearth') ref.current.rotation.z += dt * 0.035
+    if (st.model === 'arbor' && habitatRing) habitatRing.rotation.z += dt * 0.105
+  })
+  // Hearth keeps its original slow rotation; the Arbor ring makes roughly 0.3 g at 280 m.
   return <group position={st.at}>
     <primitive object={obj} ref={ref} />
-    <pointLight position={st.port.at.clone().sub(st.at).multiplyScalar(1.15)} color="#ffc890" intensity={6e3} distance={900} decay={2} />
+    <pointLight position={st.port.at.clone().sub(st.at).multiplyScalar(1.15)} color={STATION_GLOW[st.model] ?? '#ffc890'} intensity={6e3} distance={900} decay={2} />
   </group>
 }
 

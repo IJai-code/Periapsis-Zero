@@ -17,10 +17,10 @@ import { play } from '../audio.js'
  */
 const TABS = [['missions', 'Contacts'], ['jobs', 'Job board'], ['market', 'Market'], ['shipyard', 'Shipyard'], ['outfit', 'Outfitting'], ['services', 'Services'], ['pilot', 'Pilot']]
 
-export function Station({ game: g, touch, onLaunch, onOverlay, onSchool }) {
+export function Station({ game: g, touch, onLaunch, onOverlay, onSchool, onInterior, initialTab }) {
   const st = STATIONS[g.docked]
   const storyHere = storyOffers(g, st.id)
-  const [tab, setTab] = useState(() => (storyHere.length || g.story.active ? 'missions' : 'jobs'))
+  const [tab, setTab] = useState(() => initialTab ?? (storyHere.length || g.story.active ? 'missions' : 'jobs'))
   const [msg, setMsg] = useState(null)
   const act = (fn) => { const r = fn(); setMsg(r); play(r ? 'denied' : 'click') }
   const tabs = TABS.filter(([id]) => id !== 'shipyard' || st.services.includes('shipyard')).filter(([id]) => id !== 'outfit' || st.services.includes('outfit'))
@@ -29,6 +29,7 @@ export function Station({ game: g, touch, onLaunch, onOverlay, onSchool }) {
       <div><span className="st-eyebrow">{st.faction === 'compact' ? 'Lunar Compact' : st.faction === 'hollow' ? 'No flag' : 'Free port'} · {PLACES[st.place].where}</span><h1>{st.name}</h1></div>
       <div className="st-clock">{clock(g.time)}</div>
       <div className="st-money"><strong>₡ {Math.round(g.credits).toLocaleString()}</strong>{g.debt > 0 && <small>Owed to Rook: ₡ {g.debt.toLocaleString()}</small>}</div>
+      <button className="st-walk-link" onClick={() => onInterior?.(tab)}>Walk the concourse</button>
     </header>
     <nav className="st-tabs">
       {tabs.map(([id, label]) => <button key={id} aria-current={tab === id ? 'page' : undefined} className={tab === id ? 'on' : ''} onClick={() => { setTab(id); setMsg(null); play('click') }}>

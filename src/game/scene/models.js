@@ -139,6 +139,83 @@ const STAND_INS = {
     g.add(box(70, 4, 4, M.lit, 0, 31, 600)); g.add(box(70, 4, 4, M.lit, 0, -31, 600))
     return { object: g, nozzles: [] }
   },
+  arbor() {
+    // A rotating garden habitat: the axis stays fixed for docking while the
+    // ring and its orchard modules turn together to make artificial gravity.
+    const g = new THREE.Group()
+    g.add(cyl(24, 24, 760, M.steel, 20, 'z'))
+    g.add(cyl(40, 40, 62, M.dark, 24, 'z'))
+    g.add(cyl(35, 35, 10, M.ion, 24, 'z', 0, 0, 35))
+    g.add(cyl(35, 35, 10, M.ion, 24, 'z', 0, 0, -35))
+    const habitat = new THREE.Group(); habitat.name = 'habitat-ring'; g.add(habitat)
+    habitat.add(new THREE.Mesh(new THREE.TorusGeometry(280, 18, 12, 96), M.bone))
+    habitat.add(new THREE.Mesh(new THREE.TorusGeometry(253, 3, 8, 96), M.ion))
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, x = Math.cos(a), y = Math.sin(a)
+      const spoke = box(232, 12, 14, M.steel, x * 145, y * 145, 0); spoke.rotation.z = a; habitat.add(spoke)
+      const pod = box(92, 48, 68, M.dark, x * 280, y * 280, 0); pod.rotation.z = a + Math.PI / 2; habitat.add(pod)
+      const garden = box(58, 3, 38, M.ion, x * 280, y * 280, 36); garden.rotation.z = a + Math.PI / 2; habitat.add(garden)
+      const window = box(40, 3, 5, M.lit, x * 280, y * 280, 39); window.rotation.z = a + Math.PI / 2; habitat.add(window)
+    }
+    // Axial docking collar and a pair of quiet beacon rails.
+    g.add(cyl(48, 34, 86, M.steel, 20, 'z', 0, 0, 390))
+    g.add(box(4, 4, 42, M.ion, -58, 0, 365)); g.add(box(4, 4, 42, M.ion, 58, 0, 365))
+    return { object: g, nozzles: [] }
+  },
+  vesper() {
+    // An empty deep-fleet drydock: long open cradles, gantry rails and a
+    // half-built keel where the finished ships used to leave from.
+    const g = new THREE.Group()
+    for (const x of [-360, 360]) {
+      g.add(box(28, 24, 1040, M.steel, x, 36, -90))
+      g.add(box(22, 190, 24, M.dark, x, 118, -90))
+      g.add(box(46, 5, 900, M.ion, x, 232, -90))
+      for (const z of [-510, -250, 10, 270, 430]) {
+        g.add(box(30, 150, 30, M.dark, x, 145, z))
+        g.add(box(58, 18, 38, M.ember, x, 232, z))
+      }
+    }
+    for (const z of [-500, -180, 140, 430]) g.add(box(760, 22, 30, M.steel, 0, 35, z))
+    // The unfinished hull's exposed rib frame makes the yard read as industry,
+    // not just another rockside port with its paint worn off.
+    g.add(cyl(34, 54, 520, M.dark, 10, 'z', 0, 54, -260))
+    for (let i = 0; i < 7; i++) {
+      const z = -480 + i * 72
+      const rib = new THREE.Mesh(new THREE.TorusGeometry(64 - i * 2, 5, 6, 16), i % 2 ? M.steel : M.ember)
+      rib.position.set(0, 54, z); rib.scale.set(1, 0.72, 1); g.add(rib)
+    }
+    // Gantry bridge and the long, lit approach spine.
+    g.add(box(900, 22, 26, M.steel, 0, 270, -90))
+    g.add(box(24, 300, 24, M.dark, -420, 120, -90)); g.add(box(24, 300, 24, M.dark, 420, 120, -90))
+    g.add(cyl(30, 30, 260, M.dark, 16, 'z', 0, 0, 510))
+    g.add(cyl(44, 44, 18, M.ion, 20, 'z', 0, 0, 600))
+    g.add(box(70, 4, 5, M.lit, 0, 34, 625)); g.add(box(70, 4, 5, M.lit, 0, -34, 625))
+    return { object: g, nozzles: [] }
+  },
+  citadel() {
+    // Compact command: a faceted armored core, shield/sensor hoops and a
+    // narrow, unmistakably blue arrival beacon above its defended collar.
+    const g = new THREE.Group()
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(205, 1), M.dark)
+    core.scale.set(1.05, 0.82, 1.28); core.position.set(0, 0, -30); g.add(core)
+    g.add(new THREE.Mesh(new THREE.TorusGeometry(260, 8, 8, 72), M.steel))
+    const sensor = new THREE.Mesh(new THREE.TorusGeometry(300, 3, 6, 72), M.ion); sensor.rotation.x = Math.PI / 2.8; g.add(sensor)
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3, x = Math.cos(a), y = Math.sin(a)
+      const wing = box(178, 24, 80, i % 2 ? M.panel : M.steel, x * 245, y * 245, -20)
+      wing.rotation.z = a; g.add(wing)
+      const tower = cyl(18, 24, 125, M.dark, 8, 'y', x * 235, y * 235, 42)
+      g.add(tower)
+    }
+    // The command mast and its two bright transponder bars face inbound traffic.
+    g.add(cyl(38, 54, 190, M.steel, 12, 'z', 0, 0, 210))
+    g.add(cyl(54, 54, 18, M.ion, 20, 'z', 0, 0, 290))
+    g.add(box(8, 120, 8, M.ion, -76, 0, 175)); g.add(box(8, 120, 8, M.ion, 76, 0, 175))
+    g.add(box(30, 180, 30, M.dark, 0, 170, -75))
+    const beacon = new THREE.Mesh(new THREE.SphereGeometry(20, 12, 8), M.ion)
+    beacon.position.set(0, 270, -75); g.add(beacon)
+    return { object: g, nozzles: [] }
+  },
   canister() {
     const g = new THREE.Group()
     g.add(cyl(1.6, 1.6, 4.5, M.ember, 12, 'y'))

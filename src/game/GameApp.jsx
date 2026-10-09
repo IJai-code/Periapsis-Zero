@@ -1,10 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { autosave, launch, loadSave, newSave, respawn, returnFromSurface, startGame, deleteSave, loadPlace, worldUp, spawnRaiders, setDestination, startTransfer, addHeat, requestDock } from './core/game.js'
 import * as THREE from 'three'
+import { STATIONS } from './core/world.js'
 import { bindDesktop, createControls, isTouch } from './ui/controls.js'
 import { duck, engineLevel, pauseSound, play, startSound, stopSound } from './audio.js'
 import { Hud } from './ui/Hud.jsx'
 import { Station } from './ui/Station.jsx'
+import { StationInterior } from './ui/StationInterior.jsx'
 import { MapView } from './ui/MapView.jsx'
 import { Comms } from './ui/Comms.jsx'
 import { Banners } from './ui/Banners.jsx'
@@ -43,7 +45,8 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
   const [phase, setPhase] = useState(() => (!fresh && loadSave() ? 'loading' : 'new'))
   useEffect(() => { onFresh?.() }, [onFresh])
   const [, setTick] = useState(0)
-  const [overlay, setOverlay] = useState(null) // 'map' | 'log' | 'pause' | null
+  const [overlay, setOverlay] = useState(null) // 'map' | 'log' | 'pause' | 'interior' | null
+  const [stationTab, setStationTab] = useState('missions')
   const [touch] = useState(isTouch)
   const [quality, setQuality] = useState(() => initialQuality())
   const qualityRef = useRef(quality)
@@ -112,7 +115,7 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       if (!g) return
       if (what === 'lock-failed') { g.emit({ type: 'toast', text: 'Mouse capture is unavailable here. Drag the view to steer; K fires. Arrow keys also steer.' }); return }
       if (what === 'unlocked') { if (g.mode === 'flight' && !overlayRef.current) setOverlay('pause'); return }
-      if (what === 'pause') { if (g.cine) { setOverlay((o) => (o ? null : 'pause')); return } setOverlay((o) => (o ? null : 'pause')); return }
+      if (what === 'pause') { if (overlayRef.current === 'interior') return; if (g.cine) { setOverlay((o) => (o ? null : 'pause')); return } setOverlay((o) => (o ? null : 'pause')); return }
       if (what === 'map') { if (g.mode === 'flight' || g.mode === 'docked') { document.exitPointerLock?.(); setOverlay((o) => (o === 'map' ? null : 'map')) } return }
       if (what === 'log') { document.exitPointerLock?.(); setOverlay((o) => (o === 'log' ? null : 'log')); return }
       if (what === 'help') { document.exitPointerLock?.(); setOverlay('help'); return }
@@ -209,11 +212,12 @@ export default function GameApp({ onExit, fresh = false, onFresh }) {
       <div className="gm-markers" ref={markers} hidden={Boolean(g.cine)} />
       {g.mode !== 'docked' && <Hud game={g} touch={touch} controls={controls.current} onOverlay={setOverlay} />}
       {g.cine && <button className="gm-skip" onClick={() => { g.cine = null; play('click') }}>Skip{!touch && <kbd className="gk">Space</kbd>}</button>}
-      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} onLaunch={() => { launch(g); play('click'); controls.current.canvas?.focus() }} onOverlay={setOverlay} onSchool={enterSchool} />}
+      {g.mode === 'docked' && !overlay && !g.cine && <Station game={g} touch={touch} initialTab={stationTab} onLaunch={() => { launch(g); play('click'); controls.current.canvas?.focus() }} onOverlay={setOverlay} onSchool={enterSchool} onInterior={(tab) => { setStationTab(tab); setOverlay('interior') }} />}
       {!g.cine && <Comms game={g} />}
       {g.cine?.kind === 'board' && <div className="boarding-label"><span className="st-eyebrow">Hearth / Berth 09</span><strong>Flight clearance pending</strong><p>Your first job begins with a ship you can trust.</p></div>}
       <Banners game={g} touch={touch} onRespawn={() => respawn(g)} />
       {touch && (g.mode === 'flight' || g.mode === 'transfer') && !overlay && <Touch controls={controls.current} game={g} onOverlay={(o) => (o === 'hail' ? hail(g, sky.current) : setOverlay(o))} />}
+      {overlay === 'interior' && g.mode === 'docked' && <StationInterior station={STATIONS[g.docked]} touch={touch} onClose={() => setOverlay(null)} onService={(tab) => { setStationTab(tab); setOverlay(null) }} />}
       {overlay === 'map' && <MapView game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {overlay === 'log' && <Log game={g} touch={touch} onClose={() => setOverlay(null)} />}
       {(overlay === 'pause' || overlay === 'help') && <Pause game={g} touch={touch} help={overlay === 'help'} quality={quality} setQuality={chooseQuality} controls={controls.current} onSky={setSkyOn} onSchool={enterSchool}

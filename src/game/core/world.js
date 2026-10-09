@@ -104,17 +104,17 @@ export const STATIONS = {
     services: ['jobs', 'market', 'repair', 'fines'],
   },
   arbor: {
-    id: 'arbor', place: 'arbor', name: 'The Arbor', model: 'harbor', at: V(0, 0, 0), radius: 360,
+    id: 'arbor', place: 'arbor', name: 'The Arbor', model: 'arbor', at: V(0, 0, 0), radius: 360,
     port: { at: V(0, 0, 400), axis: V(0, 0, 1) }, faction: 'free', law: 2,
     services: ['jobs', 'market', 'outfit', 'repair'],
   },
   vesper: {
-    id: 'vesper', place: 'vesper', name: 'Vesper Yards', model: 'shackle', at: V(5200, 600, -3800), radius: 520,
+    id: 'vesper', place: 'vesper', name: 'Vesper Yards', model: 'vesper', at: V(5200, 600, -3800), radius: 520,
     port: { at: V(5200, 600, -3170), axis: V(0, 0, 1) }, faction: 'free', law: 4,
     services: ['jobs', 'market', 'shipyard', 'outfit', 'repair', 'fence'],
   },
   citadel: {
-    id: 'citadel', place: 'citadel', name: 'Citadel', model: 'gateway', at: V(0, 0, 0), radius: 300,
+    id: 'citadel', place: 'citadel', name: 'Citadel', model: 'citadel', at: V(0, 0, 0), radius: 300,
     port: { at: V(0, 0, 310), axis: V(0, 0, 1) }, faction: 'compact', law: 1,
     services: ['jobs', 'market', 'outfit', 'repair', 'fines'],
   },

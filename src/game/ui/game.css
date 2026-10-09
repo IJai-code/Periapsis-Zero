@@ -227,6 +227,45 @@
 .st-go .gk { color: #120b22; border-color: #120b2266; background: transparent; }
 .st-go:hover { filter: brightness(1.1); }
 
+/* ------------------------------------------------------------------ Walkable station concourse */
+.concourse-root { position: absolute; inset: 0; z-index: 25; display: grid; grid-template-rows: auto auto minmax(0,1fr) auto; gap: 10px; padding: 18px 22px; background: radial-gradient(ellipse at 50% 44%, #251b37, #080612 76%); }
+.concourse-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.concourse-head h1 { margin: 5px 0 0; font-size: clamp(20px,3vw,30px); text-transform: uppercase; }
+.concourse-close { min-height: 40px; padding: 8px 14px; border: 1px solid #f4e8cf55; border-radius: 4px; background: #120b22; }
+.concourse-instructions { margin: 0; color: #f4e8cfb3; font-size: 13px; }
+.concourse-room { position: relative; overflow: hidden; min-height: 260px; border: 1px solid #f4e8cf33; border-radius: 8px; background: linear-gradient(180deg,#101b32 0%,#17172d 37%,#393141 38%,#201b2a 68%,#12101b 69%); cursor: crosshair; isolation: isolate; }
+.concourse-room::before { content: ''; position: absolute; inset: 0 0 31%; opacity: .65; background: repeating-linear-gradient(90deg,transparent 0 8%,#c1e1ff13 8.2% 8.5%,transparent 8.7% 15%); pointer-events: none; }
+.concourse-room::after { content: ''; position: absolute; inset: 16% 3% 31%; border: 2px solid #f4e8cf20; border-bottom: 0; border-radius: 50% 50% 0 0 / 18% 18% 0 0; box-shadow: inset 0 20px 60px #2fd3ff0d; pointer-events: none; }
+.concourse-window { position: absolute; left: 31%; right: 31%; top: 8%; height: 23%; display: flex; justify-content: center; align-items: center; gap: 18px; overflow: hidden; border: 4px solid #8293a866; border-bottom-width: 8px; background: radial-gradient(ellipse at 50% 60%,#263e61,#101425 78%); box-shadow: 0 0 46px #2fd3ff22; }
+.concourse-window i { width: 5px; height: 5px; border-radius: 50%; background: #f4e8cf; box-shadow: 0 0 8px #f4e8cf; }
+.concourse-window span { position: absolute; bottom: 5px; left: 0; right: 0; text-align: center; color: #f4e8cf80; font: 10px var(--font-mono); letter-spacing: .18em; text-transform: uppercase; }
+.concourse-arches { position: absolute; left: 7%; right: 7%; top: 32%; height: 37%; border-top: 2px solid #f4e8cf20; border-bottom: 2px solid #f4e8cf12; background: repeating-linear-gradient(90deg,transparent 0 18%,#f4e8cf16 18.2% 18.6%,transparent 19% 36%); pointer-events: none; }
+.concourse-floor { position: absolute; inset: 68% 0 0; display: flex; justify-content: space-around; align-items: flex-end; padding: 0 7% 2%; color: #f4e8cf55; font: 9px var(--font-mono); letter-spacing: .2em; }
+.concourse-walkway { position: absolute; left: 8%; right: 8%; top: 0; height: 100%; border-top: 2px solid #2fd3ff66; background: linear-gradient(90deg,transparent,#2fd3ff0a 12% 88%,transparent); }
+.concourse-person { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 3px; width: 132px; padding: 5px; border: 1px solid transparent; border-radius: 5px; background: #120b22bb; transform: translate(-50%,-50%); }
+.concourse-person.selected,.concourse-kiosk.selected { border-color: #f4e8cf99; }
+.concourse-person.near,.concourse-kiosk.near { border-color: #2fd3ff; box-shadow: 0 0 18px #2fd3ff55; }
+.concourse-figure { display: grid; place-items: center; width: 34px; height: 55px; border-radius: 15px 15px 5px 5px; border: 2px solid #f4e8cfaa; background: linear-gradient(90deg,#2b2a33 18%,#f4e8cf 19% 78%,#2b2a33 79%); }
+.concourse-figure::before { content: ''; position: absolute; width: 17px; height: 17px; margin-top: -62px; border: 2px solid #f4e8cf; border-radius: 50%; background: #120b22; }
+.concourse-figure b { margin-top: 59px; color: #2fd3ff; font: 8px var(--font-mono); }
+.concourse-person > span { display: grid; color: #f4e8cf; text-shadow: 0 2px 4px #000; }
+.concourse-person strong { font-size: 11px; }
+.concourse-person small { font-size: 9px; color: #f4e8cf99; }
+.concourse-kiosk { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 4px; min-width: 70px; padding: 5px; border: 1px solid transparent; border-radius: 4px; background: #120b22de; transform: translate(-50%,-50%); font-size: 10px; }
+.concourse-kiosk > i { display: grid; place-items: center; width: 32px; height: 39px; border: 2px solid #2fd3ff; background: linear-gradient(#2fd3ff33,#120b22); font: normal 10px var(--font-mono); color: #2fd3ff; }
+.concourse-avatar { position: absolute; z-index: 3; display: grid; justify-items: center; gap: 2px; transform: translate(-50%,-50%); color: #ff6b2c; font: 10px var(--font-mono); text-shadow: 0 1px 5px #000; pointer-events: none; }
+.concourse-avatar i { width: 18px; height: 28px; border: 2px solid #ff6b2c; border-radius: 9px 9px 3px 3px; background: #ff6b2c44; box-shadow: 0 0 14px #ff6b2c88; }
+.concourse-tools { display: flex; align-items: center; gap: 12px; min-height: 54px; }
+.concourse-tools p { flex: 1; min-width: 0; margin: 0; color: #f4e8cfcc; font-size: 13px; line-height: 1.4; }
+.concourse-interact { min-height: 44px; }
+.concourse-pad { display: grid; grid-template-columns: repeat(3,38px); grid-template-rows: repeat(2,38px); gap: 3px; }
+.concourse-pad button { min-width: 38px; min-height: 38px; border: 1px solid #f4e8cf55; border-radius: 4px; background: #120b22; font-size: 18px; touch-action: none; }
+.concourse-pad button:first-child { grid-column: 2; }
+.concourse-pad button:nth-child(2) { grid-column: 1; grid-row: 2; }
+.concourse-pad button:nth-child(3) { grid-column: 2; grid-row: 2; }
+.concourse-pad button:nth-child(4) { grid-column: 3; grid-row: 2; }
+@media(max-width:760px) { .concourse-root { padding: 10px; gap: 8px; } .concourse-room { min-height: 240px; } .concourse-tools { flex-wrap: wrap; } .concourse-tools p { flex-basis: 100%; } .concourse-person { width: 104px; } .concourse-interact { flex: 1; } }
+
 /* ------------------------------------------------------------------ Map */
 .map-root, .gm-log, .gm-pause { position: absolute; inset: 0; z-index: 20; background: #05030bf2; animation: fadein .22s ease both; }
 .gm-log > section, .gm-pause > * , .map-body { animation: settle .32s cubic-bezier(.2,.8,.2,1) both; }
