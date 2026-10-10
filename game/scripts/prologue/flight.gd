@@ -125,7 +125,7 @@ func _launch() -> void:
 	_beat = "launch"
 	await _wait(0.8)
 	Hud.prompt("Click to take the controls", 0.0)
-	await Hud.say("Captain Hale", "Kestrel, Aster. You're clear of the deck. Take station off our port side.")
+	await Hud.say("Captain Hale", "Good launch. Take station off our port side.")
 	_set_goal(aster.to_global(FORMATION), "STATION")
 	Hud.objective("Take station beside the Aster")
 	Hud.prompt("[Mouse] steer    [W] thrust    [S] slow down", 0.0)

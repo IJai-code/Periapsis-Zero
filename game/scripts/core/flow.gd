@@ -9,6 +9,7 @@ const SCENES := {
 	"title": "res://scenes/title.tscn",
 	"corridor": "res://scenes/prologue_corridor.tscn",
 	"bridge": "res://scenes/prologue_bridge.tscn",
+	"hangar": "res://scenes/prologue_hangar.tscn",
 	"flight": "res://scenes/prologue_flight.tscn",
 	"arrival": "res://scenes/prologue_arrival.tscn",
 }
@@ -93,7 +94,7 @@ func go(scene: String) -> void:
 ## The chapter after this one, for "Skip this part" in the pause menu.
 func next_scene() -> String:
 	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-	var order := ["corridor", "bridge", "flight", "arrival", "title"]
+	var order := ["corridor", "bridge", "hangar", "flight", "arrival", "title"]
 	for i in order.size() - 1:
 		if SCENES[order[i]] == here:
 			return order[i + 1]

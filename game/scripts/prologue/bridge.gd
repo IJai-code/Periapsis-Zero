@@ -79,4 +79,4 @@ func _leave() -> void:
 	_walker.enabled = false
 	Hud.clear_prompt()
 	Sfx.play("door", -2.0)
-	Flow.go("flight")
+	Flow.go("hangar")
