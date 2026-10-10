@@ -5,6 +5,46 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### New ships, real destruction, and desktop only, 10 October 2026
+
+- **Every ship is new**, built in Blender from code (`art/godot/ships.py`,
+  `art/godot/kit.py`); the old procedural hulls are gone from the Godot
+  game. Each ship's panel seams are cut into the hull itself, so every
+  panel follows the curve, and each one carries a livery.
+  - **The Kestrel:** a faceted fighter with a framed glass canopy, flank
+    intakes, a chin turret, a dorsal spine, slim faired nacelles with
+    petal nozzles, canted fins, wing guns and ember striping.
+  - **The Hollow raider:** a mining tug turned weapon, with a wedge prow,
+    mandible gun arms, an open glowing reactor and bolted-on armour.
+  - **The Aster and her convoy:** a truss spine racked with corrugated
+    containers, a stepped command section with a lit bridge, radiators
+    and a three-nozzle drive.
+- **Ships come apart.** Every ship is built as pieces, so a kill throws
+  wings, engines and modules apart, tumbling, some trailing fire. The
+  Aster breaks along her container bays.
+- **Weapons and blasts, redone:**
+  - **Firing:** muzzle flashes and longer, hotter bolts.
+  - **Hits:** a shield shell flares where a shot lands; hull hits throw
+    sparks; badly damaged ships smoke and burn.
+  - **Explosions:** a flash, fire torn by noise, sparks, lingering smoke
+    and a shockwave ring.
+  - **Kills:** a moment of slow motion.
+- **The Aster's death is a cutscene**, letterboxed, from a camera pulled
+  out above her: the torpedoes walk along her keel, then the reactor goes.
+- **A new flight overlay:**
+  - **Reticle:** shield and hull arcs either side of it, the speed beneath.
+  - **Hits and kills:** hit markers and a kill confirmation on the reticle.
+  - **Targets:** brackets carry name, range and health.
+  - **Leading:** a lead marker tied to its target.
+  - **Damage:** the screen's edges warm, and "HULL CRITICAL" shows when
+    the hull is low.
+- **Title:** the Kestrel now crosses the title screen.
+- **Desktop only:** the game, its prologue and Squadron no longer run on
+  phones or tablets (iPads included). Those devices get a plain
+  explanation and a way into flight school and the simulator, which
+  still work by touch. The prologue's page does not even download the
+  engine there.
+
 ### The prologue, played: the game moves to Godot, 10 October 2026
 
 - **A playable opening at /play/** instead of a film. The new game is in

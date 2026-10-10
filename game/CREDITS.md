@@ -4,7 +4,7 @@
 
 CC0 from [ambientCG](https://ambientcg.com) (no credit required): MetalPlates006,
 MetalPlates013, PaintedMetal004, Metal027, DiamondPlate008C, Rubber004,
-Plastic013A, MetalWalkway014.
+Plastic013A, MetalWalkway014, CorrugatedSteel005.
 
 ## Earth and Moon imagery
 

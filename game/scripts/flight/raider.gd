@@ -19,7 +19,8 @@ func _ready() -> void:
 	radius = 7.5
 	integrity = 40.0
 	max_integrity = 40.0
-	add_child(Hull.model("raider"))
+	body = Hull.model("raider")
+	add_child(body)
 	velocity = -global_basis.z * speed
 
 func _physics_process(dt: float) -> void:
@@ -41,8 +42,9 @@ func _physics_process(dt: float) -> void:
 			_cool -= dt
 			if _cool <= 0.0 and fwd.angle_to(want) < 0.13 and dist < 700.0:
 				_cool = 0.28
-				var dmg := damage_to_player if target.team == "player" else 3.0
-				bolts.fire(global_position + fwd * 6.0, (want + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.025).normalized(), velocity, "hollow", dmg)
+				var dmg := damage_to_player if target is PlayerShip else 0.6
+				Fx.muzzle(self, Vector3(2.2 if randf() < 0.5 else -2.2, -0.25, -10.6), Color(2.0, 0.6, 0.2))
+				bolts.fire(global_position + fwd * 11.0, (want + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.025).normalized(), velocity, "hollow", dmg)
 		else:
 			want = _break_dir
 			if _timer <= 0.0:

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Bring the shipped art into the Godot project (game/assets). The web build's
- * files stay the single source: the Blender-built models in public/authored
- * and the NASA imagery in public/textures. game/assets is gitignored and made
- * again by this script, locally and in CI, before Godot imports or exports.
+ * Bring shared art into the Godot project (game/assets): the NASA Earth
+ * imagery and the music from public/, and ambientCG's CC0 materials. The
+ * Godot game's own models are built by art/godot/*.py into game/art.
+ * game/assets is gitignored and made again by this script before Godot
+ * imports or exports.
  */
 import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -21,19 +22,6 @@ const copy = (from, to, keep) => {
   }
   console.log(`${from} -> game/assets/${to}: ${n} files`)
 }
-// Models: each shipped GLB, decoded out of Draco by Blender (Godot cannot
-// read Draco) with its baked atlas kept. Without Blender they are copied as
-// they are, and only the uncompressed ones (the pilot) will import.
-const BLENDER = process.env.BLENDER ?? '/Applications/Blender.app/Contents/MacOS/Blender'
-mkdirSync(join(out, 'models'), { recursive: true })
-let models = 0
-for (const f of readdirSync(join(root, 'public/authored')).filter((f) => f.startsWith('game-') && f.endsWith('.glb'))) {
-  const src = join(root, 'public/authored', f)
-  if (existsSync(BLENDER)) execFileSync(BLENDER, ['-b', '--factory-startup', '--python', join(root, 'art/godot_export.py'), '--', src, join(out, 'models', f)], { stdio: 'ignore' })
-  else cpSync(src, join(out, 'models', f))
-  models++
-}
-console.log(`public/authored -> game/assets/models: ${models} files`)
 copy('public/textures', 'textures', (f) => /\.(jpg|png)$/.test(f))
 copy('public/game/detail', 'detail', (f) => f.endsWith('.webp'))
 copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
@@ -42,7 +30,7 @@ copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
 // credited in game/CREDITS.md). Downloaded once into art/sources (gitignored),
 // and only the maps Godot uses are unpacked, recompressed, into
 // game/assets/materials/<id>/.
-const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014']
+const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014', 'CorrugatedSteel005']
 const cache = join(root, 'art/sources/ambientcg')
 mkdirSync(cache, { recursive: true })
 for (const id of MATERIALS) {

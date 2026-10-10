@@ -37,6 +37,7 @@ func _ready() -> void:
 	shield = 100.0
 	_model = Hull.model("kestrel")
 	add_child(_model)
+	body = _model
 	camera = Camera3D.new()
 	camera.fov = 68.0
 	camera.near = 0.2
@@ -122,9 +123,12 @@ func _physics_process(dt: float) -> void:
 	if controls and Input.is_action_pressed("fire") and _cool <= 0.0 and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_cool = 0.1
 		_gun = 1 - _gun
-		var muzzle := global_position + global_basis * Vector3(1.6 if _gun else -1.6, -0.4, -4.5)
+		# The wing guns: barrels at x = 3.5, under the wing, muzzles 2.25 m ahead.
+		var local := Vector3(3.5 if _gun else -3.5, -0.42, -2.3)
+		var muzzle := to_global(local)
 		var target := global_position + aim * 450.0
 		bolts.fire(muzzle, (target - muzzle).normalized(), velocity, "player", 9.0)
+		Fx.muzzle(self, local, Color(0.5, 1.4, 2.2))
 		Sfx.play("laser", -16.0, randf_range(0.95, 1.08))
 
 func _process(dt: float) -> void:

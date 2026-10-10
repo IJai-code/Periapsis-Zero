@@ -25,6 +25,10 @@ func _ready() -> void:
 	add_child(Earth.below(420_000.0, SUN))
 	bolts = Bolts.new()
 	add_child(bolts)
+	bolts.struck.connect(func(team, _t):
+		if team == "player" and hud:
+			hud.hit_marker()
+			Sfx.play("hit", -14.0, 1.6))
 	_convoy()
 	ship = PlayerShip.new()
 	ship.bolts = bolts
@@ -71,16 +75,17 @@ func _process(dt: float) -> void:
 func _convoy() -> void:
 	aster = Hull.new()
 	aster.team = "player"
-	aster.radius = 48.0
+	aster.radius = 60.0
 	aster.integrity = 100.0
 	aster.max_integrity = 100.0
-	aster.floor_integrity = 8.0
+	# The Hollow's guns scar her; the torpedoes are what kill her.
+	aster.floor_integrity = 62.0
 	var m := Hull.model("freighter")
-	m.scale = Vector3.ONE * 1.15
 	aster.add_child(m)
+	aster.body = m
 	add_child(aster)
 	aster.rotation_degrees = Vector3(0.0, 8.0, 0.0)
-	for c in [["mule", Vector3(130.0, -25.0, 90.0), 1.2], ["freighter", Vector3(-170.0, 35.0, 190.0), 0.95], ["mule", Vector3(70.0, 45.0, 290.0), 1.2], ["mule", Vector3(-60.0, -50.0, 380.0), 1.2]]:
+	for c in [["freighter2", Vector3(-230.0, -40.0, 90.0), 1.0], ["freighter3", Vector3(-180.0, 45.0, 280.0), 1.0], ["freighter2", Vector3(60.0, -70.0, 470.0), 1.0], ["freighter3", Vector3(-320.0, 10.0, -160.0), 1.0]]:
 		var other := Hull.model(c[0])
 		other.scale = Vector3.ONE * c[2]
 		add_child(other)
@@ -152,7 +157,7 @@ func _ambush() -> void:
 	for i in 4:
 		_spawn_raider(aster.global_position + SUN.normalized() * 1400.0 + Vector3(randf_range(-150, 150), randf_range(-100, 100), randf_range(-150, 150)), aster if i % 2 == 0 else ship)
 	Hud.objective("Protect the Aster", "0 / 4 raiders")
-	Hud.prompt("[Click] fire    Aim at the ◇ to lead your shots", 0.0)
+	Hud.prompt("[Click] fire    Aim at the orange diamond to lead your shots", 0.0)
 
 func _spawn_raider(at: Vector3, target: Hull) -> Raider:
 	var r := Raider.new()
@@ -167,12 +172,13 @@ func _spawn_raider(at: Vector3, target: Hull) -> Raider:
 	return r
 
 func _raider_down(r: Raider) -> void:
-	Fx.explode(self, r.global_position, 9.0)
-	Fx.debris(self, r.global_position, 8, 1.5, 40.0, Surfaces.get_material("hull"))
+	r.destroy(9.0, 28.0)
 	raiders.erase(r)
-	r.queue_free()
+	r.get_tree().create_timer(0.1).timeout.connect(r.queue_free)
 	kills += 1
-	ship.shake = maxf(ship.shake, 0.3)
+	ship.shake = maxf(ship.shake, 0.45)
+	hud.kill()
+	Fx.hitstop(get_tree())
 	if _beat == "ambush":
 		Hud.objective_extra("%d / 4 raiders" % kills)
 		if kills == 1:
@@ -189,22 +195,34 @@ func _strike() -> void:
 	for i in 2:
 		_spawn_raider(aster.global_position + Vector3(randf_range(-300, 300), randf_range(-200, 200), -600.0), aster)
 	Sfx.play("alarm", 0.0)
-	# Turn the player to watch it happen; they can look away.
-	ship.aim = (aster.global_position - ship.global_position).normalized()
+	# A cutscene: the camera pulls out to watch her die.
+	ship.controls = false
+	hud.visible = false
+	Hud.letterbox(true)
+	var cine := Camera3D.new()
+	cine.fov = 34.0
+	cine.far = 120_000.0
+	add_child(cine)
+	var side := aster.global_basis.x
+	cine.global_position = aster.global_position + side * 250.0 + Vector3(0, 170, 0) + aster.global_basis.z * 60.0
+	cine.look_at(aster.global_position + Vector3(0, -5, 0))
+	cine.make_current()
+	create_tween().tween_property(cine, "global_position", aster.global_position + side * 200.0 + Vector3(0, 130, 0) + aster.global_basis.z * 40.0, 9.0).set_trans(Tween.TRANS_SINE)
+	aster.floor_integrity = 5.0
 	await Hud.say("Captain Hale", "Torpedoes, two of them, under the keel. Brace, brace!", 3.0)
 	for k in 6:
-		var at := aster.global_position + aster.global_basis * Vector3(randf_range(-14, 14), randf_range(-8, 8), randf_range(-45, 45))
-		Fx.explode(self, at, randf_range(10.0, 18.0))
+		var at := aster.global_position + aster.global_basis * Vector3(randf_range(-10, 10), randf_range(-8, 8), randf_range(-60, 50))
+		Fx.explode(self, at, randf_range(12.0, 20.0))
 		aster.integrity = maxf(aster.floor_integrity, aster.integrity - 15.0)
-		ship.shake = maxf(ship.shake, 0.5)
-		await _wait(randf_range(0.4, 0.8))
+		_shake(cine, 0.4)
+		await _wait(randf_range(0.45, 0.8))
 	Hud.say("Captain Hale", "They knew our route. Kestrel, they knew exactly wh—", 3.0)
 	await _wait(2.4)
 	Hud.silence()
-	# The reactor goes.
-	Fx.explode(self, aster.global_position, 60.0)
-	Fx.debris(self, aster.global_position, 70, 7.0, 55.0, Surfaces.get_material("hull"))
-	Fx.debris(self, aster.global_position, 30, 3.0, 90.0, Surfaces.get_material("frame"))
+	# The reactor goes: the Aster comes apart along her modules.
+	aster.destroy(55.0, 12.0)
+	for k in 4:
+		Fx.explode(self, aster.global_position + aster.global_basis * Vector3(randf_range(-20, 20), randf_range(-15, 15), randf_range(-70, 60)), randf_range(18.0, 28.0), k == 0)
 	var flash := OmniLight3D.new()
 	flash.light_energy = 40.0
 	flash.omni_range = 900.0
@@ -212,19 +230,31 @@ func _strike() -> void:
 	add_child(flash)
 	flash.global_position = aster.global_position
 	create_tween().tween_property(flash, "light_energy", 0.0, 3.0)
-	aster.visible = false
-	aster.alive = false
+	_shake(cine, 1.2)
+	Fx.hitstop(get_tree(), 0.9, 0.3)
 	hud.protect = null
-	ship.shake = 1.2
-	await _wait(1.6)
+	await _wait(3.2)
+	# Back to the cockpit's view, the wreck behind.
+	ship.camera.make_current()
+	cine.queue_free()
+	Hud.letterbox(false)
+	hud.visible = true
+	ship.controls = true
+	ship.shake = 1.0
 	_escape()
+
+func _shake(cam: Camera3D, amount: float) -> void:
+	var base := cam.rotation
+	var t := create_tween()
+	for i in 6:
+		t.tween_property(cam, "rotation", base + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.012 * amount * (1.0 - i / 6.0), 0.04)
+	t.tween_property(cam, "rotation", base, 0.06)
 
 func _escape() -> void:
 	_beat = "escape"
 	hud.protect = null
-	if aster.visible:
-		aster.visible = false
-		aster.alive = false
+	if aster.alive:
+		aster.destroy(60.0, 14.0)
 	var away := (ship.global_position - aster.global_position)
 	away.y = 0.0
 	away = (away.normalized() if away.length() > 1.0 else Vector3.BACK)

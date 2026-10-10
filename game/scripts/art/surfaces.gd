@@ -44,9 +44,33 @@ static func _make(name: String) -> Material:
 		"pipe_steel": return _pbr("Metal027", 2.0, Color(0.7, 0.72, 0.75))
 		"pipe_ember": return _pbr("PaintedMetal004", 2.0, EMBER, true)
 		"pipe_ion": return _pbr("PaintedMetal004", 2.0, ION.darkened(0.2), true)
+		# Ships (art/godot/ships.py).
+		"paint_bone": return _pbr("PaintedMetal004", 1.6, Color(0.84, 0.82, 0.78), true)
+		"paint_dark": return _pbr("MetalPlates013", 1.4, Color(0.42, 0.43, 0.47), true)
+		"paint_grey": return _pbr("PaintedMetal004", 1.6, Color(0.44, 0.45, 0.48), true)
+		"seam": return _pbr("Metal027", 2.0, Color(0.08, 0.08, 0.09))
+		"paint_ember": return _pbr("PaintedMetal004", 1.6, EMBER.darkened(0.08), true)
+		"paint_hollow": return _pbr("MetalPlates013", 0.5, Color(0.36, 0.34, 0.3), true)
+		"rust": return _pbr("DiamondPlate008C", 0.6, Color(0.55, 0.45, 0.38))
+		"metal": return _pbr("Metal027", 1.2, Color(0.8, 0.8, 0.82))
+		"engine": return _pbr("Metal027", 1.0, Color(0.32, 0.28, 0.27))
+		"radiator": return _pbr("MetalPlates013", 0.35, Color(0.72, 0.72, 0.74), true)
+		"container_bone": return _pbr("CorrugatedSteel005", 0.22, Color(0.78, 0.74, 0.66), true)
+		"container_ember": return _pbr("CorrugatedSteel005", 0.22, Color(0.72, 0.36, 0.18), true)
+		"container_ion": return _pbr("CorrugatedSteel005", 0.22, Color(0.2, 0.42, 0.52), true)
+		"container_grey": return _pbr("CorrugatedSteel005", 0.22, Color(0.46, 0.47, 0.5), true)
+		"container_dark": return _pbr("CorrugatedSteel005", 0.22, Color(0.2, 0.2, 0.23), true)
+		"glass": return _glass()
+		"canopy": return _canopy()
+		"glow_engine": return _glow(Color(0.55, 0.85, 1.0), 6.0)
+		"glow_reactor": return _glow(Color(1.0, 0.45, 0.15), 5.0)
+		"glow_hollow": return _glow(Color(1.0, 0.3, 0.1), 6.0)
+		"window_glow": return _glow(Color(1.0, 0.85, 0.6), 3.0)
+		"nav_red": return _glow(Color(1.0, 0.1, 0.05), 8.0)
+		"nav_green": return _glow(Color(0.1, 1.0, 0.3), 8.0)
+		"nav_white": return _glow(Color(1.0, 1.0, 1.0), 8.0)
 		"light": return _glow(Color(1.0, 0.9, 0.78), 2.5)
 		"light_floor": return _glow(ION, 4.0)
-		"glass": return _glass()
 		"grate": return _grate()
 		"hazard": return _hazard()
 	return null
@@ -82,12 +106,28 @@ static func _glow(c: Color, energy: float) -> StandardMaterial3D:
 	m.emission_energy_multiplier = energy
 	return m
 
+## Glass: a window in the corridor, a tinted canopy on a ship. Mostly
+## reflection, a little see-through.
 static func _glass() -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = Color(0.6, 0.75, 0.85, 0.08)
+	m.albedo_color = Color(0.03, 0.05, 0.07, 0.88)
 	m.roughness = 0.03
-	m.metallic_specular = 0.9
+	m.metallic = 0.85
+	m.metallic_specular = 1.0
+	m.rim_enabled = true
+	m.rim = 0.4
+	m.cull_mode = BaseMaterial3D.CULL_BACK
+	return m
+
+## A ship's canopy from outside: dark, mirror-smooth, the sky in it.
+static func _canopy() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.02, 0.035, 0.05)
+	m.metallic = 0.9
+	m.roughness = 0.06
+	m.rim_enabled = true
+	m.rim = 0.3
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return m
 

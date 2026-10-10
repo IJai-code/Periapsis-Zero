@@ -4,6 +4,9 @@ extends Node3D
 ## they pass through. Targets are anything in the "hull" group with
 ## `radius`, `team` and `hit(amount, at)`.
 
+## A bolt landed: who fired it, what it hit. The overlay draws hit markers.
+signal struck(team: String, target: Node3D)
+
 const SPEED := 650.0
 const LIFE := 1.6
 
@@ -13,15 +16,15 @@ var _mats := {}
 
 func _ready() -> void:
 	var c := CapsuleMesh.new()
-	c.radius = 0.12
-	c.height = 5.0
+	c.radius = 0.16
+	c.height = 9.0
 	c.radial_segments = 6
 	c.rings = 1
 	_mesh = c
 	for team in ["player", "hollow"]:
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		var col := Color(0.6, 1.6, 2.4) if team == "player" else Color(3.0, 0.7, 0.25)
+		var col := Color(1.2, 3.2, 4.8) if team == "player" else Color(6.0, 1.4, 0.4)
 		m.albedo_color = col
 		_mats[team] = m
 
@@ -52,6 +55,7 @@ func _physics_process(dt: float) -> void:
 		s.life -= dt
 		if hit:
 			hit.hit(s.dmg, a)
+			struck.emit(s.team, hit)
 		if hit or s.life <= 0.0:
 			node.queue_free()
 			_shots.remove_at(i)

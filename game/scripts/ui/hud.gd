@@ -264,6 +264,29 @@ func fade_in(seconds := 1.2) -> void:
 	await _tween(_fade, 0.0, seconds).finished
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+var _bars: Array[ColorRect] = []
+
+## Widescreen bars for cutscenes.
+func letterbox(on: bool) -> void:
+	if _bars.is_empty():
+		for top in [true, false]:
+			var r := ColorRect.new()
+			r.color = Color.BLACK
+			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			r.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+			r.custom_minimum_size = Vector2(0, 0)
+			root.add_child(r)
+			root.move_child(r, 0)
+			_bars.append(r)
+	var h := get_viewport().get_visible_rect().size.y * 0.11
+	for i in 2:
+		var r := _bars[i]
+		var t := create_tween()
+		t.tween_property(r, "custom_minimum_size:y", h if on else 0.0, 0.6).set_trans(Tween.TRANS_CUBIC)
+		if i == 1:
+			r.offset_top = 0.0
+			t.parallel().tween_property(r, "offset_top", -h if on else 0.0, 0.6).set_trans(Tween.TRANS_CUBIC)
+
 ## The note in the corner while a scene loads behind the fade.
 func loading(on: bool) -> void:
 	_loading.visible = on

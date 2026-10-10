@@ -10,7 +10,8 @@ const BASE = import.meta.env.BASE_URL
 function readSave() {
   try { const s = JSON.parse(localStorage.getItem('pz-game-v1') ?? 'null'); return s?.version === 1 && s.pilot ? s : null } catch { return null }
 }
-function phone() { return Boolean(window.matchMedia?.('(pointer: coarse)').matches && Math.min(window.screen.width, window.screen.height) < 600) }
+// Phones and tablets alike: the game needs a keyboard and mouse.
+function phone() { return Boolean(window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 1 && !window.matchMedia?.('(pointer: fine)').matches) }
 const TRAINING = [
   { id: 'orbit', title: '01 / Make orbit', text: 'Watch the launch sequence, follow the flight computer and reach a stable Earth orbit.', preset: 'apollo8-launch', vessel: 'apollo8', site: 'ksc', image: 'game/shot-transfer.webp', tag: 'Start here · Earth', action: 'Start orbital training' },
   { id: 'lunar', title: '02 / Cross to the Moon', text: 'Join Apollo 8 at trans-lunar ignition. Follow the burn and learn why the departure window matters.', preset: 'apollo8-tli', vessel: 'apollo8', site: 'ksc', image: 'game/shot-flight.webp', tag: 'Burn planning · Apollo 8', action: 'Start translunar training' },
@@ -61,14 +62,14 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
           <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart-aster.jpg)` }}>
             <div className="tt-hero-copy"><span className="tt-eyebrow">Earth-Moon frontier / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
               <p>You survived the ambush. A debt, a dead convoy, and one true story about who sold the Aster. Learn your ship, take the work, and fly the deep lanes to the end of it.</p>
-              {isPhone ? <><p className="tt-device-note">Career flight needs a computer or tablet. Flight school and surface exploration work on this phone.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <div className="tt-actions">
+              {isPhone ? <><p className="tt-device-note">The game and its prologue need a computer with a keyboard and mouse. Flight school and surface exploration work on this device.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <div className="tt-actions">
                 {save && <button className="tt-primary control" onClick={onPlay}>Continue career →</button>}
                 {/* The prologue is the Godot build (game/, published to /play/): the Aster, played. */}
                 <a className={`${save ? 'tt-secondary' : 'tt-primary'} control`} href={`${BASE}play/index.html`}>{save ? 'Play the new prologue' : 'Play the prologue →'}</a>
                 <button className="tt-secondary control" onClick={newGame}>{save ? 'New pilot' : 'Skip to your career'}</button>
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
               </div>}
-              <small>Free to play · Keyboard & mouse / tablet touch · Music only</small>
+              <small>Free to play · Computer with keyboard & mouse · Music only</small>
             </div>
             <div className="tt-hero-coordinate" aria-hidden>HEARTH STATION<br />EARTH-MOON L1 / BERTH 09</div>
           </section>

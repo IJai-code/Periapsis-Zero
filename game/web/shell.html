@@ -39,7 +39,7 @@ body { color: var(--bone); background: #000; overflow: hidden; touch-action: non
 			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
 			<div class="kicker">PROLOGUE · THE ASTER · 3091</div>
 			<h1>Periapsis<br>Zero</h1>
-			<p>Six ships, medical cargo, the Moon by Thursday. Nobody bothers a convoy like this.</p>
+			<p id="status-intro">Six ships, medical cargo, the Moon by Thursday. Nobody bothers a convoy like this.</p>
 			<div id="status-progress"></div>
 			<div id="status-mb"></div>
 			<div id="status-notice"></div>
@@ -98,6 +98,16 @@ const engine = new Engine(GODOT_CONFIG);
 		initializing = false;
 	}
 
+	// Phones and tablets (iPads report a Mac with touch points): the game
+	// needs a keyboard and mouse, so the engine is not even downloaded.
+	const touchOnly = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 1 && !window.matchMedia('(pointer: fine)').matches);
+	if (touchOnly) {
+		document.getElementById('status-intro').textContent = 'The prologue needs a computer with a keyboard and mouse. On this device, the simulator and flight school are the way in.';
+		document.getElementById('status-mb').innerHTML = '<a href="/#training" style="color: var(--ember)">Open flight school</a>';
+		statusOverlay.style.visibility = 'visible';
+		return;
+	}
+
 	const missing = Engine.getMissingFeatures({
 		threads: GODOT_THREADS_ENABLED,
 	});
@@ -137,12 +147,15 @@ const engine = new Engine(GODOT_CONFIG);
 		setStatusMode('progress');
 		engine.startGame({
 			'onProgress': function (current, total) {
+				// Progress can arrive after the overlay is gone.
+				const label = document.getElementById('status-mb');
+				if (!label) return;
 				const mb = (n) => (n / 1e6).toFixed(0);
 				if (current > 0 && total > 0) {
 					statusProgress.style.setProperty('--p', (current / total * 100).toFixed(1) + '%');
-					document.getElementById('status-mb').textContent = mb(current) + ' of ' + mb(total) + ' MB';
+					label.textContent = mb(current) + ' of ' + mb(total) + ' MB';
 				} else if (current > 0) {
-					document.getElementById('status-mb').textContent = mb(current) + ' MB';
+					label.textContent = mb(current) + ' MB';
 				}
 			},
 		}).then(() => {

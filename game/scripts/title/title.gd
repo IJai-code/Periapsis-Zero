@@ -7,6 +7,7 @@ var _cam: Camera3D
 var _t := 0.0
 var _menu: VBoxContainer
 var _settings: PanelContainer
+var _ship: Node3D
 
 func _ready() -> void:
 	Space.environment(self, SUN, 1.1)
@@ -16,6 +17,9 @@ func _ready() -> void:
 	_cam.near = 0.1
 	_cam.far = 120_000.0
 	add_child(_cam)
+	# The Kestrel, gliding across the view on a slow pass.
+	_ship = Hull.model("kestrel")
+	add_child(_ship)
 	_ui()
 	Flow.music(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -25,6 +29,10 @@ func _process(dt: float) -> void:
 	# Looking along the orbit at the horizon, the Sun just above it, drifting.
 	var yaw := sin(_t * 0.03) * 0.12
 	_cam.rotation = Vector3(deg_to_rad(-15.0) + sin(_t * 0.05) * 0.01, yaw, sin(_t * 0.04) * 0.02)
+	# A 70-second pass from right to left, then round again.
+	var k := fmod(_t + 22.0, 70.0) / 70.0
+	_ship.position = _cam.global_basis * Vector3(lerpf(26.0, -30.0, k), -3.5 + sin(_t * 0.3) * 0.3, -46.0)
+	_ship.global_basis = Basis.looking_at(-_cam.global_basis.x, _cam.global_basis.y).rotated(_cam.global_basis.z.normalized(), 0.0) * Basis(Vector3.FORWARD, sin(_t * 0.25) * 0.08 + 0.12)
 
 func _ui() -> void:
 	var layer := CanvasLayer.new()
