@@ -5,6 +5,31 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The opening film, and people with skin, 10 October 2026
+
+- **The story starts at the start.** "Play the prologue" opens on a
+  narrated, letterboxed film before the corridor:
+  1. Earth and the Moon in 3091.
+  2. The convoys crossing the lanes.
+  3. Hollow raiders closing on a freighter that dies in the distance.
+  4. The pilot by the Kestrel: "One fighter, one licence, and debts you
+     don't talk about".
+  5. The Aster and the job: six ships, a hold full of vaccine, an escort
+     needed tonight.
+
+  Then "This is how it started." Enter, Space or Escape skips it.
+- **People look like people.**
+  - **Skin:** a shader with subsurface scattering and translucency on the
+    desktop, fine pores and a soft sheen.
+  - **Desktop bodies:** subdivided once, with their face shapes carried
+    through, so jaws and shoulders are smooth.
+  - **Hair, brows and lashes:** cut-outs with alpha-to-coverage, the hair
+    with an anisotropic sheen.
+  - **Clothes and teeth:** opaque. MakeHuman exported everything as
+    layered transparency.
+  - **The browser build** loads unsubdivided bodies to keep its download
+    to 34 MB.
+
 ### Third person, conversations on camera, and a crime-game interface, 10 October 2026
 
 - **The bridge is walkable to the end.**

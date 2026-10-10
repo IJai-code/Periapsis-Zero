@@ -33,6 +33,7 @@ var _obj_text: RichTextLabel
 var _obj_extra: Label
 var _obj_plain := ""
 var _sub: RichTextLabel
+var _narr: RichTextLabel
 var _card: Control
 var _card_title: Label
 var _card_sub: Label
@@ -123,6 +124,17 @@ func _ready() -> void:
 	_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sub.modulate.a = 0.0
 	root.add_child(_sub)
+
+	# Narration for the opening film, centre low.
+	_narr = _rich(34, Style.sans)
+	_narr.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_narr.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_narr.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_narr.offset_bottom = -150
+	_narr.custom_minimum_size = Vector2(1240, 0)
+	_narr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_narr.modulate.a = 0.0
+	root.add_child(_narr)
 
 	# Mission titles, lower left, sliding in.
 	_card = VBoxContainer.new()
@@ -260,6 +272,16 @@ func silence() -> void:
 	line_done.emit()
 	_tween(_sub, 0.0, 0.2)
 
+## A line of the opening film's narration: fades up, holds, fades away.
+## [words] are in ember. Awaitable.
+func narrate(text: String, seconds := 5.0) -> void:
+	_narr.text = "[center]" + _accent(text) + "[/center]"
+	var t := create_tween()
+	t.tween_property(_narr, "modulate:a", 1.0, 1.0)
+	t.tween_interval(seconds)
+	t.tween_property(_narr, "modulate:a", 0.0, 0.9)
+	await t.finished
+
 ## A mission title, sliding in lower left.
 func card(title: String, sub := "", seconds := 3.5) -> void:
 	_card_title.text = title
@@ -372,7 +394,7 @@ func reset() -> void:
 		q.done = true
 	_queue.clear()
 	line_done.emit()
-	for c in [_obj_small, _obj_big, _sub, _help, _card]:
+	for c in [_obj_small, _obj_big, _sub, _help, _card, _narr]:
 		c.modulate.a = 0.0
 	_obj_plain = ""
 

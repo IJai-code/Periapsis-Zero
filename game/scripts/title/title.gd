@@ -71,7 +71,7 @@ func _ui() -> void:
 	gap.custom_minimum_size = Vector2(0, 28)
 	_menu.add_child(gap)
 	var done: bool = Flow.progress("prologue_done", false)
-	_button("Play the prologue" if not done else "Replay the prologue", func(): Flow.go("corridor")).grab_focus()
+	_button("Play the prologue" if not done else "Replay the prologue", func(): Flow.go("intro")).grab_focus()
 	if done:
 		_button("Continue to Act One", Flow.open_act_one)
 	_button("Settings", _toggle_settings)

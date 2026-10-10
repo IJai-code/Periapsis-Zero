@@ -1,6 +1,6 @@
 """Periapsis Zero's people, built with MakeHuman's MPFB add-on for Blender.
 
-    blender -b --python art/godot/people.py -- <who> <out.glb>
+    blender -b --python art/godot/people.py -- <who> <out.glb> [--hd]
 
 MPFB (extensions.blender.org) and its CC0 asset packs (MakeHuman system
 assets, skins01, skins02; art/sources/makehuman) must be installed. Each
@@ -129,6 +129,48 @@ def face(basemesh, race):
         part.modifiers.remove(sd)
     for k in keys:
         k.value = 0.0
+
+
+def smooth(basemesh, levels=1):
+    """Subdivide the body once for smooth skin, keeping its expression keys:
+    each key is captured through the same subdivision on a throwaway copy,
+    then laid back onto the subdivided body. Vertex weights come through
+    the subdivision, so the rig still drives it."""
+    keys = [k.name for k in basemesh.data.shape_keys.key_blocks[1:]]
+    captured = {}
+    for key in keys:
+        for k in basemesh.data.shape_keys.key_blocks:
+            k.value = 1.0 if k.name == key else 0.0
+        tmp = basemesh.copy()
+        tmp.data = basemesh.data.copy()
+        bpy.context.collection.objects.link(tmp)
+        with bpy.context.temp_override(object=tmp, active_object=tmp, selected_objects=[tmp]):
+            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+            for m in list(tmp.modifiers):
+                tmp.modifiers.remove(m)
+            sub = tmp.modifiers.new('sub', 'SUBSURF')
+            sub.levels = levels
+            bpy.ops.object.modifier_apply(modifier=sub.name)
+        captured[key] = [v.co.copy() for v in tmp.data.vertices]
+        bpy.data.objects.remove(tmp)
+    for k in basemesh.data.shape_keys.key_blocks:
+        k.value = 0.0
+    with bpy.context.temp_override(object=basemesh, active_object=basemesh, selected_objects=[basemesh]):
+        bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+        sub = basemesh.modifiers.new('sub', 'SUBSURF')
+        sub.levels = levels
+        bpy.ops.object.modifier_apply(modifier=sub.name)
+    basemesh.shape_key_add(name='Basis', from_mix=False)
+    for key in keys:
+        sk = basemesh.shape_key_add(name=key, from_mix=False)
+        for i, c in enumerate(captured[key]):
+            sk.data[i].co = c
+    # Clothes and hair get the same smoothing, applied on export.
+    for o in bpy.data.objects:
+        if o.type == 'MESH' and o is not basemesh and not any(t in o.name for t in ('eyelash', 'eyebrow', 'teeth', 'tongue', 'high-poly')):
+            if not o.data.shape_keys:
+                m = o.modifiers.new('sub', 'SUBSURF')
+                m.levels = 1
 
 
 # --- Posing in world space, so the rig's own bone axes do not matter. -------
@@ -264,6 +306,10 @@ bpy.ops.wm.read_homefile(use_empty=True)
 basemesh = build(PEOPLE[WHO])
 race = max(PEOPLE[WHO]['phenotype']['race'].items(), key=lambda kv: kv[1])[0]
 face(basemesh, race)
+# `--hd`: the subdivided body for the desktop build (person-<who>_hd.glb);
+# the browser build loads the plain one, at a quarter of the vertices.
+if '--hd' in args:
+    smooth(basemesh)
 arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 bpy.context.scene.render.fps = 24
 bake(arm, 'idle', 0.0)

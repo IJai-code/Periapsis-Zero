@@ -25,16 +25,12 @@ static func make(name: String) -> Person:
 	return p
 
 func _ready() -> void:
-	var body: Node3D = load("res://art/person-%s.glb" % who).instantiate()
+	# Desktop gets the subdivided body; the browser the plain one.
+	var hd := "res://art/person-%s_hd.glb" % who
+	var path := hd if Flow.high_quality() and ResourceLoader.exists(hd) else "res://art/person-%s.glb" % who
+	var body: Node3D = load(path).instantiate()
 	add_child(body)
-	# MakeHuman's workwear is bright denim; the Aster's crew wear it faded.
-	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
-		for i in mi.mesh.get_surface_count():
-			var m := mi.mesh.surface_get_material(i) as StandardMaterial3D
-			if m and m.resource_name.contains("worksuit"):
-				var t := m.duplicate() as StandardMaterial3D
-				t.albedo_color = suit_tint
-				mi.set_surface_override_material(i, t)
+	_dress(body)
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh and mi.find_blend_shape_by_name("blink_l") >= 0:
 			_faces.append(mi)
@@ -47,6 +43,51 @@ func _ready() -> void:
 				_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_anim.play("idle")
 		_anim.seek(randf() * 3.0)
+
+## MakeHuman exports every material as layered transparency, which is
+## slow, sorts badly and rules out subsurface scattering. Each part gets
+## the material it should have: skin, opaque cloth, cut-out hair, wet eyes.
+func _dress(body: Node3D) -> void:
+	var skin_shader: Shader = load("res://shaders/skin.gdshader")
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		var part := String(mi.name).to_lower()
+		for i in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(i) as StandardMaterial3D
+			if not src:
+				continue
+			if part == "human":
+				var skin := ShaderMaterial.new()
+				skin.shader = skin_shader
+				skin.set_shader_parameter("albedo_tex", src.albedo_texture)
+				mi.set_surface_override_material(i, skin)
+				continue
+			# The eye is two layers, a clear cornea over the iris: keep it as made.
+			if part.contains("high-poly") or part.contains("low-poly"):
+				continue
+			var m := src.duplicate() as StandardMaterial3D
+			m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+			m.cull_mode = BaseMaterial3D.CULL_BACK
+			if part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part):
+				m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				m.alpha_scissor_threshold = 0.35
+				m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
+				if _is_hair(part):
+					m.roughness = 0.42
+					m.metallic_specular = 0.55
+					m.anisotropy_enabled = true
+					m.anisotropy = 0.6
+			else:
+				m.roughness = maxf(m.roughness, 0.7)
+				if part.contains("worksuit"):
+					m.albedo_color = suit_tint
+			mi.set_surface_override_material(i, m)
+
+static func _is_hair(part: String) -> bool:
+	for h in ["short0", "ponytail", "braid", "bob0", "long0", "afro"]:
+		if part.contains(h):
+			return true
+	return false
 
 ## Start or stop talking (the talk loop: head and a hand).
 func talk(on: bool) -> void:

@@ -9,3 +9,6 @@ art/*.png.import
 art/*.jpg.import
 art/*.png
 art/*.jpg
+# The subdivided people for the desktop build: rebuilt by art/godot/people.py --hd
+art/person-*_hd.glb
+art/person-*_hd.glb.import
