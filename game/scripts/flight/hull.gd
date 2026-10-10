@@ -33,8 +33,8 @@ func hit(amount: float, at: Vector3) -> void:
 		var take := minf(shield, left)
 		shield -= take
 		left -= take
+		# The shield's own flare says it; sparks are for bare hull.
 		Fx.shield_hit(self, radius * 1.15, at)
-		Fx.sparks(get_parent(), at, Color(0.8, 2.0, 3.0))
 	else:
 		Fx.sparks(get_parent(), at)
 	integrity = maxf(integrity - left, floor_integrity)
