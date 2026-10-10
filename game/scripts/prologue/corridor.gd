@@ -14,7 +14,7 @@ func _ready() -> void:
 	add_child(_walker)
 	_walker.position = Vector3(0.0, 0.3, -1.2)
 	_walker.face(Vector3(0.0, 1.6, -16.0))
-	_door = Interactable.new(Vector3(1.4, 2.2, 0.6), "[E] Open the door to the flight deck")
+	_door = Interactable.new(Vector3(1.4, 2.2, 0.6), "[E] Open the door to the bridge")
 	_door.position = Vector3(0.0, 1.3, -15.6)
 	add_child(_door)
 	_door.activated.connect(_leave)
@@ -26,8 +26,8 @@ func _script() -> void:
 	await Hud.card("THE ASTER", "PROLOGUE · HARBOR ORBIT · 3091", 2.2)
 	Hud.prompt("[W][A][S][D] walk    [Mouse] look    [Shift] run    Click to capture the mouse", 9.0)
 	await Hud.say("Captain Hale", "All hands, this is the captain. We leave Harbor orbit in ten minutes.")
-	Hud.objective("Get to the flight deck", "Forward, through deck 2")
-	await Hud.say("Captain Hale", "Six ships, medical cargo, Moon by Thursday. Escort pilot to the flight deck, please.")
+	Hud.objective("Report to the bridge", "Forward, through deck 2")
+	await Hud.say("Captain Hale", "Six ships, medical cargo, Moon by Thursday. Escort pilot to the bridge, please.")
 
 func _process(_dt: float) -> void:
 	if not _walker:
@@ -41,8 +41,8 @@ func _process(_dt: float) -> void:
 
 func _window() -> void:
 	Hud.prompt("Look out of the window", 4.0)
-	await Hud.say("Renn Ayers", "Engineering here. You're the new escort? Your Kestrel's fuelled and warm.")
-	await Hud.say("Renn Ayers", "Bring her back without holes in her. I'm the one who patches them.")
+	await Hud.say("Renn Ayers", "Engineering here. You're the new escort? The captain wants you on the bridge.")
+	await Hud.say("Renn Ayers", "I'll meet you up there. Your Kestrel's fuelled and warm.")
 
 func _leave() -> void:
 	if _leaving:
@@ -52,4 +52,4 @@ func _leave() -> void:
 	Hud.clear_prompt()
 	Sfx.play("door", -2.0)
 	Hud.silence()
-	Flow.go("flight")
+	Flow.go("bridge")

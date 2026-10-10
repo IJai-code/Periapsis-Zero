@@ -142,7 +142,7 @@ func _shaft() -> void:
 func _signs() -> void:
 	_sign("DECK 2  ·  CREW", Vector3(1.32, 2.0, -3.0), -90.0, 0.0012)
 	_sign("ASTER", Vector3(1.32, 1.82, -3.0), -90.0, 0.0016)
-	_sign("FORWARD  ›  FLIGHT DECK", Vector3(0.0, 2.25, -15.85), 0.0, 0.0022)
+	_sign("FORWARD  ›  BRIDGE", Vector3(0.0, 2.25, -15.85), 0.0, 0.0022)
 	for k in range(1, BAYS):
 		_sign("FR %02d" % (k + 10), Vector3(-1.23, 2.25, -k * BAY + 0.135), 0.0, 0.0012)
 

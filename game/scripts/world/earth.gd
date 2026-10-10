@@ -48,6 +48,8 @@ func _ready() -> void:
 	for s: MeshInstance3D in [surface, clouds, air]:
 		s.rotation = spin
 		s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Far outside any room: keep it out of bounced light.
+		s.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 		add_child(s)
 
 func _process(_dt: float) -> void:

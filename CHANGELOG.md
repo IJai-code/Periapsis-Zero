@@ -5,6 +5,27 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### People, and the Aster's bridge, 10 October 2026
+
+- **Real people**, built with MakeHuman's MPFB add-on for Blender and its
+  CC0 assets (`art/godot/people.py`): body, skin, eyes, brows, lashes,
+  teeth, hair and clothes, on a game rig.
+  - **Captain Hale:** fifties, in a dark suit.
+  - **Renn Ayers:** the Aster's young second engineer, in faded overalls.
+  - **Animation:** each has an idle (breathing, a slow weight shift, the
+    head moving) and a talking loop with a hand gesture. The poses are
+    made in code, on the rig.
+- **The bridge**, a new set (`art/godot/aster_bridge.py`):
+  - **Room:** consoles in two rows with live displays drawn by a shader,
+    a radar plot table, the captain's chair on its step, light strips and
+    ribs.
+  - **Window:** a wide forward window with Earth whole in it, city lights
+    on the night side.
+- **The prologue now goes through the bridge.** The corridor leads there,
+  and Hale turns to brief you in person: the cargo, the Hollow's raids,
+  "nobody knows our route". Renn adds what the convoy's been hearing.
+  Then the starboard hatch to the Kestrel.
+
 ### New ships, real destruction, and desktop only, 10 October 2026
 
 - **Every ship is new**, built in Blender from code (`art/godot/ships.py`,

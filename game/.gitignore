@@ -3,3 +3,9 @@
 *.translation
 # Copied in from public/ by scripts/godot-sync.mjs; the originals are the source.
 assets/
+# Texture .import files next to the GLBs are written by Godot and set per
+# build target by scripts/godot-build.mjs.
+art/*.png.import
+art/*.jpg.import
+art/*.png
+art/*.jpg

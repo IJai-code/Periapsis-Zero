@@ -62,6 +62,8 @@ static func _make(name: String) -> Material:
 		"container_dark": return _pbr("CorrugatedSteel005", 0.22, Color(0.2, 0.2, 0.23), true)
 		"glass": return _glass()
 		"canopy": return _canopy()
+		"screen": return _screen(false)
+		"screen_round": return _screen(true)
 		"glow_engine": return _glow(Color(0.55, 0.85, 1.0), 6.0)
 		"glow_reactor": return _glow(Color(1.0, 0.45, 0.15), 5.0)
 		"glow_hollow": return _glow(Color(1.0, 0.3, 0.1), 6.0)
@@ -106,18 +108,24 @@ static func _glow(c: Color, energy: float) -> StandardMaterial3D:
 	m.emission_energy_multiplier = energy
 	return m
 
-## Glass: a window in the corridor, a tinted canopy on a ship. Mostly
-## reflection, a little see-through.
+## Window glass: clear, a faint tint and a sharp reflection.
 static func _glass() -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = Color(0.03, 0.05, 0.07, 0.88)
-	m.roughness = 0.03
-	m.metallic = 0.85
+	m.albedo_color = Color(0.6, 0.72, 0.82, 0.07)
+	m.roughness = 0.02
+	m.metallic = 0.2
 	m.metallic_specular = 1.0
 	m.rim_enabled = true
 	m.rim = 0.4
 	m.cull_mode = BaseMaterial3D.CULL_BACK
+	return m
+
+## A console display, drawn by shaders/screen.gdshader.
+static func _screen(round: bool) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/screen.gdshader")
+	m.set_shader_parameter("round", 1.0 if round else 0.0)
 	return m
 
 ## A ship's canopy from outside: dark, mirror-smooth, the sky in it.

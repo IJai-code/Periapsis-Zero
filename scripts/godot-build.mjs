@@ -6,9 +6,10 @@
  * renderer) is downloaded before it plays, so its textures are capped at
  * 1024 px (Earth 2048) and stored as lossy WebP. The desktop build keeps full
  * resolution in GPU-compressed form. Each run rewrites the [params] of every
- * texture's .import file in game/assets for its target, reimports, and
- * exports. game/assets is generated (scripts/godot-sync.mjs), so nothing
- * tracked changes.
+ * texture's .import file in game/assets and game/art for its target,
+ * reimports, and exports. Those .import files are generated (game/assets by
+ * scripts/godot-sync.mjs, game/art's by Godot from the GLBs) and gitignored,
+ * so nothing tracked changes.
  *
  * Output: build/play (web, published as the `play` release asset) or
  * build/desktop.
@@ -35,7 +36,7 @@ const walk = (dir) => readdirSync(dir).flatMap((f) => {
   const p = join(dir, f)
   return statSync(p).isDirectory() ? walk(p) : [p]
 })
-const textures = walk(join(game, 'assets')).filter((f) => f.endsWith('.import') && readFileSync(f, 'utf8').includes('importer="texture"'))
+const textures = [...walk(join(game, 'assets')), ...walk(join(game, 'art'))].filter((f) => f.endsWith('.import') && readFileSync(f, 'utf8').includes('importer="texture"'))
 
 let changed = 0
 for (const file of textures) {
