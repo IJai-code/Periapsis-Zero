@@ -10,7 +10,9 @@ export function Prologue({ onComplete }) {
   const clock = useRef({ time: 0 })
   const [time, setTime] = useState(0)
   const [paused, setPaused] = useState(false)
-  const [brief, setBrief] = useState(false)
+  // A pilot who has just played the Godot prologue (/play/) lived through the
+  // Aster already; the film would retell it, so they go straight to the brief.
+  const [brief, setBrief] = useState(() => { try { return localStorage.getItem('pz-prologue-done') === '1' } catch { return false } })
   const [hidden, setHidden] = useState(() => document.hidden)
   const [reduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const root = useRef()

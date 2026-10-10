@@ -5,6 +5,54 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The prologue, played: the game moves to Godot, 10 October 2026
+
+- **A playable opening at /play/** instead of a film. The new game is in
+  Godot 4.7 (`game/`), and its first piece is the prologue:
+  - **The Aster.** Walk deck 2 of the Aster in first person to the flight
+    deck, past the one window onto Earth. Walking and looking are taught on
+    the way.
+  - **The escort.** Launch in the Kestrel and take station on the Aster.
+    Mouse aim, thrust, strafe and roll are taught as they are needed.
+  - **The ambush.** The Hollow come out of the sun. Fire, leading the
+    target and the barrel roll are taught in the fight.
+  - **The loss.** The Aster breaks up around you, the captain's last words
+    are "They knew our route", and you get clear on boost.
+  - **Hearth, nine days later.** Mara gives you the two goals, in so many
+    words: pay back Rook's ₡ 40,000, and find who sold the Aster's route.
+    Then on into Act One, where the web game skips its own opening film
+    for a pilot who has just lived it.
+- **The Aster's corridor**, from a Blender script (`art/godot/`):
+  - **Surfaces:** ambientCG's CC0 photo-scanned materials, drawn triplanar
+    and recoloured to the palette in a shader.
+  - **On desktop:** volumetric light through the window, SDFGI and
+    screen-space reflections.
+  - **In the browser:** a lighter fallback for the Compatibility renderer.
+- **The game's own interface** in the site's fonts and colours: a title
+  over Earth at sunrise, objectives with distances, key prompts, subtitles,
+  chapter cards, a flight overlay (lead marker, shield and hull, the
+  convoy's state) and a pause menu.
+- **Sound effects synthesised in code:** guns, hits, explosions, alarms,
+  footsteps and doors, so there are no files to license.
+- **The landing page leads with "Play the prologue"**, and the career is
+  one click further.
+- **Download size:** the web build is 16.3 MB of game data and a 39.5 MB
+  engine (10.1 MB gzipped). Textures for the browser are capped and stored
+  as lossy WebP by `scripts/godot-build.mjs`; that cut the data from
+  187 MB.
+- **Speed:** the dogfight holds 60 fps in the browser on this machine.
+- **Deployment:** the build is published as the `play` release asset and
+  fetched by the deploy, like the model catalogue.
+
+#### Known limitations
+
+- **The ships are the old procedural models.** They still look toy-like
+  next to the corridor; replacing them is the next art task.
+- **No people on screen yet.** Characters speak on the comms only;
+  realistic crew need MakeHuman's Blender add-on.
+- **Desktop builds are not published.** The Windows and Linux exports work;
+  the Mac export needs the ETC2/ASTC import (now enabled) and a rebuild.
+
 ### Graphics that fit the machine drawing them, 6 October 2026
 
 - **One tier table, read by everything that draws**: High keeps bloom, shadow

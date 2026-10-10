@@ -63,7 +63,27 @@ Passed" moment, and systems unlocked as the story reaches them.
 5. **Builds.** CI exports desktop builds and the web build;
    periapsiszero.dev offers the download and the browser version.
 
+## Status, 10 October 2026
+
+The prologue is playable and live at /play/: title, the Aster's corridor
+(walk), the escort and ambush (fly and fight), the Aster's loss, and the
+arrival at Hearth with both goals stated. It hands over to the web game's
+Act One.
+
+Next, in order:
+
+1. **Better ship models** to replace the procedural ones.
+2. **People:** MakeHuman crew with animation.
+3. **The bridge**, where you meet the captain.
+4. **Desktop downloads.** The Mac export needs a rebuild with ETC2/ASTC.
+5. **Port Hearth and Act One** into Godot.
+
 ## Working notes
+
+- **Web build:** `node scripts/godot-build.mjs web`, then upload
+  build/play as the `play` release asset (see .github/workflows/deploy.yml).
+- **Test links:** /play/index.html#flight/ambush (also #corridor,
+  #arrival, #flight/strike) jumps straight to a chapter.
 
 - **Asset sync:** `node scripts/godot-sync.mjs` fills game/assets
   (gitignored), with Blender decoding the Draco GLBs. Then run

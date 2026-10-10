@@ -57,43 +57,22 @@ static func _tex(id: String, map: String) -> Texture2D:
 
 ## `paint`: the scan's own colour is taken out (kept as light and dark: the
 ## wear, scratches and grime) so `tint` alone sets the colour. Any ambientCG
-## material can then wear the palette.
-static func _pbr(id: String, scale: float, tint: Color, paint := false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_texture = _grey(id) if paint else _tex(id, "Color")
-	m.albedo_color = tint
-	m.normal_enabled = true
-	m.normal_texture = _tex(id, "NormalGL")
-	m.roughness_texture = _tex(id, "Roughness")
-	m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+## material can then wear the palette. Colours above 1 brighten.
+static func _pbr(id: String, scale: float, tint: Color, paint := false) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/surface.gdshader")
+	var gain := maxf(1.0, maxf(tint.r, maxf(tint.g, tint.b)))
+	m.set_shader_parameter("albedo_map", _tex(id, "Color"))
+	m.set_shader_parameter("normal_map", _tex(id, "NormalGL"))
+	m.set_shader_parameter("rough_map", _tex(id, "Roughness"))
 	var metal := _tex(id, "Metalness")
-	if metal:
-		m.metallic = 1.0
-		m.metallic_texture = metal
-		m.metallic_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
-	var ao := _tex(id, "AmbientOcclusion")
-	if ao:
-		m.ao_enabled = true
-		m.ao_texture = ao
-	m.uv1_triplanar = true
-	m.uv1_world_triplanar = true
-	m.uv1_triplanar_sharpness = 4.0
-	m.uv1_scale = Vector3.ONE * scale
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	m.set_shader_parameter("metal_map", metal)
+	m.set_shader_parameter("metal", 1.0 if metal else 0.0)
+	m.set_shader_parameter("tint", Color(tint.r / gain, tint.g / gain, tint.b / gain))
+	m.set_shader_parameter("tint_gain", gain)
+	m.set_shader_parameter("paint", 1.0 if paint else 0.0)
+	m.set_shader_parameter("scale", scale)
 	return m
-
-static func _grey(id: String) -> Texture2D:
-	var key := "grey:" + id
-	if _cache.has(key):
-		return _cache[key]
-	var img := _tex(id, "Color").get_image()
-	if img.is_compressed():
-		img.decompress()
-	img.adjust_bcs(1.0, 1.0, 0.0)
-	img.generate_mipmaps()
-	var t := ImageTexture.create_from_image(img)
-	_cache[key] = t
-	return t
 
 static func _glow(c: Color, energy: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()

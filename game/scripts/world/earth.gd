@@ -13,9 +13,15 @@ var _clouds: ShaderMaterial
 
 ## Earth below a ship at `altitude` metres, the ship at the origin.
 static func below(altitude: float, sun: Vector3) -> Earth:
+	return toward(Vector3.DOWN, altitude, sun)
+
+## Earth in any direction from the ship: a ship in orbit can lie any way up.
+## Far views pass a smaller `scale` so Earth stays inside the camera's range.
+static func toward(direction: Vector3, altitude: float, sun: Vector3, scale := 0.005) -> Earth:
 	var e := Earth.new()
+	e.scale_down = scale
 	e.sun_dir = sun.normalized()
-	e.position = Vector3(0.0, -(RADIUS + altitude) * e.scale_down, 0.0)
+	e.position = direction.normalized() * (RADIUS + altitude) * e.scale_down
 	return e
 
 func _ready() -> void:

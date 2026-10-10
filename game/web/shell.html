@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>Periapsis Zero: Prologue</title>
+		<meta name="description" content="The Aster: the playable prologue of Periapsis Zero, a story of dogfights where the orbits are real.">
+		<meta property="og:title" content="Periapsis Zero: Prologue">
+		<meta property="og:description" content="Walk the Aster, fly escort, survive the ambush. Free, in your browser.">
+		<meta property="og:image" content="https://periapsiszero.dev/icons/share-card.png">
+		<link rel="icon" href="/icons/favicon-32.png">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+		<style>
+:root { --void: #120b22; --bone: #f4e8cf; --ember: #ff6b2c; --ion: #2fd3ff; --mute: rgba(244, 232, 207, 0.62); }
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+body { color: var(--bone); background: #000; overflow: hidden; touch-action: none; font-family: 'Bricolage Grotesque', system-ui, sans-serif; }
+#canvas { display: block; }
+#canvas:focus { outline: none; }
+#status { position: absolute; inset: 0; background: radial-gradient(120% 90% at 70% 110%, #1d3a5c 0%, var(--void) 55%, #07040e 100%); display: flex; flex-direction: column; justify-content: center; padding: 0 clamp(16px, 8vw, 120px); visibility: hidden; box-sizing: border-box; }
+#status .kicker { font: 700 13px/1 'Space Mono', monospace; letter-spacing: 0.08em; color: var(--ember); margin-bottom: 14px; }
+#status h1 { font-size: clamp(56px, 11vw, 120px); font-weight: 800; line-height: 0.86; letter-spacing: -0.02em; margin: 0 0 18px; }
+#status p { color: var(--mute); font-size: clamp(17px, 2.2vw, 22px); margin: 0 0 36px; max-width: 34ch; }
+#status-progress { display: none; width: min(420px, 100%); height: 4px; background: rgba(244, 232, 207, 0.14); border-radius: 2px; overflow: hidden; }
+#status-progress::after { content: ''; display: block; height: 100%; width: var(--p, 6%); background: var(--ember); transition: width 0.25s; }
+#status-mb { font: 400 13px/1 'Space Mono', monospace; color: var(--mute); margin-top: 12px; min-height: 13px; }
+#status .tips { margin-top: 36px; font: 400 13px/1.7 'Space Mono', monospace; color: var(--mute); }
+#status .tips a { color: var(--ion); }
+#status-notice { display: none; max-width: 52ch; background: rgba(255, 107, 44, 0.12); border: 1px solid var(--ember); border-radius: 8px; padding: 16px; line-height: 1.4; }
+#status-splash { display: none; }
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+		<noscript>Periapsis Zero needs JavaScript to run.</noscript>
+		<div id="status">
+			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+			<div class="kicker">PROLOGUE · THE ASTER · 3091</div>
+			<h1>Periapsis<br>Zero</h1>
+			<p>Six ships, medical cargo, the Moon by Thursday. Nobody bothers a convoy like this.</p>
+			<div id="status-progress"></div>
+			<div id="status-mb"></div>
+			<div id="status-notice"></div>
+			<div class="tips">Keyboard and mouse · headphones help<br>A one-time download of about 30 MB, kept by your browser<br><a href="/">Back to periapsiszero.dev</a></div>
+		</div>
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			let serviceWorkerRegistrationPromise;
+			try {
+				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+			} catch (err) {
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+			}
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				serviceWorkerRegistrationPromise.then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).then(() => {
+				// Reload if there was no error.
+				window.location.reload();
+			}).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				const mb = (n) => (n / 1e6).toFixed(0);
+				if (current > 0 && total > 0) {
+					statusProgress.style.setProperty('--p', (current / total * 100).toFixed(1) + '%');
+					document.getElementById('status-mb').textContent = mb(current) + ' of ' + mb(total) + ' MB';
+				} else if (current > 0) {
+					document.getElementById('status-mb').textContent = mb(current) + ' MB';
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>

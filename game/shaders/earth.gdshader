@@ -21,8 +21,8 @@ void fragment() {
 	ALBEDO = day * day * mix(0.9, 0.55, ocean);
 	NORMAL_MAP = texture(normal_map, UV).rgb;
 	NORMAL_MAP_DEPTH = 0.6 * (1.0 - ocean);
-	ROUGHNESS = mix(0.95, 0.32, ocean);
-	SPECULAR = mix(0.2, 0.6, ocean);
+	ROUGHNESS = mix(0.95, 0.5, ocean);
+	SPECULAR = mix(0.15, 0.35, ocean);
 	float ndl = dot(normalize(world_n), normalize(sun_dir));
 	vec3 lights = texture(night_map, UV).rgb;
 	EMISSION = lights * lights * vec3(1.0, 0.8, 0.55) * smoothstep(0.05, -0.2, ndl) * 3.0;

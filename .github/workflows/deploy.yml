@@ -95,6 +95,29 @@ jobs:
             echo "models: no 'models' release; building with placeholder hulls"
           fi
 
+      # The prologue at /play/ is the Godot game (game/), exported for the web
+      # on a machine with Godot and published as the `play` release asset:
+      #
+      #   node scripts/godot-build.mjs web
+      #   tar -czf play.tar.gz -C build/play .
+      #   gh release upload play play.tar.gz --clobber
+      #
+      # Fetched on every build, not cached, so a re-upload is live on the next
+      # deploy. Without it the site still builds; /play/ is simply missing.
+      - name: Fetch the Godot prologue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          if gh release download play --pattern 'play.tar.gz' --clobber; then
+            mkdir -p public/play
+            tar -xzf play.tar.gz -C public/play
+            rm play.tar.gz
+            echo "play: $(du -sh public/play | cut -f1)"
+          else
+            echo "play: no 'play' release; building without the prologue"
+          fi
+
       # The site is served from the root of periapsiszero.dev, and
       # vite.config.js sets `base: '/'` itself. Every asset the app fetches at
       # runtime is built on `import.meta.env.BASE_URL`, so that one value

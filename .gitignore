@@ -48,3 +48,7 @@ public/audio/prologue/*.wav
 
 # Downloaded third-party source files; what ships is extracted into game/.
 art/sources/
+
+# Godot exports (web build goes up as the `play` release asset)
+/build/
+/public/play/

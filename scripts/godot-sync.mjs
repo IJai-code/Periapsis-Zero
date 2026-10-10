@@ -36,6 +36,7 @@ for (const f of readdirSync(join(root, 'public/authored')).filter((f) => f.start
 console.log(`public/authored -> game/assets/models: ${models} files`)
 copy('public/textures', 'textures', (f) => /\.(jpg|png)$/.test(f))
 copy('public/game/detail', 'detail', (f) => f.endsWith('.webp'))
+copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
 
 // Surface materials: CC0 from ambientCG (no account, no credit required;
 // credited in game/CREDITS.md). Downloaded once into art/sources (gitignored),
