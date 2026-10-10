@@ -1,3 +1,5 @@
 # Godot-specific ignores
 .godot/
 *.translation
+# Copied in from public/ by scripts/godot-sync.mjs; the originals are the source.
+assets/
