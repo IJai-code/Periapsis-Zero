@@ -44,3 +44,7 @@ docs/device-sweep-built/
 docs/remake-review/production/
 public/audio/prologue/*.wav
 .git-commit-msg.tmp
+.aider*
+
+# Downloaded third-party source files; what ships is extracted into game/.
+art/sources/

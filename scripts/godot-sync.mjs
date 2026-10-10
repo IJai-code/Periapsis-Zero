@@ -36,3 +36,25 @@ for (const f of readdirSync(join(root, 'public/authored')).filter((f) => f.start
 console.log(`public/authored -> game/assets/models: ${models} files`)
 copy('public/textures', 'textures', (f) => /\.(jpg|png)$/.test(f))
 copy('public/game/detail', 'detail', (f) => f.endsWith('.webp'))
+
+// Surface materials: CC0 from ambientCG (no account, no credit required;
+// credited in game/CREDITS.md). Downloaded once into art/sources (gitignored),
+// and only the maps Godot uses are unpacked, recompressed, into
+// game/assets/materials/<id>/.
+const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014']
+const cache = join(root, 'art/sources/ambientcg')
+mkdirSync(cache, { recursive: true })
+for (const id of MATERIALS) {
+  const zip = join(cache, `${id}.zip`)
+  if (!existsSync(zip)) execFileSync('curl', ['-sfL', '-o', zip, `https://ambientcg.com/get?file=${id}_2K-JPG.zip`])
+  const dir = join(out, 'materials', id)
+  if (existsSync(dir)) continue
+  mkdirSync(dir, { recursive: true })
+  // unzip exits 11 when a pattern matches nothing; not every material has every map.
+  try {
+    execFileSync('unzip', ['-o', '-q', '-j', zip, '*_Color.jpg', '*_NormalGL.jpg', '*_Roughness.jpg', '*_Metalness.jpg', '*_AmbientOcclusion.jpg', '*_Opacity.jpg', '-d', dir], { stdio: 'ignore' })
+  } catch (e) {
+    if (e.status !== 11) throw e
+  }
+}
+console.log(`ambientCG -> game/assets/materials: ${MATERIALS.length} materials`)
