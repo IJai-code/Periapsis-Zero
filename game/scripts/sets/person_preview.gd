@@ -11,19 +11,24 @@ func _ready() -> void:
 	add_child(AsterCorridor.new())
 	var names := who.split(",")
 	for n in names.size():
-		var p: Node3D = load("res://art/person-%s.glb" % names[n]).instantiate()
+		var p := Person.make(names[n])
 		add_child(p)
+		if anim == "talk":
+			p.talk.call_deferred(true)
 		p.position = Vector3((n - (names.size() - 1) / 2.0) * 0.9, 0.25, -5.0)
-		var player := p.find_children("*", "AnimationPlayer", true, false)
-		if player.size() > 0:
-			var ap: AnimationPlayer = player[0]
-			if ap.has_animation(anim):
-				ap.get_animation(anim).loop_mode = Animation.LOOP_LINEAR
-				ap.play(anim)
+
 	var cam := Camera3D.new()
 	cam.fov = 40.0
 	cam.near = 0.03
 	cam.far = 120_000.0
 	add_child(cam)
-	cam.position = Vector3(0.35, 1.7, -2.6)
-	cam.look_at(Vector3(0.0, 1.45, -5.0))
+	var close := "--close" in args
+	cam.position = Vector3(0.12, 1.93, -4.15) if close else Vector3(0.35, 1.7, -2.6)
+	cam.look_at(Vector3(0.0, 1.88, -5.0) if close else Vector3(0.0, 1.45, -5.0))
+	if close:
+		var key := OmniLight3D.new()
+		key.position = Vector3(0.6, 2.2, -4.0)
+		key.omni_range = 3.0
+		key.light_energy = 1.4
+		key.light_color = Color(1.0, 0.92, 0.82)
+		add_child(key)

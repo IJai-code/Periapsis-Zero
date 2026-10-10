@@ -5,6 +5,20 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Faces that move, 10 October 2026
+
+- **Faces now move.** Characters blink every few seconds (now and then
+  twice) and their mouths move in a speaking rhythm while they talk,
+  pausing between phrases, brows lifting for emphasis.
+  - **The shapes:** MakeHuman's CC0 expression units (eye closure, mouth
+    open, pursing, smile, brows), as shape keys. They come from MPFB, so
+    nothing extra is downloaded.
+  - **The rest of the face:** the eyelashes, brows, teeth and tongue get
+    the same shapes, so they move with the face.
+- **Eyes are the high-poly ones,** with whites and irises; the low-poly
+  eye had read as solid red.
+- **Download:** the web build's game data is now 26.6 MB.
+
 ### Waking at Hearth, 10 October 2026
 
 - **The prologue's ending is a scene now**, not text over stars. You wake

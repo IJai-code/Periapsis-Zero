@@ -16,6 +16,8 @@ import bpy
 from mathutils import Matrix, Vector
 
 from bl_ext.blender_org.mpfb.services.humanservice import HumanService
+from bl_ext.blender_org.mpfb.services.targetservice import TargetService
+from bl_ext.blender_org.mpfb.services.locationservice import LocationService
 
 args = sys.argv[sys.argv.index('--') + 1:]
 WHO, OUT = args[0], args[1]
@@ -52,7 +54,7 @@ def build(spec):
     info = HumanService._create_default_human_info_dict()
     info['phenotype'] = spec['phenotype']
     info['rig'] = 'game_engine'
-    info['eyes'] = 'low-poly/low-poly.mhclo'
+    info['eyes'] = 'high-poly/high-poly.mhclo'
     info['eyebrows'] = spec['eyebrows']
     info['eyelashes'] = 'eyelashes01/eyelashes01.mhclo'
     info['teeth'] = 'teeth_base/teeth_base.mhclo'
@@ -68,6 +70,55 @@ def build(spec):
     settings['subdiv_levels'] = 0
     settings['material_instances'] = 'NEVER'
     return HumanService.deserialize_from_dict(info, settings)
+
+
+# --- The face: expression shape keys for blinking and talking. -----------
+
+# Godot drives these by name (game/scripts/people/person.gd). Each is one of
+# MakeHuman's CC0 expression units, shipped inside MPFB.
+FACE = {
+    'blink_l': 'eye-left-closure', 'blink_r': 'eye-right-closure',
+    'mouth_open': 'mouth-open', 'smile': 'mouth-corner-puller', 'purse': 'mouth-pursing',
+    'brow_l': 'eyebrows-left-inner-up', 'brow_r': 'eyebrows-right-inner-up',
+}
+
+
+def face(basemesh, race):
+    """Bake the body's proportions into the mesh, drop the helper geometry,
+    add the expression keys, and give the eyelashes, brows, teeth and tongue
+    the same keys so they move with the face."""
+    TargetService.bake_targets(basemesh)
+    with bpy.context.temp_override(object=basemesh, active_object=basemesh, selected_objects=[basemesh]):
+        for m in [m for m in basemesh.modifiers if m.type == 'MASK']:
+            bpy.ops.object.modifier_apply(modifier=m.name)
+    units = LocationService.get_mpfb_data('targets') + f'/expression/units/{race}'
+    if basemesh.data.shape_keys is None:
+        basemesh.shape_key_add(name='Basis', from_mix=False)
+    for key, unit in FACE.items():
+        TargetService.load_target(basemesh, f'{units}/{unit}.target.gz', weight=0.0, name=key)
+    keys = basemesh.data.shape_keys.key_blocks
+    parts = [o for o in bpy.data.objects if o.type == 'MESH' and any(t in o.name for t in ('eyelash', 'eyebrow', 'teeth', 'tongue'))]
+    for part in parts:
+        sd = part.modifiers.new('follow', 'SURFACE_DEFORM')
+        sd.target = basemesh
+        with bpy.context.temp_override(object=part, active_object=part):
+            bpy.ops.object.surfacedeform_bind(modifier=sd.name)
+        part.shape_key_add(name='Basis', from_mix=False)
+        for key in FACE:
+            for k in keys:
+                k.value = 0.0
+            keys[key].value = 1.0
+            bpy.context.view_layer.update()
+            ev = part.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            co = [v.co.copy() for v in ev.to_mesh().vertices]
+            ev.to_mesh_clear()
+            sk = part.shape_key_add(name=key, from_mix=False)
+            for i, c in enumerate(co):
+                sk.data[i].co = c
+        keys[list(FACE)[-1]].value = 0.0
+        part.modifiers.remove(sd)
+    for k in keys:
+        k.value = 0.0
 
 
 # --- Posing in world space, so the rig's own bone axes do not matter. -------
@@ -154,6 +205,8 @@ def bake(arm, name, talk, frames=96, fps=24):
 
 bpy.ops.wm.read_homefile(use_empty=True)
 basemesh = build(PEOPLE[WHO])
+race = max(PEOPLE[WHO]['phenotype']['race'].items(), key=lambda kv: kv[1])[0]
+face(basemesh, race)
 arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 bpy.context.scene.render.fps = 24
 bake(arm, 'idle', 0.0)
@@ -168,7 +221,8 @@ for img in bpy.data.images:
         img.scale(int(img.size[0] * k), int(img.size[1] * k))
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', export_yup=True, export_apply=True, export_animations=True,
                           export_animation_mode='NLA_TRACKS', export_cameras=False, export_lights=False,
-                          export_image_format='JPEG', export_jpeg_quality=86)
+                          export_image_format='JPEG', export_jpeg_quality=86, export_morph=True,
+                          export_morph_normal=False)
 eyes = next((o for o in bpy.data.objects if 'eye' in o.name.lower() and o.type == 'MESH'), None)
 print('person:', WHO, OUT, [o.name for o in bpy.data.objects])
 print('facing check: head', arm.matrix_world @ arm.pose.bones['head'].head, 'eyes', eyes and eyes.matrix_world @ Vector(eyes.bound_box[0]))
