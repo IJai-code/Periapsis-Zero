@@ -19,7 +19,7 @@ func _ready() -> void:
 			# A transparent pane in front of Earth's own transparent layers
 			# sorts badly; the window is drawn open, and still blocks.
 			mi.visible = false
-		mi.create_trimesh_collision()
+	Surfaces.collide(room)
 	_environment(hq)
 	_lights(hq)
 	# Outside: Earth ahead and below, and a convoy ship riding off the bow.
@@ -92,7 +92,7 @@ func _lights(hq: bool) -> void:
 			add_child(s)
 	# Console glow on the faces of whoever stands at them.
 	for z in [-5.0, -6.9]:
-		for x in [-3.4, -1.7, 1.7, 3.4]:
+		for x in [-3.9, -2.2, 2.2, 3.9]:
 			var o := OmniLight3D.new()
 			o.position = Vector3(x, 1.4, z + 0.1)
 			o.omni_range = 1.8

@@ -25,6 +25,18 @@ static func apply(root: Node) -> void:
 		var glass := mi.mesh.get_surface_count() > 0 and mi.mesh.surface_get_material(0) and mi.mesh.surface_get_material(0).resource_name == "glass"
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if glass else GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 
+## Make every mesh under `root` solid, from both sides: a room seen from
+## inside must stop the player whichever way its faces point.
+static func collide(root: Node, skip := "") -> void:
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if skip != "" and mi.name.begins_with(skip):
+			continue
+		mi.create_trimesh_collision()
+		for cs: CollisionShape3D in mi.find_children("*", "CollisionShape3D", true, false):
+			var shape := cs.shape as ConcavePolygonShape3D
+			if shape:
+				shape.backface_collision = true
+
 static func get_material(name: String) -> Material:
 	if _cache.has(name):
 		return _cache[name]

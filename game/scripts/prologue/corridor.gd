@@ -3,14 +3,14 @@ extends Node3D
 ## crew corridor to the flight deck. Teaches walking and looking, introduces
 ## the captain and Renn, and shows Earth through the one window.
 
-var _walker: Walker
+var _walker: Player
 var _window_done := false
 var _door: Interactable
 var _leaving := false
 
 func _ready() -> void:
 	add_child(AsterCorridor.new())
-	_walker = Walker.new()
+	_walker = Player.new()
 	add_child(_walker)
 	_walker.position = Vector3(0.0, 0.3, -1.2)
 	_walker.face(Vector3(0.0, 1.6, -16.0))
@@ -24,9 +24,9 @@ func _ready() -> void:
 func _script() -> void:
 	await get_tree().create_timer(1.0).timeout
 	await Hud.card("THE ASTER", "PROLOGUE · HARBOR ORBIT · 3091", 2.2)
-	Hud.prompt("[W][A][S][D] walk    [Mouse] look    [Shift] run    Click to capture the mouse", 9.0)
+	Hud.prompt("[W][A][S][D] Walk      [Shift] Run\n[Mouse] Look around      Click the game to take control", 10.0)
 	await Hud.say("Captain Hale", "All hands, this is the captain. We leave Harbor orbit in ten minutes.")
-	Hud.objective("Report to the bridge", "Forward, through deck 2")
+	Hud.objective("Report to the [bridge]", "Forward, through deck 2")
 	await Hud.say("Captain Hale", "Six ships, medical cargo, Moon by Thursday. Escort pilot to the bridge, please.")
 
 func _process(_dt: float) -> void:

@@ -3,7 +3,7 @@ extends Node3D
 ## and Renn Ayers in person, learns what the convoy carries and what has
 ## been happening to convoys, and is sent to the flight deck.
 
-var _walker: Walker
+var _walker: Player
 var _hale: Person
 var _renn: Person
 var _talk: Interactable
@@ -19,11 +19,11 @@ func _ready() -> void:
 	_hale.rotation.y = PI       # at the window, back to the room
 	_renn = Person.make("renn")
 	add_child(_renn)
-	_renn.position = Vector3(-1.7, 0.0, -4.35)
+	_renn.position = Vector3(-2.2, 0.0, -4.35)
 	_renn.rotation.y = PI       # at her console
-	_walker = Walker.new()
+	_walker = Player.new()
 	add_child(_walker)
-	_walker.position = Vector3(2.0, 0.1, -1.0)
+	_walker.position = Vector3(1.0, 0.1, -1.6)
 	_walker.face(Vector3(0.0, 1.6, -8.1))
 	_talk = Interactable.new(Vector3(1.4, 2.0, 1.4), "[E] Talk to Captain Hale")
 	_talk.position = Vector3(0.0, 1.0, -8.1)
@@ -37,13 +37,13 @@ func _ready() -> void:
 	Flow.music(false)
 	_enter()
 	if "--talk" in OS.get_cmdline_user_args():
-		_walker.position = Vector3(0.5, 0.1, -6.2)
+		_walker.position = Vector3(0.3, 0.1, -6.6)
 		_walker.face(Vector3(0.0, 1.6, -8.1))
 		_briefing()
 
 func _enter() -> void:
 	await get_tree().create_timer(0.8).timeout
-	Hud.objective("Report to Captain Hale", "On the bridge, by the window")
+	Hud.objective("Report to [Captain Hale]", "On the bridge, by the window")
 
 func _briefing() -> void:
 	if _talked:
@@ -51,26 +51,40 @@ func _briefing() -> void:
 	_talked = true
 	_talk.set_meta("prompt", "")
 	_talk.queue_free()
-	var eye := _walker.camera
-	_hale.face(_walker.global_position)
+	Hud.clear_prompt()
+	_walker.enabled = false
+	_walker.face(_hale.global_position + Vector3(0, 1.6, 0))
+	var me := _walker.global_position
+	_hale.face(me)
+	_renn.face(me)
 	await get_tree().create_timer(0.6).timeout
+	# A conversation, shot over the pilot's shoulder.
+	var cam := Shot3D.open(self)
+	var hale_face := _hale.global_position + Vector3(0, 1.66, 0)
+	var renn_face := _renn.global_position + Vector3(0, 1.56, 0)
+	var my_head := me + Vector3(0, 1.6, 0)
+	Hud.letterbox(true)
+	cam.frame(my_head, hale_face)
 	_hale.talk(true)
 	await Hud.say("Captain Hale", "There's my escort. Welcome aboard the Aster.")
 	await Hud.say("Captain Hale", "Six ships, and our holds are full of vaccine for the lunar colonies. Ninety minutes to the Moon corridor.")
 	_hale.talk(false)
-	_renn.face(_walker.global_position)
-	await get_tree().create_timer(0.5).timeout
+	cam.frame(my_head, renn_face, -1.0)
 	_renn.talk(true)
 	await Hud.say("Renn Ayers", "And the Hollow have hit three convoys this month. Out past the Moon, all of them.")
 	_renn.talk(false)
+	cam.frame(my_head, hale_face)
 	_hale.talk(true)
 	await Hud.say("Captain Hale", "None of them on our route, Renn. Nobody knows our route.")
 	await Hud.say("Captain Hale", "Your Kestrel's on the flight deck, starboard hatch. Fly close and watch the sun.")
 	_hale.talk(false)
+	cam.done()
+	Hud.letterbox(false)
+	_walker.enabled = true
 	_hale.face(_hale.global_position + Vector3(0, 0, -5))
 	_renn.face(_renn.global_position + Vector3(0, 0, -5))
 	_hatch.set_meta("prompt", "[E] Open the hatch to the flight deck")
-	Hud.objective("Board your Kestrel", "Starboard hatch")
+	Hud.objective("Go to the [flight deck]", "Starboard hatch")
 
 func _leave() -> void:
 	if not _talked or _leaving:

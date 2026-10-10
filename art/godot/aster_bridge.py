@@ -34,9 +34,10 @@ kit.loft(bm, [kit.ring_y(profile, 0.0), kit.ring_y(profile, D - 1.6)], cap_start
 # The forward bay narrows and lowers to the window frame.
 fwd = [(-W + 0.6, 0.0), (W - 0.6, 0.0), (W - 0.6, 2.2), (W - 1.4, 2.9), (-W + 1.4, 2.9), (-W + 0.6, 2.2)]
 kit.loft(bm, [kit.ring_y(profile, D - 1.6), kit.ring_y(fwd, D)], cap_start=False, cap_end=False)
+# Every face, the aft wall included, faces the middle of the room.
 for f in bm.faces:
     c = f.calc_center_median()
-    if f.normal.dot(V((-c.x, 0.0, 1.75 - c.z))) < 0:
+    if f.normal.dot(V((0.0, D / 2, 1.75)) - c) < 0:
         f.normal_flip()
 # Cut the window band out of the forward face (it has no end cap) by removing
 # nothing: the open end is the window, framed and glazed below.
@@ -52,8 +53,8 @@ kit.box(bm, (0, D / 2, 0.03), (3.0, D, 0.03))
 kit.part('aisle', bm, 'grate')
 # The captain's step and chair.
 bm = bmesh.new()
-kit.box(bm, (0, 2.6, 0.12), (3.0, 2.2, 0.24))
-kit.part('step', bm, 'paint_dark', bevel=0.02)
+kit.box(bm, (0, 2.6, 0.03), (3.0, 2.2, 0.06))
+kit.part('step', bm, 'paint_dark', bevel=0.01)
 bm = bmesh.new()
 kit.box(bm, (0, 2.5, 0.55), (0.75, 0.7, 0.14))
 kit.box(bm, (0, 2.2, 1.15), (0.75, 0.16, 1.1))
@@ -70,7 +71,7 @@ kit.part('chair_pad', bm, 'rubber', bevel=0.01)
 desks, screens, trim = bmesh.new(), bmesh.new(), bmesh.new()
 tilt = Matrix.Rotation(math.radians(-35), 3, 'X')
 for row, y in ((0, 5.0), (1, 6.9)):
-    for x in (-3.4, -1.7, 1.7, 3.4):
+    for x in (-3.9, -2.2, 2.2, 3.9):
         kit.box(desks, (x, y, 0.45), (1.5, 0.8, 0.9))
         kit.box(desks, (x, y + 0.15, 0.95), (1.5, 0.55, 0.1), tilt)
         kit.box(trim, (x, y - 0.42, 0.45), (1.5, 0.04, 0.9))

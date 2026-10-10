@@ -11,6 +11,7 @@ func _ready() -> void:
 	var room: Node3D = load("res://art/hearth_medbay.glb").instantiate()
 	add_child(room)
 	Surfaces.apply(room)
+	Surfaces.collide(room)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()

@@ -13,8 +13,7 @@ func _ready() -> void:
 	var bay: Node3D = load("res://art/aster_hangar.glb").instantiate()
 	add_child(bay)
 	Surfaces.apply(bay)
-	for mi: MeshInstance3D in bay.find_children("*", "MeshInstance3D", true, false):
-		mi.create_trimesh_collision()
+	Surfaces.collide(bay)
 	kestrel = Hull.model("kestrel")
 	add_child(kestrel)
 	kestrel.position = Vector3(0.0, 1.95, -14.0)

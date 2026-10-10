@@ -127,7 +127,7 @@ func _launch() -> void:
 	Hud.prompt("Click to take the controls", 0.0)
 	await Hud.say("Captain Hale", "Good launch. Take station off our port side.")
 	_set_goal(aster.to_global(FORMATION), "STATION")
-	Hud.objective("Take station beside the Aster")
+	Hud.objective("Take station beside the [Aster]")
 	Hud.prompt("[Mouse] steer    [W] thrust    [S] slow down", 0.0)
 	var taught_strafe := false
 	while ship.global_position.distance_to(_goal.global_position) > 30.0:
@@ -140,7 +140,7 @@ func _launch() -> void:
 
 func _hold() -> void:
 	_beat = "hold"
-	Hud.objective("Fly escort", "Hold station by the Aster")
+	Hud.objective("Fly [escort]", "Hold station by the Aster")
 	Hud.prompt("Match the convoy: ease off with [S]", 6.0)
 	await Hud.say("Captain Hale", "Good. Ninety minutes to the Moon corridor.")
 	await Hud.say("Renn Ayers", "Medical cargo and six old ships. Nobody bothers a convoy like this.")
@@ -156,7 +156,7 @@ func _ambush() -> void:
 	await Hud.say("Captain Hale", "Contacts! Four ships out of the sun. No transponders. Weapons free, Kestrel!", 4.0)
 	for i in 4:
 		_spawn_raider(aster.global_position + SUN.normalized() * 1400.0 + Vector3(randf_range(-150, 150), randf_range(-100, 100), randf_range(-150, 150)), aster if i % 2 == 0 else ship)
-	Hud.objective("Protect the Aster", "0 / 4 raiders")
+	Hud.objective("Protect the [Aster]", "0 / 4 raiders")
 	Hud.prompt("[Click] fire    Aim at the orange diamond to lead your shots", 0.0)
 
 func _spawn_raider(at: Vector3, target: Hull) -> Raider:
@@ -259,7 +259,7 @@ func _escape() -> void:
 	away.y = 0.0
 	away = (away.normalized() if away.length() > 1.0 else Vector3.BACK)
 	_set_goal(aster.global_position + away * 1500.0 + Vector3(0, -200, 0), "CLEAR")
-	Hud.objective("Get clear of the wreck")
+	Hud.objective("Get clear of the [wreck]")
 	Hud.prompt("Hold [Shift] to boost", 0.0)
 	for r in raiders:
 		r.target = ship

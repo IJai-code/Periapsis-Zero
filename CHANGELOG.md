@@ -5,6 +5,34 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Third person, conversations on camera, and a crime-game interface, 10 October 2026
+
+- **The bridge is walkable to the end.**
+  - **Layout:** the consoles moved apart to leave a wide centre aisle to
+    the captain, and the captain's step is now flat.
+  - **The aft wall:** it faced outward, so it was invisible from inside
+    and could be walked through. It now faces in.
+  - **Every room is solid from both sides** (`Surfaces.collide`).
+- **You play as a person, in third person:** the pilot, a MakeHuman
+  figure in an olive flight coverall.
+  - **Camera:** over the right shoulder, steered with the mouse, pulling
+    in at walls.
+  - **Moving:** relative to the camera, the body turning toward where it
+    goes.
+  - **Walk and run:** cycles made on the rig, with leg swing and knee bend,
+    counter-swinging arms, hips and chest twisting, and a rise over each
+    step. The animation speed matches the ground covered.
+- **Conversations are shot like a film:** letterboxed, cut between
+  over-the-shoulder shots of whoever is speaking, the background soft
+  with depth of field.
+- **The interface, redone:**
+  - **Help box:** top left, with keycaps.
+  - **Objective:** spoken large at the bottom when it changes, its key
+    words in ember, then kept small top right with the distance.
+  - **Subtitles:** outlined, no box, the speaker's name in their colour.
+  - **Mission titles:** slide in lower left over an ember bar.
+- **A film finish** over every scene: a soft vignette and fine grain.
+
 ### Faces that move, 10 October 2026
 
 - **Faces now move.** Characters blink every few seconds (now and then

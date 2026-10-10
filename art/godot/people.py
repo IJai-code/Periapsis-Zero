@@ -39,6 +39,16 @@ PEOPLE = {
         'hair': 'ponytail01/ponytail01.mhclo', 'eyebrows': 'eyebrow010/eyebrow010.mhclo',
         'clothes': ['male_worksuit01/male_worksuit01.mhclo', 'shoes01/shoes01.mhclo'],
     },
+    # The pilot, played in third person: thirties, fit, in a flight coverall
+    # (MakeHuman's work suit, darkened to olive in Godot).
+    'pilot': {
+        'phenotype': {'gender': 0.85, 'age': 0.55, 'muscle': 0.62, 'weight': 0.5, 'proportions': 0.6, 'height': 0.55,
+                      'cupsize': 0.5, 'firmness': 0.5, 'race': {'asian': 0.25, 'caucasian': 0.45, 'african': 0.3}},
+        'skin': 'young_caucasian_male/young_caucasian_male.mhmat',
+        'hair': 'short02/short02.mhclo', 'eyebrows': 'eyebrow001/eyebrow001.mhclo',
+        'clothes': ['male_worksuit01/male_worksuit01.mhclo', 'shoes05/shoes05.mhclo'],
+        'walks': True,
+    },
     # Mara Voss, Hearth's dockmaster: forties, steady, sees everything.
     'mara': {
         'phenotype': {'gender': 0.0, 'age': 0.68, 'muscle': 0.6, 'weight': 0.55, 'proportions': 0.55, 'height': 0.56,
@@ -185,6 +195,53 @@ def relaxed(arm, t=0.0, talk=0.0):
         rotate(arm, 'head', (0, 0, 1), math.sin(w * 0.5) * 4.0)
 
 
+def stride(arm, t, period, run):
+    """One moment of a walk (run=0) or a run (run=1) cycle of `period`
+    seconds. The figure faces -Y: a leg swings forward with a negative turn
+    about X. Arms counter-swing, the hips twist and the chest twists back."""
+    relaxed(arm, 0.0, 0.0)
+    ph = 2 * math.pi * t / period
+    swing = 24.0 + 18.0 * run
+    for s, sgn in (('l', 1.0), ('r', -1.0)):
+        f = math.sin(ph) * sgn                      # +1: this leg fully forward
+        lift = max(0.0, math.cos(ph) * sgn)        # swinging through
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -swing * f - (10.0 * run) * lift)
+        rotate(arm, f'calf_{s}', (1, 0, 0), 6.0 + (38.0 + 42.0 * run) * lift)
+        rotate(arm, f'foot_{s}', (1, 0, 0), -8.0 * lift + 6.0 * f)
+        # The opposite arm swings with this leg.
+        rotate(arm, f'upperarm_{s}', (1, 0, 0), swing * 0.75 * f)
+        rotate(arm, f'lowerarm_{s}', (1, 0, 0), -(12.0 + 55.0 * run) - 10.0 * max(0.0, -f))
+    rotate(arm, 'pelvis', (0, 0, 1), math.sin(ph) * (5.0 + 3.0 * run))
+    rotate(arm, 'spine_02', (0, 0, 1), -math.sin(ph) * (6.0 + 4.0 * run))
+    rotate(arm, 'spine_01', (1, 0, 0), -4.0 - 8.0 * run)
+    rotate(arm, 'neck_01', (1, 0, 0), 2.0 + 5.0 * run)
+    # The body rises over each step, twice a cycle.
+    arm.pose.bones['pelvis'].location = (0.0, 0.0, 0.0)
+    bpy.context.view_layer.update()
+    pb = arm.pose.bones['pelvis']
+    m = arm.matrix_world @ pb.matrix
+    m.translation.z += (0.025 + 0.03 * run) * (abs(math.cos(ph)) - 0.5)
+    pb.matrix = arm.matrix_world.inverted() @ m
+    bpy.context.view_layer.update()
+
+
+def bake_stride(arm, name, period, run, fps=24):
+    action = bpy.data.actions.new(name)
+    arm.animation_data_create()
+    arm.animation_data.action = action
+    frames = int(round(period * fps))
+    for f in range(0, frames + 1, 2):
+        stride(arm, f / fps, period, run)
+        for pb in arm.pose.bones:
+            pb.keyframe_insert('rotation_quaternion', frame=f)
+            pb.keyframe_insert('location', frame=f)
+    action.use_fake_user = True
+    track = arm.animation_data.nla_tracks.new()
+    track.name = name
+    track.strips.new(name, 0, action)
+    arm.animation_data.action = None
+
+
 def bake(arm, name, talk, frames=96, fps=24):
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
@@ -211,6 +268,9 @@ arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 bpy.context.scene.render.fps = 24
 bake(arm, 'idle', 0.0)
 bake(arm, 'talk', 1.0)
+if PEOPLE[WHO].get('walks'):
+    bake_stride(arm, 'walk', 1.05, 0.0)
+    bake_stride(arm, 'run', 0.7, 1.0)
 # Textures: the skin at 2K for close-ups, everything else at 1K.
 for img in bpy.data.images:
     if img.size[0] == 0:

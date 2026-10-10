@@ -4,7 +4,10 @@ extends Node3D
 ## to face someone.
 
 var who := ""
+## The work suit's colour, multiplied over its denim.
+var suit_tint := Color(0.62, 0.6, 0.58)
 var _anim: AnimationPlayer
+var _gait := "idle"
 var _yaw_target := NAN
 ## Faces: every mesh carrying the expression keys (body, lashes, brows,
 ## teeth, tongue), so they move together.
@@ -30,7 +33,7 @@ func _ready() -> void:
 			var m := mi.mesh.surface_get_material(i) as StandardMaterial3D
 			if m and m.resource_name.contains("worksuit"):
 				var t := m.duplicate() as StandardMaterial3D
-				t.albedo_color = Color(0.62, 0.6, 0.58)
+				t.albedo_color = suit_tint
 				mi.set_surface_override_material(i, t)
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh and mi.find_blend_shape_by_name("blink_l") >= 0:
@@ -39,7 +42,7 @@ func _ready() -> void:
 	var players := body.find_children("*", "AnimationPlayer", true, false)
 	if players.size() > 0:
 		_anim = players[0]
-		for a in ["idle", "talk"]:
+		for a in ["idle", "talk", "walk", "run"]:
 			if _anim.has_animation(a):
 				_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_anim.play("idle")
@@ -50,6 +53,22 @@ func talk(on: bool) -> void:
 	_talking = on
 	if _anim:
 		_anim.play("talk" if on else "idle", 0.4)
+
+## Walking pace in metres a second: idle, walk or run, the cycle's speed
+## matched to the ground covered (walk 1.6 m/s, run 4.4 m/s at 1x).
+func locomote(speed: float) -> void:
+	if not _anim or _talking:
+		return
+	var gait := "idle" if speed < 0.25 else ("walk" if speed < 3.0 else "run")
+	if gait != _gait and _anim.has_animation(gait):
+		_gait = gait
+		_anim.play(gait, 0.25)
+	if gait == "walk":
+		_anim.speed_scale = clampf(speed / 1.6, 0.6, 1.6)
+	elif gait == "run":
+		_anim.speed_scale = clampf(speed / 4.4, 0.7, 1.4)
+	else:
+		_anim.speed_scale = 1.0
 
 ## Turn the whole body to face a point, over a second or so.
 func face(point: Vector3) -> void:

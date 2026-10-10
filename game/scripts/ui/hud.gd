@@ -1,10 +1,13 @@
 extends CanvasLayer
-## Everything drawn over the game: the fade, chapter cards, the objective,
-## key prompts and subtitles. Scenes talk to it; it never decides anything.
+## Everything drawn over the game, in the manner of an open-world crime
+## game: a help box top left for controls, the objective spoken large at
+## the bottom when it changes and kept small top right, subtitles as
+## outlined text with the speaker's name in colour, mission titles that
+## slide in lower left. Scenes talk to it; it never decides anything.
 ##
 ##   Hud.card("THE ASTER", "Harbor orbit · 3091")
-##   Hud.objective("Report to the flight deck")
-##   Hud.prompt("[W][A][S][D] walk   [Mouse] look")
+##   Hud.objective("Report to the [bridge]", "16 m")   # [words] in ember
+##   Hud.prompt("[W][A][S][D] walk   [Mouse] look")     # [keys] as keycaps
 ##   await Hud.say("Captain Hale", "All hands...")
 
 signal line_done
@@ -12,28 +15,29 @@ signal line_done
 const SPEAKERS := {
 	"Captain Hale": Style.EMBER,
 	"Renn Ayers": Style.ION,
-	"Mara Voss": Style.EMBER,
+	"Mara Voss": Color("#ffb347"),
 	"Aster": Style.MUTE,
 	"Kestrel": Style.BONE,
 }
 
-var _fade: ColorRect
-var _card_title: Label
-var _card_sub: Label
-var _card: VBoxContainer
-var _obj_box: PanelContainer
-var _obj_text: Label
-var _obj_extra: Label
-var _prompt: RichTextLabel
-var _sub_box: PanelContainer
-var _sub_name: Label
-var _sub_text: Label
-var _queue: Array = []
-var _speaking := false
-var _prompt_left := 0.0
 var root: Control
+var _fade: ColorRect
 var _wake: ColorRect
 var _loading: Label
+var _help: PanelContainer
+var _help_text: RichTextLabel
+var _help_left := 0.0
+var _obj_big: RichTextLabel
+var _obj_small: VBoxContainer
+var _obj_text: RichTextLabel
+var _obj_extra: Label
+var _obj_plain := ""
+var _sub: RichTextLabel
+var _card: Control
+var _card_title: Label
+var _card_sub: Label
+var _queue: Array = []
+var _speaking := false
 
 func _ready() -> void:
 	layer = 10
@@ -43,6 +47,13 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = Style.theme()
 	add_child(root)
+	var film := ColorRect.new()
+	film.set_anchors_preset(Control.PRESET_FULL_RECT)
+	film.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fm := ShaderMaterial.new()
+	fm.shader = load("res://shaders/film.gdshader")
+	film.material = fm
+	root.add_child(film)
 	_wake = ColorRect.new()
 	_wake.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wake.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -52,71 +63,84 @@ func _ready() -> void:
 	_wake.visible = false
 	root.add_child(_wake)
 
-	# Objective, top left.
-	_obj_box = PanelContainer.new()
-	_obj_box.add_theme_stylebox_override("panel", Style.panel())
-	_obj_box.position = Vector2(36, 32)
-	var ov := VBoxContainer.new()
-	ov.add_theme_constant_override("separation", 2)
-	ov.add_child(Style.label("OBJECTIVE", 14, Style.EMBER, Style.mono_bold))
-	_obj_text = Style.label("", 24, Style.BONE, Style.sans_bold)
-	ov.add_child(_obj_text)
-	_obj_extra = Style.label("", 16, Style.MUTE, Style.mono)
-	ov.add_child(_obj_extra)
-	_obj_box.add_child(ov)
-	_obj_box.modulate.a = 0.0
-	root.add_child(_obj_box)
+	# Help box, top left: how to do the thing in front of you.
+	_help = PanelContainer.new()
+	var hb := StyleBoxFlat.new()
+	hb.bg_color = Color(0.02, 0.015, 0.04, 0.72)
+	hb.set_corner_radius_all(6)
+	hb.content_margin_left = 20
+	hb.content_margin_right = 20
+	hb.content_margin_top = 14
+	hb.content_margin_bottom = 14
+	_help.add_theme_stylebox_override("panel", hb)
+	_help.position = Vector2(40, 40)
+	_help.custom_minimum_size = Vector2(0, 0)
+	_help_text = _rich(21, Style.sans)
+	_help_text.custom_minimum_size = Vector2(560, 0)
+	_help_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_help.add_child(_help_text)
+	_help.modulate.a = 0.0
+	root.add_child(_help)
 
-	# Subtitles, low centre.
-	_sub_box = PanelContainer.new()
-	_sub_box.add_theme_stylebox_override("panel", Style.panel(12))
-	_sub_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_sub_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_sub_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_sub_box.offset_bottom = -150
-	_sub_box.custom_minimum_size = Vector2(760, 0)
-	var sv := VBoxContainer.new()
-	_sub_name = Style.label("", 15, Style.EMBER, Style.mono_bold)
-	_sub_text = Style.label("", 26, Style.BONE)
-	_sub_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sub_text.custom_minimum_size = Vector2(720, 0)
-	sv.add_child(_sub_name)
-	sv.add_child(_sub_text)
-	_sub_box.add_child(sv)
-	_sub_box.modulate.a = 0.0
-	root.add_child(_sub_box)
+	# The objective, small, top right.
+	_obj_small = VBoxContainer.new()
+	_obj_small.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_obj_small.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_obj_small.offset_right = -40
+	_obj_small.offset_top = 36
+	_obj_small.alignment = BoxContainer.ALIGNMENT_END
+	_obj_small.add_theme_constant_override("separation", 0)
+	var tag := Style.label("OBJECTIVE", 13, Style.EMBER, Style.mono_bold)
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_obj_small.add_child(tag)
+	_obj_text = _rich(22, Style.sans_bold)
+	_obj_text.custom_minimum_size = Vector2(460, 0)
+	_obj_small.add_child(_obj_text)
+	_obj_extra = Style.label("", 15, Style.MUTE, Style.mono)
+	_obj_extra.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_outline(_obj_extra)
+	_obj_small.add_child(_obj_extra)
+	_obj_small.modulate.a = 0.0
+	root.add_child(_obj_small)
 
-	# Key prompts, bottom centre.
-	_prompt = RichTextLabel.new()
-	_prompt.bbcode_enabled = true
-	_prompt.fit_content = true
-	_prompt.scroll_active = false
-	_prompt.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_prompt.add_theme_font_override("normal_font", Style.sans)
-	_prompt.add_theme_font_override("mono_font", Style.mono_bold)
-	_prompt.add_theme_font_size_override("normal_font_size", 22)
-	_prompt.add_theme_font_size_override("mono_font_size", 18)
-	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_prompt.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_prompt.offset_bottom = -60
-	_prompt.custom_minimum_size = Vector2(900, 0)
-	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_prompt.modulate.a = 0.0
-	root.add_child(_prompt)
+	# The objective, large, bottom centre, when it changes.
+	_obj_big = _rich(30, Style.sans_bold)
+	_obj_big.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_obj_big.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_obj_big.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_obj_big.offset_bottom = -210
+	_obj_big.custom_minimum_size = Vector2(1100, 0)
+	_obj_big.modulate.a = 0.0
+	root.add_child(_obj_big)
 
-	# Chapter cards, centre.
+	# Subtitles, bottom centre: outlined, no box.
+	_sub = _rich(27, Style.sans)
+	_sub.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_sub.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_sub.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_sub.offset_bottom = -96
+	_sub.custom_minimum_size = Vector2(1180, 0)
+	_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sub.modulate.a = 0.0
+	root.add_child(_sub)
+
+	# Mission titles, lower left, sliding in.
 	_card = VBoxContainer.new()
-	_card.set_anchors_preset(Control.PRESET_CENTER)
-	_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_card.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_card.alignment = BoxContainer.ALIGNMENT_CENTER
-	_card_title = Style.label("", 76, Style.BONE, Style.sans_bold)
-	_card_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_card_sub = Style.label("", 20, Style.EMBER, Style.mono)
-	_card_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_card.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_card.offset_left = 96
+	_card.offset_bottom = -170
+	_card.add_theme_constant_override("separation", 2)
+	var bar := ColorRect.new()
+	bar.color = Style.EMBER
+	bar.custom_minimum_size = Vector2(90, 5)
+	_card.add_child(bar)
+	_card_title = Style.label("", 92, Style.BONE, Style.sans_bold)
+	_card_title.add_theme_constant_override("line_spacing", -20)
+	_outline(_card_title, 3, 0.35)
 	_card.add_child(_card_title)
+	_card_sub = Style.label("", 19, Style.EMBER, Style.mono_bold)
+	_outline(_card_sub)
 	_card.add_child(_card_sub)
 	_card.modulate.a = 0.0
 	_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -133,6 +157,120 @@ func _ready() -> void:
 	_loading.offset_top = -60
 	_loading.visible = false
 	_fade.add_child(_loading)
+
+func _rich(size: int, font: Font) -> RichTextLabel:
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.fit_content = true
+	r.scroll_active = false
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.add_theme_font_override("normal_font", font)
+	r.add_theme_font_override("bold_font", Style.sans_bold)
+	r.add_theme_font_override("mono_font", Style.mono_bold)
+	r.add_theme_font_size_override("normal_font_size", size)
+	r.add_theme_font_size_override("bold_font_size", size)
+	r.add_theme_font_size_override("mono_font_size", int(size * 0.8))
+	r.add_theme_constant_override("outline_size", 9)
+	r.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	return r
+
+func _outline(l: Label, size := 7, alpha := 0.7) -> void:
+	l.add_theme_constant_override("outline_size", size)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, alpha))
+
+## [words] in an objective become ember; [keys] in a prompt become keycaps.
+static func _accent(text: String) -> String:
+	var re := RegEx.create_from_string("\\[([^\\]]+)\\]")
+	return re.sub(text, "[color=#ff6b2c]$1[/color]", true)
+
+static func _keys(text: String) -> String:
+	var re := RegEx.create_from_string("\\[([^\\]]+)\\]")
+	return re.sub(text, "[bgcolor=#f4e8cf30][code] $1 [/code][/bgcolor]", true)
+
+func _process(dt: float) -> void:
+	if _help_left > 0.0:
+		_help_left -= dt
+		if _help_left <= 0.0:
+			_tween(_help, 0.0, 0.4)
+
+func prompt(text: String, seconds := 0.0) -> void:
+	_help_text.text = _keys(text)
+	_help_left = seconds
+	_tween(_help, 1.0, 0.3)
+
+func clear_prompt() -> void:
+	_help_left = 0.0
+	_tween(_help, 0.0, 0.3)
+
+func objective(text: String, extra := "") -> void:
+	var plain := text
+	var changed := plain != _obj_plain
+	_obj_plain = plain
+	_obj_text.text = "[right]" + _accent(text) + "[/right]"
+	_obj_extra.text = extra
+	if changed:
+		Sfx.play("objective", -8.0)
+		_obj_big.text = "[center]" + _accent(text) + "[/center]"
+		var t := create_tween()
+		t.tween_property(_obj_big, "modulate:a", 1.0, 0.4)
+		t.tween_interval(4.0)
+		t.tween_property(_obj_big, "modulate:a", 0.0, 0.8)
+		_obj_small.modulate.a = 0.0
+		create_tween().tween_property(_obj_small, "modulate:a", 1.0, 0.6).set_delay(0.3)
+
+func objective_extra(extra: String) -> void:
+	_obj_extra.text = extra
+
+func clear_objective() -> void:
+	_obj_plain = ""
+	_tween(_obj_small, 0.0, 0.4)
+	_tween(_obj_big, 0.0, 0.3)
+
+## Queue a line; awaitable (returns when that line has been shown).
+func say(speaker: String, line: String, seconds := 0.0) -> void:
+	var secs := seconds if seconds > 0.0 else clampf(1.6 + line.length() * 0.055, 2.5, 7.5)
+	var entry := {"who": speaker, "line": line, "secs": secs, "done": false}
+	_queue.append(entry)
+	if not _speaking:
+		_run_queue()
+	while not entry.done:
+		await line_done
+
+func _run_queue() -> void:
+	_speaking = true
+	while _queue.size() > 0:
+		var q: Dictionary = _queue.pop_front()
+		var col: Color = SPEAKERS.get(q.who, Style.MUTE)
+		_sub.text = "[center][color=#%s]%s:[/color] %s[/center]" % [col.to_html(false), q.who, q.line]
+		_sub.visible_ratio = 0.0
+		Sfx.play("comm", -16.0)
+		_tween(_sub, 1.0, 0.2)
+		create_tween().tween_property(_sub, "visible_ratio", 1.0, minf(1.0, q.line.length() * 0.018))
+		await get_tree().create_timer(q.secs, true, false, true).timeout
+		if _queue.is_empty():
+			_tween(_sub, 0.0, 0.3)
+		q.done = true
+		line_done.emit()
+	_speaking = false
+
+func silence() -> void:
+	for q in _queue:
+		q.done = true
+	_queue.clear()
+	line_done.emit()
+	_tween(_sub, 0.0, 0.2)
+
+## A mission title, sliding in lower left.
+func card(title: String, sub := "", seconds := 3.5) -> void:
+	_card_title.text = title
+	_card_sub.text = sub
+	_card.position.x = 56.0
+	var t := create_tween().set_parallel()
+	t.tween_property(_card, "modulate:a", 1.0, 0.7)
+	t.tween_property(_card, "position:x", 96.0, 0.9).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	await t.finished
+	await get_tree().create_timer(seconds, true, false, true).timeout
+	await _tween(_card, 0.0, 1.0).finished
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause") and not Flow.in_title() and _fade.modulate.a < 0.5:
@@ -181,89 +319,6 @@ func pause(on: bool) -> void:
 		if _was_captured:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-func _process(dt: float) -> void:
-	if _prompt_left > 0.0:
-		_prompt_left -= dt
-		if _prompt_left <= 0.0:
-			_tween(_prompt, 0.0, 0.4)
-
-## Keys in [brackets] become keycaps: "[W] thrust  [Mouse] steer".
-func prompt(text: String, seconds := 0.0) -> void:
-	var re := RegEx.create_from_string("\\[([^\\]]+)\\]")
-	var bb := re.sub(text, "[bgcolor=#f4e8cf26][code] $1 [/code][/bgcolor]", true)
-	_prompt.text = "[center]" + bb + "[/center]"
-	_prompt_left = seconds
-	_tween(_prompt, 1.0, 0.35)
-
-func clear_prompt() -> void:
-	_prompt_left = 0.0
-	_tween(_prompt, 0.0, 0.3)
-
-func objective(text: String, extra := "") -> void:
-	var changed := text != _obj_text.text
-	_obj_text.text = text
-	_obj_extra.text = extra
-	_obj_extra.visible = extra != ""
-	if changed:
-		Sfx.play("objective", -8.0)
-		_obj_box.modulate.a = 0.0
-		_obj_box.position.x = 16
-		var t := create_tween().set_parallel()
-		t.tween_property(_obj_box, "modulate:a", 1.0, 0.5)
-		t.tween_property(_obj_box, "position:x", 36.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-
-func objective_extra(extra: String) -> void:
-	_obj_extra.text = extra
-	_obj_extra.visible = extra != ""
-
-func clear_objective() -> void:
-	_obj_text.text = ""
-	_tween(_obj_box, 0.0, 0.4)
-
-## Queue a line; awaitable (returns when that line has been shown).
-func say(speaker: String, line: String, seconds := 0.0) -> void:
-	var secs := seconds if seconds > 0.0 else clampf(1.6 + line.length() * 0.055, 2.5, 7.5)
-	var entry := {"who": speaker, "line": line, "secs": secs, "done": false}
-	_queue.append(entry)
-	if not _speaking:
-		_run_queue()
-	while not entry.done:
-		await line_done
-
-func _run_queue() -> void:
-	_speaking = true
-	while _queue.size() > 0:
-		var q: Dictionary = _queue.pop_front()
-		_sub_name.text = String(q.who).to_upper()
-		_sub_name.add_theme_color_override("font_color", SPEAKERS.get(q.who, Style.MUTE))
-		_sub_text.text = q.line
-		_sub_text.visible_ratio = 0.0
-		Sfx.play("comm", -14.0)
-		_tween(_sub_box, 1.0, 0.25)
-		create_tween().tween_property(_sub_text, "visible_ratio", 1.0, minf(1.2, q.line.length() * 0.02))
-		await get_tree().create_timer(q.secs, true, false, true).timeout
-		if _queue.is_empty():
-			_tween(_sub_box, 0.0, 0.35)
-		q.done = true
-		line_done.emit()
-	_speaking = false
-
-func silence() -> void:
-	for q in _queue:
-		q.done = true
-	_queue.clear()
-	line_done.emit()
-	_tween(_sub_box, 0.0, 0.2)
-
-func card(title: String, sub := "", seconds := 3.5) -> void:
-	_card_title.text = title
-	_card_sub.text = sub
-	_card.scale = Vector2.ONE
-	var t := create_tween()
-	t.tween_property(_card, "modulate:a", 1.0, 0.9)
-	t.tween_interval(seconds)
-	t.tween_property(_card, "modulate:a", 0.0, 1.2)
-	await t.finished
 
 func fade_out(seconds := 0.8) -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -275,8 +330,10 @@ func fade_in(seconds := 1.2) -> void:
 
 var _bars: Array[ColorRect] = []
 
-## Widescreen bars for cutscenes.
+## Widescreen bars for cutscenes; the objective and help step aside.
 func letterbox(on: bool) -> void:
+	for c in [_obj_big, _obj_small, _help]:
+		_tween(c, 0.0 if on else (1.0 if c == _obj_small and _obj_plain != "" else 0.0), 0.4)
 	if _bars.is_empty():
 		for top in [true, false]:
 			var r := ColorRect.new()
@@ -315,10 +372,9 @@ func reset() -> void:
 		q.done = true
 	_queue.clear()
 	line_done.emit()
-	_speaking = false
-	for c in [_obj_box, _sub_box, _prompt, _card]:
+	for c in [_obj_small, _obj_big, _sub, _help, _card]:
 		c.modulate.a = 0.0
-	_obj_text.text = ""
+	_obj_plain = ""
 
 func _tween(node: CanvasItem, alpha: float, seconds: float) -> Tween:
 	var t := create_tween()

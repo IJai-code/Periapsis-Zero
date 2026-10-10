@@ -19,8 +19,7 @@ func _ready() -> void:
 	var corridor: Node3D = load("res://art/aster_corridor.glb").instantiate()
 	add_child(corridor)
 	Surfaces.apply(corridor)
-	for mi: MeshInstance3D in corridor.find_children("*", "MeshInstance3D", true, false):
-		mi.create_trimesh_collision()
+	Surfaces.collide(corridor)
 	_environment(hq)
 	_lights(hq)
 	_signs()

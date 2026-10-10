@@ -3,14 +3,14 @@ extends Node3D
 ## leave the Aster's bay: the moment the player becomes a pilot.
 
 var _set: AsterHangar
-var _walker: Walker
+var _walker: Player
 var _board: Interactable
 var _gone := false
 
 func _ready() -> void:
 	_set = AsterHangar.new()
 	add_child(_set)
-	_walker = Walker.new()
+	_walker = Player.new()
 	add_child(_walker)
 	_walker.position = Vector3(-6.5, 0.15, -1.2)
 	_walker.face(Vector3(0.0, 2.0, -14.0))
@@ -27,7 +27,7 @@ func _script() -> void:
 	await get_tree().create_timer(0.8).timeout
 	if _gone:
 		return
-	Hud.objective("Board your Kestrel", "Mid-deck, on the cradle")
+	Hud.objective("Board your [Kestrel]", "Mid-deck, on the cradle")
 	await Hud.say("Renn Ayers", "Flight deck, this is engineering. She's on the cradle, fuelled and warm.")
 	if _gone:
 		return
