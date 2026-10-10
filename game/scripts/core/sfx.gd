@@ -24,6 +24,7 @@ func _ready() -> void:
 	_streams.click = _make(0.06, func(t, n): return sin(TAU * 2200.0 * t) * exp(-t * 80.0) * 0.4)
 	_streams.step = _make(0.12, func(t, n): return _lp(n, 0.25) * exp(-t * 45.0) * 0.5 + sin(TAU * 90.0 * t) * exp(-t * 40.0) * 0.4)
 	_streams.door = _make(1.4, func(t, n): return _lp(n, 0.05) * 0.5 * (1.0 - t / 1.4) + sin(TAU * 70.0 * t) * 0.2 * (1.0 if t < 1.1 else 0.0))
+	_streams.beep = _make(0.12, func(t, n): return sin(TAU * 1040.0 * t) * (1.0 if t < 0.09 else 0.0) * 0.25)
 	_streams.roll = _make(0.6, func(t, n): return _lp(n, 0.2) * sin(PI * t / 0.6) * 0.5)
 
 var _lp_state := 0.0

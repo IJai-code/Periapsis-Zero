@@ -72,6 +72,11 @@ static func _make(name: String) -> Material:
 		"nav_green": return _glow(Color(0.1, 1.0, 0.3), 8.0)
 		"nav_white": return _glow(Color(1.0, 1.0, 1.0), 8.0)
 		"light": return _glow(Color(1.0, 0.9, 0.78), 2.5)
+		"wall_clean": return _plain(Color(0.78, 0.81, 0.84), 0.6)
+		"light_soft": return _glow(Color(0.92, 0.96, 1.0), 0.7)
+		"floor_clean": return _pbr("MetalPlates013", 0.7, Color(0.72, 0.74, 0.76), true)
+		"linen": return _pbr("Plastic013A", 2.5, Color(0.93, 0.93, 0.95), true)
+		"blanket": return _pbr("Rubber004", 1.5, Color(0.32, 0.42, 0.5), true)
 		"light_floor": return _glow(ION, 4.0)
 		"grate": return _grate()
 		"hazard": return _hazard()
@@ -98,6 +103,13 @@ static func _pbr(id: String, scale: float, tint: Color, paint := false) -> Shade
 	m.set_shader_parameter("tint_gain", gain)
 	m.set_shader_parameter("paint", 1.0 if paint else 0.0)
 	m.set_shader_parameter("scale", scale)
+	return m
+
+## A clean painted surface: no scan, one colour, one sheen.
+static func _plain(c: Color, roughness: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = roughness
 	return m
 
 static func _glow(c: Color, energy: float) -> StandardMaterial3D:

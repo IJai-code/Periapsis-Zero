@@ -32,6 +32,7 @@ var _queue: Array = []
 var _speaking := false
 var _prompt_left := 0.0
 var root: Control
+var _wake: ColorRect
 var _loading: Label
 
 func _ready() -> void:
@@ -42,6 +43,14 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = Style.theme()
 	add_child(root)
+	_wake = ColorRect.new()
+	_wake.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wake.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var wm := ShaderMaterial.new()
+	wm.shader = load("res://shaders/wake.gdshader")
+	_wake.material = wm
+	_wake.visible = false
+	root.add_child(_wake)
 
 	# Objective, top left.
 	_obj_box = PanelContainer.new()
@@ -286,6 +295,15 @@ func letterbox(on: bool) -> void:
 		if i == 1:
 			r.offset_top = 0.0
 			t.parallel().tween_property(r, "offset_top", -h if on else 0.0, 0.6).set_trans(Tween.TRANS_CUBIC)
+
+## Waking up: the view blurred, clearing over `seconds`.
+func wake(seconds: float) -> void:
+	_wake.visible = true
+	var m := _wake.material as ShaderMaterial
+	var t := create_tween()
+	t.tween_method(func(v: float): m.set_shader_parameter("amount", v), 1.0, 0.0, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await t.finished
+	_wake.visible = false
 
 ## The note in the corner while a scene loads behind the fade.
 func loading(on: bool) -> void:

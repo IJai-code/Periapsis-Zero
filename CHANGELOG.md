@@ -5,6 +5,18 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Waking at Hearth, 10 October 2026
+
+- **The prologue's ending is a scene now**, not text over stars. You wake
+  in Hearth's medical bay (`art/godot/hearth_medbay.py`) to a heart
+  monitor, your view blurred and closing in, then clearing on the ceiling.
+  Mara Voss, Hearth's dockmaster and a third MakeHuman character in a
+  work jacket, is at the bedside. You turn to her and sit up while she
+  tells you what happened, what you owe Rook, and what the Aster's
+  recorder holds. Then come the two goals and the way into Act One.
+- **Debanding is on**, and the browser build drops spotlight shadows where
+  they ringed plain walls.
+
 ### People, and the Aster's bridge, 10 October 2026
 
 - **Real people**, built with MakeHuman's MPFB add-on for Blender and its

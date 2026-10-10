@@ -1,38 +1,69 @@
 extends Node3D
-## Prologue, part three: nine days later, Hearth. Mara says what happened and
-## what the player wants now: pay off Rook, and find who sold the Aster's
-## route. Then the way into Act One.
-
-const SUN := Vector3(0.9, 0.25, -0.35)
+## Prologue, part three: nine days later, Hearth's medical bay. The player
+## wakes in a bed; Mara Voss, the dockmaster, is there. She says what
+## happened and what the player wants now: pay off Rook, and find who sold
+## the Aster's route. Then the way into Act One.
 
 var _cam: Camera3D
-var _t := 0.0
+var _mara: Person
 var _ui: Control
+var _beeping := true
 
 func _ready() -> void:
-	Space.environment(self, SUN, 0.9)
-	# Hearth, high above Earth: the planet small and whole in the window.
-	var earth := Earth.toward(Vector3(0.25, -0.12, -1.0), 30_000_000.0, SUN, 0.002)
-	add_child(earth)
+	add_child(HearthMedbay.new())
+	_mara = Person.make("mara")
+	add_child(_mara)
+	_mara.position = Vector3(0.25, 0.0, -4.3)
+	_mara.rotation.y = deg_to_rad(-60.0)
+	# Lying in the bed: the head on the pillow, looking at the ceiling.
 	_cam = Camera3D.new()
-	_cam.fov = 45.0
+	_cam.fov = 62.0
+	_cam.near = 0.03
 	_cam.far = 120_000.0
 	add_child(_cam)
-	Flow.music(true)
+	_cam.position = Vector3(-1.2, 0.95, -5.45)
+	_cam.look_at(Vector3(-1.0, 2.9, -4.6))
+	_cam.make_current()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Flow.music(false)
+	_beep()
 	_script()
 
-func _process(dt: float) -> void:
-	_t += dt
-	_cam.rotation = Vector3(sin(_t * 0.05) * 0.01, sin(_t * 0.03) * 0.05, 0.0)
+func _beep() -> void:
+	while _beeping and is_inside_tree():
+		Sfx.play("beep", -20.0)
+		await get_tree().create_timer(0.95).timeout
+
+func _look(at: Vector3, seconds: float, move := Vector3.INF) -> void:
+	var from := _cam.global_transform
+	var to := Transform3D(Basis(), _cam.global_position if move == Vector3.INF else move)
+	to = to.looking_at(at, Vector3.UP)
+	var t := create_tween()
+	t.tween_method(func(k: float): _cam.global_transform = from.interpolate_with(to, k), 0.0, 1.0, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await t.finished
 
 func _script() -> void:
-	await get_tree().create_timer(1.5).timeout
-	await Hud.card("NINE DAYS LATER", "HEARTH STATION · EARTH-MOON L1", 2.5)
-	await Hud.say("Mara Voss", "There you are. Don't sit up yet. I'm Mara Voss, dockmaster at Hearth.")
-	await Hud.say("Mara Voss", "Salvage found your Kestrel on her beacon. You were the only one they pulled out of that field.")
+	Hud.wake(9.0)
+	await get_tree().create_timer(1.2).timeout
+	await Hud.card("NINE DAYS LATER", "HEARTH STATION · EARTH-MOON L1", 2.2)
+	var face := Vector3(0.25, 1.62, -4.3)
+	_mara.face(Vector3(-1.2, 1.0, -5.4))
+	_mara.talk(true)
+	await Hud.say("Mara Voss", "There you are. Don't sit up yet.")
+	_mara.talk(false)
+	await _look(face, 2.2)
+	_mara.talk(true)
+	await Hud.say("Mara Voss", "Mara Voss, dockmaster at Hearth. Salvage found your Kestrel on her beacon, nine days ago.")
+	_mara.talk(false)
+	# Sitting up.
+	await _look(face, 2.0, Vector3(-1.15, 1.32, -5.0))
+	_mara.talk(true)
+	await Hud.say("Mara Voss", "You were the only one they pulled out of that field. Six ships. Nobody else.")
 	await Hud.say("Mara Voss", "A man called Rook paid for your recovery. Forty thousand. He'll want it back, and he's patient until he isn't.")
 	await Hud.say("Mara Voss", "One more thing. The Aster's flight recorder came in with your ship. Whatever happened out there is on it.")
 	await Hud.say("Mara Voss", "Your captain said they knew your route. Somebody sold it. Find out who.")
+	_mara.talk(false)
+	_beeping = false
 	_goals()
 
 func _goals() -> void:
