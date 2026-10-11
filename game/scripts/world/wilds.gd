@@ -14,7 +14,7 @@ extends Node3D
 ## clear of it, so the line is always flyable, close to rock but never in it.
 ## Godot's -Z is "downstream": the route runs from z = +800 to the plateau.
 
-const SUN := Vector3(0.32, 0.2, -0.93)
+const SUN := Vector3(0.78, 0.36, -0.28)
 const CLIFF_Z := -7330.0        # the cliff face begins here, the plateau beyond
 const PLATEAU_Y := 270.0
 const PAD_Z := -7860.0
@@ -62,7 +62,7 @@ func _lay_route() -> void:
 		[-4050.0, 0.0, 110.0], [-4400.0, 0.0, 95.0],
 		[-4900.0, 30.0, 60.0], [-5350.0, -40.0, 45.0], [-5800.0, 0.0, 20.0], [-6250.0, 35.0, 50.0],
 		[-6700.0, -30.0, 40.0], [-7120.0, 0.0, 40.0],
-		[-7230.0, 0.0, 110.0], [-7300.0, 0.0, 210.0], [-7400.0, 0.0, 320.0],
+		[-7230.0, 0.0, 110.0], [-7300.0, 0.0, 230.0], [-7400.0, 0.0, 345.0],
 	]
 	for p in plan:
 		var z: float = p[0]
@@ -105,7 +105,7 @@ func height(x: float, z: float) -> float:
 	var h := lerpf(floor_h, hills, _ease((d - 230.0) / 520.0))
 	h = lerpf(-8.0, h, _ease((d - 32.0) / 34.0))
 	# The cliff and the plateau above it.
-	var t := _ease((CLIFF_Z - z) / 90.0)
+	var t := _ease((CLIFF_Z - z) / 34.0)
 	if t > 0.0:
 		var top := PLATEAU_Y + n * 5.0 + maxf(0.0, (d - 500.0) * 0.25)
 		top = lerpf(PLATEAU_Y - 9.0, top, _ease((d - 26.0) / 20.0))   # the upper river
@@ -156,6 +156,7 @@ func _terrain() -> void:
 	m.set_shader_parameter("rock_map", Surfaces._tex("Rock030", "Color"))
 	m.set_shader_parameter("rock_normal", Surfaces._tex("Rock030", "NormalGL"))
 	m.set_shader_parameter("water_level", WATER_Y)
+	m.set_shader_parameter("canopy_map", load("res://art/foliage/dense.png"))
 	var tile := 32
 	for tj in range(0, nz - 1, tile):
 		for ti in range(0, nx - 1, tile):
@@ -290,14 +291,24 @@ func _pillar_mesh(seed: int) -> ArrayMesh:
 	return st.commit()
 
 var _pillar_tops: Array = []    # [top centre, radius] for trees
+var _pillar_sides: Array = []   # [base centre, radius, height] for ledge plants and vines
+
+## The first mesh in a model from Blender.
+func _glb_mesh(path: String) -> Mesh:
+	var scene: Node = load(path).instantiate()
+	var mi: MeshInstance3D = scene.find_children("*", "MeshInstance3D", true, false)[0]
+	var m := mi.mesh
+	scene.free()
+	return m
 
 func _pillars() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
-	var variants := 5
-	var meshes: Array[ArrayMesh] = []
+	# Sculpted in Blender (art/godot/pillars.py): 300 m tall, 25 m radius.
+	var variants := 4
+	var meshes: Array[Mesh] = []
 	for v in variants:
-		meshes.append(_pillar_mesh(100 + v))
+		meshes.append(_glb_mesh("res://art/pillar-%d.glb" % v))
 	var xforms: Array = []
 	for v in variants:
 		xforms.append([])
@@ -316,8 +327,9 @@ func _pillars() -> void:
 			var tall := rng.randf_range(260.0, 380.0)
 			placed.append([at.x, at.y, r])
 			var v := rng.randi() % variants
-			(xforms[v] as Array).append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(r, tall, r)), Vector3(at.x, base, at.y)))
-			_pillar_tops.append([Vector3(at.x, base + tall * 1.02, at.y), r * 0.8])
+			(xforms[v] as Array).append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(r / 25.0, tall / 300.0, r / 25.0)), Vector3(at.x, base, at.y)))
+			_pillar_tops.append([Vector3(at.x, base + tall, at.y), r * 0.75])
+			_pillar_sides.append([Vector3(at.x, base, at.y), r, tall])
 			var body := StaticBody3D.new()
 			var cs := CollisionShape3D.new()
 			var cyl := CylinderShape3D.new()
@@ -350,9 +362,10 @@ func _pillars() -> void:
 		var tall := rng.randf_range(190.0, 430.0) * (0.75 if clear > 500.0 else 1.0)
 		placed.append([x, z, r])
 		var v := rng.randi() % variants
-		var b := Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(r, tall, r))
+		var b := Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(r / 25.0, tall / 300.0, r / 25.0))
 		(xforms[v] as Array).append(Transform3D(b, Vector3(x, base, z)))
-		_pillar_tops.append([Vector3(x, base + tall * 1.02, z), r * 0.8])
+		_pillar_tops.append([Vector3(x, base + tall * 1.0, z), r * 0.75])
+		_pillar_sides.append([Vector3(x, base, z), r, tall])
 		# Solid: a cylinder a little inside the rock (bumps stand proud of it).
 		var body := StaticBody3D.new()
 		var cs := CollisionShape3D.new()
@@ -363,14 +376,21 @@ func _pillars() -> void:
 		body.add_child(cs)
 		add_child(body)
 		body.position = Vector3(x, base + tall / 2.0, z)
+	# In 600 m squares, so distant ones use the simpler levels of detail
+	# Godot made on import and the ones behind are skipped.
 	var mat := _rock_material()
+	var groups := {}
 	for v in variants:
-		var list: Array = xforms[v]
-		if list.is_empty():
-			continue
+		for xf: Transform3D in xforms[v]:
+			var key := "%d|%d_%d" % [v, int(floor(xf.origin.x / 600.0)), int(floor(xf.origin.z / 600.0))]
+			if not groups.has(key):
+				groups[key] = []
+			(groups[key] as Array).append(xf)
+	for key in groups:
+		var list: Array = groups[key]
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = meshes[v]
+		mm.mesh = meshes[int(String(key).get_slice("|", 0))]
 		mm.instance_count = list.size()
 		for i in list.size():
 			mm.set_instance_transform(i, list[i])
@@ -441,12 +461,11 @@ func _tower(at: Vector3, size: Vector3, tilt: Vector3, mat: Material) -> Node3D:
 	add_child(root)
 	root.position = at
 	root.rotation = tilt
+	# A modelled ruin (art/godot/ruins.py: 30 x 150 x 24 m), scaled to fit.
 	var mi := MeshInstance3D.new()
-	var b := BoxMesh.new()
-	b.size = size
-	mi.mesh = b
+	mi.mesh = _ruins[randi() % _ruins.size()]
 	mi.material_override = mat
-	mi.position.y = size.y / 2.0
+	mi.scale = Vector3(size.x / 30.0, size.y / 151.0, size.z / 24.0)
 	root.add_child(mi)
 	var body := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
@@ -458,7 +477,11 @@ func _tower(at: Vector3, size: Vector3, tilt: Vector3, mat: Material) -> Node3D:
 	root.add_child(body)
 	return root
 
+var _ruins: Array[Mesh] = []
+
 func _city() -> void:
+	for k in 3:
+		_ruins.append(_glb_mesh("res://art/ruin-%d.glb" % k))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	var mat := _ruin_material()
@@ -480,26 +503,135 @@ func _city() -> void:
 		z -= rng.randf_range(95.0, 150.0)
 	# The fallen tower across the river: fly under it.
 	var g: Vector3 = gates[fallen_gate]
-	var fallen := _tower(Vector3(g.x - 150.0, g.y + 24.0, g.z + 40.0), Vector3(36.0, 320.0, 36.0), Vector3(0.0, 0.25, -1.5), mat)
+	var fallen := _tower(Vector3(g.x - 150.0, g.y + 28.0, g.z + 40.0), Vector3(36.0, 320.0, 36.0), Vector3(0.0, 0.25, -1.5), mat)
 	fallen.name = "FallenTower"
 
 # --- The falls ----------------------------------------------------------------
 
 func _falls() -> void:
 	var x := centre_x(CLIFF_Z)
-	var curtain := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(46.0, PLATEAU_Y + 6.0)
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/waterfall.gdshader")
-	q.material = m
-	curtain.mesh = q
-	curtain.position = Vector3(x, (PLATEAU_Y + 6.0) / 2.0 - 4.0, CLIFF_Z - 14.0)
-	curtain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(curtain)
-	# Spray at the foot, drifting up the face.
-	for k in 6:
-		_mist_at(Vector3(x + randf_range(-60, 60), 20.0 + k * 34.0, CLIFF_Z + randf_range(10.0, 60.0)), Vector2(170, 90), 0.9)
+	# Three sheets, the front one widest, each poured from the lip and
+	# bowing out a little as it falls, like a real curtain of water.
+	for layer in 3:
+		var w := 58.0 - layer * 12.0
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var rows := 24
+		var cols := 8
+		for j in rows:
+			for i in cols:
+				for c in [[i, j], [i + 1, j], [i, j + 1], [i + 1, j], [i + 1, j + 1], [i, j + 1]]:
+					var u := float(c[0]) / cols
+					var v := float(c[1]) / rows
+					var y := PLATEAU_Y + 2.0 - v * (PLATEAU_Y + 4.0)
+					# Out over the cliff face (34 m of run from lip to foot), and a
+					# little more in the middle of the fall.
+					var bow := v * 40.0 + sin(v * PI) * (7.0 - layer * 2.0)
+					st.set_uv(Vector2(u, v))
+					st.add_vertex(Vector3((u - 0.5) * w * (1.0 + v * 0.25), y, -bow))
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(x + (layer - 1) * 6.0, 0.0, CLIFF_Z - 34.0 - 1.0 + layer * 1.5)
+		mi.rotation.y = PI
+		add_child(mi)
+	# The cliff itself: sculpted rock buttresses set into the face, so it is
+	# fissured, ledged and mossy like the pillars, not a smooth slope. A gap
+	# is left for the falls and the climb.
+	var mats := _rock_material()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+	var groups := {}
+	var off := -900.0
+	while off < 900.0:
+		var bx := x + off
+		var w := rng.randf_range(22.0, 36.0)
+		off += w * 1.5
+		if absf(bx - x) < w + 32.0:
+			continue
+		var bz := CLIFF_Z - 17.0 + rng.randf_range(-6.0, 6.0)
+		var base := height(bx, CLIFF_Z + 20.0) - 25.0
+		var tall := PLATEAU_Y - base + rng.randf_range(4.0, 26.0)
+		var v := rng.randi() % 4
+		if not groups.has(v):
+			groups[v] = []
+		(groups[v] as Array).append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(w / 25.0, tall / 300.0, w / 25.0 * 0.8)), Vector3(bx, base, bz)))
+		_pillar_tops.append([Vector3(bx, base + tall, bz), w * 0.6])
+		_pillar_sides.append([Vector3(bx, base, bz), w, tall])
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = w * 0.85
+		cyl.height = tall
+		cs.shape = cyl
+		body.add_child(cs)
+		add_child(body)
+		body.position = Vector3(bx, base + tall / 2.0, bz)
+	for v in groups:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = _glb_mesh("res://art/pillar-%d.glb" % v)
+		mm.instance_count = groups[v].size()
+		for i in mm.instance_count:
+			mm.set_instance_transform(i, groups[v][i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = mats
+		add_child(mmi)
+	# Spray and mist where it lands, rising up the face.
+	var spray := GPUParticles3D.new() if hq else null
+	if spray:
+		var pm := ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = Vector3(30, 2, 8)
+		pm.direction = Vector3(0, 1, 0.4)
+		pm.spread = 40.0
+		pm.initial_velocity_min = 8.0
+		pm.initial_velocity_max = 22.0
+		pm.gravity = Vector3(0, -1.5, 0)
+		pm.scale_min = 10.0
+		pm.scale_max = 26.0
+		pm.color = Color(1, 1, 1, 0.35)
+		spray.process_material = pm
+		spray.amount = 90
+		spray.lifetime = 6.0
+		var q := QuadMesh.new()
+		q.size = Vector2(1, 1)
+		var sm := StandardMaterial3D.new()
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.vertex_color_use_as_albedo = true
+		var g := GradientTexture2D.new()
+		var gr := Gradient.new()
+		gr.set_color(0, Color(1, 1, 1, 1))
+		gr.set_color(1, Color(1, 1, 1, 0))
+		g.gradient = gr
+		g.fill = GradientTexture2D.FILL_RADIAL
+		g.fill_from = Vector2(0.5, 0.5)
+		g.fill_to = Vector2(1.0, 0.5)
+		sm.albedo_texture = g
+		q.material = sm
+		spray.draw_pass_1 = q
+		spray.visibility_aabb = AABB(Vector3(-80, -10, -60), Vector3(160, 200, 120))
+		add_child(spray)
+		spray.position = Vector3(x, 2.0, CLIFF_Z + 6.0)
+	for k in 7:
+		_mist_at(Vector3(x + randf_range(-55, 55), 14.0 + k * 30.0, CLIFF_Z + randf_range(4.0, 40.0)), Vector2(150, 70), 0.9)
+	# The plunge pool's foam.
+	var foam := MeshInstance3D.new()
+	var fp := PlaneMesh.new()
+	fp.size = Vector2(110, 70)
+	var fm := ShaderMaterial.new()
+	fm.shader = load("res://shaders/foam.gdshader")
+	fp.material = fm
+	foam.mesh = fp
+	foam.position = Vector3(x, WATER_Y + 0.15, CLIFF_Z + 18.0)
+	foam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(foam)
 
 # --- Jungle -------------------------------------------------------------------
 
@@ -528,7 +660,7 @@ func _tree_mesh() -> ArrayMesh:
 	var mesh := st.commit()
 	var lv := SurfaceTool.new()
 	lv.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var blobs := [[Vector3(0, 0.72, 0), 0.5], [Vector3(0.3, 0.64, 0.12), 0.34], [Vector3(-0.28, 0.66, -0.14), 0.36]]
+	var blobs := [[Vector3(0, 0.74, 0), 0.5], [Vector3(0.22, 0.62, 0.1), 0.36]]
 	var n := FastNoiseLite.new()
 	n.frequency = 2.5
 	for bl in blobs:
@@ -537,8 +669,8 @@ func _tree_mesh() -> ArrayMesh:
 		var sp := SphereMesh.new()
 		sp.radius = r
 		sp.height = r * 1.7
-		sp.radial_segments = 7
-		sp.rings = 4
+		sp.radial_segments = 6
+		sp.rings = 3
 		var arr := sp.get_mesh_arrays()
 		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var ix: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
@@ -559,69 +691,130 @@ func _forest() -> void:
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	var count := 11000 if hq else 4000
-	var xf: Array[Transform3D] = []
-	var cols: Array[Color] = []
+	# Species, their real height (for the far stand-in) and crown width.
+	var spec := {"giant": [30.0, 22.0], "tree": [15.0, 11.0], "tree2": [19.0, 13.0], "palm": [13.0, 10.0], "shrub": [2.5, 3.0]}
+	var count := 42000 if hq else 12000
+	var near_far := 400.0 if hq else 320.0
+	var plants := []        # [species, transform, tint]
 	var tries := 0
-	while xf.size() < count and tries < count * 4:
+	while plants.size() < count and tries < count * 5:
 		tries += 1
 		var z := rng.randf_range(-9200.0, 1100.0)
+		# Thickest near the river, where the ship flies; thinning up the hills
+		# (the canopy texture on the ground carries the forest on from there).
 		var spread := rng.randf_range(-1.0, 1.0)
-		var x := centre_x(z) + spread * absf(spread) * 1500.0
-		# Clumps: most trees stand near others, as a canopy does.
-		if not xf.is_empty() and rng.randf() < 0.65:
-			var near: Vector3 = xf[rng.randi() % xf.size()].origin
-			x = near.x + rng.randf_range(-22.0, 22.0)
-			z = near.z + rng.randf_range(-22.0, 22.0)
+		var x := centre_x(z) + spread * absf(spread) * 650.0
+		if not plants.is_empty() and rng.randf() < 0.75:
+			var near: Vector3 = (plants[rng.randi() % plants.size()][1] as Transform3D).origin
+			x = near.x + rng.randf_range(-11.0, 11.0)
+			z = near.z + rng.randf_range(-11.0, 11.0)
 		var d := absf(x - centre_x(z))
-		if d < 62.0 and z > CLIFF_Z or (z < CLIFF_Z and d < 40.0):
+		if d < 48.0 and z > CLIFF_Z or (z < CLIFF_Z and d < 34.0):
 			continue
 		if Vector2(x - pad.x, z - pad.z).length() < 95.0 or Vector2(x - shuttle_spot.x, z - shuttle_spot.z).length() < 40.0:
 			continue
 		var h := height(x, z)
 		var slope := absf(height(x + 6.0, z) - h) + absf(height(x, z + 6.0) - h)
-		if slope > 7.0 or h < WATER_Y + 1.0:
+		if slope > 8.0 or h < WATER_Y + 1.0:
 			continue
-		var tall := rng.randf_range(16.0, 30.0)
-		var wide := tall * rng.randf_range(0.75, 1.1)
-		xf.append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(wide, tall, wide)), Vector3(x, h - 1.0, z)))
-		# Jungle is many greens: deep, olive, the odd yellow crown.
+		var roll := rng.randf()
+		var sp := ""
+		if d < 150.0 and z > CLIFF_Z:
+			sp = "palm" if roll < 0.35 else ("tree" if roll < 0.75 else "shrub")
+		else:
+			sp = "giant" if roll < 0.1 else ("tree" if roll < 0.55 else ("tree2" if roll < 0.9 else ("palm" if roll < 0.95 else "shrub")))
+		var sc := rng.randf_range(0.8, 1.25)
+		var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.05), rng.randf() * TAU, rng.randf_range(-0.05, 0.05))).scaled(Vector3.ONE * sc), Vector3(x, h - 0.6, z))
 		var hue := rng.randf()
-		cols.append(Color(0.7, 0.85, 0.55).lerp(Color(1.25, 1.15, 0.6), hue * hue) * rng.randf_range(0.7, 1.05))
+		plants.append([sp, xf, Color(0.82, 0.9, 0.78).lerp(Color(1.15, 1.08, 0.75), hue * hue) * rng.randf_range(0.8, 1.08)])
 	# Crowns on the pillar tops, the arch and the towers.
 	for top in _pillar_tops:
 		var c: Vector3 = top[0]
 		var r: float = top[1]
-		for k in (6 if hq else 3):
+		for k in (7 if hq else 4):
 			var a := rng.randf() * TAU
 			var p := c + Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.0, r)
-			var tall := rng.randf_range(10.0, 22.0)
-			xf.append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3.ONE * tall), p - Vector3(0, 2.0, 0)))
-			cols.append(Color(rng.randf_range(0.8, 1.1), rng.randf_range(0.9, 1.2), rng.randf_range(0.6, 0.9)))
-	# In chunks along the valley, so what is behind the ship or deep in the
-	# haze is not drawn at all.
-	var mesh := _tree_mesh()
-	var chunks := {}
-	for i in xf.size():
-		var key := int(floor(xf[i].origin.z / 700.0))
-		if not chunks.has(key):
-			chunks[key] = []
-		(chunks[key] as Array).append(i)
-	for key in chunks:
-		var ids: Array = chunks[key]
+			var sp := "tree" if rng.randf() < 0.5 else "shrub"
+			plants.append([sp, Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3.ONE * rng.randf_range(0.6, 1.0)), p - Vector3(0, 1.5, 0)), Color(0.9, 1.0, 0.85)])
+	# Vines down the pillar faces from the crown, plants on the ledges.
+	for side in _pillar_sides:
+		var c: Vector3 = side[0]
+		var r: float = side[1]
+		var tall: float = side[2]
+		for k in (7 if hq else 3):
+			var a := rng.randf() * TAU
+			var out := Vector3(cos(a), 0, sin(a))
+			var y := tall * rng.randf_range(0.9, 0.97)
+			plants.append(["vine", Transform3D(Basis.looking_at(out, Vector3.UP).scaled(Vector3.ONE * rng.randf_range(1.0, 1.8)), c + out * r * 0.98 + Vector3(0, y, 0)), Color(0.9, 1.0, 0.85)])
+		for k in (10 if hq else 4):
+			var a := rng.randf() * TAU
+			var out := Vector3(cos(a), 0, sin(a))
+			var y := tall * rng.randf_range(0.15, 0.85)
+			plants.append(["fern" if rng.randf() < 0.5 else "shrub", Transform3D(Basis.looking_at(out, Vector3.UP).rotated(out.cross(Vector3.UP).normalized(), 0.5).scaled(Vector3.ONE * rng.randf_range(1.5, 2.8)), c + out * r * 0.95 + Vector3(0, y, 0)), Color(0.9, 1.0, 0.85)])
+	# Near: the real plants, by species and by 500 m square. Far: the cheap
+	# crowns in the same places, from where the real ones stop.
+	var near := {}
+	var far := {}
+	for pl in plants:
+		var xf: Transform3D = pl[1]
+		var key := "%d_%d" % [int(floor(xf.origin.x / 500.0)), int(floor(xf.origin.z / 500.0))]
+		var nk: String = pl[0] + "|" + key
+		if not near.has(nk):
+			near[nk] = [[], []]
+		near[nk][0].append(xf)
+		near[nk][1].append(pl[2])
+		if spec.has(pl[0]) and pl[0] != "shrub":
+			var size: Array = spec[pl[0]]
+			var s := xf.basis.get_scale().x
+			var b := Basis.from_euler(Vector3(0, xf.basis.get_euler().y, 0)).scaled(Vector3(size[1] * s * 0.55, size[0] * s, size[1] * s * 0.55))
+			if not far.has(key):
+				far[key] = [[], []]
+			far[key][0].append(Transform3D(b, xf.origin))
+			far[key][1].append(pl[2])
+	for nk in near:
+		Flora.batch(self, String(nk).get_slice("|", 0), near[nk][0], near[nk][1], 0.0, near_far, hq and Flow.settings.cinematic)
+	var blob := _tree_mesh()
+	for key in far:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_colors = true
-		mm.mesh = mesh
-		mm.instance_count = ids.size()
-		for k in ids.size():
-			mm.set_instance_transform(k, xf[ids[k]])
-			mm.set_instance_color(k, cols[ids[k]])
+		mm.mesh = blob
+		mm.instance_count = far[key][0].size()
+		for i in mm.instance_count:
+			mm.set_instance_transform(i, far[key][0][i])
+			mm.set_instance_color(i, far[key][1][i])
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if Flow.settings.cinematic else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = 4200.0
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.visibility_range_begin = near_far - 60.0
+		mmi.visibility_range_end = 3200.0
 		add_child(mmi)
+	_undergrowth(rng)
+
+## Ferns and bushes on the jungle floor, only near the ship (they are what
+## makes the ground read as jungle when flying low).
+func _undergrowth(rng: RandomNumberGenerator) -> void:
+	var count := 45000 if hq else 12000
+	var cells := {}
+	for i in count:
+		var z := rng.randf_range(-7300.0, 1000.0)
+		var spread := rng.randf_range(-1.0, 1.0)
+		var x := centre_x(z) + spread * absf(spread) * 900.0
+		var d := absf(x - centre_x(z))
+		if d < 40.0:
+			continue
+		var h := height(x, z)
+		if h < WATER_Y + 0.8:
+			continue
+		var sp := "fern" if rng.randf() < 0.7 else "shrub"
+		var key := "%s|%d_%d" % [sp, int(floor(x / 250.0)), int(floor(z / 250.0))]
+		if not cells.has(key):
+			cells[key] = [[], []]
+		var sc := rng.randf_range(0.9, 2.0) if sp == "fern" else rng.randf_range(0.8, 1.6)
+		cells[key][0].append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3.ONE * sc), Vector3(x, h - 0.2, z)))
+		cells[key][1].append(Color(0.85, 0.95, 0.8) * rng.randf_range(0.75, 1.05))
+	for key in cells:
+		Flora.batch(self, String(key).get_slice("|", 0), cells[key][0], cells[key][1], 0.0, 230.0 if hq else 160.0)
 
 # --- Air ------------------------------------------------------------------------
 
@@ -715,12 +908,12 @@ static func environment(parent: Node) -> DirectionalLight3D:
 	env.glow_bloom = 0.06
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.82, 0.8, 0.78)
-	env.fog_density = 0.00032
+	env.fog_density = 0.00022
 	env.fog_sky_affect = 0.25
 	env.fog_sun_scatter = 0.45
 	env.fog_aerial_perspective = 0.55
-	env.fog_height = 70.0
-	env.fog_height_density = 0.006
+	env.fog_height = 40.0
+	env.fog_height_density = 0.0025
 	if hq:
 		env.ssao_enabled = true
 		env.volumetric_fog_enabled = true
@@ -736,7 +929,8 @@ static func environment(parent: Node) -> DirectionalLight3D:
 	sun.light_color = Color(1.0, 0.86, 0.68)
 	sun.light_energy = 2.3
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 700.0 if hq else 350.0
+	sun.directional_shadow_max_distance = 450.0 if hq else 300.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	parent.add_child(sun)
 	sun.basis = Basis.looking_at(-SUN.normalized(), Vector3.UP)
 	return sun

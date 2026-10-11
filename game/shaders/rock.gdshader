@@ -26,12 +26,10 @@ float vnoise(vec2 p) {
 void fragment() {
 	vec3 n = normalize(wnrm);
 	vec2 side = abs(n.x) > abs(n.z) ? wpos.zy : wpos.xy;
-	vec3 r = texture(rock_map, side / vec2(16.0, 40.0)).rgb;
-	r = mix(r, texture(rock_map, side / 5.0).rgb, 0.5) * rock_tint * 1.7;
+	vec3 r = texture(rock_map, side / vec2(8.0, 14.0)).rgb * rock_tint * 1.7;
 	// Vertical water streaks and bands of strata.
 	float streak = vnoise(vec2(side.x * 0.35, side.y * 0.01));
-	float strata = vnoise(vec2(side.x * 0.02, side.y * 0.12));
-	r *= mix(0.62, 1.12, streak) * mix(0.85, 1.08, strata);
+	r *= mix(0.62, 1.12, streak) * mix(0.88, 1.06, sin(side.y * 0.21 + streak * 3.0) * 0.5 + 0.5);
 	// Moss where the rock faces up, and in patches on the walls.
 	float up = smoothstep(0.35, 0.75, n.y);
 	float patch = smoothstep(0.62, 0.8, vnoise(side * 0.03 + 7.0)) * 0.7;

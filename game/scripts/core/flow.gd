@@ -153,8 +153,15 @@ func _web_quality() -> void:
 func _desktop_quality() -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_DISABLED
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if settings.cinematic else Viewport.SCALING_3D_MODE_FSR
-	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if settings.cinematic else Viewport.SCREEN_SPACE_AA_FXAA
+	# FSR 2 is temporal: fine detail (grass, leaves, far rock) holds still
+	# instead of crawling, and it is the antialiasing too.
+	# Cinematic: FSR 2. Otherwise FSR 1 with Godot's temporal antialiasing,
+	# which holds fine detail nearly as still for less than half the cost.
+	if settings.cinematic:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+	else:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+		vp.use_taa = not "--notaa" in OS.get_cmdline_user_args()
 	RenderingServer.gi_set_use_half_resolution(true)
 	RenderingServer.environment_set_volumetric_fog_volume_size(96, 48)
 	RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_LOW, true, 0.5, 2, 50.0, 300.0)
@@ -165,7 +172,7 @@ func _desktop_quality() -> void:
 	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
 	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
 	var px := float(vp.size.x * vp.size.y)
-	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.45, 1.0)
+	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.5, 1.0)
 	# For measuring: `-- --res 0.3` pins the 3D resolution.
 	var a := OS.get_cmdline_user_args().find("--res")
 	if a >= 0:
@@ -221,7 +228,7 @@ func _adapt(dt: float) -> void:
 	_fps_n = 0
 	if _busy or get_tree().paused or _pinned:
 		return
-	if fps < 45.0 and _res <= 0.41 and not _gi_off and not on_web():
+	if fps < 45.0 and _res <= 0.51 and not _gi_off and not on_web():
 		_strain += 1
 		if _strain >= 2:
 			_gi_off = true
@@ -232,9 +239,9 @@ func _adapt(dt: float) -> void:
 					env.ambient_light_energy *= 2.0
 	else:
 		_strain = 0
-	if fps < 48.0 and _res > 0.4:
-		_res = maxf(0.4, _res - 0.1)
-	elif fps > 58.0 and _res < 1.0:
+	if fps < 44.0 and _res > 0.5:
+		_res = maxf(0.5, _res - 0.05)
+	elif fps > 57.0 and _res < 1.0:
 		_res = minf(1.0, _res + 0.05)
 	get_viewport().scaling_3d_scale = _res
 

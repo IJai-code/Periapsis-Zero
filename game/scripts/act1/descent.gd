@@ -43,10 +43,10 @@ func _ready() -> void:
 	sun_light = Wilds.environment(self)
 	wilds = Wilds.new()
 	add_child(wilds)
-	ship.top_speed = 150.0
-	ship.boost_speed = 240.0
-	ship.turn_rate = 2.7
-	ship.min_speed = 40.0
+	ship.top_speed = 230.0
+	ship.boost_speed = 380.0
+	ship.turn_rate = 3.3
+	ship.min_speed = 60.0
 	ship.level_assist = true
 	ship.use_fpv()
 	ship.floor_integrity = 0.0
@@ -130,8 +130,8 @@ func _place_at(i: int) -> void:
 	ship.global_position = from
 	ship.look_at(to, Vector3.UP)
 	ship.aim = -ship.global_basis.z
-	ship.cruise = 110.0
-	ship.velocity = -ship.global_basis.z * 110.0
+	ship.cruise = 160.0
+	ship.velocity = -ship.global_basis.z * 160.0
 
 # --- Coming down ---------------------------------------------------------------
 
@@ -144,7 +144,7 @@ func _entry() -> void:
 	s.height = 14.0
 	var m := ShaderMaterial.new()
 	var sh := Shader.new()
-	sh.code = "shader_type spatial;\\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\\nuniform float heat = 1.0;\\nvoid fragment(){ float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0); ALBEDO = vec3(2.4, 0.9, 0.3) * rim * heat; }"
+	sh.code = "shader_type spatial;\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\nuniform float heat = 1.0;\nvoid fragment(){ float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0); ALBEDO = vec3(2.4, 0.9, 0.3) * rim * heat; }"
 	m.shader = sh
 	s.material = m
 	_glow.mesh = s
@@ -188,7 +188,12 @@ func _process(dt: float) -> void:
 		if flat < 180.0 and p.y < wilds.pad.y + 160.0:
 			_land()
 
+var _bumps_seen := 0
+
 func _physics_process(dt: float) -> void:
+	if ship.bumps != _bumps_seen:
+		_bumps_seen = ship.bumps
+		Report.line("DESCENT bump near marker %d at %s" % [_next + 1, ship.global_position.snapped(Vector3.ONE)])
 	if not ship.controls or _beat in ["landing", "walk", "talk", "done"]:
 		return
 	# Close calls: rock within fifteen metres at speed, once per pass.

@@ -5,6 +5,43 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Earth in detail: real trees, sculpted rock, ruins and falls, 11 October 2026
+
+- **Real foliage.** Leaves are photographed CC0 scans (ambientCG). Blender
+  composes them into leaf clusters, ferns, palm fronds and vines
+  (art/godot/foliage_cards.py).
+  - **Species, built in Blender** (art/godot/flora.py):
+    - **Trees:** a buttressed jungle giant and two broadleaf trees, each a
+      trunk and branches carrying leaf cards that shade as one rounded crown.
+    - **Smaller plants:** a palm, a fern, a shrub and hanging vines.
+  - **How they're drawn:** up close they are the real thing. Further out,
+    simpler crowns stand in the same places, and the hills carry a canopy
+    texture.
+  - **Ground cover:** ferns and bushes carpet the jungle floor around the
+    ship. Vines hang down the pillars, and plants grow on their ledges.
+- **Sculpted sandstone pillars** (art/godot/pillars.py):
+  - **Shape:** vertical joints, bedding-plane ledges, eroded waists, a flared
+    foot and a soil cap. About 13,000 triangles each, with automatic simpler
+    versions at distance.
+  - **The cliff:** the waterfall's cliff is now lined with the same rock, so
+    the whole wall is fissured and mossy.
+- **Ruined towers** (art/godot/ruins.py): concrete frames, with slabs and
+  columns, fallen facade panels, open window rows and broken tops.
+- **The falls:**
+  - **Water:** three bowed sheets of accelerating water, glassy at the lip
+    and breaking into white streaks.
+  - **The foot:** spray particles and churning foam in the plunge pool.
+- **Light and air:**
+  - **Sun:** it now comes from the side, so rock and leaves show their
+    shape instead of being backlit silhouettes.
+  - **Haze:** the valley haze is thinner, so detail survives distance.
+- **No more crawling grass:**
+  - **Steadier image:** temporal antialiasing (TAA) holds fine detail still.
+  - **Ground texture:** its fine detail fades with distance instead of
+    sparkling.
+  - **Cinematic lighting** keeps FSR 2.
+- **Faster in the air:** top speed 230 m/s, boost 380, quicker turns.
+
 ### Down the Well: flying Earth's surface, and the lag fixed, 11 October 2026
 
 - **A new mission on Earth, flown first person.** Renn calls from the

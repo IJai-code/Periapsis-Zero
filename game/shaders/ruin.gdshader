@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode cull_disabled;
 // The drowned city's towers: weathered concrete, rows of empty windows, moss
 // climbing from the waterline and covering every ledge, vines in streaks.
 
@@ -25,14 +26,15 @@ void fragment() {
 	vec3 n = normalize(NORMAL);
 	vec3 ln = normalize(wnrm);
 	vec2 side = abs(lpos.x) > abs(lpos.z) * 0.999 ? lpos.zy : lpos.xy;
-	vec3 concrete = texture(rock_map, side / 9.0).rgb * vec3(0.95, 0.93, 0.88) * 1.5;
+	vec3 concrete = texture(rock_map, side / 9.0).rgb * vec3(0.95, 0.93, 0.88) * 2.1;
 	// Windows: a grid of dark openings, some floors gone entirely.
 	vec2 cell = vec2(side.x / 4.2, side.y / 3.6);
 	vec2 f = fract(cell);
 	float win = step(0.18, f.x) * step(f.x, 0.82) * step(0.25, f.y) * step(f.y, 0.85);
 	float gone = step(0.86, hash(floor(cell.yy) + 3.0));
 	win = max(win, gone * step(0.1, f.y));
-	win *= step(0.4, abs(ln.y) < 0.5 ? 1.0 : 0.0);
+	// The modelled towers have real window openings; no painted ones.
+	win = 0.0;
 	vec3 col = mix(concrete, vec3(0.02, 0.025, 0.02), win * 0.92);
 	// Moss and vines.
 	float base = 1.0 - smoothstep(4.0, 40.0 + 30.0 * vnoise(side * 0.05), wpos.y);

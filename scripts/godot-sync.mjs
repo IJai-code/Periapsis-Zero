@@ -30,7 +30,7 @@ copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
 // credited in game/CREDITS.md). Downloaded once into art/sources (gitignored),
 // and only the maps Godot uses are unpacked, recompressed, into
 // game/assets/materials/<id>/.
-const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014', 'CorrugatedSteel005', 'Rock030', 'Ground037']
+const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014', 'CorrugatedSteel005', 'Rock030', 'Ground037', 'Rock044', 'Bark012']
 const cache = join(root, 'art/sources/ambientcg')
 mkdirSync(cache, { recursive: true })
 for (const id of MATERIALS) {
@@ -47,3 +47,14 @@ for (const id of MATERIALS) {
   }
 }
 console.log(`ambientCG -> game/assets/materials: ${MATERIALS.length} materials`)
+
+// Leaves for the foliage cards Blender composes (art/godot/foliage_cards.py):
+// unpacked into art/sources only; the game ships the rendered cards.
+for (const id of ['LeafSet004', 'LeafSet001', 'LeafSet020']) {
+  const zip = join(cache, `${id}.zip`)
+  if (!existsSync(zip)) execFileSync('curl', ['-sfL', '-o', zip, `https://ambientcg.com/get?file=${id}_2K-JPG.zip`])
+  const dir = join(cache, id)
+  if (existsSync(dir)) continue
+  mkdirSync(dir, { recursive: true })
+  execFileSync('unzip', ['-o', '-q', '-j', zip, '*_Color.jpg', '*_Opacity.jpg', '*_NormalGL.jpg', '-d', dir], { stdio: 'ignore' })
+}

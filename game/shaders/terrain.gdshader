@@ -7,6 +7,7 @@ uniform sampler2D ground_map : source_color, filter_linear_mipmap_anisotropic, r
 uniform sampler2D ground_normal : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform sampler2D rock_map : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D rock_normal : hint_normal, filter_linear_mipmap, repeat_enable;
+uniform sampler2D canopy_map : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec3 rock_tint = vec3(0.86, 0.74, 0.6);
 uniform float water_level = -1.0;
 
@@ -27,23 +28,27 @@ float vnoise(vec2 p) {
 void fragment() {
 	vec3 n = normalize(wnrm);
 	float flat_ = smoothstep(0.62, 0.86, n.y);
-	vec2 top = wpos.xz / 9.0;
-	vec3 g = texture(ground_map, top).rgb;
-	vec3 g2 = texture(ground_map, wpos.xz / 53.0).rgb;
-	g = mix(g, g2, 0.45);
-	// Side mapping for rock: the axis the surface faces most.
+	float dist = length(wpos - CAMERA_POSITION_WORLD);
+	float fine = 1.0 - smoothstep(60.0, 420.0, dist);
+	float drift = vnoise(wpos.xz / 420.0);
+	// Ground: two scales of the scan (the fine one fades out with distance,
+	// where it would only crawl), tinted to wet jungle green.
+	vec3 g = mix(texture(ground_map, wpos.xz / 53.0).rgb, texture(ground_map, wpos.xz / 9.0).rgb, 0.55 * fine);
+	vec3 jungle = g * mix(vec3(0.34, 0.6, 0.24), vec3(0.5, 0.72, 0.3), drift) * 0.9;
+	// Forest canopy (rendered leaves) on gentle ground, in large patches.
+	vec4 can = texture(canopy_map, wpos.xz / 24.0 + drift * 0.8);
+	float forest = smoothstep(0.12, 0.4, drift + 0.2) * smoothstep(0.7, 0.9, n.y) * smoothstep(water_level + 4.0, water_level + 14.0, wpos.y);
+	vec3 canopy = mix(vec3(0.05, 0.1, 0.03), can.rgb, can.a) * vec3(0.85, 1.0, 0.8);
+	jungle = mix(jungle, canopy, forest * 0.9);
+	// Rock on the steep parts, mapped from the side it faces.
 	vec2 side = abs(n.x) > abs(n.z) ? wpos.zy / 14.0 : wpos.xy / 14.0;
 	vec3 r = texture(rock_map, side * vec2(1.0, 0.35)).rgb * rock_tint * 1.6;
-	float drift = vnoise(wpos.xz / 420.0);
-	// The scan is a meadow; the valley is jungle: deeper, wetter greens.
-	vec3 jungle = g * mix(vec3(0.34, 0.6, 0.24), vec3(0.5, 0.72, 0.3), drift) * 0.9;
 	vec3 col = mix(r, jungle, flat_);
-	// Wet banks and shallows.
 	float wet = 1.0 - smoothstep(water_level, water_level + 3.0, wpos.y);
 	col *= mix(1.0, 0.45, wet);
 	ALBEDO = col;
-	vec3 nm = mix(texture(rock_normal, side).rgb, texture(ground_normal, top).rgb, flat_);
-	NORMAL_MAP = nm;
+	vec3 nm = flat_ > 0.5 ? texture(ground_normal, wpos.xz / 9.0).rgb : texture(rock_normal, side).rgb;
+	NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), nm, 0.3 + 0.6 * fine);
 	ROUGHNESS = mix(0.95, 0.35, wet);
 	SPECULAR = 0.3;
 }
