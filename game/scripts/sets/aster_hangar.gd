@@ -26,7 +26,7 @@ func _ready() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.55, 0.6, 0.7)
-	env.ambient_light_energy = 0.18 if hq else 0.35
+	env.ambient_light_energy = 0.18 if hq else 0.6
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.25
@@ -64,7 +64,7 @@ func _ready() -> void:
 		s.rotation_degrees = Vector3(-90, 0, 0)
 		s.spot_angle = 55.0
 		s.spot_range = 13.0
-		s.light_energy = 6.0
+		s.light_energy = 6.0 if hq else 9.0
 		s.light_color = Color(1.0, 0.9, 0.78)
 		s.shadow_enabled = hq or z == -14.0
 		add_child(s)

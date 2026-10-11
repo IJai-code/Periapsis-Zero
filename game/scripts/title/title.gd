@@ -8,6 +8,7 @@ var _t := 0.0
 var _menu: VBoxContainer
 var _settings: PanelContainer
 var _ship: Node3D
+var _fill: OmniLight3D
 
 func _ready() -> void:
 	Space.environment(self, SUN, 1.1)
@@ -20,6 +21,13 @@ func _ready() -> void:
 	# The Kestrel, gliding across the view on a slow pass.
 	_ship = Hull.model("kestrel")
 	add_child(_ship)
+	# Earthshine and a rim from below so the ship reads against the Sun.
+	var fill := OmniLight3D.new()
+	fill.light_color = Color(0.55, 0.7, 1.0)
+	fill.light_energy = 16.0
+	fill.omni_range = 60.0
+	add_child(fill)
+	_fill = fill
 	_ui()
 	Flow.music(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -32,6 +40,7 @@ func _process(dt: float) -> void:
 	# A 70-second pass from right to left, then round again.
 	var k := fmod(_t + 22.0, 70.0) / 70.0
 	_ship.position = _cam.global_basis * Vector3(lerpf(26.0, -30.0, k), -3.5 + sin(_t * 0.3) * 0.3, -46.0)
+	_fill.global_position = _ship.global_position + _cam.global_basis * Vector3(0, -6, 12)
 	_ship.global_basis = Basis.looking_at(-_cam.global_basis.x, _cam.global_basis.y).rotated(_cam.global_basis.z.normalized(), 0.0) * Basis(Vector3.FORWARD, sin(_t * 0.25) * 0.08 + 0.12)
 
 func _ui() -> void:
