@@ -30,7 +30,7 @@ copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
 // credited in game/CREDITS.md). Downloaded once into art/sources (gitignored),
 // and only the maps Godot uses are unpacked, recompressed, into
 // game/assets/materials/<id>/.
-const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014', 'CorrugatedSteel005']
+const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014', 'CorrugatedSteel005', 'Rock030', 'Ground037']
 const cache = join(root, 'art/sources/ambientcg')
 mkdirSync(cache, { recursive: true })
 for (const id of MATERIALS) {

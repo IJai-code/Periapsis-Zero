@@ -45,13 +45,13 @@ func _ready() -> void:
 	v.grow_vertical = Control.GROW_DIRECTION_BOTH
 	v.add_theme_constant_override("separation", 14)
 	root.add_child(v)
-	var done: bool = Flow.progress("act1_blackbox", false)
+	var done: bool = Flow.progress("act1_descent", false)
 	v.add_child(Style.label("ACT ONE COMPLETE · ACT TWO IN PRODUCTION" if done else "ACT ONE · TO BE CONTINUED", 16, Style.EMBER, Style.mono_bold))
-	v.add_child(Style.label("Renn Ayers sold the Aster." if done else "Hearth knows your name now.", 52, Style.BONE, Style.sans_bold))
+	v.add_child(Style.label("The Hollow are Rook's." if done else "Hearth knows your name now.", 52, Style.BONE, Style.sans_bold))
 	if done:
-		v.add_child(Style.label("Rook has her. And Rook owns your debt.", 28, Style.BONE, Style.sans))
+		v.add_child(Style.label("And the governor's seal is on his permits.", 28, Style.BONE, Style.sans))
 	v.add_child(Style.label("₡ %s in hand  ·  ₡ %s still owed to Rook" % [Hud._thousands(Flow.credits()), Hud._thousands(Flow.debt())], 22, Style.MUTE, Style.mono))
-	var note := Style.label("Act Two, Renn, is being built. Until then there is more to fly in the browser edition's open career: courier runs, the Drift, and the Hollow.", 20, Style.MUTE)
+	var note := Style.label("Act Two, the governor, is being built. Until then there is more to fly in the browser edition's open career: courier runs, the Drift, and the Hollow.", 20, Style.MUTE)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(620, 0)
 	v.add_child(note)
@@ -59,6 +59,10 @@ func _ready() -> void:
 	go.text = "Open the browser edition's career"
 	go.pressed.connect(Flow.open_act_one)
 	v.add_child(go)
+	var well := Button.new()
+	well.text = "Fly Down the Well again"
+	well.pressed.connect(func(): Flow.go("descent"))
+	v.add_child(well)
 	var box := Button.new()
 	box.text = "Fly Black Box again"
 	box.pressed.connect(func(): Flow.go("blackbox"))

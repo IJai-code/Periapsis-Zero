@@ -144,16 +144,14 @@ func _return() -> void:
 func _dock() -> void:
 	_docking = true
 	_timing = false
-	ship.controls = false
+	ship.park(true)
 	clear_goal()
 	hud.visible = false
 	Hud.clear_objective()
 	var from := ship.global_transform
 	var to := Transform3D(Basis.looking_at(Vector3(0, 0, 1)), Vector3(0, 0, -86))
 	var t := create_tween()
-	t.tween_method(func(k: float):
-		ship.global_transform = from.interpolate_with(to, k)
-		ship.velocity = Vector3.ZERO, 0.0, 1.0, 3.0).set_trans(Tween.TRANS_SINE)
+	t.tween_method(func(k: float): ship.global_transform = from.interpolate_with(to, k), 0.0, 1.0, 3.0).set_trans(Tween.TRANS_SINE)
 	Sfx.play("door", -4.0, 0.7)
 	await t.finished
 	var bonus := 1500 if _clock < PAR else 0

@@ -21,7 +21,10 @@ var _log: Array = []        # [text, colour, age]
 var _dmg_dir := Vector2.ZERO
 var _dmg_t := 0.0
 var _warned := 0.0
-var _agg := {}              # outgoing hits gathered per target: {id: [name, total, count, layer, t]}
+var _agg := {}
+## In air: the height above the ground, shown by the speed (-1 hides it).
+var altitude := -1.0
+var _pops: Array = []       # [text, colour, age]              # outgoing hits gathered per target: {id: [name, total, count, layer, t]}
 
 const LAYER_COL := {"shield": Color("#2fd3ff"), "armor": Color("#f4e8cf"), "hull": Color("#ff6b2c")}
 
@@ -51,6 +54,12 @@ func kill() -> void:
 	_hit = 1.0
 
 ## A line in the combat log, bottom left.
+## A word that jumps out by the reticle: CLOSE CALL, MARKER, MISSED.
+func pop(text: String, color := Style.BONE) -> void:
+	_pops.append([text, color, 0.0])
+	if _pops.size() > 3:
+		_pops.pop_front()
+
 func log_line(text: String, color := Style.BONE) -> void:
 	_log.append([text, color, 0.0])
 	if _log.size() > 6:
@@ -112,6 +121,10 @@ func _process(dt: float) -> void:
 	_dmg_t = maxf(0.0, _dmg_t - dt * 0.8)
 	for l in _log:
 		l[2] += dt
+	for p in _pops:
+		p[2] += dt
+	while not _pops.is_empty() and _pops[0][2] > 1.3:
+		_pops.pop_front()
 	while not _log.is_empty() and _log[0][2] > 7.0:
 		_log.pop_front()
 	for id in _agg.keys():
@@ -146,6 +159,12 @@ func _draw() -> void:
 		_bracket(cam, vp, c)
 	if aim.x > -1:
 		_reticle(aim)
+		for i in _pops.size():
+			var p: Array = _pops[_pops.size() - 1 - i]
+			var a := clampf(1.3 - p[2], 0.0, 1.0)
+			var at := aim + Vector2(-200, 70 + i * 34 + p[2] * 18.0)
+			draw_string_outline(Style.sans_bold, at, p[0], HORIZONTAL_ALIGNMENT_CENTER, 400, 26, 7, Color(0, 0, 0, 0.6 * a))
+			draw_string(Style.sans_bold, at, p[0], HORIZONTAL_ALIGNMENT_CENTER, 400, 26, Color(p[1], a))
 	_lock_marks(cam)
 	_goal(cam, vp)
 	_overview(vp, contacts)
@@ -356,6 +375,9 @@ func _status(vp: Vector2) -> void:
 	draw_string(Style.mono_bold, c + Vector2(-60, 8), "%d" % int(spd), HORIZONTAL_ALIGNMENT_CENTER, 120, 26, Style.BONE)
 	draw_string(Style.mono, c + Vector2(-60, 26), "BOOST" if ship.boosting else "M/S", HORIZONTAL_ALIGNMENT_CENTER, 120, 11, Style.EMBER if ship.boosting else Style.MUTE)
 	draw_string(Style.mono, c + Vector2(-110, 60), "CAP %d%%" % int(ship.capacitor / ship.max_capacitor * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(Style.BONE, 0.6))
+	if altitude >= 0.0:
+		var low := altitude < 25.0
+		draw_string(Style.mono_bold, c + Vector2(-60, 46), "ALT %d m" % int(altitude), HORIZONTAL_ALIGNMENT_CENTER, 120, 12, Style.EMBER if low else Color(Style.BONE, 0.8))
 	var mtxt := "MSL %d" % ship.missile_count
 	draw_string(Style.mono, c + Vector2(110, 60), mtxt, HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color(Style.ION, 0.8) if ship.missile_count > 0 else Color(Style.BONE, 0.3))
 	if not ship.weapons:

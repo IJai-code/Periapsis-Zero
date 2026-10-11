@@ -17,10 +17,11 @@ const SCENES := {
 	"hearth_bay": "res://scenes/act1_bay.tscn",
 	"test_flight": "res://scenes/act1_test_flight.tscn",
 	"blackbox": "res://scenes/act1_blackbox.tscn",
+	"descent": "res://scenes/act1_descent.tscn",
 	"act1_end": "res://scenes/act1_end.tscn",
 }
 
-var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false}
+var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false}
 var _music: AudioStreamPlayer
 var _busy := false
 ## A chapter's starting beat, from a test link or `-- --beat`.
@@ -46,8 +47,7 @@ const KEYS := {
 ## desktop it is captured again at once; a browser needs a click for that,
 ## so the HUD asks for one.
 func _process(_dt: float) -> void:
-	if on_web():
-		_adapt(_dt)
+	_adapt(_dt)
 	var want := false
 	if not get_tree().paused and not _busy:
 		for n in get_tree().get_nodes_in_group("mouse_look"):
@@ -105,6 +105,9 @@ func _ready() -> void:
 	apply_settings()
 	if on_web():
 		_web_quality()
+	else:
+		_desktop_quality()
+	get_tree().node_added.connect(_tune)
 	await get_tree().process_frame
 	# A link straight to a chapter, for testing: /play/#flight, #flight/strike.
 	if on_web():
@@ -123,6 +126,11 @@ func _ready() -> void:
 ## smaller map, and the 3D drawn at a resolution that follows the frame
 ## rate (the 2D overlay stays sharp).
 var _res := 1.0
+var _pinned := false
+## Set when this machine cannot hold the frame rate even at the lowest
+## resolution: global illumination goes, in this scene and every later one.
+var _gi_off := false
+var _strain := 0
 var _fps_t := 0.0
 var _fps_n := 0
 
@@ -137,18 +145,95 @@ func _web_quality() -> void:
 	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.5, 1.0)
 	vp.scaling_3d_scale = _res
 
+## The desktop: a retina laptop's window is four times the pixels of
+## 1080p, so the 3D is drawn nearer 1080p and upscaled with FSR 2 (which also
+## does the antialiasing), its resolution following the frame rate. Global
+## illumination at half resolution, lighter fog volumes and ambient
+## occlusion: most of the look at a fraction of the cost.
+func _desktop_quality() -> void:
+	var vp := get_viewport()
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if settings.cinematic else Viewport.SCALING_3D_MODE_FSR
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if settings.cinematic else Viewport.SCREEN_SPACE_AA_FXAA
+	RenderingServer.gi_set_use_half_resolution(true)
+	RenderingServer.environment_set_volumetric_fog_volume_size(96, 48)
+	RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_LOW, true, 0.5, 2, 50.0, 300.0)
+	RenderingServer.environment_set_sdfgi_ray_count(RenderingServer.ENV_SDFGI_RAY_COUNT_32)
+	RenderingServer.environment_set_sdfgi_frames_to_converge(RenderingServer.ENV_SDFGI_CONVERGE_IN_30_FRAMES)
+	RenderingServer.environment_set_sdfgi_frames_to_update_light(RenderingServer.ENV_SDFGI_UPDATE_LIGHT_IN_16_FRAMES)
+	RenderingServer.directional_shadow_atlas_set_size(4096, true)
+	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
+	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
+	var px := float(vp.size.x * vp.size.y)
+	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.45, 1.0)
+	# For measuring: `-- --res 0.3` pins the 3D resolution.
+	var a := OS.get_cmdline_user_args().find("--res")
+	if a >= 0:
+		_res = float(OS.get_cmdline_user_args()[a + 1])
+		_pinned = true
+	vp.scaling_3d_scale = _res
+
+## Every environment that enters the game is trimmed of what costs most for
+## least: screen-space indirect light and reflections.
+func _tune(n: Node) -> void:
+	if n is WorldEnvironment and (n as WorldEnvironment).environment:
+		var env := (n as WorldEnvironment).environment
+		env.ssil_enabled = false
+		env.ssr_enabled = false
+		env.sdfgi_cascades = mini(env.sdfgi_cascades, 4)
+		# Global illumination is the cinematic setting; without it the
+		# ambient light makes up the bounce (as the browser build does).
+		if env.sdfgi_enabled and (_gi_off or not settings.cinematic):
+			env.sdfgi_enabled = false
+			env.ambient_light_energy *= 2.0
+		if not settings.cinematic and not on_web():
+			env.ssao_enabled = false
+		# Volumetric fog is cinematic too; plain depth haze stands in for it.
+		if env.volumetric_fog_enabled and not settings.cinematic:
+			env.volumetric_fog_enabled = false
+			if not env.fog_enabled:
+				env.fog_enabled = true
+				env.fog_light_color = Color(0.55, 0.58, 0.66)
+				env.fog_density = 0.006
+				env.fog_sky_affect = 0.0
+		# For measuring what each effect costs.
+		var args := OS.get_cmdline_user_args()
+		if "--nogi" in args:
+			env.sdfgi_enabled = false
+		if "--nofog" in args:
+			env.volumetric_fog_enabled = false
+		if "--noao" in args:
+			env.ssao_enabled = false
+	# A shadowed point light renders its room six times over: only the
+	# Sun casts shadows unless lighting is cinematic.
+	if n is OmniLight3D and not settings.cinematic:
+		(n as OmniLight3D).shadow_enabled = false
+	if "--noshadow" in OS.get_cmdline_user_args() and n is Light3D:
+		(n as Light3D).shadow_enabled = false
+
 func _adapt(dt: float) -> void:
 	_fps_t += dt
 	_fps_n += 1
-	if _fps_t < 2.0:
+	if _fps_t < 1.0:
 		return
 	var fps := _fps_n / _fps_t
 	_fps_t = 0.0
 	_fps_n = 0
-	if _busy or get_tree().paused:
+	if _busy or get_tree().paused or _pinned:
 		return
-	if fps < 48.0 and _res > 0.5:
-		_res = maxf(0.5, _res - 0.1)
+	if fps < 45.0 and _res <= 0.41 and not _gi_off and not on_web():
+		_strain += 1
+		if _strain >= 2:
+			_gi_off = true
+			for we in get_tree().root.find_children("*", "WorldEnvironment", true, false):
+				var env: Environment = (we as WorldEnvironment).environment
+				if env and env.sdfgi_enabled:
+					env.sdfgi_enabled = false
+					env.ambient_light_energy *= 2.0
+	else:
+		_strain = 0
+	if fps < 48.0 and _res > 0.4:
+		_res = maxf(0.4, _res - 0.1)
 	elif fps > 58.0 and _res < 1.0:
 		_res = minf(1.0, _res + 0.05)
 	get_viewport().scaling_3d_scale = _res
@@ -172,7 +257,7 @@ func go(scene: String) -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file(SCENES[scene])
 	# Remember the furthest chapter reached, for "Continue the journey".
-	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox"]:
+	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent"]:
 		set_progress("chapter", scene)
 	ambience(scene in ["corridor", "bridge", "hangar", "arrival", "hearth", "hearth_bay"])
 	await get_tree().process_frame
@@ -184,7 +269,7 @@ func go(scene: String) -> void:
 ## The chapter after this one, for "Skip this part" in the pause menu.
 func next_scene() -> String:
 	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "act1_end", "title"]
+	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "title"]
 	for i in order.size() - 1:
 		if SCENES[order[i]] == here:
 			return order[i + 1]

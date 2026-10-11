@@ -435,6 +435,7 @@ var _comm_bars: Control
 func flight_layout(on: bool) -> void:
 	_flight = on
 	_sub.offset_bottom = -232.0 if on else -96.0
+	_card.offset_bottom = -260.0 if on else -170.0
 	_obj_big.offset_bottom = -330.0 if on else -210.0
 	if not on and _comm:
 		_comm.visible = false

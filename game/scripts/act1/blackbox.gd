@@ -421,9 +421,15 @@ func _go_home() -> void:
 	var split := Flow.earn(6000)
 	Flow.set_progress("act1_blackbox", true)
 	Hud.fade_in(0.4)
-	ship.controls = false
+	ship.park(true)
 	await Hud.mission_passed("Black Box", split[0], split[1], Flow.debt())
-	Flow.go("act1_end")
+	# A call nobody expected, from somewhere nobody goes.
+	Sfx.play("alarm", -10.0, 1.4)
+	await Hud.say("Hearth Traffic", "Kestrel, I've got a call for you routing up from... the surface? That can't be right.")
+	await Hud.say("Renn Ayers", "Kestrel. It's Renn. Whatever you've heard, I'm not Rook's prisoner. I ran.")
+	await Hud.say("Renn Ayers", "I'm on the ground, in the pillar country. Come alone and I'll give you Rook. I'll lay markers for you.")
+	await Hud.say("Mara Voss", "Nobody goes down the well, Kestrel. ...Go anyway. I'll be on the channel.")
+	Flow.go("descent")
 
 ## A slowly tumbling piece of wreckage.
 class Tumbler extends Node3D:

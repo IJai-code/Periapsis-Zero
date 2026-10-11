@@ -16,8 +16,9 @@ var _tunnel: MeshInstance3D
 var warping := false
 
 ## Build the common parts. Call first in `_ready`.
-func setup_flight(sun: Vector3, exposure := 1.0) -> void:
-	sun_light = Space.environment(self, sun, exposure)
+func setup_flight(sun: Vector3, exposure := 1.0, space := true) -> void:
+	if space:
+		sun_light = Space.environment(self, sun, exposure)
 	bolts = Bolts.new()
 	add_child(bolts)
 	missiles = Missiles.new()

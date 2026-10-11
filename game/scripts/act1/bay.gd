@@ -43,6 +43,9 @@ func _launch() -> void:
 	Hud.clear_prompt()
 	Hud.waypoint(null)
 	await Hud.fade_out(0.5)
+	# The pilot is in the cockpit now, not on the deck.
+	_player.visible = false
+	_player.process_mode = Node.PROCESS_MODE_DISABLED
 	Hud.clear_objective()
 	var cam := Camera3D.new()
 	cam.fov = 48.0

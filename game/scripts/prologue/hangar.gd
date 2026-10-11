@@ -46,6 +46,9 @@ func _launch() -> void:
 	Hud.waypoint(null)
 	Hud.silence()
 	await Hud.fade_out(0.5)
+	# The pilot is in the cockpit now, not on the deck.
+	_walker.visible = false
+	_walker.process_mode = Node.PROCESS_MODE_DISABLED
 	Hud.clear_objective()
 	Hud.silence()
 	# The launch, from the deck by the open doors looking back.

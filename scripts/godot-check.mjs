@@ -47,7 +47,7 @@ function run(scene, args, until, ms = 120000) {
 }
 
 const SCENES = ['title', 'prologue_intro', 'prologue_corridor', 'prologue_bridge', 'prologue_hangar', 'prologue_flight',
-  'prologue_arrival', 'act1_hearth', 'act1_bay', 'act1_test_flight', 'act1_blackbox', 'act1_end']
+  'prologue_arrival', 'act1_hearth', 'act1_bay', 'act1_test_flight', 'act1_blackbox', 'act1_descent', 'act1_end']
 
 const checks = [
   // Every scene loads and runs ten seconds without a script error.
@@ -67,6 +67,13 @@ const checks = [
     const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
     const ok = /BLACKBOX recorder aboard/.test(out) && /BLACKBOX reveal after 4 kills/.test(out) && errors.length === 0
     return [ok, errors.length ? errors[0] : ((out.match(/BLACKBOX [^\n]*/g) ?? ['no result']).join(', '))]
+  }],
+  ['Down the Well plays through: every marker, no crash, lands, meets Renn', async () => {
+    const out = await run('act1_descent', ['--autofly', '--shot', join(tmpdir(), 'pz-descent.png'), '--at', '900'], /DESCENT (passed|ship lost)/, 360000)
+    const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
+    const m = out.match(/DESCENT markers (\d+) hit (\d+) missed, (\d+) bumps/)
+    const ok = Boolean(m) && m[2] === '0' && m[3] === '0' && /DESCENT passed/.test(out) && /prompt '\[E\] Talk to Renn'/.test(out) && errors.length === 0
+    return [ok, errors.length ? errors[0] : ((out.match(/DESCENT [^\n]*/g) ?? ['no result']).join(', '))]
   }],
   ['HUD text survives cutscenes and clears', async () => {
     const out = await run('ship_preview', ['--hudtest'], /HUDTEST \d+ failed/)

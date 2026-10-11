@@ -5,6 +5,54 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Down the Well: flying Earth's surface, and the lag fixed, 11 October 2026
+
+- **A new mission on Earth, flown first person.** Renn calls from the
+  quarantined surface.
+  - **The route:** come down through the cloud and follow her markers low
+    through a forest of sandstone pillars, under a stone arch, down a
+    drowned city's river, and up a waterfall to a plateau.
+  - **The ending:** land, walk over, and hear what she has: Rook's ledger,
+    and whose seal is on his permits.
+  - **The world:** about 10 km of valley built at load from noise:
+    - **Ground:** terrain with real collision, a river and water.
+    - **Landmarks:** a natural arch, overgrown towers (one fallen across the
+      river), the falls.
+    - **Life:** jungle, mist banks, birds.
+    - **Light:** a low gold sun, and mountains walling it all in.
+- **FPV flying.** The camera sits on the nose and banks with the ship, and
+  widens with speed. V cycles it with the chase views.
+  - **Flight model:** in the air the ship is faster and more agile, and
+    rolls itself level when you let go.
+  - **Risk pays:** grazing rock is a CLOSE CALL and refills the capacitor.
+    Flying above the pillar tops brings down Rook's flak.
+  - **Set pieces:**
+    - **Hunter drones:** they follow your exact path and lose you in the
+      waterfall spray.
+    - **A falling tower:** one comes down along the river bank.
+- **Lag:**
+  - **Desktop:**
+    - **Native resolution:** the game no longer renders at full retina
+      resolution; it draws at the screen's native resolution, with FSR and
+      FXAA.
+    - **Adaptive resolution:** 3D resolution follows the frame rate.
+    - **Cinematic lighting:** global illumination, volumetric fog, ambient
+      occlusion and point-light shadows now sit behind a "Cinematic
+      lighting" setting.
+    - **Measured:** the bridge went from 16 to 53 fps on an M4 MacBook Air,
+      and Hearth from 15 to 50.
+  - **The ship:** it no longer searches its own model for engine plumes
+    every frame.
+- **Fixes:**
+  - **Docking:** the ship is parked (no thrust, no collisions) while it
+    docks, so no more sparking against the bay while Mara talks.
+  - **Launch:** the pilot is no longer left standing by the ladder during
+    the launch shot.
+- **Downloaded copies say when they are out of date.** The title screen
+  checks the site and offers the new download. Progress is kept.
+- **The test suite** now plays Down the Well end to end: every marker, no
+  contact with rock, the landing, the walk to Renn, the conversation.
+
 ### A story worth playing, fleet-grade flight, and no walking through benches, 11 October 2026
 
 - **A plot with a culprit.** Somebody sold the Aster's route; the game now

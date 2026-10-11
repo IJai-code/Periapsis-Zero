@@ -45,6 +45,25 @@ var lock_t := 0.0
 var dodging := false
 ## V pulls the camera back for a wider view of the fight.
 var far_view := false
+## Flight model, set per chapter: space is gentle, atmosphere is fast.
+var top_speed := MAX
+var boost_speed := BOOST
+var turn_rate := TURN
+var min_speed := -15.0
+## In air: the ship rolls itself level with the horizon when not rolled by
+## hand, so the ground stays the ground.
+var level_assist := false
+## The FPV camera, on the nose, banking into turns (V switches to chase).
+var fpv := false
+var _plume_nodes: Array[Node3D] = []
+var _fpv_ok := false
+## Contacts with anything solid, for the checks.
+var bumps := 0
+
+## Offer the FPV camera (and start in it).
+func use_fpv() -> void:
+	_fpv_ok = true
+	fpv = true
 var _cam_dist := 27.0
 var _model: Node3D
 var _plumes: Array[ShaderMaterial] = []
@@ -107,6 +126,7 @@ func _ready() -> void:
 		_model.add_child(mi)
 		_plumes.append(pm)
 		mi.set_meta("plume", true)
+		_plume_nodes.append(mi)
 	_auto = "--autofight" in OS.get_cmdline_user_args()
 	var dust := Dust.new()
 	dust.ship = self
@@ -124,7 +144,17 @@ func _unhandled_input(e: InputEvent) -> void:
 		aim = aim.rotated(cb.y, -e.relative.x * s)
 		aim = aim.rotated(cb.x, -e.relative.y * s * (-1.0 if Flow.settings.invert else 1.0)).normalized()
 	if e is InputEventKey and e.pressed and not e.echo and e.physical_keycode == KEY_V:
-		far_view = not far_view
+		if fpv or far_view:
+			# Cycle: FPV -> chase -> wide chase -> FPV (when FPV is offered).
+			if fpv:
+				fpv = false
+				_model.visible = true
+			elif far_view:
+				far_view = false
+				if _fpv_ok:
+					fpv = true
+		else:
+			far_view = true
 	if e.is_action_pressed("lock"):
 		_lock_next()
 	if e.is_action_pressed("missile"):
@@ -252,6 +282,7 @@ func _move(dt: float) -> void:
 	var n: Vector3 = info.get("normal", -motion.normalized())
 	var into := -velocity.dot(n)
 	if into > 0.0:
+		bumps += 1
 		velocity += n * into * 1.5
 		cruise = minf(cruise, 15.0)
 		shake = maxf(shake, clampf(into / 40.0, 0.2, 1.2))
@@ -261,6 +292,16 @@ func _move(dt: float) -> void:
 			hit(into * 0.8, info.get("point", global_position))
 	# Never rest inside: nudge out along the normal.
 	global_position += n * 0.05
+
+## Parked: no thrust, no physics, nothing to collide (docking, landing,
+## cutscenes that move the ship by hand).
+func park(on: bool) -> void:
+	controls = not on
+	weapons = not on
+	velocity = Vector3.ZERO
+	cruise = 0.0
+	boosting = false
+	set_physics_process(not on)
 
 func fwd_angle(dir: Vector3) -> float:
 	return (-global_basis.z).angle_to(dir)
@@ -290,7 +331,7 @@ func _physics_process(dt: float) -> void:
 	var yaw_rate := 0.0
 	if angle > 0.0005:
 		var axis := fwd.cross(aim).normalized()
-		var step := minf(angle, TURN * dt * clampf(angle * 3.0, 0.25, 1.0))
+		var step := minf(angle, turn_rate * dt * clampf(angle * 3.0, 0.25, 1.0))
 		global_basis = Basis(axis, step) * global_basis
 		yaw_rate = global_basis.y.dot(axis) * step / dt
 	var roll_in := 0.0
@@ -303,6 +344,13 @@ func _physics_process(dt: float) -> void:
 			aim = aim.rotated(cb.y, -look.x * 1.6 * dt)
 			aim = aim.rotated(cb.x, -look.y * 1.6 * dt * (-1.0 if Flow.settings.invert else 1.0)).normalized()
 	global_basis = Basis(-global_basis.z, roll_in * ROLL * dt) * global_basis
+	if level_assist and absf(roll_in) < 0.01 and _roll_t < 0.0:
+		var fwd2 := -global_basis.z
+		var want_right := fwd2.cross(Vector3.UP)
+		if want_right.length() > 0.2:
+			want_right = want_right.normalized()
+			var err := global_basis.x.signed_angle_to(want_right, fwd2)
+			global_basis = Basis(fwd2, err * minf(1.0, 2.5 * dt)) * global_basis
 	global_basis = global_basis.orthonormalized()
 	# Flight assist: hold the speed that was set, slide sideways on A/D.
 	boosting = controls and Input.is_action_pressed("boost") and capacitor > 2.0
@@ -310,10 +358,11 @@ func _physics_process(dt: float) -> void:
 		capacitor -= BOOST_COST * dt
 	if controls:
 		if Input.is_action_pressed("forward"):
-			cruise = move_toward(cruise, MAX, 55.0 * dt)
+			cruise = move_toward(cruise, top_speed, 55.0 * dt)
 		elif Input.is_action_pressed("back"):
-			cruise = move_toward(cruise, -15.0, 70.0 * dt)
-	var speed := BOOST if boosting else cruise
+			cruise = move_toward(cruise, min_speed, 70.0 * dt)
+	cruise = maxf(cruise, min_speed)
+	var speed := boost_speed if boosting else cruise
 	var strafe := Vector2.ZERO
 	if controls:
 		strafe = Vector2(Input.get_axis("left", "right"), Input.get_axis("down", "up"))
@@ -379,20 +428,36 @@ func _guns(dt: float) -> void:
 	fired.emit("gun")
 
 func _process(dt: float) -> void:
-	var thrust := clampf(velocity.length() / MAX, 0.15, 1.0) * (1.8 if boosting else 1.0)
+	var thrust := clampf(velocity.length() / top_speed, 0.15, 1.0) * (1.8 if boosting else 1.0)
 	for pm in _plumes:
 		pm.set_shader_parameter("power", thrust)
-	for p in _model.find_children("*", "MeshInstance3D", true, false):
-		if p.has_meta("plume"):
-			p.scale = Vector3(1.0, 2.0 + thrust * 6.0, 1.0)
+	for p in _plume_nodes:
+		p.scale = Vector3(1.0, 2.0 + thrust * 6.0, 1.0)
+	shake = maxf(0.0, shake - dt * 1.6)
+	if fpv:
+		_fpv_camera(dt)
+		return
 	# Chase camera: behind the aim, its up easing toward the ship's.
 	_cam_up = _cam_up.slerp(global_basis.y, minf(1.0, 3.0 * dt)).normalized()
 	var look := Basis.looking_at(aim, _cam_up)
 	_cam_dist = lerpf(_cam_dist, 52.0 if far_view else 27.0, minf(1.0, 3.0 * dt))
 	var want := global_position + look * Vector3(0.0, _cam_dist * 0.2, _cam_dist)
 	_cam_pos = _cam_pos.lerp(want, minf(1.0, 9.0 * dt))
-	shake = maxf(0.0, shake - dt * 1.6)
 	var jitter := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0.0) * shake * shake * 0.8
 	camera.global_position = _cam_pos + look * jitter
 	camera.global_basis = Basis.looking_at(global_position + aim * 80.0 - camera.global_position, _cam_up)
 	camera.fov = lerpf(camera.fov, 80.0 if boosting else 68.0, 3.0 * dt)
+
+## On the nose, looking where the ship points, rolling with its bank: the
+## ground rushing past a metre below the lens. Wider with speed.
+func _fpv_camera(dt: float) -> void:
+	_model.visible = false
+	var b := global_basis
+	b = Basis(b.z, _bank * 0.9) * b
+	var j := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0.0) * shake * shake * 0.12
+	camera.global_position = to_global(Vector3(0.0, 0.6, -7.5)) + b * j
+	camera.global_basis = camera.global_basis.slerp(b.orthonormalized(), minf(1.0, 14.0 * dt))
+	var spd := velocity.length() / maxf(top_speed, 1.0)
+	camera.fov = lerpf(camera.fov, 88.0 + spd * 14.0 + (10.0 if boosting else 0.0), 3.0 * dt)
+	_cam_pos = camera.global_position
+	_cam_up = camera.global_basis.y

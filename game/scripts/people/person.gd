@@ -29,7 +29,7 @@ static func make(name: String) -> Person:
 func _ready() -> void:
 	# Desktop gets the subdivided body; the browser the plain one.
 	var hd := "res://art/person-%s_hd.glb" % who
-	var path := hd if Flow.high_quality() and ResourceLoader.exists(hd) else "res://art/person-%s.glb" % who
+	var path := hd if Flow.high_quality() and ResourceLoader.exists(hd) and not "--nohd" in OS.get_cmdline_user_args() else "res://art/person-%s.glb" % who
 	var body: Node3D = load(path).instantiate()
 	add_child(body)
 	if solid:

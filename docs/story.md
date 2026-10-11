@@ -19,6 +19,7 @@ moves along convoy lanes.
 - **Mara Voss.** Hearth's dockmaster, Hale's oldest friend. Sharp, unsentimental,
   generous in deeds rather than words. She got you the job and feels it.
   Your ally, and she will use you to get a name.
+- **Governor of Hearth.** Never met yet; their seal is on Rook's permits.
 - **Rook.** Hearth's moneylender. Never seen: a voice on an encrypted
   channel, amused and patient "until he isn't". Paid ₡40,000 for your
   recovery so that he owns you, and so that he could get to your recorder.
@@ -59,7 +60,16 @@ moves along convoy lanes.
    to a private relay on Hearth, authorised "R. Ayers". Then a pod launch.
    Mara: Rook's crew picked that pod up first. Rook has Renn.
 
-## Act Two: Renn (to come)
+10. **Down the Well.** A call from Earth's surface: Renn ran from Rook and
+   is hiding in the quarantined pillar country. Enter the atmosphere, follow
+   her markers low through the pillars, under the stone arch and down the
+   drowned city's river with Rook's hunter drones behind, climb the
+   waterfall where they lose you, land by her stolen Hollow lander. On
+   foot, she tells it: she sent the route for her brother's debt, Rook
+   promised nobody would be hurt, and she has his ledger. The Hollow are
+   Rook's, and the governor of Hearth seals his permits.
 
-Find Renn on Hearth, under Rook's protection. Decide what she is owed. Pay
-Rook, or break him.
+## Act Two: the governor (to come)
+
+Bring Renn home quietly. Decide what she is owed. Take Rook's ledger to
+someone the governor doesn't own, if there is anyone.
