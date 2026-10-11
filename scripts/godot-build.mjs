@@ -43,7 +43,7 @@ const textures = [...walk(join(game, 'assets')), ...walk(join(game, 'art'))].fil
 let changed = 0
 for (const file of textures) {
   const name = file.split('/').pop()
-  const big = /earth_(day|night)/.test(name)
+  const big = /earth_(day|night|clouds_hd)/.test(name)
   const normal = /normal/i.test(name)
   const want = target === 'web'
     ? { 'compress/mode': 1, 'compress/lossy_quality': 0.78, 'mipmaps/generate': 'true', 'process/size_limit': big ? 2048 : 1024, 'compress/normal_map': 0 }

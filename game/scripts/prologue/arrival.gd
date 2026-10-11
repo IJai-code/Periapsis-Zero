@@ -57,10 +57,11 @@ func _script() -> void:
 	# Sitting up.
 	await _look(face, 2.0, Vector3(-1.15, 1.32, -5.0))
 	_mara.talk(true)
-	await Hud.say("Mara Voss", "You were the only one they pulled out of that field. Six ships. Nobody else.")
+	await Hud.say("Mara Voss", "You were the only one they pulled out of that field. Six ships, two hundred and twelve crew. Nobody else.")
+	await Hud.say("Mara Voss", "Elias Hale was my friend for twenty years. I'm the one who told him to hire you.")
 	await Hud.say("Mara Voss", "A man called Rook paid for your recovery. Forty thousand. He'll want it back, and he's patient until he isn't.")
-	await Hud.say("Mara Voss", "One more thing. The Aster's flight recorder came in with your ship. Whatever happened out there is on it.")
-	await Hud.say("Mara Voss", "Your captain said they knew your route. Somebody sold it. Find out who.")
+	await Hud.say("Mara Voss", "Salvage logged one escape pod near the field. Empty, they said. I don't like empty.")
+	await Hud.say("Mara Voss", "Your Kestrel's recorder came in with her. Elias said they knew your route. Somebody sold it, and I want a name.")
 	_mara.talk(false)
 	_beeping = false
 	_goals()

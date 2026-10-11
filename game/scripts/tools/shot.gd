@@ -33,5 +33,5 @@ func _process(_dt: float) -> void:
 		_left = -1
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(_path)
-		print("shot: ", _path)
+		Report.line("shot: " + _path)
 		get_tree().quit()

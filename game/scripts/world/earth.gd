@@ -10,6 +10,12 @@ var sun_dir := Vector3(1, 0, 0)
 var scale_down := 0.005
 var spin := Vector3(deg_to_rad(-28.0), deg_to_rad(110.0), 0.0)
 var _clouds: ShaderMaterial
+var _ground: ShaderMaterial
+
+## NASA's cloud cover at 4K where the assets have it (earth_clouds_hd).
+static func _cloud_tex() -> Texture2D:
+	var hd := "res://assets/textures/earth_clouds_hd.jpg"
+	return load(hd) if ResourceLoader.exists(hd) else load("res://assets/textures/earth_clouds.png")
 
 ## Earth below a ship at `altitude` metres, the ship at the origin.
 static func below(altitude: float, sun: Vector3) -> Earth:
@@ -34,16 +40,19 @@ func _ready() -> void:
 	em.set_shader_parameter("spec_map", load("res://assets/textures/earth_specular.jpg"))
 	em.set_shader_parameter("normal_map", load("res://assets/textures/earth_normal.jpg"))
 	em.set_shader_parameter("sun_dir", sun_dir)
+	em.set_shader_parameter("cloud_map", _cloud_tex())
 	surface.material_override = em
+	_ground = em
 	_clouds = ShaderMaterial.new()
 	_clouds.shader = load("res://shaders/clouds.gdshader")
-	_clouds.set_shader_parameter("cloud_map", load("res://assets/textures/earth_clouds.png"))
-	var clouds := _sphere((RADIUS + 9_000.0) * k, 512)
+	_clouds.set_shader_parameter("cloud_map", _cloud_tex())
+	_clouds.set_shader_parameter("sun_dir", sun_dir)
+	var clouds := _sphere((RADIUS + 12_000.0) * k, 512)
 	clouds.material_override = _clouds
 	var am := ShaderMaterial.new()
 	am.shader = load("res://shaders/atmosphere.gdshader")
 	am.set_shader_parameter("sun_dir", sun_dir)
-	var air := _sphere((RADIUS + 90_000.0) * k, 256)
+	var air := _sphere((RADIUS + 110_000.0) * k, 256)
 	air.material_override = am
 	for s: MeshInstance3D in [surface, clouds, air]:
 		s.rotation = spin
@@ -53,7 +62,9 @@ func _ready() -> void:
 		add_child(s)
 
 func _process(_dt: float) -> void:
-	_clouds.set_shader_parameter("drift", Time.get_ticks_msec() * 0.0000002)
+	var d := Time.get_ticks_msec() * 0.0000002
+	_clouds.set_shader_parameter("drift", d)
+	_ground.set_shader_parameter("drift", d)
 
 func _sphere(r: float, segments: int) -> MeshInstance3D:
 	var m := SphereMesh.new()

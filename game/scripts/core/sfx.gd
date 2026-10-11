@@ -25,6 +25,12 @@ func _ready() -> void:
 	_streams.step = _make(0.12, func(t, n): return _lp(n, 0.25) * exp(-t * 45.0) * 0.5 + sin(TAU * 90.0 * t) * exp(-t * 40.0) * 0.4)
 	_streams.door = _make(1.4, func(t, n): return _lp(n, 0.05) * 0.5 * (1.0 - t / 1.4) + sin(TAU * 70.0 * t) * 0.2 * (1.0 if t < 1.1 else 0.0))
 	_streams.beep = _make(0.12, func(t, n): return sin(TAU * 1040.0 * t) * (1.0 if t < 0.09 else 0.0) * 0.25)
+	_streams.missile = _make(1.0, func(t, n): return _lp(n, 0.35) * minf(1.0, t * 12.0) * exp(-t * 2.2) * 0.7 + sin(TAU * (180.0 + t * 120.0) * t) * exp(-t * 4.0) * 0.15)
+	_streams.locked = _make(0.3, func(t, n): return sin(TAU * (1320.0 if t < 0.12 else 1760.0) * t) * (1.0 if fmod(t, 0.15) < 0.11 else 0.0) * 0.22)
+	_streams.warn = _make(0.9, func(t, n): return signf(sin(TAU * 980.0 * t)) * (1.0 if fmod(t, 0.15) < 0.08 else 0.0) * 0.16)
+	_streams.warp = _make(3.4, func(t, n): return (_lp(n, 0.04 + t * 0.03) * 0.9 + sin(TAU * (60.0 + t * t * 40.0) * t) * 0.35) * minf(1.0, t * 0.8) * (1.0 - smoothstep(3.0, 3.4, t)))
+	_streams.warp_out = _make(1.6, func(t, n): return (_lp(n, 0.12) * 0.8 + sin(TAU * (300.0 - t * 160.0) * t) * 0.2) * exp(-t * 2.4))
+	_streams.ping = _make(0.7, func(t, n): return sin(TAU * 1480.0 * t) * exp(-t * 7.0) * 0.3 + sin(TAU * 2960.0 * t) * exp(-t * 12.0) * 0.08)
 	_streams.roll = _make(0.6, func(t, n): return _lp(n, 0.2) * sin(PI * t / 0.6) * 0.5)
 
 var _lp_state := 0.0

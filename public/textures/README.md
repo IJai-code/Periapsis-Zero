@@ -21,6 +21,7 @@ safe: that slot falls back to its generated version. `npm run textures:fetch
 | `earth_specular.jpg`    | Earth roughness — inverted on load | linear |
 | `earth_night.jpg`       | City lights (emissive)      | sRGB         |
 | `earth_clouds.png`      | Cloud sheet — **needs alpha** | sRGB       |
+| `earth_clouds_hd.jpg`   | Godot game's cloud cover, 4096 px, greyscale (NASA Blue Marble `cloud_combined_8192.tif`, resized with `sips`) | linear |
 | `moon_color.jpg`        | Lunar albedo                | sRGB         |
 | `moon_normal.jpg`       | Lunar normals               | linear       |
 | `milkyway.jpg`          | Skybox                      | sRGB         |

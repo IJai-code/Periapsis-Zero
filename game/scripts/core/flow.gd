@@ -16,6 +16,7 @@ const SCENES := {
 	"hearth": "res://scenes/act1_hearth.tscn",
 	"hearth_bay": "res://scenes/act1_bay.tscn",
 	"test_flight": "res://scenes/act1_test_flight.tscn",
+	"blackbox": "res://scenes/act1_blackbox.tscn",
 	"act1_end": "res://scenes/act1_end.tscn",
 }
 
@@ -36,6 +37,7 @@ const KEYS := {
 	"interact": [KEY_E, KEY_F], "boost": [KEY_SHIFT],
 	"fire": [KEY_K], "pause": [KEY_ESCAPE, KEY_P], "skip": [KEY_ENTER],
 	"crouch": [KEY_C, KEY_CTRL], "jump": [KEY_SPACE],
+	"lock": [KEY_T], "missile": [KEY_R], "warp": [KEY_G],
 }
 
 ## The mouse belongs to the game whenever something that steers by it is
@@ -44,6 +46,8 @@ const KEYS := {
 ## desktop it is captured again at once; a browser needs a click for that,
 ## so the HUD asks for one.
 func _process(_dt: float) -> void:
+	if on_web():
+		_adapt(_dt)
 	var want := false
 	if not get_tree().paused and not _busy:
 		for n in get_tree().get_nodes_in_group("mouse_look"):
@@ -85,6 +89,9 @@ func _ready() -> void:
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	InputMap.action_add_event("fire", click)
+	var right := InputEventMouseButton.new()
+	right.button_index = MOUSE_BUTTON_RIGHT
+	InputMap.action_add_event("missile", right)
 	var c := ConfigFile.new()
 	if c.load(SETTINGS) == OK:
 		for k in settings:
@@ -96,6 +103,8 @@ func _ready() -> void:
 	_music.stream = m
 	add_child(_music)
 	apply_settings()
+	if on_web():
+		_web_quality()
 	await get_tree().process_frame
 	# A link straight to a chapter, for testing: /play/#flight, #flight/strike.
 	if on_web():
@@ -108,6 +117,41 @@ func _ready() -> void:
 	# Whatever scene the game opened on fades up from black.
 	var title := get_tree().current_scene and get_tree().current_scene.scene_file_path == SCENES.title
 	Hud.fade_in(2.0 if title else 0.6)
+
+## The browser draws on whatever the visitor has, often a laptop's
+## integrated GPU at twice the screen's pixels: no MSAA, hard shadows from a
+## smaller map, and the 3D drawn at a resolution that follows the frame
+## rate (the 2D overlay stays sharp).
+var _res := 1.0
+var _fps_t := 0.0
+var _fps_n := 0
+
+func _web_quality() -> void:
+	var vp := get_viewport()
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	RenderingServer.directional_shadow_atlas_set_size(2048, true)
+	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+	var px := float(vp.size.x * vp.size.y)
+	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.5, 1.0)
+	vp.scaling_3d_scale = _res
+
+func _adapt(dt: float) -> void:
+	_fps_t += dt
+	_fps_n += 1
+	if _fps_t < 2.0:
+		return
+	var fps := _fps_n / _fps_t
+	_fps_t = 0.0
+	_fps_n = 0
+	if _busy or get_tree().paused:
+		return
+	if fps < 48.0 and _res > 0.5:
+		_res = maxf(0.5, _res - 0.1)
+	elif fps > 58.0 and _res < 1.0:
+		_res = minf(1.0, _res + 0.05)
+	get_viewport().scaling_3d_scale = _res
 
 ## Forward+ on desktop; the browser runs the Compatibility renderer, which has
 ## no SDFGI, volumetric fog or screen-space effects. Scenes ask this.
@@ -128,7 +172,7 @@ func go(scene: String) -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file(SCENES[scene])
 	# Remember the furthest chapter reached, for "Continue the journey".
-	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight"]:
+	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox"]:
 		set_progress("chapter", scene)
 	ambience(scene in ["corridor", "bridge", "hangar", "arrival", "hearth", "hearth_bay"])
 	await get_tree().process_frame
@@ -140,7 +184,7 @@ func go(scene: String) -> void:
 ## The chapter after this one, for "Skip this part" in the pause menu.
 func next_scene() -> String:
 	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "act1_end", "title"]
+	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "act1_end", "title"]
 	for i in order.size() - 1:
 		if SCENES[order[i]] == here:
 			return order[i + 1]

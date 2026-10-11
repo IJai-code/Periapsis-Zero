@@ -23,8 +23,10 @@ IN FLIGHT
   W / S     speed up, slow down
   A / D     slide         Q / E   roll
   Space/C   up, down      Shift   boost
-  Click / K fire          V       cockpit view
-  Double-tap A or D       barrel roll
+  Click / K fire guns     T       lock target
+  Right click / R  missiles at the lock
+  G         warp drive    V       wider view
+  Double-tap A or D  barrel roll (breaks a missile's lock)
 
   Esc / P   pause"""
 
@@ -35,6 +37,21 @@ const SPEAKERS := {
 	"Aster": Style.MUTE,
 	"Kestrel": Style.BONE,
 	"Tamsin": Color("#9fd8b8"),
+	"Rook": Color("#e0503f"),
+	"Hearth Traffic": Color("#8fd3e8"),
+	"Flight recorder": Style.MUTE,
+	"Hearth PA": Color("#8fd3e8"),
+}
+
+## Faces on the comms panel in flight (art/portraits, rendered from the
+## people themselves). A caller with no face shows a channel card instead.
+const PORTRAITS := {
+	"Captain Hale": "hale", "Renn Ayers": "renn", "Mara Voss": "mara", "Hearth Traffic": "crowd2",
+}
+const CHANNELS := {
+	"Captain Hale": "ASTER · BRIDGE", "Renn Ayers": "ASTER · ENGINEERING", "Mara Voss": "HEARTH · DOCKMASTER",
+	"Hearth Traffic": "HEARTH · TRAFFIC CONTROL", "Rook": "PRIVATE RELAY · ENCRYPTED", "Tamsin": "CONVOY · MERIDIAN",
+	"Flight recorder": "ASTER · BRIDGE CORE",
 }
 
 var root: Control
@@ -128,6 +145,13 @@ func _ready() -> void:
 	_obj_small.add_child(_obj_extra)
 	_obj_small.modulate.a = 0.0
 	_play_ui.add_child(_obj_small)
+
+	# Marks in the world: the waypoint and the thing you can use.
+	_marks = Control.new()
+	_marks.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marks.draw.connect(_draw_marks)
+	_play_ui.add_child(_marks)
 
 	# The objective, large, bottom centre, when it changes.
 	_obj_big = _rich(30, Style.sans_bold)
@@ -225,10 +249,107 @@ static func _keys(text: String) -> String:
 	return re.sub(text, "[bgcolor=#f4e8cf30][code] $1 [/code][/bgcolor]", true)
 
 func _process(dt: float) -> void:
+	_marks.queue_redraw()
+	if _comm and _comm.visible:
+		_comm_bars.queue_redraw()
 	if _help_left > 0.0:
 		_help_left -= dt
 		if _help_left <= 0.0:
 			_tween(_help, 0.0, 0.4)
+
+var _marks: Control
+var _focus: Node3D = null
+var _focus_t := 0.0
+var _way: Variant = null       # a Node3D or a Vector3
+var _way_label := ""
+var _way_h := 1.2
+
+## The thing the player can use right now: its prompt is drawn on it, a
+## keycap and the words, so it is where the player is already looking.
+func focus(target: Node3D) -> void:
+	if target != _focus:
+		_focus_t = 0.0
+	_focus = target
+
+func focus_text() -> String:
+	if _focus and is_instance_valid(_focus) and _focus.has_method("prompt_text"):
+		return _focus.prompt_text()
+	return ""
+
+## The objective's place in the world, marked like a map blip: a chevron
+## over it with the distance, pinned to the screen's edge when out of view.
+## Pass a Node3D (followed) or a Vector3; null clears it.
+func waypoint(target: Variant, label := "", height := 1.2) -> void:
+	_way = target
+	_way_label = label
+	_way_h = height
+
+func _draw_marks() -> void:
+	var cam := get_viewport().get_camera_3d()
+	if not cam or cinematic:
+		return
+	var vp := _marks.size
+	_focus_t += get_process_delta_time()
+	# The usable thing.
+	var text := focus_text()
+	if text != "" and is_instance_valid(_focus):
+		var at := _focus.global_position + Vector3(0, 0.45, 0)
+		var p := vp * Vector2(0.5, 0.62)
+		if not cam.is_position_behind(at):
+			p = cam.unproject_position(at)
+		p.x = clampf(p.x, 160.0, vp.x - 160.0)
+		p.y = clampf(p.y, 120.0, vp.y - 160.0)
+		var a := minf(1.0, _focus_t * 6.0)
+		var key := ""
+		var words := text
+		var m := RegEx.create_from_string("^\\[([^\\]]+)\\]\\s*").search(text)
+		if m:
+			key = m.get_string(1)
+			words = text.substr(m.get_end())
+		var fs := 22
+		var w := Style.sans_bold.get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var kw := 34.0 if key != "" else 0.0
+		var total := w + kw + (12.0 if key != "" else 0.0)
+		var o := p - Vector2(total / 2.0, 0)
+		_marks.draw_rect(Rect2(o - Vector2(14, 26), Vector2(total + 28, 40)), Color(0.02, 0.015, 0.04, 0.62 * a))
+		if key != "":
+			_marks.draw_rect(Rect2(o + Vector2(0, -20), Vector2(kw, 28)), Color(Style.BONE, 0.95 * a))
+			_marks.draw_string(Style.mono_bold, o + Vector2(0, 0), key, HORIZONTAL_ALIGNMENT_CENTER, kw, 18, Color(Style.VOID, a))
+			o.x += kw + 12.0
+		_marks.draw_string(Style.sans_bold, o + Vector2(0, 2), words, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(Style.BONE, a))
+	# The waypoint.
+	if _way == null or (_way is Node3D and not is_instance_valid(_way)):
+		return
+	var world: Vector3 = ((_way as Node3D).global_position if _way is Node3D else _way) + Vector3(0, _way_h, 0)
+	var dist := cam.global_position.distance_to(world)
+	# Close enough to see it: the marker steps aside (the prompt takes over).
+	if dist < 5.0:
+		return
+	var c := Color(Style.EMBER, 0.95)
+	var bob := sin(Time.get_ticks_msec() * 0.004) * 3.0
+	var inside := false
+	var q := Vector2.ZERO
+	if not cam.is_position_behind(world):
+		q = cam.unproject_position(world)
+		inside = Rect2(Vector2(60, 60), vp - Vector2(120, 120)).has_point(q)
+	if inside:
+		q.y += bob
+		_marks.draw_colored_polygon(PackedVector2Array([q + Vector2(-11, -16), q + Vector2(11, -16), q]), c)
+		_marks.draw_polyline(PackedVector2Array([q + Vector2(-11, -16), q + Vector2(11, -16), q, q + Vector2(-11, -16)]), Color(0, 0, 0, 0.5), 1.5, true)
+		var t := ("%s  ·  %d m" % [_way_label, int(dist)]) if _way_label != "" else "%d m" % int(dist)
+		_marks.draw_string_outline(Style.mono_bold, q + Vector2(-120, -26), t, HORIZONTAL_ALIGNMENT_CENTER, 240, 14, 5, Color(0, 0, 0, 0.7))
+		_marks.draw_string(Style.mono_bold, q + Vector2(-120, -26), t, HORIZONTAL_ALIGNMENT_CENTER, 240, 14, c)
+	else:
+		var local := cam.global_basis.inverse() * (world - cam.global_position)
+		var d := Vector2(local.x, -local.y)
+		if local.z > 0.0 and d.length() < 0.001:
+			d = Vector2(0, 1)
+		d = d.normalized()
+		var e := vp / 2.0 + d * Vector2(vp.x * 0.46, vp.y * 0.42)
+		var n := Vector2(-d.y, d.x)
+		_marks.draw_colored_polygon(PackedVector2Array([e + d * 16.0, e - d * 8.0 + n * 12.0, e - d * 8.0 - n * 12.0]), c)
+		_marks.draw_string_outline(Style.mono_bold, e - d * 34.0 + Vector2(-60, 5), "%d m" % int(dist), HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 5, Color(0, 0, 0, 0.7))
+		_marks.draw_string(Style.mono_bold, e - d * 34.0 + Vector2(-60, 5), "%d m" % int(dist), HORIZONTAL_ALIGNMENT_CENTER, 120, 13, c)
 
 func prompt(text: String, seconds := 0.0) -> void:
 	_help_text.text = _keys(text)
@@ -286,6 +407,7 @@ func _run_queue() -> void:
 		_sub.text = "[center][color=#%s]%s:[/color] %s[/center]" % [col.to_html(false), q.who, q.line]
 		_sub.visible_ratio = 0.0
 		Sfx.play("comm", -16.0)
+		_comm_show(q.who)
 		_tween(_sub, 1.0, 0.2)
 		create_tween().tween_property(_sub, "visible_ratio", 1.0, minf(1.0, q.line.length() * 0.018))
 		await get_tree().create_timer(q.secs, true, false, true).timeout
@@ -295,8 +417,105 @@ func _run_queue() -> void:
 			return
 		if _queue.is_empty():
 			_tween(_sub, 0.0, 0.3)
+			if _comm:
+				_tween(_comm, 0.0, 0.4)
 	if gen == _gen:
 		_speaking = false
+
+var _flight := false
+var _comm: PanelContainer
+var _comm_face: TextureRect
+var _comm_none: Label
+var _comm_name: Label
+var _comm_chan: Label
+var _comm_bars: Control
+
+## In flight the subtitles sit higher (the ship's gauge is at the bottom)
+## and whoever is talking shows on the comms panel, bottom left.
+func flight_layout(on: bool) -> void:
+	_flight = on
+	_sub.offset_bottom = -232.0 if on else -96.0
+	_obj_big.offset_bottom = -330.0 if on else -210.0
+	if not on and _comm:
+		_comm.visible = false
+
+func _comm_show(who: String) -> void:
+	if not _flight or not (PORTRAITS.has(who) or CHANNELS.has(who)):
+		if _comm:
+			_tween(_comm, 0.0, 0.3)
+		return
+	if not _comm:
+		_comm = PanelContainer.new()
+		_comm.add_theme_stylebox_override("panel", Style.panel(10))
+		_comm.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		_comm.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_comm.offset_left = 40
+		_comm.offset_bottom = -40
+		_comm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 14)
+		_comm.add_child(h)
+		var frame := Control.new()
+		frame.custom_minimum_size = Vector2(112, 112)
+		h.add_child(frame)
+		_comm_face = TextureRect.new()
+		_comm_face.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_comm_face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_comm_face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		_comm_face.modulate = Color(0.85, 0.95, 1.05)
+		frame.add_child(_comm_face)
+		_comm_none = Style.label("NO VIDEO", 12, Style.MUTE, Style.mono_bold)
+		_comm_none.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_comm_none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_comm_none.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		frame.add_child(_comm_none)
+		var scan := ColorRect.new()
+		scan.set_anchors_preset(Control.PRESET_FULL_RECT)
+		scan.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sm := ShaderMaterial.new()
+		var sh := Shader.new()
+		sh.code = "shader_type canvas_item;\nvoid fragment(){ float l = step(0.5, fract(UV.y * 56.0 + TIME * 0.6)); COLOR = vec4(0.05, 0.12, 0.16, 0.18 * l + 0.04); }"
+		sm.shader = sh
+		scan.material = sm
+		frame.add_child(scan)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 4)
+		v.custom_minimum_size = Vector2(220, 0)
+		h.add_child(v)
+		v.add_child(Style.label("COMMS", 11, Style.EMBER, Style.mono_bold))
+		_comm_name = Style.label("", 20, Style.BONE, Style.sans_bold)
+		v.add_child(_comm_name)
+		_comm_chan = Style.label("", 11, Style.MUTE, Style.mono)
+		v.add_child(_comm_chan)
+		_comm_bars = Control.new()
+		_comm_bars.custom_minimum_size = Vector2(200, 30)
+		_comm_bars.draw.connect(func():
+			var n := 22
+			for i in n:
+				var k := 0.15
+				if _speaking and _sub.visible_ratio < 1.0 or _speaking and fmod(Time.get_ticks_msec() * 0.001, 0.6) < 0.45:
+					k = 0.2 + 0.8 * absf(sin(Time.get_ticks_msec() * 0.011 + i * 1.7) * sin(Time.get_ticks_msec() * 0.004 + i * 0.6))
+				var hgt := 28.0 * k
+				_comm_bars.draw_rect(Rect2(Vector2(i * 9.0, 15.0 - hgt / 2.0), Vector2(5.0, hgt)), Color(Style.ION, 0.85)))
+		v.add_child(_comm_bars)
+		_comm.modulate.a = 0.0
+		_play_ui.add_child(_comm)
+	var face: String = PORTRAITS.get(who, "")
+	_comm_face.texture = load("res://art/portraits/%s.png" % face) if face != "" else null
+	_comm_none.visible = face == ""
+	_comm_none.text = "SIGNAL ENCRYPTED" if who == "Rook" else "AUDIO ONLY"
+	_comm_name.text = who
+	_comm_name.add_theme_color_override("font_color", SPEAKERS.get(who, Style.BONE))
+	_comm_chan.text = CHANNELS.get(who, "OPEN CHANNEL")
+	_comm.visible = true
+	_tween(_comm, 1.0, 0.2)
+
+## Something a passer-by says as the player goes by: shown only when no
+## one in the story is talking.
+func overheard(line: String) -> void:
+	if _speaking or cinematic or not _queue.is_empty():
+		return
+	say("Passer-by", line, 3.2)
 
 func silence() -> void:
 	_gen += 1
@@ -357,6 +576,37 @@ func mission_passed(title: String, paid: int, to_debt: int, debt_left: int) -> v
 	Sfx.play("click", -6.0)
 	await get_tree().create_timer(4.0, true, false, true).timeout
 	await _tween(box, 0.0, 0.8).finished
+	box.queue_free()
+
+## SHIP LOST: the failure title and why, then a moment before the retry.
+## Awaitable.
+func mission_failed(reason: String) -> void:
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 8)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var head := Style.label("MISSION FAILED", 84, Style.EMBER, Style.sans_bold)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(head, 10, 0.5)
+	box.add_child(head)
+	var why := Style.label(reason, 26, Style.BONE, Style.sans)
+	why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(why)
+	box.add_child(why)
+	var again := Style.label("Retrying from the last checkpoint", 16, Style.MUTE, Style.mono)
+	again.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(again)
+	box.add_child(again)
+	box.modulate.a = 0.0
+	root.add_child(box)
+	root.move_child(box, _fade.get_index())
+	Sfx.play("big", -6.0, 0.7)
+	await _tween(box, 1.0, 0.6).finished
+	await get_tree().create_timer(3.0, true, false, true).timeout
+	await _tween(box, 0.0, 0.6).finished
 	box.queue_free()
 
 static func _thousands(n: int) -> String:
@@ -510,6 +760,9 @@ func reset() -> void:
 	for c in [_obj_small, _obj_big, _sub, _help, _card, _narr]:
 		c.modulate.a = 0.0
 	_obj_plain = ""
+	flight_layout(false)
+	_focus = null
+	_way = null
 	cinematic = false
 	_play_ui.modulate.a = 1.0
 	for b in _bars:

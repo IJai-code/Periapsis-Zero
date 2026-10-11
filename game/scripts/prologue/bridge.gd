@@ -41,7 +41,9 @@ func _ready() -> void:
 		get_tree().create_timer(1.0).timeout.connect(func(): _walker.sit(chair))
 	Flow.music(false)
 	_enter()
-	if "--talk" in OS.get_cmdline_user_args():
+	# For checks: `-- --talk`, or /play/#bridge/talk in the browser.
+	if "--talk" in OS.get_cmdline_user_args() or Flow.beat == "talk":
+		Flow.beat = ""
 		_walker.position = Vector3(0.3, 0.1, -6.6)
 		_walker.face(Vector3(0.0, 1.6, -8.1))
 		_briefing()
@@ -49,6 +51,7 @@ func _ready() -> void:
 func _enter() -> void:
 	await get_tree().create_timer(0.8).timeout
 	Hud.objective("Report to [Captain Hale]", "On the bridge, by the window")
+	Hud.waypoint(_hale, "CAPTAIN HALE", 2.15)
 
 func _briefing() -> void:
 	if _talked:
@@ -57,6 +60,7 @@ func _briefing() -> void:
 	_talk.set_meta("prompt", "")
 	_talk.queue_free()
 	Hud.clear_prompt()
+	Hud.waypoint(null)
 	_walker.enabled = false
 	_walker.face(_hale.global_position + Vector3(0, 1.6, 0))
 	var me := _walker.global_position
@@ -71,18 +75,23 @@ func _briefing() -> void:
 	Hud.letterbox(true)
 	cam.frame(my_head, hale_face)
 	_hale.talk(true)
-	await Hud.say("Captain Hale", "There's my escort. Welcome aboard the Aster.")
-	await Hud.say("Captain Hale", "Six ships, and our holds are full of vaccine for the lunar colonies. Ninety minutes to the Moon corridor.")
+	await Hud.say("Captain Hale", "There's my escort. Elias Hale. Welcome aboard the Aster.")
+	await Hud.say("Captain Hale", "Six ships. Vaccine for the Tycho outbreak, forty thousand doses. Ninety minutes to the Moon corridor.")
+	await Hud.say("Captain Hale", "Mara Voss vouched for you. She flew on my wing for eleven years, so that's worth something. Don't make her a liar.")
 	_hale.talk(false)
 	cam.frame(my_head, renn_face, -1.0)
 	_renn.talk(true)
-	await Hud.say("Renn Ayers", "And the Hollow have hit three convoys this month. Out past the Moon, all of them.")
+	await Hud.say("Renn Ayers", "The Hollow have hit three convoys this month, Captain. Medical cargo, every one. Out past the Moon.")
 	_renn.talk(false)
 	cam.frame(my_head, hale_face)
 	_hale.talk(true)
-	await Hud.say("Captain Hale", "None of them on our route, Renn. Nobody knows our route.")
-	await Hud.say("Captain Hale", "Your Kestrel's on the flight deck, starboard hatch. Fly close and watch the sun.")
+	await Hud.say("Captain Hale", "Which is why we filed a false flight plan and told nobody the real one. Nobody, Renn. Not even the convoy.")
+	await Hud.say("Captain Hale", "Your Kestrel's on the flight deck, starboard hatch. Fly close, keep the sun behind you, and if anything shows up without a transponder, kill it.")
 	_hale.talk(false)
+	cam.frame(my_head, renn_face, -1.0)
+	_renn.talk(true)
+	await Hud.say("Renn Ayers", "...Nobody. Right.")
+	_renn.talk(false)
 	cam.done()
 	Hud.letterbox(false)
 	_walker.enabled = true
@@ -90,6 +99,7 @@ func _briefing() -> void:
 	_renn.face(_renn.global_position + Vector3(0, 0, -5))
 	_hatch.set_meta("prompt", "[E] Open the hatch to the flight deck")
 	Hud.objective("Go to the [flight deck]", "Starboard hatch")
+	Hud.waypoint(_hatch, "FLIGHT DECK")
 
 func _leave() -> void:
 	if not _talked or _leaving:
@@ -97,5 +107,6 @@ func _leave() -> void:
 	_leaving = true
 	_walker.enabled = false
 	Hud.clear_prompt()
+	Hud.waypoint(null)
 	Sfx.play("door", -2.0)
 	Flow.go("hangar")

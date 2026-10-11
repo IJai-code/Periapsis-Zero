@@ -27,7 +27,9 @@ func _script() -> void:
 	Hud.prompt("[W][A][S][D] Walk      [Shift] Run\n[Mouse] Look around      Click the game to take control", 10.0)
 	await Hud.say("Captain Hale", "All hands, this is the captain. We leave Harbor orbit in ten minutes.")
 	Hud.objective("Report to the [bridge]", "Forward, through deck 2")
-	await Hud.say("Captain Hale", "Six ships, medical cargo, Moon by Thursday. Escort pilot to the bridge, please.")
+	Hud.waypoint(_door, "BRIDGE")
+	await Hud.say("Captain Hale", "Forty thousand doses for Tycho in our holds. The outbreak there won't wait for us, so we don't wait for anyone.")
+	await Hud.say("Captain Hale", "Escort pilot to the bridge, please. Before I change my mind about hiring you.")
 
 func _process(_dt: float) -> void:
 	if not _walker:
@@ -41,8 +43,9 @@ func _process(_dt: float) -> void:
 
 func _window() -> void:
 	Hud.prompt("Look out of the window", 4.0)
-	await Hud.say("Renn Ayers", "Engineering here. You're the new escort? The captain wants you on the bridge.")
-	await Hud.say("Renn Ayers", "I'll meet you up there. Your Kestrel's fuelled and warm.")
+	await Hud.say("Renn Ayers", "Engineering. You're the new escort? Renn Ayers. I keep this old girl in one piece.")
+	await Hud.say("Renn Ayers", "Don't mind the clicking on the comm. I've got the long-range set open tonight. Checking the relays.")
+	await Hud.say("Renn Ayers", "Go on up, the captain hates waiting. I'll be right behind you.")
 
 func _leave() -> void:
 	if _leaving:
@@ -50,6 +53,7 @@ func _leave() -> void:
 	_leaving = true
 	_walker.enabled = false
 	Hud.clear_prompt()
+	Hud.waypoint(null)
 	Sfx.play("door", -2.0)
 	Hud.silence()
 	Flow.go("bridge")

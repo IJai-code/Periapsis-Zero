@@ -25,6 +25,7 @@ Shot="*res://scripts/tools/shot.gd"
 WalkTest="*res://scripts/tools/walktest.gd"
 FlyTest="*res://scripts/tools/flytest.gd"
 HudTest="*res://scripts/tools/hudtest.gd"
+CrowdTest="*res://scripts/tools/crowdtest.gd"
 
 [display]
 

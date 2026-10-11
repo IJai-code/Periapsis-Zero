@@ -48,11 +48,14 @@ func _ready() -> void:
 	for z in kit_range(-4.0, -40.0, -8.0):
 		var s := OmniLight3D.new()
 		s.position = Vector3(0.0, 7.0, z)
-		s.omni_range = 9.0
+		s.omni_range = 9.0 if hq else 12.0
 		s.light_energy = 1.5
 		s.light_color = Color(1.0, 0.92, 0.82)
 		s.shadow_enabled = hq and int(z) % 16 == 0
 		add_child(s)
+		# The browser's renderer pays per light per object: no shop lights.
+		if not hq:
+			continue
 		var shop := OmniLight3D.new()
 		shop.position = Vector3(7.5, 2.2, z + 0.4)
 		shop.omni_range = 5.0

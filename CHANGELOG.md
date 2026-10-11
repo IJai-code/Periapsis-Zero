@@ -5,6 +5,57 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A story worth playing, fleet-grade flight, and no walking through benches, 11 October 2026
+
+- **A plot with a culprit.** Somebody sold the Aster's route; the game now
+  plants who, and Act One ends by naming them (docs/story.md has the whole
+  outline).
+  - **Characters with something to say:** Hale's false flight plan, Renn's
+    "long-range set open tonight", Mara's grief, Rook's first call.
+  - **A new mission, Black Box:** warp to the Aster's grave, track her bridge
+    recorder by its signal, pull it aboard, survive the ships that come for
+    it, and play the recording.
+  - **The station talks:** a public address, and passers-by who say things as
+    you go by.
+- **Flight after the instruments of a real fleet:**
+  - **Three layers:** shield (it comes back), armour and structure, for you
+    and every ship you fight, shown as three rings.
+  - **A capacitor** that the guns and the boost draw on.
+  - **Target locking:** hold the reticle on a ship or press T. The guns
+    converge on a locked target's lead.
+  - **Missiles:** right click or R. The gunship fires them back; a barrel
+    roll breaks their lock.
+  - **The overview:** every contact by range. A **combat log** reads every
+    hit.
+  - **Warp drive** (G) with a tunnel, between grids.
+  - **Station traffic** on the lanes, Hearth Traffic Control, and weapons
+    locked near the station.
+- **Comms:** whoever is talking in flight appears on a comms panel with
+  their face, channel and voice bars.
+- **Prompts where you look.** "E Talk to Captain Hale" is drawn on Hale, not
+  in a corner, and every objective has a waypoint marker with its distance.
+- **The crowd walks round things.** Paths come from a navigation mesh baked
+  from the concourse's own collision. People give way to each other and to
+  you, and never share a bench with you. Checked: no one stands inside
+  anything solid in two minutes of station time.
+- **Earth from orbit looks like Earth:**
+  - **Clouds:** NASA's cloud cover at 4K, where it used to be 1K.
+  - **Surface:** deep oceans, haze thickening to the limb, an orange
+    terminator, and cloud shadow.
+  - **Framing:** scenes show the full curve.
+- **The cockpit view is gone;** it sat outside the canopy. V now pulls the
+  chase camera back for a wider view.
+- **The browser build is lighter:**
+  - **3D resolution** follows the frame rate.
+  - **No MSAA.**
+  - **Smaller, hard-edged shadows.**
+  - **Fewer lights on the concourse.**
+  - **Shots** are drawn in one batch.
+- **The test suite now covers:**
+  - **Every scene:** runs 10 s without a script error.
+  - **The crowd.**
+  - **Black Box,** played through end to end by a scripted pilot.
+
 ### Structural fixes: collisions, mouse, text, steering, and a test suite, 11 October 2026
 
 - **Ships no longer fly through things.** The Kestrel sweeps a sphere its

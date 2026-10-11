@@ -46,7 +46,28 @@ function run(scene, args, until, ms = 120000) {
   })
 }
 
+const SCENES = ['title', 'prologue_intro', 'prologue_corridor', 'prologue_bridge', 'prologue_hangar', 'prologue_flight',
+  'prologue_arrival', 'act1_hearth', 'act1_bay', 'act1_test_flight', 'act1_blackbox', 'act1_end']
+
 const checks = [
+  // Every scene loads and runs ten seconds without a script error.
+  ...SCENES.map((scene) => [`runs ${scene}`, async () => {
+    const out = await run(scene, ['--shot', join(tmpdir(), `pz-smoke-${scene}.png`), '--at', '10'], /shot:/, 60000)
+    const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
+    return [/shot:/.test(out) && errors.length === 0, errors.length ? errors.slice(0, 2).join('; ') : (/shot:/.test(out) ? 'no script errors' : 'did not finish')]
+  }]),
+  ['crowd never walks through anything', async () => {
+    const out = await run('act1_hearth', ['--crowdtest'], /CROWDTEST frames/)
+    const m = out.match(/CROWDTEST frames (\d+) inside solid (\d+)/)
+    const sees = /probe sees bench true/.test(out)
+    return [Boolean(m) && sees && Number(m[2]) === 0 && Number(m[1]) > 1000, m ? `${m[0]}, probe ${sees ? 'sees' : 'MISSES'} a bench` : 'no result']
+  }],
+  ['Black Box plays through: find, tractor, fight, reveal', async () => {
+    const out = await run('act1_blackbox', ['--beat', 'field', '--autofight'], /BLACKBOX (reveal|ship lost)/, 240000)
+    const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
+    const ok = /BLACKBOX recorder aboard/.test(out) && /BLACKBOX reveal after 4 kills/.test(out) && errors.length === 0
+    return [ok, errors.length ? errors[0] : ((out.match(/BLACKBOX [^\n]*/g) ?? ['no result']).join(', '))]
+  }],
   ['HUD text survives cutscenes and clears', async () => {
     const out = await run('ship_preview', ['--hudtest'], /HUDTEST \d+ failed/)
     const m = out.match(/HUDTEST (\d+) failed/)

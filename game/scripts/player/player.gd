@@ -178,10 +178,7 @@ func _look() -> void:
 				target = it
 	if target != _focus:
 		_focus = target
-		if _focus:
-			Hud.prompt((_focus as Interactable).prompt_text())
-		else:
-			Hud.clear_prompt()
+		Hud.focus(target)
 
 func _set_crouch(on: bool) -> void:
 	if not on:
@@ -216,6 +213,8 @@ func sit(seat: Node3D) -> void:
 func stand() -> void:
 	seated = false
 	if _seat:
+		if _seat.get_meta("taken", null) == self:
+			_seat.remove_meta("taken")
 		global_position = _seat.global_position + _seat.global_basis * Vector3(0, 0, -0.7)
 	_seat = null
 

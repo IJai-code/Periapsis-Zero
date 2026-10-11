@@ -32,6 +32,7 @@ func _ready() -> void:
 	Flow.music(false)
 	await get_tree().create_timer(0.8).timeout
 	Hud.objective("Board your [Kestrel]", "The ladder at her cockpit, port side")
+	Hud.waypoint(_board, "KESTREL")
 	Hud.say("Mara Voss", "Berth nine. The yard patched the holes. Try not to make new ones.")
 
 func _launch() -> void:
@@ -40,6 +41,7 @@ func _launch() -> void:
 	_gone = true
 	_player.enabled = false
 	Hud.clear_prompt()
+	Hud.waypoint(null)
 	await Hud.fade_out(0.5)
 	Hud.clear_objective()
 	var cam := Camera3D.new()

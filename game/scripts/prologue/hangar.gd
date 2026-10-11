@@ -31,10 +31,11 @@ func _script() -> void:
 	if _gone:
 		return
 	Hud.objective("Board your [Kestrel]", "The ladder at her cockpit, port side")
-	await Hud.say("Renn Ayers", "Flight deck, this is engineering. She's on the cradle, fuelled and warm.")
+	Hud.waypoint(_board, "KESTREL")
+	await Hud.say("Renn Ayers", "Flight deck, engineering. She's on the cradle, fuelled and warm. I gave her guns a once-over myself.")
 	if _gone:
 		return
-	await Hud.say("Renn Ayers", "Bring her back without holes in her. I'm the one who patches them.")
+	await Hud.say("Renn Ayers", "And hey. Whatever happens out there, it's not on you. You're one fighter. Remember that.")
 
 func _launch() -> void:
 	if _gone:
@@ -42,6 +43,7 @@ func _launch() -> void:
 	_gone = true
 	_walker.enabled = false
 	Hud.clear_prompt()
+	Hud.waypoint(null)
 	Hud.silence()
 	await Hud.fade_out(0.5)
 	Hud.clear_objective()

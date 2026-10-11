@@ -110,7 +110,7 @@ func _film() -> void:
 		tw.tween_property(r, "position", Vector3(30 + i * 6, -22, -660), 6.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_move(cam, Vector3(2, 6, 44), Vector3(0, 4, 34), Vector3(0, -2, -100), 7.0, Vector3(30, -20, -700))
 	Hud.fade_in(0.8)
-	Hud.narrate("Since spring, something has been hunting the convoys. The lanes call them [the Hollow].", 4.5)
+	Hud.narrate("Since spring, something has been hunting the convoys. No transponders, no demands, no survivors. The lanes call them [the Hollow].", 5.5)
 	await get_tree().create_timer(4.0).timeout
 	if _skipping: return
 	Fx.explode(_shot, victim.global_position + Vector3(0, 5, 0), 40.0)
@@ -146,7 +146,7 @@ func _film() -> void:
 	_shot.add_child(aster)
 	_move(cam, Vector3(-150, 30, 160), Vector3(-110, 15, 60), Vector3(0, 0, 0), 9.0)
 	Hud.fade_in(1.0)
-	Hud.narrate("Tonight the [Aster] leaves Harbor orbit with six ships and a hold full of vaccine. She needs an escort.", 5.0)
+	Hud.narrate("Tonight the [Aster] carries vaccine to an outbreak on the Moon. Six ships, one escort, and a route nobody else knows.", 5.5)
 	await get_tree().create_timer(7.5).timeout
 	if _skipping: return
 	await Hud.fade_out(1.2)

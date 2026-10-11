@@ -10,7 +10,10 @@ static func make(at: Vector3, yaw_deg := 0.0, label := "Sit down") -> Seat:
 	return s
 
 func interact() -> void:
+	if has_meta("taken"):
+		return
 	for p in get_tree().get_nodes_in_group("player"):
 		if not p.seated:
+			set_meta("taken", p)
 			p.sit(self)
 	activated.emit()

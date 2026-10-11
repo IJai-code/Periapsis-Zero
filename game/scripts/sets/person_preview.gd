@@ -58,8 +58,11 @@ func _ready() -> void:
 		cam.position = Vector3(4.2, 1.0, -5.0)
 		cam.look_at(Vector3(0.0, 0.95, -5.0))
 		return
-	cam.position = Vector3(0.12, 1.93, -4.15) if close else Vector3(0.35, 1.7, -2.6)
-	cam.look_at(Vector3(0.0, 1.88, -5.0) if close else Vector3(0.0, 1.45, -5.0))
+	# `--eye 1.62`: the face's height, for framing shorter people close.
+	var e := args.find("--eye")
+	var eye: float = float(args[e + 1]) if e >= 0 else 1.88
+	cam.position = Vector3(0.12, eye + 0.05, -4.15) if close else Vector3(0.35, 1.7, -2.6)
+	cam.look_at(Vector3(0.0, eye, -5.0) if close else Vector3(0.0, 1.45, -5.0))
 	if close:
 		var key := OmniLight3D.new()
 		key.position = Vector3(0.6, 2.2, -4.0)

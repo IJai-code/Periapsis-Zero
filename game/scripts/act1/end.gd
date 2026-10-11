@@ -45,17 +45,24 @@ func _ready() -> void:
 	v.grow_vertical = Control.GROW_DIRECTION_BOTH
 	v.add_theme_constant_override("separation", 14)
 	root.add_child(v)
-	v.add_child(Style.label("ACT ONE · TO BE CONTINUED", 16, Style.EMBER, Style.mono_bold))
-	v.add_child(Style.label("Hearth knows your name now.", 52, Style.BONE, Style.sans_bold))
+	var done: bool = Flow.progress("act1_blackbox", false)
+	v.add_child(Style.label("ACT ONE COMPLETE · ACT TWO IN PRODUCTION" if done else "ACT ONE · TO BE CONTINUED", 16, Style.EMBER, Style.mono_bold))
+	v.add_child(Style.label("Renn Ayers sold the Aster." if done else "Hearth knows your name now.", 52, Style.BONE, Style.sans_bold))
+	if done:
+		v.add_child(Style.label("Rook has her. And Rook owns your debt.", 28, Style.BONE, Style.sans))
 	v.add_child(Style.label("₡ %s in hand  ·  ₡ %s still owed to Rook" % [Hud._thousands(Flow.credits()), Hud._thousands(Flow.debt())], 22, Style.MUTE, Style.mono))
-	var note := Style.label("The rest of Act One is being rebuilt for this version. Until then, the story carries on in the browser edition: courier runs, the Drift, Rook, and the Hollow.", 20, Style.MUTE)
+	var note := Style.label("Act Two, Renn, is being built. Until then there is more to fly in the browser edition's open career: courier runs, the Drift, and the Hollow.", 20, Style.MUTE)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(620, 0)
 	v.add_child(note)
 	var go := Button.new()
-	go.text = "Continue the story in the browser edition"
+	go.text = "Open the browser edition's career"
 	go.pressed.connect(Flow.open_act_one)
 	v.add_child(go)
+	var box := Button.new()
+	box.text = "Fly Black Box again"
+	box.pressed.connect(func(): Flow.go("blackbox"))
+	v.add_child(box)
 	var again := Button.new()
 	again.text = "Fly the test flight again"
 	again.pressed.connect(func(): Flow.go("test_flight"))
