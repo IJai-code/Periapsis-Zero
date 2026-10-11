@@ -79,7 +79,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
                   <a className="tt-primary tt-begin control" href={`${BASE}play/index.html`}>Begin your journey →</a>
                   <a className="tt-secondary control" href={`${DESKTOP}${download.file}`}>Download for {download.name}</a>
                 </div>
-                <p className="tt-downloads">Plays in the browser, about 55 MB the first time. Also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a> · <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> · <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> <span>(early builds, unsigned)</span></p>
+                <p className="tt-downloads">Plays in the browser, about 55 MB the first time. Or download for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> or <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a>. <a className="tt-help-link" href="#install" onClick={(e) => { e.preventDefault(); document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' }) }}>How to open the download</a></p>
                 <p className="tt-career">{save ? <>Already flying? <button onClick={onPlay}>Continue your career</button> or <button onClick={newGame}>start a new pilot</button>.</> : <>Played the prologue? <button onClick={newGame}>Start Act One</button>.</>}</p>
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
               </>}
@@ -87,6 +87,28 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
             <div className="tt-hero-coordinate" aria-hidden>THE KESTREL<br />ESCORT FIGHTER / HARBOR ORBIT</div>
           </section>
           <section className="tt-briefing"><div><span className="tt-eyebrow">The prologue and Act One / about 50 minutes</span><h2>How it starts.</h2><p>A short film sets the scene. Then it is yours: every control is shown the moment you need it. Lock targets, fire missiles, manage your capacitor and warp between grids, with an overview of everything in space.</p></div><ol><li><b>01</b><span><strong>The Aster</strong>Walk the convoy freighter. Meet her captain and her engineer.</span></li><li><b>02</b><span><strong>The ambush</strong>Fly escort, fight the Hollow, lose the Aster, wake up at Hearth owing a loan shark everything.</span></li><li><b>03</b><span><strong>The black box</strong>Warp to the wreck, find the recorder before Rook&rsquo;s people do, and learn who sold you.</span></li><li><b>04</b><span><strong>Down the well</strong>Fly first person through Earth&rsquo;s abandoned pillar country, a drowned city and a waterfall, to the one person who can name Rook&rsquo;s partner.</span></li></ol></section>
+          {!isPhone && <section className="tt-install" id="install" aria-labelledby="install-title">
+            <header><span className="tt-eyebrow">Installing the download</span><h2 id="install-title">Opening the game on your computer</h2><p>The desktop builds are not signed yet, so your computer will warn you the first time you open one. It is safe to continue. Here is how, once per download.</p></header>
+            <div className="tt-install-grid">
+              <article><h3>Mac</h3><ol>
+                <li>Open the downloaded zip and drag <b>Periapsis Zero</b> into Applications.</li>
+                <li>Open it. When macOS says it could not verify the app, click <b>Done</b>.</li>
+                <li>Go to <b>System Settings</b>, then <b>Privacy &amp; Security</b>. Scroll to Security and click <b>Open Anyway</b>, then confirm.</li>
+                <li>Open the game again and choose <b>Open</b>.</li>
+              </ol><p className="tt-install-alt">No Open Anyway button? In Terminal run <code>xattr -dr com.apple.quarantine "/Applications/Periapsis Zero.app"</code></p></article>
+              <article><h3>Windows</h3><ol>
+                <li>If your browser flags the download, choose <b>Keep</b>.</li>
+                <li>Right-click the zip and choose <b>Extract All</b>.</li>
+                <li>Run <b>PeriapsisZero.exe</b>. If Windows shows &ldquo;Windows protected your PC&rdquo;, click <b>More info</b>, then <b>Run anyway</b>.</li>
+              </ol></article>
+              <article><h3>Linux</h3><ol>
+                <li>Extract it: <code>tar -xzf PeriapsisZero-linux.tar.gz</code></li>
+                <li>Make it runnable: <code>chmod +x PeriapsisZero.x86_64</code></li>
+                <li>Start it: <code>./PeriapsisZero.x86_64</code> (needs a graphics driver with Vulkan).</li>
+              </ol></article>
+            </div>
+            <p className="tt-install-note">Your progress is kept when you install a newer version. Once the developer account is set up and the builds are signed, these steps will no longer be needed: the game will open like any other app.</p>
+          </section>}
           <section className="tt-paths" aria-label="Choose your next flight">
             <button className="tt-path control" onClick={() => setTab('training')}><img src={`${BASE}game/shot-transfer.webp`} alt="Earth beneath an orbital flight" /><span className="tt-eyebrow">Same career / real physics</span><h2>Train to fly</h2><p>Five simulator licences. New suits. ₡ 27,000 in career bonuses.</p><strong>Open flight school →</strong></button>
             <button className="tt-path control" onClick={onSquadron}><img src={`${BASE}game/shot-flight.webp`} alt="A ship flying through the Earth-Moon system" /><span className="tt-eyebrow">Combat / separate wave mode</span><h2>Hold the sky</h2><p>Squadron combat with AI wingmates or friends by invitation code.</p><strong>Enter Squadron →</strong></button>

@@ -90,3 +90,47 @@
 .tt-career button { background: none; border: 0; padding: 0; color: var(--color-ion); font: inherit; text-decoration: underline; cursor: pointer; }
 .tt-hero { background-position: 70% center; }
 .tt-hero p.tt-downloads, .tt-hero p.tt-career { font-size: 14px; margin-bottom: 0; }
+
+/* Room to breathe: wider gutters, more space between sections and lines. */
+.tt-bar { padding: 18px 40px; }
+.tt-content { padding: 40px 48px 0 8px; }
+.tt-fresh .tt-content { padding: 40px 48px 0; }
+.tt-hero { padding: 72px 64px; }
+.tt-fresh .tt-hero { min-height: 680px; }
+.tt-hero-copy { width: min(520px,100%); }
+.tt-hero h1 { margin: 22px 0 28px; }
+.tt-hero .tt-hook { margin-bottom: 20px; line-height: 1.4; }
+.tt-hero p { margin-bottom: 32px; line-height: 1.6; }
+.tt-actions { gap: 14px; }
+.tt-hero p.tt-downloads { margin-top: 26px; font-size: 14px; line-height: 1.7; max-width: 46ch; }
+.tt-hero p.tt-career { margin-top: 10px; }
+.tt-help-link { display: inline-block; margin-left: 4px; color: var(--color-ion) !important; font-weight: 600 !important; }
+.tt-briefing { gap: 64px; padding: 72px 0; margin: 0; }
+.tt-briefing h2 { font-size: 30px; margin: 12px 0 16px; }
+.tt-briefing p { font-size: 16px; line-height: 1.75; max-width: 46ch; }
+.tt-briefing ol { gap: 26px; }
+.tt-briefing li span { font-size: 15px; line-height: 1.65; }
+.tt-paths { gap: 28px; margin: 72px 0; }
+.tt-path { padding-bottom: 30px; }
+.tt-path > :not(img) { margin-left: 28px; margin-right: 28px; }
+.tt-path .tt-eyebrow { margin-top: 26px; }
+.tt-path p { font-size: 15px; margin-bottom: 18px; }
+.tt-foot { padding: 40px 0 48px; gap: 12px 28px; }
+
+/* Installing the download. */
+.tt-install { padding: 72px 0; border-bottom: 1px solid color-mix(in srgb,var(--color-hud) 15%,transparent); scroll-margin-top: 90px; }
+.tt-install header { max-width: 640px; margin-bottom: 36px; }
+.tt-install h2 { font-size: 30px; margin: 12px 0 14px; }
+.tt-install header p { font-size: 16px; line-height: 1.7; opacity: .8; }
+.tt-install-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; }
+.tt-install article { padding: 28px; border: 1px solid color-mix(in srgb,var(--color-hud) 18%,transparent); border-radius: 4px; }
+.tt-install h3 { margin: 0 0 18px; font-size: 20px; color: var(--color-ember); }
+.tt-install ol { margin: 0; padding-left: 20px; display: grid; gap: 14px; }
+.tt-install li { font-size: 15px; line-height: 1.6; }
+.tt-install b { color: var(--color-hud); }
+.tt-install code { font: 13px var(--font-mono); padding: 2px 6px; border-radius: 3px; background: color-mix(in srgb,var(--color-hud) 9%,transparent); overflow-wrap: anywhere; }
+.tt-install-alt { margin: 20px 0 0; font-size: 13px; line-height: 1.7; opacity: .75; }
+.tt-install-note { margin: 32px 0 0; max-width: 70ch; padding: 18px 22px; font-size: 14px; line-height: 1.7; border-left: 2px solid var(--color-ion); background: color-mix(in srgb,var(--color-ion) 5%,transparent); }
+@media(max-width:1100px) { .tt-install-grid { grid-template-columns: 1fr; } .tt-content { padding: 32px 28px 0 0; } .tt-hero { padding: 48px 40px; } }
+@media(max-width:800px) { .tt-content, .tt-fresh .tt-content { padding: 18px; } .tt-hero { padding: 36px 24px; } .tt-briefing { grid-template-columns: 1fr; gap: 32px; padding: 48px 0; } .tt-install, .tt-paths { padding: 48px 0; margin: 0; } .tt-bar { padding: 12px 18px; } }
+@media(max-width:520px) { .tt-hero { padding: 28px 18px; } .tt-install article { padding: 22px; } }
