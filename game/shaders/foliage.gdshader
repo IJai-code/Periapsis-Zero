@@ -3,7 +3,7 @@ render_mode cull_disabled;
 // Jungle canopies: leaf masses that sway in the wind, each tree its own green,
 // sunlit edges glowing where light comes through from behind.
 
-uniform vec3 base_color : source_color = vec3(0.11, 0.25, 0.06);
+uniform vec3 base_color : source_color = vec3(0.075, 0.17, 0.045);
 uniform float sway = 0.6;
 
 varying vec3 tint;

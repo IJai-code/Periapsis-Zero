@@ -37,7 +37,9 @@ void fragment() {
 	vec3 jungle = g * mix(vec3(0.34, 0.6, 0.24), vec3(0.5, 0.72, 0.3), drift) * 0.9;
 	// Forest canopy (rendered leaves) on gentle ground, in large patches.
 	vec4 can = texture(canopy_map, wpos.xz / 24.0 + drift * 0.8);
-	float forest = smoothstep(0.12, 0.4, drift + 0.2) * smoothstep(0.7, 0.9, n.y) * smoothstep(water_level + 4.0, water_level + 14.0, wpos.y);
+	// Only at a distance: up close the floor is ground and undergrowth, and
+	// the tiling would show.
+	float forest = smoothstep(180.0, 700.0, dist) * smoothstep(0.12, 0.4, drift + 0.2) * smoothstep(0.7, 0.9, n.y) * smoothstep(water_level + 4.0, water_level + 14.0, wpos.y);
 	vec3 canopy = mix(vec3(0.05, 0.1, 0.03), can.rgb, can.a) * vec3(0.85, 1.0, 0.8);
 	jungle = mix(jungle, canopy, forest * 0.9);
 	// Rock on the steep parts, mapped from the side it faces.
