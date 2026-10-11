@@ -19,6 +19,10 @@ var bolts: Bolts
 var camera: Camera3D
 var shake := 0.0
 var _model: Node3D
+var _plumes: Array[ShaderMaterial] = []
+var cockpit := false
+var _cockpit_parts: Array[Node3D] = []
+var _dash: Node3D
 var _cam_up := Vector3.UP
 var _cam_pos := Vector3.ZERO
 var _gun := 0
@@ -44,6 +48,37 @@ func _ready() -> void:
 	camera.far = 120_000.0
 	camera.top_level = true
 	add_child(camera)
+	# Engine plumes from both nozzles (art/godot/ships.py: x = 1.62, aft at 7.3).
+	for x in [-1.62, 1.62]:
+		var c := CylinderMesh.new()
+		c.top_radius = 0.42
+		c.bottom_radius = 0.05
+		c.height = 1.0
+		c.radial_segments = 16
+		c.rings = 1
+		var pm := ShaderMaterial.new()
+		pm.shader = load("res://shaders/plume.gdshader")
+		c.material = pm
+		var mi := MeshInstance3D.new()
+		mi.mesh = c
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# The cylinder's top (the nozzle end) faces forward, its length aft.
+		mi.rotation_degrees = Vector3(-90, 0, 0)
+		mi.position = Vector3(x, 0.0, 7.3)
+		_model.add_child(mi)
+		_plumes.append(pm)
+		mi.set_meta("plume", true)
+	var dust := Dust.new()
+	dust.ship = self
+	add_child(dust)
+	# The cockpit: the glass hides from inside; a dashboard appears.
+	for n in _model.find_children("canopy", "MeshInstance3D", true, false):
+		_cockpit_parts.append(n)
+	_dash = _make_dash()
+	_model.add_child(_dash)
+	_dash.visible = false
+	if "--cockpit" in OS.get_cmdline_user_args():
+		toggle_cockpit.call_deferred()
 	aim = -global_basis.z
 	_cam_up = global_basis.y
 	_cam_pos = global_position + global_basis * Vector3(0, 5.5, 27)
@@ -59,11 +94,44 @@ func _unhandled_input(e: InputEvent) -> void:
 		var cb := camera.global_basis
 		aim = aim.rotated(cb.y, -e.relative.x * s)
 		aim = aim.rotated(cb.x, -e.relative.y * s * (-1.0 if Flow.settings.invert else 1.0)).normalized()
+	if e is InputEventKey and e.pressed and not e.echo and e.physical_keycode == KEY_V:
+		toggle_cockpit()
 	for side in ["left", "right"]:
 		if e.is_action_pressed(side):
 			if _clock - _tap[side] < 0.28:
 				barrel_roll(-1.0 if side == "left" else 1.0)
 			_tap[side] = _clock
+
+func _make_dash() -> Node3D:
+	var d := Node3D.new()
+	var body := MeshInstance3D.new()
+	var b := BoxMesh.new()
+	b.size = Vector3(1.1, 0.24, 0.55)
+	b.material = Surfaces.get_material("seam")
+	body.mesh = b
+	body.position = Vector3(0, 0.86, -3.35)
+	body.rotation_degrees = Vector3(-18, 0, 0)
+	d.add_child(body)
+	for x in [-0.27, 0.27]:
+		var sc := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		sm.size = Vector3(0.34, 0.2, 0.02)
+		sm.material = Surfaces.get_material("screen")
+		sc.mesh = sm
+		sc.position = Vector3(x, 0.99, -3.1)
+		sc.rotation_degrees = Vector3(-30, 0, 0)
+		d.add_child(sc)
+	return d
+
+## V toggles the view between the chase camera and the cockpit.
+func toggle_cockpit() -> void:
+	cockpit = not cockpit
+	for n in _cockpit_parts:
+		n.visible = not cockpit
+	_dash.visible = cockpit
+	for p in _model.find_children("*", "MeshInstance3D", true, false):
+		if p.has_meta("plume"):
+			p.visible = not cockpit
 
 func barrel_roll(dir: float) -> void:
 	if _roll_cool > 0.0:
@@ -132,6 +200,20 @@ func _physics_process(dt: float) -> void:
 		Sfx.play("laser", -16.0, randf_range(0.95, 1.08))
 
 func _process(dt: float) -> void:
+	var thrust := clampf(velocity.length() / MAX, 0.15, 1.0) * (1.8 if boosting else 1.0)
+	for pm in _plumes:
+		pm.set_shader_parameter("power", thrust)
+	for p in _model.find_children("*", "MeshInstance3D", true, false):
+		if p.has_meta("plume"):
+			p.scale = Vector3(1.0, 2.0 + thrust * 6.0, 1.0)
+	if cockpit:
+		shake = maxf(0.0, shake - dt * 1.6)
+		var j := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0.0) * shake * shake * 0.05
+		camera.global_position = to_global(Vector3(0.0, 1.38, -2.45) + j)
+		camera.global_basis = Basis.looking_at(aim, global_basis.y.slerp(_cam_up, 0.3))
+		camera.fov = lerpf(camera.fov, 84.0 if boosting else 76.0, 3.0 * dt)
+		_cam_pos = camera.global_position
+		return
 	# Chase camera: behind the aim, its up easing toward the ship's.
 	_cam_up = _cam_up.slerp(global_basis.y, minf(1.0, 3.0 * dt)).normalized()
 	var look := Basis.looking_at(aim, _cam_up)

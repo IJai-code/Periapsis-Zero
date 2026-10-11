@@ -142,7 +142,10 @@ func _hold() -> void:
 	_beat = "hold"
 	Hud.objective("Fly [escort]", "Hold station by the Aster")
 	Hud.prompt("Match the convoy: ease off with [S]", 6.0)
+	Hud.prompt("[V] Cockpit view", 6.0)
 	await Hud.say("Captain Hale", "Good. Ninety minutes to the Moon corridor.")
+	await Hud.say("Tamsin", "Aster, Tamsin. Holding two kilometres astern. Our reefers are running warm.")
+	await Hud.say("Captain Hale", "Copy, Tamsin. Keep them cold. Every vial counts.")
 	await Hud.say("Renn Ayers", "Medical cargo and six old ships. Nobody bothers a convoy like this.")
 	await Hud.say("Captain Hale", "The Hollow have hit three convoys this month, Renn. None of them on our route.")
 	await _wait(1.5)

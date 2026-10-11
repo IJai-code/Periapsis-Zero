@@ -7,6 +7,8 @@ import './title.css'
 
 export const FEEDBACK_URL = 'https://github.com/IJai-code/Periapsis-Zero/issues/new?template=feedback.md'
 const BASE = import.meta.env.BASE_URL
+// The Godot prologue at full quality, published by scripts/godot-build.mjs desktop.
+const DESKTOP = 'https://github.com/IJai-code/Periapsis-Zero/releases/download/desktop/'
 function readSave() {
   try { const s = JSON.parse(localStorage.getItem('pz-game-v1') ?? 'null'); return s?.version === 1 && s.pilot ? s : null } catch { return null }
 }
@@ -69,6 +71,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
                 <button className="tt-secondary control" onClick={newGame}>{save ? 'New pilot' : 'Skip to your career'}</button>
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
               </div>}
+              {!isPhone && <p className="tt-downloads">Full graphics, downloadable: <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a> · <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> · <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> <span>(early builds, unsigned)</span></p>}
               <small>Free to play · Computer with keyboard & mouse · Music only</small>
             </div>
             <div className="tt-hero-coordinate" aria-hidden>HEARTH STATION<br />EARTH-MOON L1 / BERTH 09</div>

@@ -5,7 +5,9 @@
  * One project, two kinds of texture. The browser build (Compatibility
  * renderer) is downloaded before it plays, so its textures are capped at
  * 1024 px (Earth 2048) and stored as lossy WebP. The desktop build keeps full
- * resolution in GPU-compressed form. Each run rewrites the [params] of every
+ * GPU-compressed form at 1024 px (Earth and skin 4096): the scans are drawn
+ * triplanar at metres a tile, where 1K holds up, and it keeps the download
+ * to a size people will fetch. Each run rewrites the [params] of every
  * texture's .import file in game/assets and game/art for its target,
  * reimports, and exports. Those .import files are generated (game/assets by
  * scripts/godot-sync.mjs, game/art's by Godot from the GLBs) and gitignored,
@@ -45,7 +47,7 @@ for (const file of textures) {
   const normal = /normal/i.test(name)
   const want = target === 'web'
     ? { 'compress/mode': 1, 'compress/lossy_quality': 0.78, 'mipmaps/generate': 'true', 'process/size_limit': big ? 2048 : 1024, 'compress/normal_map': 0 }
-    : { 'compress/mode': 2, 'mipmaps/generate': 'true', 'process/size_limit': 0, 'compress/normal_map': normal ? 1 : 0 }
+    : { 'compress/mode': 2, 'mipmaps/generate': 'true', 'process/size_limit': big || /skin|male_diffuse|female_diffuse/i.test(name) ? 4096 : 1024, 'compress/normal_map': normal ? 1 : 0 }
   let text = readFileSync(file, 'utf8')
   const before = text
   for (const [k, v] of Object.entries(want)) {

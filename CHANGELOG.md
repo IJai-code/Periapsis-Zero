@@ -5,6 +5,35 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Mouths that work, a cockpit, a dressed medical bay, and desktop downloads, 10 October 2026
+
+- **Lip movement fixed.**
+  - **Both halves of the mouth now move.** MakeHuman's mouth shapes are
+    one-sided and meant to be mirrored, and the mirroring needs the full
+    vertex list. The face shapes now go on first and are mirrored before
+    any hidden geometry is cut away.
+  - **The teeth no longer smear into one block.** Teeth and tongue are
+    rigid now: the upper teeth stay put, and the lower teeth and tongue
+    drop with the jaw.
+  - **The mouth looks natural:** it sits in shadow, opens less while
+    speaking, and the corners are held level rather than pulled into a
+    grimace.
+- **Flight:**
+  - **Speed you can see:** space dust streaks past with your speed.
+  - **Engine plumes** lengthen with the throttle and boost.
+  - **A cockpit view on V:** canopy frame, two lit displays, and a dark
+    anti-glare nose.
+  - **Radio traffic** from the convoy (the Tamsin's reefers running warm).
+- **The medical bay is dressed:**
+  - a scanner arch over the bed
+  - wall inserts with a strip of ion light
+  - a curtain on a ceiling rail, and an equipment cart
+  - the room's sign, and a key light on Mara
+- **Desktop downloads**, at full quality: Mac (universal, 176 MB), Windows
+  and Linux, published as the `desktop` release and linked from the front
+  page. They are early and unsigned. Desktop textures are capped at 1K (4K
+  for Earth and skin) to keep the downloads fetchable.
+
 ### The opening film, and people with skin, 10 October 2026
 
 - **The story starts at the start.** "Play the prologue" opens on a

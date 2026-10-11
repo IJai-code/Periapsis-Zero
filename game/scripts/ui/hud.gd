@@ -18,6 +18,7 @@ const SPEAKERS := {
 	"Mara Voss": Color("#ffb347"),
 	"Aster": Style.MUTE,
 	"Kestrel": Style.BONE,
+	"Tamsin": Color("#9fd8b8"),
 }
 
 var root: Control

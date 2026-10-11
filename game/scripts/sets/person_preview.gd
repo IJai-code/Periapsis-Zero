@@ -15,6 +15,10 @@ func _ready() -> void:
 		add_child(p)
 		if anim == "talk":
 			p.talk.call_deferred(true)
+		# `--mouth 0.4`: hold the mouth open that far, for checking the face.
+		var mo := args.find("--mouth")
+		if mo >= 0:
+			p.set_meta("hold_mouth", float(args[mo + 1]))
 		p.position = Vector3((n - (names.size() - 1) / 2.0) * 0.9, 0.25, -5.0)
 
 	var cam := Camera3D.new()

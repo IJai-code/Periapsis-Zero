@@ -12,6 +12,7 @@ head and a hand. Nothing is joined; Godot plays the actions on the rig.
 import math
 import sys
 
+import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
@@ -98,16 +99,41 @@ def face(basemesh, race):
     add the expression keys, and give the eyelashes, brows, teeth and tongue
     the same keys so they move with the face."""
     TargetService.bake_targets(basemesh)
-    with bpy.context.temp_override(object=basemesh, active_object=basemesh, selected_objects=[basemesh]):
-        for m in [m for m in basemesh.modifiers if m.type == 'MASK']:
-            bpy.ops.object.modifier_apply(modifier=m.name)
+    # Expression targets are written against MakeHuman's full vertex list,
+    # so they go on before anything is removed.
     units = LocationService.get_mpfb_data('targets') + f'/expression/units/{race}'
     if basemesh.data.shape_keys is None:
         basemesh.shape_key_add(name='Basis', from_mix=False)
     for key, unit in FACE.items():
         TargetService.load_target(basemesh, f'{units}/{unit}.target.gz', weight=0.0, name=key)
+    # MakeHuman's mouth units describe one side of the face; the expression
+    # system mirrors them. Without that only half the mouth moves.
+    for key in ('mouth_open', 'smile', 'purse'):
+        TargetService.symmetrize_shape_key(basemesh, key, copy_left_to_right=True)
+    # Now drop what the masks hide (helpers, skin under clothes), deleting
+    # the vertices directly so the shape keys come through.
+    doomed = set()
+    for m in [m for m in basemesh.modifiers if m.type == 'MASK']:
+        vg = basemesh.vertex_groups.get(m.vertex_group)
+        members = set()
+        if vg:
+            for v in basemesh.data.vertices:
+                for g in v.groups:
+                    if g.group == vg.index and g.weight > m.threshold:
+                        members.add(v.index)
+        everyone = set(range(len(basemesh.data.vertices)))
+        doomed |= members if m.invert_vertex_group else (everyone - members)
+    bm = bmesh.new()
+    bm.from_mesh(basemesh.data)
+    bm.verts.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[bm.verts[i] for i in sorted(doomed)], context='VERTS')
+    bm.to_mesh(basemesh.data)
+    bm.free()
+    for m in [m for m in basemesh.modifiers if m.type == 'MASK']:
+        basemesh.modifiers.remove(m)
     keys = basemesh.data.shape_keys.key_blocks
-    parts = [o for o in bpy.data.objects if o.type == 'MESH' and any(t in o.name for t in ('eyelash', 'eyebrow', 'teeth', 'tongue'))]
+    # Lashes and brows ride the face (bound to its surface).
+    parts = [o for o in bpy.data.objects if o.type == 'MESH' and any(t in o.name for t in ('eyelash', 'eyebrow'))]
     for part in parts:
         sd = part.modifiers.new('follow', 'SURFACE_DEFORM')
         sd.target = basemesh
@@ -125,8 +151,26 @@ def face(basemesh, race):
             sk = part.shape_key_add(name=key, from_mix=False)
             for i, c in enumerate(co):
                 sk.data[i].co = c
-        keys[list(FACE)[-1]].value = 0.0
         part.modifiers.remove(sd)
+    # Teeth and tongue are rigid: the upper teeth stay, the lower teeth and
+    # the tongue drop with the jaw. How far the jaw drops is read from the
+    # chin's travel in the face's own mouth-open key.
+    basis = keys['Basis'].data
+    opened = keys['mouth_open'].data
+    jaw = max((opened[i].co - basis[i].co for i in range(len(basis))), key=lambda d: d.length)
+    for part in [o for o in bpy.data.objects if o.type == 'MESH' and any(t in o.name for t in ('teeth', 'tongue'))]:
+        part.shape_key_add(name='Basis', from_mix=False)
+        zs = [v.co.z for v in part.data.vertices]
+        mid = (min(zs) + max(zs)) / 2.0
+        for key in FACE:
+            sk = part.shape_key_add(name=key, from_mix=False)
+            if key != 'mouth_open':
+                continue
+            for i, v in enumerate(part.data.vertices):
+                if 'tongue' in part.name:
+                    sk.data[i].co = v.co + jaw * 0.55
+                elif v.co.z < mid:
+                    sk.data[i].co = v.co + jaw * 0.8
     for k in keys:
         k.value = 0.0
 

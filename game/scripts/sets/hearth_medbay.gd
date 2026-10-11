@@ -57,4 +57,29 @@ func _ready() -> void:
 	sun.shadow_enabled = true
 	add_child(sun)
 	sun.basis = Basis.looking_at(-SUN_DIR.normalized(), Vector3.UP)
+	var sign := Label3D.new()
+	sign.text = "HEARTH  ·  RECOVERY 2"
+	sign.font = Style.mono_bold
+	sign.pixel_size = 0.0016
+	sign.font_size = 96
+	sign.modulate = Color(0.25, 0.3, 0.35)
+	sign.shaded = true
+	sign.position = Vector3(2.96, 2.35, -2.8)
+	sign.rotation_degrees = Vector3(0, -90, 0)
+	add_child(sign)
+	# A soft key light on whoever stands by the bed.
+	var key := SpotLight3D.new()
+	key.position = Vector3(-1.0, 2.6, -5.6)
+	key.look_at_from_position(key.position, Vector3(0.25, 1.5, -4.3))
+	key.spot_angle = 30.0
+	key.spot_range = 5.0
+	key.light_energy = 1.6
+	key.light_color = Color(1.0, 0.93, 0.85)
+	add_child(key)
+	var warm := OmniLight3D.new()
+	warm.position = Vector3(-1.2, 1.4, -4.3)
+	warm.omni_range = 2.5
+	warm.light_energy = 0.5
+	warm.light_color = Surfaces.ION
+	add_child(warm)
 	add_child(Earth.toward(Vector3(0.12, -0.05, -1.0), 40_000_000.0, SUN_DIR, 0.0014))

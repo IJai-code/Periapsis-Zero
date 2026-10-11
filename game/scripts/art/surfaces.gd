@@ -89,6 +89,7 @@ static func _make(name: String) -> Material:
 		"floor_clean": return _pbr("MetalPlates013", 0.7, Color(0.72, 0.74, 0.76), true)
 		"linen": return _pbr("Plastic013A", 2.5, Color(0.93, 0.93, 0.95), true)
 		"blanket": return _pbr("Rubber004", 1.5, Color(0.32, 0.42, 0.5), true)
+		"curtain": return _cloth(Color(0.55, 0.68, 0.7))
 		"light_floor": return _glow(ION, 4.0)
 		"grate": return _grate()
 		"hazard": return _hazard()
@@ -115,6 +116,16 @@ static func _pbr(id: String, scale: float, tint: Color, paint := false) -> Shade
 	m.set_shader_parameter("tint_gain", gain)
 	m.set_shader_parameter("paint", 1.0 if paint else 0.0)
 	m.set_shader_parameter("scale", scale)
+	return m
+
+## Hanging cloth: matte, a little light through it, both sides drawn.
+static func _cloth(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = 0.95
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.backlight_enabled = true
+	m.backlight = Color(c, 1.0) * 0.4
 	return m
 
 ## A clean painted surface: no scan, one colour, one sheen.

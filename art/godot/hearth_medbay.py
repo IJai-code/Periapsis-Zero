@@ -132,5 +132,57 @@ for x in (0.28, 1.52):
 kit.box(bm, (0.9, 0.1, 2.3), (1.38, 0.14, 0.14))
 kit.part('door_frame', bm, 'frame', bevel=0.01)
 
+# A scanner arch over the bed, with a lit strip on its underside.
+bm = bmesh.new()
+for k in range(13):
+    a0, a1 = math.pi * k / 13, math.pi * (k + 1) / 13
+    p0 = V((x0 + math.cos(a0) * 0.85, 3.8, 0.55 + math.sin(a0) * 1.05))
+    p1 = V((x0 + math.cos(a1) * 0.85, 3.8, 0.55 + math.sin(a1) * 1.05))
+    kit.cylinder(bm, p0, p1, 0.04, 10)
+kit.part('scanner', bm, 'paint_bone', bevel=0.01)
+bm = bmesh.new()
+for k in range(1, 12):
+    a = math.pi * k / 12
+    kit.box(bm, (x0 + math.cos(a) * 0.81, 3.8, 0.55 + math.sin(a) * 1.0), (0.03, 0.03, 0.03))
+kit.part('scanner_lights', bm, 'light_floor')
+
+# Wall inserts between the ribs, and a strip of ion light at hand height.
+bm = bmesh.new()
+glow = bmesh.new()
+for y0, y1 in ((0.3, 1.15), (1.25, 2.55), (2.65, 3.95), (4.05, 5.35), (5.45, 6.9)):
+    for x in (-W + 0.03, W - 0.03):
+        kit.box(bm, (x, (y0 + y1) / 2, 1.9), (0.04, y1 - y0 - 0.06, 1.3))
+        kit.box(glow, (x * 0.995, (y0 + y1) / 2, 1.12), (0.02, y1 - y0 - 0.06, 0.03))
+kit.part('wall_inserts', bm, 'panel', bevel=0.008)
+kit.part('wall_glow', glow, 'light_floor')
+
+# A curtain on a ceiling rail between the bed and the door.
+bm = bmesh.new()
+kit.cylinder(bm, V((-W + 0.1, 2.9, H - 0.25)), V((0.4, 2.9, H - 0.25)), 0.02, 8)
+kit.part('curtain_rail', bm, 'metal')
+bm = bmesh.new()
+pts = []
+for k in range(16):
+    x = -W + 0.2 + k * 0.14
+    pts.append((x, 2.9 + 0.05 * math.sin(k * 1.7)))
+top = [bm.verts.new(V((x, y, H - 0.3))) for x, y in pts]
+bot = [bm.verts.new(V((x, y, 0.35))) for x, y in pts]
+for i in range(len(pts) - 1):
+    bm.faces.new((top[i], top[i + 1], bot[i + 1], bot[i]))
+kit.part('curtain', bm, 'curtain')
+
+# An equipment cart beside the bed.
+bm = bmesh.new()
+kit.box(bm, (x0 + 1.05, 3.4, 0.82), (0.5, 0.4, 0.04))
+kit.box(bm, (x0 + 1.05, 3.4, 0.45), (0.5, 0.4, 0.04))
+for dx in (-0.22, 0.22):
+    for dy in (-0.17, 0.17):
+        kit.cylinder(bm, V((x0 + 1.05 + dx, 3.4 + dy, 0.05)), V((x0 + 1.05 + dx, 3.4 + dy, 0.84)), 0.015, 6)
+kit.part('cart', bm, 'metal', bevel=0.004)
+bm = bmesh.new()
+kit.box(bm, (x0 + 0.95, 3.35, 0.9), (0.18, 0.12, 0.12))
+kit.box(bm, (x0 + 1.16, 3.45, 0.88), (0.12, 0.18, 0.08))
+kit.part('cart_kit', bm, 'paint_ember', bevel=0.01)
+
 kit.export(OUT)
 print('medbay:', OUT, len(bpy.data.objects), 'objects')

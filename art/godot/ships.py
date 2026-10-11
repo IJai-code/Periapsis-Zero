@@ -66,6 +66,9 @@ def kestrel():
     kit.loft(bm, [kit.ring_y(kit.densify(kit.facet(w, h, z=z), 0.95), y) for y, w, h, z in kit.stations(stations, 1.05)])
     # Livery: pale on top, gunmetal flanks, dark belly, a few odd panels.
     def livery(c, n):
+        # Dark anti-glare panels ahead of and under the canopy, as on real fighters.
+        if c.y > 0.8 and n.z > 0.3 and abs(c.x) < 1.25:
+            return 3
         if n.z > 0.55:
             return 2 if rng.random() > 0.08 else 0
         if n.z < -0.45:

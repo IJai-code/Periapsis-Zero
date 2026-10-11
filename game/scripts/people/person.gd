@@ -67,7 +67,13 @@ func _dress(body: Node3D) -> void:
 			var m := src.duplicate() as StandardMaterial3D
 			m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 			m.cull_mode = BaseMaterial3D.CULL_BACK
-			if part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part):
+			if part.contains("teeth"):
+				# Teeth and gums sit in the mouth's shadow: dimmed, so they
+				# read as a mouth and not as a grin of bright points.
+				m.albedo_color = Color(0.5, 0.47, 0.44)
+				m.roughness = 0.4
+				m.metallic_specular = 0.3
+			elif part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part):
 				m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				m.alpha_scissor_threshold = 0.35
 				m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
@@ -134,14 +140,19 @@ func _process(dt: float) -> void:
 	if _talking:
 		var syl := 0.5 + 0.5 * sin(_t * 13.0 + sin(_t * 3.1) * 2.5)
 		var phrase := smoothstep(-0.6, 0.2, sin(_t * 1.7) + sin(_t * 0.63))
-		want = 0.12 + 0.38 * syl * phrase
+		want = 0.04 + 0.24 * syl * phrase
 	_mouth = lerpf(_mouth, want, minf(1.0, dt * 18.0))
+	if has_meta("hold_mouth"):
+		_mouth = float(get_meta("hold_mouth"))
+		lid = 0.0
 	_brow = lerpf(_brow, 0.35 if _talking and sin(_t * 0.9) > 0.7 else 0.0, minf(1.0, dt * 4.0))
 	for mi in _faces:
 		_shape(mi, "blink_l", lid)
 		_shape(mi, "blink_r", lid)
 		_shape(mi, "mouth_open", _mouth)
 		_shape(mi, "purse", _mouth * 0.25 * (0.5 + 0.5 * sin(_t * 7.0)))
+		# The open-mouth shape pulls the corners down; lift them back level.
+		_shape(mi, "smile", _mouth * 0.45)
 		_shape(mi, "brow_l", _brow)
 		_shape(mi, "brow_r", _brow)
 
