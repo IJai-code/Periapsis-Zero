@@ -13,6 +13,10 @@ const SCENES := {
 	"hangar": "res://scenes/prologue_hangar.tscn",
 	"flight": "res://scenes/prologue_flight.tscn",
 	"arrival": "res://scenes/prologue_arrival.tscn",
+	"hearth": "res://scenes/act1_hearth.tscn",
+	"hearth_bay": "res://scenes/act1_bay.tscn",
+	"test_flight": "res://scenes/act1_test_flight.tscn",
+	"act1_end": "res://scenes/act1_end.tscn",
 }
 
 var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false}
@@ -88,9 +92,9 @@ func go(scene: String) -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file(SCENES[scene])
 	# Remember the furthest chapter reached, for "Continue the journey".
-	if scene in ["corridor", "bridge", "hangar", "flight", "arrival"]:
+	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight"]:
 		set_progress("chapter", scene)
-	ambience(scene in ["corridor", "bridge", "hangar", "arrival"])
+	ambience(scene in ["corridor", "bridge", "hangar", "arrival", "hearth", "hearth_bay"])
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_busy = false
@@ -100,7 +104,7 @@ func go(scene: String) -> void:
 ## The chapter after this one, for "Skip this part" in the pause menu.
 func next_scene() -> String:
 	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "title"]
+	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "act1_end", "title"]
 	for i in order.size() - 1:
 		if SCENES[order[i]] == here:
 			return order[i + 1]
@@ -163,6 +167,21 @@ func set_progress(key: String, value) -> void:
 
 ## Act One is the web game. In the browser this is the same site, so the
 ## prologue tells it the pilot has already lived through the Aster.
+## The pilot's money: credits in hand, and what is still owed to Rook.
+func credits() -> int:
+	return int(progress("credits", 0))
+
+func debt() -> int:
+	return int(progress("debt", 40000))
+
+## Pay the pilot; half of every job goes straight to Rook until the debt is
+## cleared. Returns [paid to the pilot, paid off the debt].
+func earn(amount: int) -> Array:
+	var to_debt := mini(debt(), amount / 2)
+	set_progress("debt", debt() - to_debt)
+	set_progress("credits", credits() + amount - to_debt)
+	return [amount - to_debt, to_debt]
+
 func open_act_one() -> void:
 	set_progress("prologue_done", true)
 	if on_web():

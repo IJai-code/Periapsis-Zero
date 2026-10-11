@@ -5,6 +5,35 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Act One begins in Godot: Hearth, Mara's test flight, Mission Passed, 11 October 2026
+
+- **The prologue now runs straight into Act One.** "Begin Act One" in the
+  medical bay opens Hearth's concourse, and the old browser game is
+  reached only after what has been rebuilt so far.
+- **Hearth's concourse** (`art/godot/hearth_concourse.py`), a new walkable
+  set:
+  - **Layout:** a 44 m hall with a window wall onto Earth, shop fronts on
+    two levels with lit signs and a gallery, columns and planters.
+  - **Benches** face the window, and you can sit on them.
+  - **The station board** lists departures.
+- **People about.** Three new MakeHuman station people walk the lanes,
+  stop, and sit on the benches for a while (`Wanderer`).
+- **Mara's first job,** given face to face: take the repaired Kestrel round
+  Hearth.
+  - **The launch:** from berth 09, up the ladder.
+  - **The course:** six beacons round the station, against a clock.
+  - **The finish:** fly back into the lit bay and dock.
+- **Hearth from outside** (`art/godot/stations.py`): a panelled hub with a
+  lit docking mouth, a turning ring on four spokes with its windows lit,
+  solar wings, radiators and machinery.
+- **MISSION PASSED:** the title, the pay counting up, and what went to Rook
+  against what is still owed. Half of every job pays down the debt. A
+  test flight under 1:40 earns a bonus.
+- **Money:** credits and debt are saved, and the title's "Continue Act
+  One" picks up at the last chapter.
+- **No voices.** All dialogue stays as subtitles until a voice approach
+  sounds right.
+
 ### Boarding, movement, a real start, and an honest review, 10 October 2026
 
 - **The Kestrel is solid.** You no longer walk through its wings.

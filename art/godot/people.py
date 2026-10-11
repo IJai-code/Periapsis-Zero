@@ -50,6 +50,28 @@ PEOPLE = {
         'clothes': ['male_worksuit01/male_worksuit01.mhclo', 'shoes05/shoes05.mhclo'],
         'walks': True,
     },
+    # Hearth's crowd: station people, seen walking and sitting, never close.
+    'crowd1': {
+        'phenotype': {'gender': 1.0, 'age': 0.62, 'muscle': 0.5, 'weight': 0.7, 'proportions': 0.5, 'height': 0.6,
+                      'cupsize': 0.5, 'firmness': 0.5, 'race': {'asian': 0.1, 'caucasian': 0.2, 'african': 0.7}},
+        'skin': 'middleage_african_male/middleage_african_male.mhmat',
+        'hair': 'short03/short03.mhclo', 'eyebrows': 'eyebrow002/eyebrow002.mhclo',
+        'clothes': ['male_casualsuit03/male_casualsuit03.mhclo', 'shoes04/shoes04.mhclo'], 'walks': True,
+    },
+    'crowd2': {
+        'phenotype': {'gender': 0.0, 'age': 0.35, 'muscle': 0.5, 'weight': 0.45, 'proportions': 0.6, 'height': 0.5,
+                      'cupsize': 0.5, 'firmness': 0.6, 'race': {'asian': 0.2, 'caucasian': 0.75, 'african': 0.05}},
+        'skin': 'young_caucasian_female/young_caucasian_female.mhmat',
+        'hair': 'bob02/bob02.mhclo', 'eyebrows': 'eyebrow011/eyebrow011.mhclo',
+        'clothes': ['female_casualsuit01/female_casualsuit01.mhclo', 'shoes06/shoes06.mhclo'], 'walks': True,
+    },
+    'crowd3': {
+        'phenotype': {'gender': 1.0, 'age': 0.45, 'muscle': 0.7, 'weight': 0.55, 'proportions': 0.55, 'height': 0.65,
+                      'cupsize': 0.5, 'firmness': 0.5, 'race': {'asian': 0.85, 'caucasian': 0.15, 'african': 0.0}},
+        'skin': 'young_asian_male/young_asian_male.mhmat',
+        'hair': 'short04/short04.mhclo', 'eyebrows': 'eyebrow006/eyebrow006.mhclo',
+        'clothes': ['male_worksuit01/male_worksuit01.mhclo', 'shoes01/shoes01.mhclo'], 'walks': True,
+    },
     # Mara Voss, Hearth's dockmaster: forties, steady, sees everything.
     'mara': {
         'phenotype': {'gender': 0.0, 'age': 0.68, 'muscle': 0.6, 'weight': 0.55, 'proportions': 0.55, 'height': 0.56,

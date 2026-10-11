@@ -95,10 +95,10 @@ func _goals() -> void:
 	gap.custom_minimum_size = Vector2(0, 12)
 	v.add_child(gap)
 	var go := Button.new()
-	go.text = "Continue to Act One"
-	go.pressed.connect(Flow.open_act_one)
+	go.text = "Begin Act One"
+	go.pressed.connect(func(): Flow.go("hearth"))
 	v.add_child(go)
-	v.add_child(Style.label("Act One plays in your browser at periapsiszero.dev, with your pilot's story picked up at Hearth.", 16, Style.MUTE))
+
 	var back := Button.new()
 	back.text = "Back to the title"
 	back.pressed.connect(func(): Flow.go("title"))

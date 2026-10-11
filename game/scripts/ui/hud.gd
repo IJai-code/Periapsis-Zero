@@ -283,6 +283,57 @@ func narrate(text: String, seconds := 5.0) -> void:
 	t.tween_property(_narr, "modulate:a", 0.0, 0.9)
 	await t.finished
 
+## MISSION PASSED: the big ember title, the pay counting up, and the debt
+## to Rook going down. Awaitable; returns when it has faded.
+func mission_passed(title: String, paid: int, to_debt: int, debt_left: int) -> void:
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var head := Style.label("MISSION PASSED", 84, Style.EMBER, Style.sans_bold)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(head, 10, 0.5)
+	box.add_child(head)
+	var name := Style.label(title, 26, Style.BONE, Style.sans)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(name)
+	box.add_child(name)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 18)
+	box.add_child(gap)
+	var cash := Style.label("₡ 0", 44, Style.BONE, Style.mono_bold)
+	cash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(cash)
+	box.add_child(cash)
+	var debt := Style.label("", 18, Style.MUTE, Style.mono)
+	debt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(debt)
+	box.add_child(debt)
+	box.modulate.a = 0.0
+	root.add_child(box)
+	root.move_child(box, _fade.get_index())
+	Sfx.play("objective", -2.0, 0.8)
+	var t := create_tween()
+	t.tween_property(box, "modulate:a", 1.0, 0.5)
+	t.tween_method(func(v: float): cash.text = "₡ %s" % _thousands(int(v)), 0.0, float(paid), 1.4)
+	await t.finished
+	debt.text = "₡ %s to Rook  ·  ₡ %s still owed" % [_thousands(to_debt), _thousands(debt_left)]
+	Sfx.play("click", -6.0)
+	await get_tree().create_timer(4.0, true, false, true).timeout
+	await _tween(box, 0.0, 0.8).finished
+	box.queue_free()
+
+static func _thousands(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return s + out
+
 ## A mission title, sliding in lower left.
 func card(title: String, sub := "", seconds := 3.5) -> void:
 	_card_title.text = title

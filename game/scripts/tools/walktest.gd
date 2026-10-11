@@ -10,6 +10,7 @@ const PLANS := {
 	"bridge_back": [Vector3(0.0, 0, 3.0)],
 	"bridge_chair": [Vector3(0.0, 0, -1.9)],
 	"corridor_back": [Vector3(0.0, 0, 4.0)],
+	"hearth_mara": [Vector3(-1.6, 0, -20.0), Vector3(-1.0, 0, -39.6)],
 	"corridor_door": [Vector3(0.0, 0, -15.0)],
 }
 

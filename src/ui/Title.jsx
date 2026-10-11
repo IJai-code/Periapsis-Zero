@@ -79,7 +79,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
                   <a className="tt-primary tt-begin control" href={`${BASE}play/index.html`}>Begin your journey →</a>
                   <a className="tt-secondary control" href={`${DESKTOP}${download.file}`}>Download for {download.name}</a>
                 </div>
-                <p className="tt-downloads">Plays in the browser, about 45 MB the first time. Also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a> · <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> · <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> <span>(early builds, unsigned)</span></p>
+                <p className="tt-downloads">Plays in the browser, about 55 MB the first time. Also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a> · <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> · <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> <span>(early builds, unsigned)</span></p>
                 <p className="tt-career">{save ? <>Already flying? <button onClick={onPlay}>Continue your career</button> or <button onClick={newGame}>start a new pilot</button>.</> : <>Played the prologue? <button onClick={newGame}>Start Act One</button>.</>}</p>
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
               </>}
