@@ -8,6 +8,7 @@ var _at := -1.0
 var _t := 0.0
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	var args := OS.get_cmdline_user_args()
 	var i := args.find("--shot")
 	if i < 0 or i + 1 >= args.size():

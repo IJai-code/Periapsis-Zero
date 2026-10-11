@@ -21,6 +21,7 @@ func _ready() -> void:
 	max_integrity = 40.0
 	body = Hull.model("raider")
 	add_child(body)
+	make_solid(4.5)
 	velocity = -global_basis.z * speed
 
 func _physics_process(dt: float) -> void:

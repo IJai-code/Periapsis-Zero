@@ -16,7 +16,6 @@ func _ready() -> void:
 	cam.position = Vector3(150, 80, -380)
 	cam.look_at(Vector3(-110, -10, -40))
 	create_tween().tween_property(cam, "position", Vector3(140, 70, -340), 30.0)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var root := Control.new()

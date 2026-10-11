@@ -33,7 +33,12 @@ var _shoulder_y := 1.66
 var _ground_y := 0.0
 var _auto := ""
 
+## Steering by mouse while enabled (see Flow's mouse capture).
+func wants_mouse() -> bool:
+	return enabled
+
 func _ready() -> void:
+	add_to_group("mouse_look")
 	add_to_group("player")
 	_shape = CollisionShape3D.new()
 	_cap = CapsuleShape3D.new()
@@ -43,6 +48,7 @@ func _ready() -> void:
 	_shape.position.y = 0.875
 	add_child(_shape)
 	body = Person.make("pilot")
+	body.solid = false
 	body.suit_tint = Color(0.42, 0.45, 0.36)
 	add_child(body)
 	_pivot = Node3D.new()
@@ -77,9 +83,7 @@ func _ready() -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if not enabled:
 		return
-	if e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var s := 0.0022 * float(Flow.settings.mouse)
 		_yaw -= e.relative.x * s
 		_pitch -= e.relative.y * s * (-1.0 if Flow.settings.invert else 1.0)
@@ -103,6 +107,10 @@ func _physics_process(dt: float) -> void:
 	var input := Vector2.ZERO
 	if enabled:
 		input = Input.get_vector("left", "right", "forward", "back")
+		# The arrow keys turn and tilt the view, for playing without a mouse.
+		var look := Input.get_vector("look_left", "look_right", "look_up", "look_down")
+		_yaw -= look.x * 2.4 * dt
+		_pitch = clampf(_pitch - look.y * 1.6 * dt, -1.1, 0.7)
 	var run := Input.is_action_pressed("boost") and not crouched
 	# For render checks: `-- --autowalk` or `--autorun` walks straight ahead.
 	if _auto != "":

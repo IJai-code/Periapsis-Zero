@@ -101,7 +101,8 @@
     "verify:ground": "node --expose-gc scripts/verify-ground-view.mjs",
     "verify:moon": "node --expose-gc scripts/verify-moon-frame.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "godot:check": "node scripts/godot-check.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",

@@ -31,7 +31,6 @@ func _ready() -> void:
 	if not "--noui" in OS.get_cmdline_user_args():
 		_ui()
 	Flow.music(true)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _process(dt: float) -> void:
 	_t += dt

@@ -24,6 +24,18 @@ var _trail: CPUParticles3D
 func _enter_tree() -> void:
 	add_to_group("hull")
 
+## A round solid body the player's ship cannot fly through (small ships;
+## big ones collide by their real shape, Surfaces.collide).
+func make_solid(r: float) -> void:
+	var b := AnimatableBody3D.new()
+	b.sync_to_physics = false
+	var cs := CollisionShape3D.new()
+	var sp := SphereShape3D.new()
+	sp.radius = r
+	cs.shape = sp
+	b.add_child(cs)
+	add_child(b)
+
 func hit(amount: float, at: Vector3) -> void:
 	if not alive:
 		return

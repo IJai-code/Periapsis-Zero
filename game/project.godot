@@ -23,6 +23,8 @@ Sfx="*res://scripts/core/sfx.gd"
 Hud="*res://scripts/ui/hud.gd"
 Shot="*res://scripts/tools/shot.gd"
 WalkTest="*res://scripts/tools/walktest.gd"
+FlyTest="*res://scripts/tools/flytest.gd"
+HudTest="*res://scripts/tools/hudtest.gd"
 
 [display]
 

@@ -34,7 +34,12 @@ var _roll_cool := 0.0
 var _bank := 0.0
 var _clock := 0.0
 
+## Steering by mouse while controls (see Flow's mouse capture).
+func wants_mouse() -> bool:
+	return controls
+
 func _ready() -> void:
+	add_to_group("mouse_look")
 	team = "player"
 	radius = 7.0
 	max_shield = 100.0
@@ -86,10 +91,7 @@ func _ready() -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if not controls:
 		return
-	if e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		get_viewport().set_input_as_handled()
-	elif e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var s := 0.0016 * float(Flow.settings.mouse)
 		var cb := camera.global_basis
 		aim = aim.rotated(cb.y, -e.relative.x * s)
@@ -133,6 +135,42 @@ func toggle_cockpit() -> void:
 		if p.has_meta("plume"):
 			p.visible = not cockpit
 
+var _probe := SphereShape3D.new()
+
+## Move by velocity, but not through anything solid: a sphere the size of
+## the ship is swept along the motion; on contact the ship stops at the
+## surface, bounces off it, and takes damage by how hard it hit.
+func _move(dt: float) -> void:
+	var motion := velocity * dt
+	if motion.length() < 0.0001:
+		return
+	_probe.radius = 4.2
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = _probe
+	q.transform = Transform3D(Basis(), global_position)
+	q.motion = motion
+	var r := space.cast_motion(q)
+	if r.size() < 2 or r[0] >= 1.0:
+		global_position += motion
+		return
+	global_position += motion * r[0]
+	q.transform = Transform3D(Basis(), global_position + motion * (r[1] - r[0]))
+	q.motion = Vector3.ZERO
+	var info := space.get_rest_info(q)
+	var n: Vector3 = info.get("normal", -motion.normalized())
+	var into := -velocity.dot(n)
+	if into > 0.0:
+		velocity += n * into * 1.5
+		cruise = minf(cruise, 15.0)
+		shake = maxf(shake, clampf(into / 40.0, 0.2, 1.2))
+		Fx.sparks(get_parent(), info.get("point", global_position))
+		Sfx.play("hit", -4.0, 0.6)
+		if into > 8.0:
+			hit(into * 0.8, info.get("point", global_position))
+	# Never rest inside: nudge out along the normal.
+	global_position += n * 0.05
+
 func barrel_roll(dir: float) -> void:
 	if _roll_cool > 0.0:
 		return
@@ -161,6 +199,12 @@ func _physics_process(dt: float) -> void:
 	var roll_in := 0.0
 	if controls:
 		roll_in = Input.get_axis("roll_right", "roll_left")
+		# Arrow keys steer too: pitch and yaw the aim, for flying without a mouse.
+		var look := Input.get_vector("look_left", "look_right", "look_up", "look_down")
+		if look.length() > 0.0:
+			var cb := camera.global_basis
+			aim = aim.rotated(cb.y, -look.x * 1.6 * dt)
+			aim = aim.rotated(cb.x, -look.y * 1.6 * dt * (-1.0 if Flow.settings.invert else 1.0)).normalized()
 	global_basis = Basis(-global_basis.z, roll_in * ROLL * dt) * global_basis
 	global_basis = global_basis.orthonormalized()
 	# Flight assist: hold the speed that was set, slide sideways on A/D.
@@ -176,7 +220,7 @@ func _physics_process(dt: float) -> void:
 		strafe = Vector2(Input.get_axis("left", "right"), Input.get_axis("down", "up"))
 	var want := -global_basis.z * speed + global_basis.x * strafe.x * 35.0 + global_basis.y * strafe.y * 35.0
 	velocity = velocity.move_toward(want, (90.0 if boosting else 45.0) * dt)
-	global_position += velocity * dt
+	_move(dt)
 	# The model banks into turns and spins through a barrel roll.
 	_bank = lerpf(_bank, clampf(-yaw_rate * 0.5, -0.6, 0.6), 4.0 * dt)
 	var spin := 0.0

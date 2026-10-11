@@ -5,6 +5,44 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Structural fixes: collisions, mouse, text, steering, and a test suite, 11 October 2026
+
+- **Ships no longer fly through things.** The Kestrel sweeps a sphere its
+  own size along every move. On contact it stops at the surface, bounces,
+  and takes damage by how hard it hit.
+  - **Big ships** (Hearth, the Aster, the convoy) collide by their real
+    shape.
+  - **Raiders** collide as a solid core.
+  - **People are solid too**: you can't walk through Hale, Mara or the
+    crowd.
+- **The mouse no longer drops out.** Capture is decided in one place
+  (`Flow`): whenever you walk or fly the mouse belongs to the game, and the
+  cursor shows only in menus, the pause screen and the end of a chapter.
+  - **On desktop** it is taken back at once.
+  - **In a browser,** which needs a click for that, "Click to take control,
+    or steer with the arrow keys" shows until you do.
+
+  Scene changes and cutscenes no longer release it.
+- **The arrow keys steer:** pitch and yaw in flight, look on foot. You can
+  always turn, mouse or not. They no longer duplicate WASD.
+- **Text no longer vanishes:**
+  - **One fade per element:** each piece of HUD text has a single fade at a
+    time. Two fades used to fight over one element and leave it
+    invisible.
+  - **Cutscenes** hide the help and objectives as one layer. Text set during
+    a cutscene shows when it ends.
+  - **Silencing** cuts the current subtitle at once.
+- **The pause menu lists every control.**
+- **`npm run godot:check`:** the Godot game's own test suite.
+  - **HUD:** the five sequences that used to hide text.
+  - **Walks:** every route a player must take (the corridor door and aft
+    wall, Hale, the captain's chair, the Kestrel's ladder, Mara).
+  - **Rams:** full thrust into Hearth and the Aster, where none may end
+    inside.
+
+  Results go to a file as they happen, so a run that hangs on exit cannot
+  lose them.
+
 ### Act One begins in Godot: Hearth, Mara's test flight, Mission Passed, 11 October 2026
 
 - **The prologue now runs straight into Act One.** "Begin Act One" in the

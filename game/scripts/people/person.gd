@@ -4,6 +4,8 @@ extends Node3D
 ## to face someone.
 
 var who := ""
+## Solid people block whoever walks into them; the player's own body is not.
+var solid := true
 ## The work suit's colour, multiplied over its denim.
 var suit_tint := Color(0.62, 0.6, 0.58)
 var _anim: AnimationPlayer
@@ -30,6 +32,17 @@ func _ready() -> void:
 	var path := hd if Flow.high_quality() and ResourceLoader.exists(hd) else "res://art/person-%s.glb" % who
 	var body: Node3D = load(path).instantiate()
 	add_child(body)
+	if solid:
+		var sb := AnimatableBody3D.new()
+		sb.sync_to_physics = false
+		var cs := CollisionShape3D.new()
+		var cap := CapsuleShape3D.new()
+		cap.radius = 0.3
+		cap.height = 1.7
+		cs.shape = cap
+		cs.position.y = 0.85
+		sb.add_child(cs)
+		add_child(sb)
 	_dress(body)
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh and mi.find_blend_shape_by_name("blink_l") >= 0:

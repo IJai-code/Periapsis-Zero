@@ -45,9 +45,9 @@ func _process(dt: float) -> void:
 	_player._auto = "walk"
 	if d.length() < 0.35 or _t > 2.5 + 12.0 * (_i + 1):
 		_i += 1
-		print("WALKTEST reached %d at %s (wanted %s), prompt: '%s'" % [_i, _player.global_position.snapped(Vector3.ONE * 0.01), target, Hud._help_text.text if Hud._help.modulate.a > 0.5 else ""])
+		Report.line("WALKTEST reached %d at %s (wanted %s), prompt: '%s'" % [_i, _player.global_position.snapped(Vector3.ONE * 0.01), target, Hud._help_text.text if Hud._help.modulate.a > 0.5 else ""])
 		if _i >= plan.size():
 			_player._auto = ""
 			await get_tree().create_timer(0.6).timeout
-			print("WALKTEST final %s prompt: '%s'" % [_player.global_position.snapped(Vector3.ONE * 0.01), Hud._help_text.text if Hud._help.modulate.a > 0.5 else ""])
+			Report.line("WALKTEST final %s prompt: '%s'" % [_player.global_position.snapped(Vector3.ONE * 0.01), Hud._help_text.text if Hud._help.modulate.a > 0.5 else ""])
 			get_tree().quit()

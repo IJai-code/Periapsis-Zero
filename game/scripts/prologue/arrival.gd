@@ -24,7 +24,6 @@ func _ready() -> void:
 	_cam.position = Vector3(-1.2, 0.95, -5.45)
 	_cam.look_at(Vector3(-1.0, 2.9, -4.6))
 	_cam.make_current()
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Flow.music(false)
 	_beep()
 	_script()
@@ -106,5 +105,4 @@ func _goals() -> void:
 	Flow.set_progress("prologue_done", true)
 	Sfx.play("objective", -4.0)
 	create_tween().tween_property(_ui, "modulate:a", 1.0, 1.2)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	go.grab_focus()

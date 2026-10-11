@@ -26,6 +26,7 @@ func _ready() -> void:
 	station = load("res://art/station-hearth.glb").instantiate()
 	add_child(station)
 	Surfaces.apply(station)
+	Surfaces.collide(station)
 	_ring = station.find_child("ring", true, false)
 	var bolts := Bolts.new()
 	add_child(bolts)

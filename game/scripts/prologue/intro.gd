@@ -9,7 +9,6 @@ var _skipping := false
 
 func _ready() -> void:
 	Flow.music(true)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Hud.letterbox(true)
 	Hud.prompt("[Enter] Skip the opening", 6.0)
 	_film()
@@ -125,6 +124,7 @@ func _film() -> void:
 	var bay := AsterHangar.new()
 	_shot.add_child(bay)
 	var pilot := Person.make("pilot")
+	pilot.solid = false
 	pilot.suit_tint = Color(0.42, 0.45, 0.36)
 	_shot.add_child(pilot)
 	pilot.position = Vector3(-3.2, 0.05, -9.5)

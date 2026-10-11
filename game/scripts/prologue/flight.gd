@@ -83,6 +83,7 @@ func _convoy() -> void:
 	var m := Hull.model("freighter")
 	aster.add_child(m)
 	aster.body = m
+	Surfaces.collide(m)
 	add_child(aster)
 	aster.rotation_degrees = Vector3(0.0, 8.0, 0.0)
 	for c in [["freighter2", Vector3(-230.0, -40.0, 90.0), 1.0], ["freighter3", Vector3(-180.0, 45.0, 280.0), 1.0], ["freighter2", Vector3(60.0, -70.0, 470.0), 1.0], ["freighter3", Vector3(-320.0, 10.0, -160.0), 1.0]]:
@@ -91,6 +92,7 @@ func _convoy() -> void:
 		add_child(other)
 		other.position = c[1]
 		other.rotation_degrees = Vector3(0.0, randf_range(4.0, 12.0), 0.0)
+		Surfaces.collide(other)
 
 func _make_ring() -> MeshInstance3D:
 	var t := TorusMesh.new()

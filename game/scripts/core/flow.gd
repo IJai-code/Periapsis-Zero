@@ -28,14 +28,51 @@ var beat := ""
 ## Keys, defined here rather than in project.godot so they read as a list.
 ## Flight matches the web game: W/S thrust, A/D strafe, Q/E roll, mouse aims.
 const KEYS := {
-	"forward": [KEY_W, KEY_UP], "back": [KEY_S, KEY_DOWN],
-	"left": [KEY_A, KEY_LEFT], "right": [KEY_D, KEY_RIGHT],
+	"forward": [KEY_W], "back": [KEY_S],
+	"left": [KEY_A], "right": [KEY_D],
+	"look_up": [KEY_UP], "look_down": [KEY_DOWN], "look_left": [KEY_LEFT], "look_right": [KEY_RIGHT],
 	"roll_left": [KEY_Q], "roll_right": [KEY_E],
 	"up": [KEY_SPACE], "down": [KEY_C],
 	"interact": [KEY_E, KEY_F], "boost": [KEY_SHIFT],
 	"fire": [KEY_K], "pause": [KEY_ESCAPE, KEY_P], "skip": [KEY_ENTER],
 	"crouch": [KEY_C, KEY_CTRL], "jump": [KEY_SPACE],
 }
+
+## The mouse belongs to the game whenever something that steers by it is
+## active (the walking pilot, the ship: group "mouse_look", `wants_mouse()`)
+## and the game is not paused. The cursor shows only in menus. On the
+## desktop it is captured again at once; a browser needs a click for that,
+## so the HUD asks for one.
+func _process(_dt: float) -> void:
+	var want := false
+	if not get_tree().paused and not _busy:
+		for n in get_tree().get_nodes_in_group("mouse_look"):
+			if n.is_inside_tree() and n.wants_mouse():
+				want = true
+				break
+	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if want and not captured and not on_web():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		captured = true
+	elif not want and captured:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		captured = false
+	# In a cutscene, no cursor over the picture.
+	if not want and not captured and not get_tree().paused:
+		var hide := Hud.cinematic
+		if hide and Input.mouse_mode != Input.MOUSE_MODE_HIDDEN:
+			Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+		elif not hide and Input.mouse_mode == Input.MOUSE_MODE_HIDDEN:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Hud.click_hint(want and not captured)
+
+func _input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
+		for n in get_tree().get_nodes_in_group("mouse_look"):
+			if n.is_inside_tree() and n.wants_mouse():
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+				get_viewport().set_input_as_handled()
+				return
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -84,7 +121,6 @@ func go(scene: String) -> void:
 	if _busy:
 		return
 	_busy = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	await Hud.fade_out(0.8)
 	Hud.reset()
 	Hud.loading(true)

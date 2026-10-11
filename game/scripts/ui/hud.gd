@@ -12,6 +12,22 @@ extends CanvasLayer
 
 signal line_done
 
+const CONTROLS := """ON FOOT
+  W A S D   walk          Shift   run
+  Mouse     look          Arrows  look
+  C / Ctrl  crouch        Space   jump
+  E         use, talk, sit, stand
+
+IN FLIGHT
+  Mouse     steer         Arrows  steer
+  W / S     speed up, slow down
+  A / D     slide         Q / E   roll
+  Space/C   up, down      Shift   boost
+  Click / K fire          V       cockpit view
+  Double-tap A or D       barrel roll
+
+  Esc / P   pause"""
+
 const SPEAKERS := {
 	"Captain Hale": Style.EMBER,
 	"Renn Ayers": Style.ION,
@@ -22,6 +38,9 @@ const SPEAKERS := {
 }
 
 var root: Control
+## The gameplay layer (help, objectives): hidden as one in cutscenes.
+var _play_ui: Control
+var cinematic := false
 var _fade: ColorRect
 var _wake: ColorRect
 var _loading: Label
@@ -65,6 +84,11 @@ func _ready() -> void:
 	_wake.visible = false
 	root.add_child(_wake)
 
+	_play_ui = Control.new()
+	_play_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_play_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_play_ui)
+
 	# Help box, top left: how to do the thing in front of you.
 	_help = PanelContainer.new()
 	var hb := StyleBoxFlat.new()
@@ -82,7 +106,7 @@ func _ready() -> void:
 	_help_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_help.add_child(_help_text)
 	_help.modulate.a = 0.0
-	root.add_child(_help)
+	_play_ui.add_child(_help)
 
 	# The objective, small, top right.
 	_obj_small = VBoxContainer.new()
@@ -103,7 +127,7 @@ func _ready() -> void:
 	_outline(_obj_extra)
 	_obj_small.add_child(_obj_extra)
 	_obj_small.modulate.a = 0.0
-	root.add_child(_obj_small)
+	_play_ui.add_child(_obj_small)
 
 	# The objective, large, bottom centre, when it changes.
 	_obj_big = _rich(30, Style.sans_bold)
@@ -113,7 +137,7 @@ func _ready() -> void:
 	_obj_big.offset_bottom = -210
 	_obj_big.custom_minimum_size = Vector2(1100, 0)
 	_obj_big.modulate.a = 0.0
-	root.add_child(_obj_big)
+	_play_ui.add_child(_obj_big)
 
 	# Subtitles, bottom centre: outlined, no box.
 	_sub = _rich(27, Style.sans)
@@ -224,12 +248,11 @@ func objective(text: String, extra := "") -> void:
 	if changed:
 		Sfx.play("objective", -8.0)
 		_obj_big.text = "[center]" + _accent(text) + "[/center]"
-		var t := create_tween()
-		t.tween_property(_obj_big, "modulate:a", 1.0, 0.4)
+		var t := _tween(_obj_big, 1.0, 0.4)
 		t.tween_interval(4.0)
 		t.tween_property(_obj_big, "modulate:a", 0.0, 0.8)
 		_obj_small.modulate.a = 0.0
-		create_tween().tween_property(_obj_small, "modulate:a", 1.0, 0.6).set_delay(0.3)
+		_tween(_obj_small, 1.0, 0.6)
 
 func objective_extra(extra: String) -> void:
 	_obj_extra.text = extra
@@ -249,9 +272,15 @@ func say(speaker: String, line: String, seconds := 0.0) -> void:
 	while not entry.done:
 		await line_done
 
+## Lines play one after another. `silence` and `reset` start a new
+## generation: the running loop sees it and stops at once, so the next line
+## shows straight away instead of after the cut line's time.
+var _gen := 0
+
 func _run_queue() -> void:
 	_speaking = true
-	while _queue.size() > 0:
+	var gen := _gen
+	while _queue.size() > 0 and gen == _gen:
 		var q: Dictionary = _queue.pop_front()
 		var col: Color = SPEAKERS.get(q.who, Style.MUTE)
 		_sub.text = "[center][color=#%s]%s:[/color] %s[/center]" % [col.to_html(false), q.who, q.line]
@@ -260,13 +289,18 @@ func _run_queue() -> void:
 		_tween(_sub, 1.0, 0.2)
 		create_tween().tween_property(_sub, "visible_ratio", 1.0, minf(1.0, q.line.length() * 0.018))
 		await get_tree().create_timer(q.secs, true, false, true).timeout
-		if _queue.is_empty():
-			_tween(_sub, 0.0, 0.3)
 		q.done = true
 		line_done.emit()
-	_speaking = false
+		if gen != _gen:
+			return
+		if _queue.is_empty():
+			_tween(_sub, 0.0, 0.3)
+	if gen == _gen:
+		_speaking = false
 
 func silence() -> void:
+	_gen += 1
+	_speaking = false
 	for q in _queue:
 		q.done = true
 	_queue.clear()
@@ -277,8 +311,7 @@ func silence() -> void:
 ## [words] are in ember. Awaitable.
 func narrate(text: String, seconds := 5.0) -> void:
 	_narr.text = "[center]" + _accent(text) + "[/center]"
-	var t := create_tween()
-	t.tween_property(_narr, "modulate:a", 1.0, 1.0)
+	var t := _tween(_narr, 1.0, 1.0)
 	t.tween_interval(seconds)
 	t.tween_property(_narr, "modulate:a", 0.0, 0.9)
 	await t.finished
@@ -339,8 +372,8 @@ func card(title: String, sub := "", seconds := 3.5) -> void:
 	_card_title.text = title
 	_card_sub.text = sub
 	_card.position.x = 56.0
-	var t := create_tween().set_parallel()
-	t.tween_property(_card, "modulate:a", 1.0, 0.7)
+	var t := _tween(_card, 1.0, 0.7)
+	t.set_parallel()
 	t.tween_property(_card, "position:x", 96.0, 0.9).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await t.finished
 	await get_tree().create_timer(seconds, true, false, true).timeout
@@ -360,7 +393,6 @@ func pause(on: bool) -> void:
 		return
 	get_tree().paused = on
 	if on:
-		_was_captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		if not _pause:
 			_pause = PanelContainer.new()
@@ -370,9 +402,11 @@ func pause(on: bool) -> void:
 			_pause.grow_vertical = Control.GROW_DIRECTION_BOTH
 			var v := VBoxContainer.new()
 			v.add_theme_constant_override("separation", 12)
-			v.custom_minimum_size = Vector2(340, 0)
+			v.custom_minimum_size = Vector2(520, 0)
 			_pause.add_child(v)
 			v.add_child(Style.label("PAUSED", 16, Style.EMBER, Style.mono_bold))
+			var keys := Style.label(CONTROLS, 16, Style.MUTE, Style.mono)
+			v.add_child(keys)
 			for b in [["Resume", func(): pause(false)], ["Skip this part", func():
 					pause(false)
 					var n := Flow.next_scene()
@@ -387,11 +421,13 @@ func pause(on: bool) -> void:
 			root.add_child(_pause)
 			root.move_child(_pause, root.get_child_count() - 2)
 		_pause.visible = true
-		(_pause.get_child(0).get_child(1) as Button).grab_focus()
+		for c in _pause.get_child(0).get_children():
+			if c is Button:
+				(c as Button).grab_focus()
+				break
 	else:
 		_pause.visible = false
-		if _was_captured:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		pass
 
 
 func fade_out(seconds := 0.8) -> void:
@@ -406,8 +442,8 @@ var _bars: Array[ColorRect] = []
 
 ## Widescreen bars for cutscenes; the objective and help step aside.
 func letterbox(on: bool) -> void:
-	for c in [_obj_big, _obj_small, _help]:
-		_tween(c, 0.0 if on else (1.0 if c == _obj_small and _obj_plain != "" else 0.0), 0.4)
+	cinematic = on
+	_tween(_play_ui, 0.0 if on else 1.0, 0.4)
 	if _bars.is_empty():
 		for top in [true, false]:
 			var r := ColorRect.new()
@@ -427,6 +463,24 @@ func letterbox(on: bool) -> void:
 			r.offset_top = 0.0
 			t.parallel().tween_property(r, "offset_top", -h if on else 0.0, 0.6).set_trans(Tween.TRANS_CUBIC)
 
+var _click: Label
+
+## "Click to take control", centred: shown by Flow when the game wants the
+## mouse and the browser has let it go.
+func click_hint(on: bool) -> void:
+	if not _click:
+		_click = Style.label("Click to take control\nor steer with the arrow keys", 28, Style.BONE, Style.sans_bold)
+		_click.set_anchors_preset(Control.PRESET_CENTER)
+		_click.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_click.grow_vertical = Control.GROW_DIRECTION_BOTH
+		_click.offset_top = 200
+		_click.offset_bottom = 200
+		_click.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_outline(_click, 10, 0.8)
+		_click.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(_click)
+	_click.visible = on
+
 ## Waking up: the view blurred, clearing over `seconds`.
 func wake(seconds: float) -> void:
 	_wake.visible = true
@@ -442,6 +496,13 @@ func loading(on: bool) -> void:
 
 ## Everything off, for a scene change.
 func reset() -> void:
+	for t in _fades.values():
+		if t and t.is_valid():
+			t.kill()
+	_fades.clear()
+	_help_left = 0.0
+	_gen += 1
+	_speaking = false
 	for q in _queue:
 		q.done = true
 	_queue.clear()
@@ -449,8 +510,21 @@ func reset() -> void:
 	for c in [_obj_small, _obj_big, _sub, _help, _card, _narr]:
 		c.modulate.a = 0.0
 	_obj_plain = ""
+	cinematic = false
+	_play_ui.modulate.a = 1.0
+	for b in _bars:
+		b.custom_minimum_size.y = 0.0
+		b.offset_top = 0.0
+
+## Fade an element. Each element has at most one fade running: a new one
+## replaces the old, so two fades can never fight over the same text.
+var _fades := {}
 
 func _tween(node: CanvasItem, alpha: float, seconds: float) -> Tween:
+	var old: Tween = _fades.get(node.get_instance_id())
+	if old and old.is_valid():
+		old.kill()
 	var t := create_tween()
 	t.tween_property(node, "modulate:a", alpha, seconds)
+	_fades[node.get_instance_id()] = t
 	return t
