@@ -47,6 +47,31 @@ func _make(seconds: float, f: Callable) -> AudioStreamWAV:
 	s.data = data
 	return s
 
+## Four seconds of interior hum that loops cleanly: a 50 Hz and 100 Hz
+## drone, a slow beat between them, and filtered air noise.
+func hum_stream() -> AudioStreamWAV:
+	var seconds := 4.0
+	var n := int(seconds * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var lp := 0.0
+	var lp2 := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var drone := sin(TAU * 50.0 * t) * 0.32 + sin(TAU * 100.0 * t) * 0.14 + sin(TAU * 150.5 * t) * 0.05
+		drone *= 0.8 + 0.2 * sin(TAU * 0.5 * t)
+		lp += (randf() * 2.0 - 1.0 - lp) * 0.02
+		lp2 += (lp - lp2) * 0.05
+		var v := drone * 0.55 + lp2 * 6.0
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 20000.0))
+	var s := AudioStreamWAV.new()
+	s.format = AudioStreamWAV.FORMAT_16_BITS
+	s.mix_rate = RATE
+	s.data = data
+	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	s.loop_end = n
+	return s
+
 func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 	if not _streams.has(name):
 		return

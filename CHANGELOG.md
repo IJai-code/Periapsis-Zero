@@ -5,6 +5,29 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Boarding, movement, a real start, and an honest review, 10 October 2026
+
+- **The Kestrel is solid.** You no longer walk through its wings.
+  - It sits higher on a taller cradle, so you can walk under the wings.
+  - You board by a ladder at the cockpit.
+  - The walkway rail no longer blocks the way onto the deck.
+- **Interaction works by proximity:** stand at a thing and face it. The
+  camera's aim decided it before, which made the ship and Hale hard to
+  use. An automated walk test (`-- --walktest <plan>`) now checks the
+  routes to the ladder, Hale, the captain's chair and both corridor ends.
+- **Crouch** (C or Ctrl, with a crouched walk), **jump** (Space) and **sit**
+  (E at the captain's chair). Each is a new animation baked on the
+  pilot's rig.
+- **The game's title** opens on "Begin your journey", which plays the
+  opening film the first time. After that it offers "Continue the
+  journey", which resumes at the last chapter reached.
+- **A low interior hum** in every ship scene.
+- **The landing page** leads with the story's hook, "Begin your journey"
+  and a download for your system. The career sidebar is hidden until you
+  have a pilot.
+- **An honest review** of the whole game is in
+  `docs/review-2026-10-10.md`.
+
 ### Mouths that work, a cockpit, a dressed medical bay, and desktop downloads, 10 October 2026
 
 - **Lip movement fixed.**

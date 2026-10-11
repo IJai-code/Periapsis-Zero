@@ -63,10 +63,10 @@ for x in (-1.6, 1.6):
 kit.part('rails', bm, 'metal', bevel=0.01)
 # The cradle the Kestrel sits on.
 bm = bmesh.new()
-kit.box(bm, (0, 14.0, 0.45), (4.4, 7.0, 0.5))
-for x in (-1.5, 1.5):
+kit.box(bm, (0, 14.0, 0.3), (3.0, 7.0, 0.5))
+for x in (-1.0, 1.0):
     for y in (11.5, 16.5):
-        kit.box(bm, (x, y, 1.0), (0.4, 0.4, 0.9))
+        kit.box(bm, (x, y, 1.05), (0.35, 0.35, 1.2))
 kit.part('cradle', bm, 'paint_dark', bevel=0.03)
 
 # The port walkway at the bridge door: grating on legs, a rail.
@@ -74,9 +74,10 @@ bm = bmesh.new()
 kit.box(bm, (-6.5, 6.0, 0.06), (4.0, 12.0, 0.06))
 kit.part('walkway', bm, 'grate')
 bm = bmesh.new()
-for y in kit.frange(0.5, 11.5, 1.5):
+# The rail stops short of the ship, leaving the way onto the deck open.
+for y in kit.frange(0.5, 6.5, 1.5):
     kit.cylinder(bm, V((-4.55, y, 0.1)), V((-4.55, y, 1.1)), 0.035, 8)
-kit.cylinder(bm, V((-4.55, 0.3, 1.1)), V((-4.55, 11.7, 1.1)), 0.035, 8)
+kit.cylinder(bm, V((-4.55, 0.3, 1.1)), V((-4.55, 6.5, 1.1)), 0.035, 8)
 kit.part('rail', bm, 'paint_ember')
 
 # Gantry arms over the cradle, fuel lines, crates along the starboard wall.

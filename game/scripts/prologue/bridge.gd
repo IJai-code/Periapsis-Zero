@@ -34,6 +34,11 @@ func _ready() -> void:
 	_hatch.set_meta("prompt", "The hatch is sealed until the captain has briefed you")
 	add_child(_hatch)
 	_hatch.activated.connect(_leave)
+	# The captain's chair, and the two crew seats at the forward consoles.
+	var chair := Seat.make(Vector3(0.0, 0.12, -2.5), 0.0, "Sit in the captain's chair")
+	add_child(chair)
+	if "--sit" in OS.get_cmdline_user_args():
+		get_tree().create_timer(1.0).timeout.connect(func(): _walker.sit(chair))
 	Flow.music(false)
 	_enter()
 	if "--talk" in OS.get_cmdline_user_args():

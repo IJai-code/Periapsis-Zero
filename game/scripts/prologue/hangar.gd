@@ -14,8 +14,11 @@ func _ready() -> void:
 	add_child(_walker)
 	_walker.position = Vector3(-6.5, 0.15, -1.2)
 	_walker.face(Vector3(0.0, 2.0, -14.0))
-	_board = Interactable.new(Vector3(3.0, 3.0, 6.0), "[E] Climb into the Kestrel")
-	_board.position = Vector3(0.0, 2.0, -14.0)
+	# The ship is solid; the way in is a ladder at the cockpit, port side.
+	Surfaces.collide(_set.kestrel)
+	_set.add_ladder(Vector3(-2.7, 0.0, -17.2))
+	_board = Interactable.new(Vector3(1.2, 2.4, 1.4), "[E] Climb into the Kestrel", 1.8)
+	_board.position = Vector3(-2.7, 1.2, -17.2)
 	add_child(_board)
 	_board.activated.connect(_launch)
 	Flow.music(false)
@@ -27,7 +30,7 @@ func _script() -> void:
 	await get_tree().create_timer(0.8).timeout
 	if _gone:
 		return
-	Hud.objective("Board your [Kestrel]", "Mid-deck, on the cradle")
+	Hud.objective("Board your [Kestrel]", "The ladder at her cockpit, port side")
 	await Hud.say("Renn Ayers", "Flight deck, this is engineering. She's on the cradle, fuelled and warm.")
 	if _gone:
 		return
@@ -65,7 +68,7 @@ func _launch() -> void:
 	create_tween().tween_property(glow, "light_energy", 6.0, 1.2)
 	Hud.say("Captain Hale", "Kestrel, Aster. You're clear to launch. Take station off our port side.", 3.5)
 	var t := create_tween()
-	t.tween_property(k, "position:y", 3.3, 1.6).set_trans(Tween.TRANS_SINE)
+	t.tween_property(k, "position:y", 3.8, 1.6).set_trans(Tween.TRANS_SINE)
 	await t.finished
 	Sfx.play("boom", -4.0, 0.5)
 	var follow := create_tween().set_parallel()

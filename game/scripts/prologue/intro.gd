@@ -23,6 +23,7 @@ func _skip() -> void:
 	if _skipping:
 		return
 	_skipping = true
+	Flow.set_progress("intro_seen", true)
 	Hud.letterbox(false)
 	Flow.go("corridor")
 

@@ -38,7 +38,7 @@ func _ready() -> void:
 	var players := body.find_children("*", "AnimationPlayer", true, false)
 	if players.size() > 0:
 		_anim = players[0]
-		for a in ["idle", "talk", "walk", "run"]:
+		for a in ["idle", "talk", "walk", "run", "crouch", "crouch_walk", "sit"]:
 			if _anim.has_animation(a):
 				_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_anim.play("idle")
@@ -103,15 +103,23 @@ func talk(on: bool) -> void:
 
 ## Walking pace in metres a second: idle, walk or run, the cycle's speed
 ## matched to the ground covered (walk 1.6 m/s, run 4.4 m/s at 1x).
-func locomote(speed: float) -> void:
+func locomote(speed: float, crouched := false, airborne := false, seated := false) -> void:
 	if not _anim or _talking:
 		return
 	var gait := "idle" if speed < 0.25 else ("walk" if speed < 3.0 else "run")
+	if crouched:
+		gait = "crouch" if speed < 0.2 else "crouch_walk"
+	if airborne:
+		gait = "jump"
+	if seated:
+		gait = "sit"
 	if gait != _gait and _anim.has_animation(gait):
 		_gait = gait
 		_anim.play(gait, 0.25)
 	if gait == "walk":
 		_anim.speed_scale = clampf(speed / 1.6, 0.6, 1.6)
+	elif gait == "crouch_walk":
+		_anim.speed_scale = clampf(speed / 1.0, 0.6, 1.5)
 	elif gait == "run":
 		_anim.speed_scale = clampf(speed / 4.4, 0.7, 1.4)
 	else:

@@ -30,6 +30,7 @@ const KEYS := {
 	"up": [KEY_SPACE], "down": [KEY_C],
 	"interact": [KEY_E, KEY_F], "boost": [KEY_SHIFT],
 	"fire": [KEY_K], "pause": [KEY_ESCAPE, KEY_P], "skip": [KEY_ENTER],
+	"crouch": [KEY_C, KEY_CTRL], "jump": [KEY_SPACE],
 }
 
 func _ready() -> void:
@@ -86,6 +87,10 @@ func go(scene: String) -> void:
 	await get_tree().process_frame
 	get_tree().paused = false
 	get_tree().change_scene_to_file(SCENES[scene])
+	# Remember the furthest chapter reached, for "Continue the journey".
+	if scene in ["corridor", "bridge", "hangar", "flight", "arrival"]:
+		set_progress("chapter", scene)
+	ambience(scene in ["corridor", "bridge", "hangar", "arrival"])
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_busy = false
@@ -103,6 +108,23 @@ func next_scene() -> String:
 
 func in_title() -> bool:
 	return get_tree().current_scene != null and get_tree().current_scene.scene_file_path == SCENES.title
+
+var _hum: AudioStreamPlayer
+
+## The low hum of a ship's interior: air handlers and the reactor far off.
+func ambience(on: bool) -> void:
+	if not _hum:
+		_hum = AudioStreamPlayer.new()
+		_hum.stream = Sfx.hum_stream()
+		add_child(_hum)
+	if on and not _hum.playing:
+		_hum.volume_db = -40.0
+		_hum.play()
+		create_tween().tween_property(_hum, "volume_db", -17.0 + sfx_db(), 2.0)
+	elif not on and _hum.playing:
+		var t := create_tween()
+		t.tween_property(_hum, "volume_db", -40.0, 1.0)
+		t.tween_callback(_hum.stop)
 
 func music(on: bool) -> void:
 	if on and not _music.playing:

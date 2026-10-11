@@ -8,6 +8,34 @@ extends Node3D
 const SUN_DIR := Vector3(0.4, 0.55, -0.73)
 var kestrel: Node3D
 
+## A boarding ladder leaning on the ship, its foot at `foot`.
+func add_ladder(foot: Vector3) -> void:
+	var m := Surfaces.get_material("paint_ember")
+	var top := foot + Vector3(1.2, 3.0, 0.0)
+	for dz in [-0.28, 0.28]:
+		var rail := MeshInstance3D.new()
+		var c := CylinderMesh.new()
+		c.top_radius = 0.03
+		c.bottom_radius = 0.03
+		c.height = (top - foot).length()
+		c.material = m
+		rail.mesh = c
+		add_child(rail)
+		rail.position = (foot + top) / 2.0 + Vector3(0, 0, dz)
+		rail.basis = Basis(Vector3.BACK, -atan2(top.x - foot.x, top.y - foot.y))
+	for k in range(1, 10):
+		var t := k / 10.0
+		var rung := MeshInstance3D.new()
+		var r := CylinderMesh.new()
+		r.top_radius = 0.02
+		r.bottom_radius = 0.02
+		r.height = 0.56
+		r.material = Surfaces.get_material("metal")
+		rung.mesh = r
+		add_child(rung)
+		rung.position = foot.lerp(top, t)
+		rung.rotation_degrees = Vector3(90, 0, 0)
+
 func _ready() -> void:
 	var hq := Flow.high_quality()
 	var bay: Node3D = load("res://art/aster_hangar.glb").instantiate()
@@ -16,7 +44,8 @@ func _ready() -> void:
 	Surfaces.collide(bay)
 	kestrel = Hull.model("kestrel")
 	add_child(kestrel)
-	kestrel.position = Vector3(0.0, 1.95, -14.0)
+	# High enough on the cradle to walk under the wings.
+	kestrel.position = Vector3(0.0, 2.45, -14.0)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()

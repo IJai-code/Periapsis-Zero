@@ -28,7 +28,8 @@ func _ready() -> void:
 	fill.omni_range = 60.0
 	add_child(fill)
 	_fill = fill
-	_ui()
+	if not "--noui" in OS.get_cmdline_user_args():
+		_ui()
 	Flow.music(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -79,10 +80,19 @@ func _ui() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 28)
 	_menu.add_child(gap)
+	# First time: one button, the journey from the start (the opening film
+	# plays). After that the menu offers to carry on from where it stopped.
 	var done: bool = Flow.progress("prologue_done", false)
-	_button("Play the prologue" if not done else "Replay the prologue", func(): Flow.go("intro")).grab_focus()
+	var seen: bool = Flow.progress("intro_seen", false)
 	if done:
-		_button("Continue to Act One", Flow.open_act_one)
+		_button("Continue to Act One", Flow.open_act_one, true).grab_focus()
+		_button("Replay the prologue", func(): Flow.go("intro"))
+	elif seen:
+		var chapter: String = Flow.progress("chapter", "corridor")
+		_button("Continue the journey", func(): Flow.go(chapter), true).grab_focus()
+		_button("Watch the opening again", func(): Flow.go("intro"))
+	else:
+		_button("Begin your journey", func(): Flow.go("intro"), true).grab_focus()
 	_button("Settings", _toggle_settings)
 	if not Flow.on_web():
 		_button("Quit", get_tree().quit)
@@ -95,9 +105,29 @@ func _ui() -> void:
 	_settings.visible = false
 	root.add_child(_settings)
 
-func _button(text: String, action: Callable) -> Button:
+func _button(text: String, action: Callable, primary := false) -> Button:
 	var b := Button.new()
 	b.text = text
+	if primary:
+		# The way in: ember, larger, an arrow.
+		b.text = text + "   →"
+		var st := StyleBoxFlat.new()
+		st.bg_color = Style.EMBER
+		st.set_corner_radius_all(8)
+		st.content_margin_left = 30
+		st.content_margin_right = 30
+		st.content_margin_top = 18
+		st.content_margin_bottom = 18
+		var hv := st.duplicate()
+		hv.bg_color = Style.EMBER.lightened(0.12)
+		b.add_theme_stylebox_override("normal", st)
+		b.add_theme_stylebox_override("hover", hv)
+		b.add_theme_stylebox_override("focus", hv)
+		b.add_theme_stylebox_override("pressed", st)
+		b.add_theme_color_override("font_color", Style.VOID)
+		b.add_theme_color_override("font_focus_color", Style.VOID)
+		b.add_theme_color_override("font_hover_color", Style.VOID)
+		b.add_theme_font_size_override("font_size", 26)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.custom_minimum_size = Vector2(340, 0)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN

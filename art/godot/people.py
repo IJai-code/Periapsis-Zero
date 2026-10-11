@@ -311,6 +311,75 @@ def stride(arm, t, period, run):
     bpy.context.view_layer.update()
 
 
+def drop(arm, dz, dy=0.0):
+    """Move the pelvis (and so the whole body above the feet) in world z/y."""
+    pb = arm.pose.bones['pelvis']
+    m = arm.matrix_world @ pb.matrix
+    m.translation.z += dz
+    m.translation.y += dy
+    pb.matrix = arm.matrix_world.inverted() @ m
+    bpy.context.view_layer.update()
+
+
+def crouch(arm, t=0.0, period=0.9, moving=0.0):
+    """Knees bent, hips low, back leaning in; `moving` adds a short stride."""
+    relaxed(arm, 0.0, 0.0)
+    ph = 2 * math.pi * t / period
+    drop(arm, -0.36)
+    rotate(arm, 'spine_01', (1, 0, 0), -16.0)
+    rotate(arm, 'neck_01', (1, 0, 0), 10.0)
+    for s, sgn in (('l', 1.0), ('r', -1.0)):
+        f = math.sin(ph) * sgn * moving
+        lift = max(0.0, math.cos(ph) * sgn) * moving
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -62.0 - 16.0 * f - 10.0 * lift)
+        rotate(arm, f'calf_{s}', (1, 0, 0), 96.0 + 14.0 * lift)
+        rotate(arm, f'foot_{s}', (1, 0, 0), -30.0)
+        rotate(arm, f'upperarm_{s}', (1, 0, 0), -18.0 + 12.0 * f)
+        rotate(arm, f'lowerarm_{s}', (1, 0, 0), -40.0)
+    rotate(arm, 'pelvis', (0, 0, 1), math.sin(ph) * 4.0 * moving)
+
+
+def tuck(arm):
+    """In the air: knees drawn up, arms out for balance."""
+    relaxed(arm, 0.0, 0.0)
+    for s, sgn in (('l', 1.0), ('r', -1.0)):
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -38.0 if s == 'l' else -22.0)
+        rotate(arm, f'calf_{s}', (1, 0, 0), 62.0 if s == 'l' else 40.0)
+        rotate(arm, f'upperarm_{s}', (0, 1, 0), sgn * -28.0)
+        rotate(arm, f'upperarm_{s}', (1, 0, 0), -20.0)
+        rotate(arm, f'lowerarm_{s}', (1, 0, 0), -35.0)
+    rotate(arm, 'spine_01', (1, 0, 0), -6.0)
+
+
+def seated(arm, t=0.0):
+    """Sitting upright, hands on the thighs, breathing."""
+    relaxed(arm, t, 0.0)
+    drop(arm, -0.42, 0.12)
+    for s in ('l', 'r'):
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -86.0)
+        rotate(arm, f'calf_{s}', (1, 0, 0), 84.0)
+        rotate(arm, f'upperarm_{s}', (1, 0, 0), -24.0)
+        rotate(arm, f'lowerarm_{s}', (1, 0, 0), -52.0)
+    rotate(arm, 'spine_01', (1, 0, 0), 4.0)
+
+
+def bake_pose(arm, name, fn, period=2.0, fps=24, step=4):
+    action = bpy.data.actions.new(name)
+    arm.animation_data_create()
+    arm.animation_data.action = action
+    frames = int(round(period * fps))
+    for f in range(0, frames + 1, step):
+        fn(f / fps)
+        for pb in arm.pose.bones:
+            pb.keyframe_insert('rotation_quaternion', frame=f)
+            pb.keyframe_insert('location', frame=f)
+    action.use_fake_user = True
+    track = arm.animation_data.nla_tracks.new()
+    track.name = name
+    track.strips.new(name, 0, action)
+    arm.animation_data.action = None
+
+
 def bake_stride(arm, name, period, run, fps=24):
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
@@ -361,6 +430,10 @@ bake(arm, 'talk', 1.0)
 if PEOPLE[WHO].get('walks'):
     bake_stride(arm, 'walk', 1.05, 0.0)
     bake_stride(arm, 'run', 0.7, 1.0)
+    bake_pose(arm, 'crouch', lambda t: crouch(arm, t, 2.0, 0.0), 2.0)
+    bake_pose(arm, 'crouch_walk', lambda t: crouch(arm, t, 1.0, 1.0), 1.0, step=2)
+    bake_pose(arm, 'jump', lambda t: tuck(arm), 0.5, step=12)
+    bake_pose(arm, 'sit', lambda t: seated(arm, t), 4.0)
 # Textures: the skin at 2K for close-ups, everything else at 1K.
 for img in bpy.data.images:
     if img.size[0] == 0:

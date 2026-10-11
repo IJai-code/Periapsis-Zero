@@ -13,6 +13,13 @@ function readSave() {
   try { const s = JSON.parse(localStorage.getItem('pz-game-v1') ?? 'null'); return s?.version === 1 && s.pilot ? s : null } catch { return null }
 }
 // Phones and tablets alike: the game needs a keyboard and mouse.
+// The desktop download that suits this computer, best guess.
+function desktopDownload() {
+  const ua = navigator.userAgent
+  if (/Windows/i.test(ua)) return { name: 'Windows', file: 'PeriapsisZero-windows.zip' }
+  if (/Linux/i.test(ua) && !/Android/i.test(ua)) return { name: 'Linux', file: 'PeriapsisZero-linux.tar.gz' }
+  return { name: 'Mac', file: 'PeriapsisZero-mac.zip' }
+}
 function phone() { return Boolean(window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 1 && !window.matchMedia?.('(pointer: fine)').matches) }
 const TRAINING = [
   { id: 'orbit', title: '01 / Make orbit', text: 'Watch the launch sequence, follow the flight computer and reach a stable Earth orbit.', preset: 'apollo8-launch', vessel: 'apollo8', site: 'ksc', image: 'game/shot-transfer.webp', tag: 'Start here · Earth', action: 'Start orbital training' },
@@ -28,6 +35,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
   const save = useMemo(readSave, [])
   const earned = useMemo(() => earnedLicences(), [])
   const isPhone = useMemo(phone, [])
+  const download = useMemo(desktopDownload, [])
   const flown = useMemo(() => logbookLine(), [])
   const [tab, setTab] = useState(training ? 'training' : 'career')
   const [confirm, setConfirm] = useState(false)
@@ -49,8 +57,8 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
         <AccountButton />
       </nav>
     </header>
-    <div className="tt-dashboard">
-      <aside className="tt-pilot">
+    <div className={`tt-dashboard ${save || earned.size ? '' : 'tt-fresh'}`}>
+      {(save || earned.size > 0) && <aside className="tt-pilot">
         <span className="tt-eyebrow">Pilot record / local save</span>
         <h2>{save?.pilot.name ?? 'New pilot'}</h2>
         <p>{save ? 'Your career is safe. Training records and licences belong to this same pilot journey.' : 'A ship. A living. A way home. Start your career or learn the real flight mechanics first.'}</p>
@@ -58,25 +66,27 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
         <div className="tt-licence-list">{LICENCES.map((l) => <div key={l.id} className={earned.has(l.id) ? 'earned' : ''}><b>{earned.has(l.id) ? '✓' : '○'}</b><span>{l.name}</span><small>₡ {l.bonus.toLocaleString()}</small></div>)}</div>
         {save && <button className="tt-primary control" onClick={onPlay}>Return to career →</button>}
         <small className="tt-record">{flown ? `Flight log: ${flown}` : 'Progress saves in this browser.'}<br />Training awards unlock suits and one-time career bonuses.</small>
-      </aside>
+      </aside>}
       <div className="tt-content">
         {tab === 'career' && <>
-          <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart-aster.jpg)` }}>
-            <div className="tt-hero-copy"><span className="tt-eyebrow">Earth-Moon frontier / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
-              <p>You survived the ambush. A debt, a dead convoy, and one true story about who sold the Aster. Learn your ship, take the work, and fly the deep lanes to the end of it.</p>
-              {isPhone ? <><p className="tt-device-note">The game and its prologue need a computer with a keyboard and mouse. Flight school and surface exploration work on this device.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <div className="tt-actions">
-                {save && <button className="tt-primary control" onClick={onPlay}>Continue career →</button>}
-                {/* The prologue is the Godot build (game/, published to /play/): the Aster, played. */}
-                <a className={`${save ? 'tt-secondary' : 'tt-primary'} control`} href={`${BASE}play/index.html`}>{save ? 'Play the new prologue' : 'Play the prologue →'}</a>
-                <button className="tt-secondary control" onClick={newGame}>{save ? 'New pilot' : 'Skip to your career'}</button>
+          <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart-kestrel.jpg)` }}>
+            <div className="tt-hero-copy"><span className="tt-eyebrow">A story in cislunar space / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
+              <p className="tt-hook">Somebody sold the Aster&rsquo;s route. Six ships went out. You were the only one who came back.</p>
+              <p>Walk the convoy, fly escort, survive the ambush, and find out who sold you. A story you play, in your browser or downloaded at full quality.</p>
+              {isPhone ? <><p className="tt-device-note">The game and its prologue need a computer with a keyboard and mouse. Flight school and surface exploration work on this device.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <>
+                <div className="tt-actions">
+                  {/* The prologue is the Godot build (game/, published to /play/): the Aster, played. */}
+                  <a className="tt-primary tt-begin control" href={`${BASE}play/index.html`}>Begin your journey →</a>
+                  <a className="tt-secondary control" href={`${DESKTOP}${download.file}`}>Download for {download.name}</a>
+                </div>
+                <p className="tt-downloads">Plays in the browser, about 45 MB the first time. Also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a> · <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> · <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> <span>(early builds, unsigned)</span></p>
+                <p className="tt-career">{save ? <>Already flying? <button onClick={onPlay}>Continue your career</button> or <button onClick={newGame}>start a new pilot</button>.</> : <>Played the prologue? <button onClick={newGame}>Start Act One</button>.</>}</p>
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
-              </div>}
-              {!isPhone && <p className="tt-downloads">Full graphics, downloadable: <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a> · <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> · <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> <span>(early builds, unsigned)</span></p>}
-              <small>Free to play · Computer with keyboard & mouse · Music only</small>
+              </>}
             </div>
-            <div className="tt-hero-coordinate" aria-hidden>HEARTH STATION<br />EARTH-MOON L1 / BERTH 09</div>
+            <div className="tt-hero-coordinate" aria-hidden>THE KESTREL<br />ESCORT FIGHTER / HARBOR ORBIT</div>
           </section>
-          <section className="tt-briefing"><div><span className="tt-eyebrow">Your first flight</span><h2>Know what you are doing.</h2><p>The opening film is captioned and skippable. Mara then guides one action at a time. Your first flight is protected from random interdictions.</p></div><ol><li><b>01</b><span><strong>Clear the berth</strong>Launch at Hearth and test thrust and brakes.</span></li><li><b>02</b><span><strong>Follow the marker</strong>Steer toward the orange diamond and finish the flight checks.</span></li><li><b>03</b><span><strong>Dock. Get paid.</strong>Return to the lit bay. Choose story work or a paid contract.</span></li></ol></section>
+          <section className="tt-briefing"><div><span className="tt-eyebrow">The prologue / about 15 minutes</span><h2>How it starts.</h2><p>A short film sets the scene. Then it is yours: every control is shown the moment you need it, and you cannot fail the prologue.</p></div><ol><li><b>01</b><span><strong>The Aster</strong>Walk the convoy freighter. Meet her captain and her engineer.</span></li><li><b>02</b><span><strong>The escort</strong>Launch your Kestrel and fly beside six ships bound for the Moon.</span></li><li><b>03</b><span><strong>The ambush</strong>Fight the Hollow, lose the Aster, wake up at Hearth owing everything.</span></li></ol></section>
           <section className="tt-paths" aria-label="Choose your next flight">
             <button className="tt-path control" onClick={() => setTab('training')}><img src={`${BASE}game/shot-transfer.webp`} alt="Earth beneath an orbital flight" /><span className="tt-eyebrow">Same career / real physics</span><h2>Train to fly</h2><p>Five simulator licences. New suits. ₡ 27,000 in career bonuses.</p><strong>Open flight school →</strong></button>
             <button className="tt-path control" onClick={onSquadron}><img src={`${BASE}game/shot-flight.webp`} alt="A ship flying through the Earth-Moon system" /><span className="tt-eyebrow">Combat / separate wave mode</span><h2>Hold the sky</h2><p>Squadron combat with AI wingmates or friends by invitation code.</p><strong>Enter Squadron →</strong></button>
