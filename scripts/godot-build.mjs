@@ -134,6 +134,18 @@ if (target === 'web') {
       platforms[preset].patch = entry(patch)
     }
   }
+  // Where the platforms' packs are the same bytes (they have been: one
+  // texture set serves all three), publish one file under a shared name.
+  for (const kind of ['base', 'patch']) {
+    const groups = {}
+    for (const p of Object.values(platforms)) if (p[kind]) (groups[p[kind].sha256] ??= []).push(p)
+    for (const group of Object.values(groups)) {
+      if (group.length < 2) continue
+      const shared = group[0][kind].file.replace(/-(mac|windows|linux)(\.patch)?\.pck$/, '$2.pck')
+      copyFileSync(join(out, group[0][kind].file), join(out, shared))
+      for (const p of group) { rmSync(join(out, p[kind].file), { force: true }); p[kind] = { ...p[kind], file: shared } }
+    }
+  }
   // The release's project settings travel with it: the updater hands them
   // to the engine as an override at the next start.
   writeFileSync(join(out, 'update.json'), JSON.stringify({
