@@ -8,6 +8,7 @@ var _previous: Camera3D
 
 static func open(parent: Node) -> Shot3D:
 	var s := Shot3D.new()
+	s.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	s.fov = 38.0
 	s.near = 0.03
 	s.far = 120_000.0

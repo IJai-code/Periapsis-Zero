@@ -2,13 +2,23 @@ class_name Space
 ## Lighting for open space: the star sky, the Sun and a little earthshine,
 ## at the quality the renderer can give.
 
-static func environment(parent: Node, sun_dir: Vector3, exposure := 1.0) -> DirectionalLight3D:
+## The sky of a part of space: the baked panorama for `region` (harbor,
+## hearth, field; art/sky) under live stars.
+static func sky_material(region := "harbor", gain := 0.42) -> ShaderMaterial:
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://shaders/space_sky.gdshader")
+	sm.set_shader_parameter("panorama", load("res://art/sky/space-%s.jpg" % region))
+	sm.set_shader_parameter("panorama_gain", gain)
+	return sm
+
+static func environment(parent: Node, sun_dir: Vector3, exposure := 1.0, region := "harbor") -> DirectionalLight3D:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
-	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/space_sky.gdshader")
-	sky.sky_material = sm
+	sky.sky_material = sky_material(region)
+	# Radiance only changes when the sky does: not every frame.
+	sky.process_mode = Sky.PROCESS_MODE_QUALITY if Flow.high_quality() else Sky.PROCESS_MODE_INCREMENTAL
+	sky.radiance_size = Sky.RADIANCE_SIZE_128 if Flow.high_quality() else Sky.RADIANCE_SIZE_32
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.32, 0.42, 0.6)

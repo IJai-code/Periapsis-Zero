@@ -13,3 +13,17 @@ static func line(text: String) -> void:
 		f.seek_end()
 		f.store_line(text)
 		f.close()
+
+## Let audio's mix thread release stopped playback before quitting a test.
+## Immediate quit while MP3 playback is active leaks it during engine teardown.
+static func finish(tree: SceneTree, code := 0) -> void:
+	var flow := tree.root.get_node("Flow")
+	if is_instance_valid(flow._music):
+		var playback: AudioStreamPlayback = flow._music.get_stream_playback() if flow._music.playing else null
+		if playback:
+			playback.stop()
+		flow._music.stop()
+		flow._music.stream = null
+		flow._music.queue_free()
+	await tree.create_timer(0.5, true, false, true).timeout
+	tree.quit(code)

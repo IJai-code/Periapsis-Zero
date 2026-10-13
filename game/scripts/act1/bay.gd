@@ -48,6 +48,7 @@ func _launch() -> void:
 	_player.process_mode = Node.PROCESS_MODE_DISABLED
 	Hud.clear_objective()
 	var cam := Camera3D.new()
+	cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	cam.fov = 48.0
 	cam.far = 120_000.0
 	add_child(cam)
@@ -57,6 +58,7 @@ func _launch() -> void:
 	Hud.letterbox(true)
 	Hud.fade_in(0.6)
 	var k := _set.kestrel
+	k.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	Sfx.play("door", -6.0, 0.6)
 	await get_tree().create_timer(0.8).timeout
 	var t := create_tween()

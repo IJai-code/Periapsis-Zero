@@ -17,6 +17,7 @@
  * build/desktop.
  */
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -61,7 +62,8 @@ if (changed) godot('--import')
 
 // Stamp the build with its commit's time; the web build publishes the same
 // stamp, so a downloaded copy can see that a newer one is out.
-const stamp = Number(execFileSync('git', ['log', '-1', '--format=%ct'], { cwd: root }).toString().trim())
+const stamp = Number(process.env.SOURCE_DATE_EPOCH ?? execFileSync('git', ['log', '-1', '--format=%ct'], { cwd: root }).toString().trim())
+if (!Number.isSafeInteger(stamp) || stamp <= 0) throw new Error('SOURCE_DATE_EPOCH must be a positive integer timestamp')
 const buildFile = join(game, 'scripts/core/build.gd')
 writeFileSync(buildFile, readFileSync(buildFile, 'utf8').replace(/const STAMP := \d+/, `const STAMP := ${stamp}`))
 
@@ -70,7 +72,7 @@ rmSync(out, { recursive: true, force: true })
 mkdirSync(out, { recursive: true })
 if (target === 'web') {
   godot('--export-release', 'Web', join(out, 'index.html'))
-  writeFileSync(join(out, 'version.json'), JSON.stringify({ build: stamp, date: new Date(stamp * 1000).toISOString().slice(0, 10) }))
+  writeFileSync(join(out, 'version.json'), JSON.stringify({ build: stamp, date: new Date(stamp * 1000).toISOString().slice(0, 10), pck_sha256: createHash('sha256').update(readFileSync(join(out, 'index.pck'))).digest('hex') }))
 } else {
   for (const [preset, file] of [['macOS', 'PeriapsisZero-mac.zip'], ['Windows', 'PeriapsisZero.exe'], ['Linux', 'PeriapsisZero.x86_64']]) {
     try { godot('--export-release', preset, join(out, file)) } catch { console.log(`  ${preset}: export failed`) }

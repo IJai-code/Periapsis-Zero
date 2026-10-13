@@ -17,6 +17,7 @@ func _ready() -> void:
 	_mara.rotation.y = deg_to_rad(-60.0)
 	# Lying in the bed: the head on the pillow, looking at the ceiling.
 	_cam = Camera3D.new()
+	_cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_cam.fov = 62.0
 	_cam.near = 0.03
 	_cam.far = 120_000.0

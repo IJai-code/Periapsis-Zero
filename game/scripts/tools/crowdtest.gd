@@ -42,5 +42,5 @@ func _physics_process(dt: float) -> void:
 		var sees := space.intersect_shape(q, 8).any(func(h): return h.collider is StaticBody3D and not (h.collider is AnimatableBody3D))
 		Report.line("CROWDTEST probe sees bench %s" % sees)
 		Report.line("CROWDTEST frames %d inside solid %d %s" % [_frames, _inside, _worst])
-		get_tree().quit()
+		Report.finish(get_tree())
 		set_physics_process(false)

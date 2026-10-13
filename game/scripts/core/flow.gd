@@ -21,7 +21,7 @@ const SCENES := {
 	"act1_end": "res://scenes/act1_end.tscn",
 }
 
-var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false}
+var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1}
 var _music: AudioStreamPlayer
 var _busy := false
 ## A chapter's starting beat, from a test link or `-- --beat`.
@@ -141,9 +141,7 @@ func _web_quality() -> void:
 	RenderingServer.directional_shadow_atlas_set_size(2048, true)
 	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
 	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
-	var px := float(vp.size.x * vp.size.y)
-	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.5, 1.0)
-	vp.scaling_3d_scale = _res
+	_start_tier()
 
 ## The desktop: a retina laptop's window is four times the pixels of
 ## 1080p, so the 3D is drawn nearer 1080p and upscaled with FSR 2 (which also
@@ -171,20 +169,21 @@ func _desktop_quality() -> void:
 	RenderingServer.directional_shadow_atlas_set_size(4096, true)
 	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
 	RenderingServer.positional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
-	var px := float(vp.size.x * vp.size.y)
-	_res = clampf(sqrt(2_000_000.0 / maxf(px, 1.0)), 0.5, 1.0)
-	# For measuring: `-- --res 0.3` pins the 3D resolution.
-	var a := OS.get_cmdline_user_args().find("--res")
-	if a >= 0:
-		_res = float(OS.get_cmdline_user_args()[a + 1])
-		_pinned = true
-	vp.scaling_3d_scale = _res
+	_start_tier()
 
 ## Every environment that enters the game is trimmed of what costs most for
 ## least: screen-space indirect light and reflections.
 func _tune(n: Node) -> void:
+	var spec: Array = _tiers()[tier]
+	if n is DirectionalLight3D:
+		if not n.has_meta("shadow_wanted"):
+			n.set_meta("shadow_wanted", (n as DirectionalLight3D).shadow_enabled)
+		(n as DirectionalLight3D).shadow_enabled = bool(n.get_meta("shadow_wanted")) and spec[1]
 	if n is WorldEnvironment and (n as WorldEnvironment).environment:
 		var env := (n as WorldEnvironment).environment
+		if not env.has_meta("glow_wanted"):
+			env.set_meta("glow_wanted", env.glow_enabled)
+		env.glow_enabled = bool(env.get_meta("glow_wanted")) and spec[2]
 		env.ssil_enabled = false
 		env.ssr_enabled = false
 		env.sdfgi_cascades = mini(env.sdfgi_cascades, 4)
@@ -218,32 +217,92 @@ func _tune(n: Node) -> void:
 	if "--noshadow" in OS.get_cmdline_user_args() and n is Light3D:
 		(n as Light3D).shadow_enabled = false
 
+## Quality tiers, stepped through slowly so the picture never churns: a
+## tier goes down after a few seconds below the floor frame rate and up only
+## after ten smooth seconds, with a long wait between changes (changing the
+## render size reallocates the frame's buffers: done every second it is
+## itself the stutter, and in a browser can flash a frame of garbage). A
+## tier that has failed twice is not tried again; the tier reached is
+## remembered for this machine. Lower tiers also drop shadows, bloom and
+## the heavier effects (see `fx_low`).
+const TIERS_WEB := [[1.0, true, true], [0.8, true, true], [0.66, false, true], [0.55, false, false], [0.42, false, false]]
+const TIERS_DESKTOP := [[1.0, true, true], [0.85, true, true], [0.72, true, true], [0.6, true, true], [0.5, false, true]]
+var tier := 0
+var _floor_tier := 0
+var _fails := {}
+var _low_t := 0.0
+var _high_t := 0.0
+var _cool := 0.0
+
+func _tiers() -> Array:
+	return TIERS_WEB if on_web() else TIERS_DESKTOP
+
+## Effects keep to the essentials on the lower tiers.
+func fx_low() -> bool:
+	return tier >= (2 if on_web() else 3)
+
+func _start_tier() -> void:
+	var a := OS.get_cmdline_user_args().find("--res")
+	if a >= 0:
+		_pinned = true
+		_res = float(OS.get_cmdline_user_args()[a + 1])
+		get_viewport().scaling_3d_scale = _res
+		return
+	var key := "tier_web" if on_web() else "tier_desktop"
+	var vp := get_viewport()
+	var px := float(vp.size.x * vp.size.y)
+	var guess := 1 if px > 2_400_000.0 else 0
+	var saved := int(settings.get(key, -1))
+	set_tier(saved if saved >= 0 else guess)
+
+func set_tier(t: int) -> void:
+	tier = clampi(t, 0, _tiers().size() - 1)
+	var spec: Array = _tiers()[tier]
+	_res = spec[0]
+	get_viewport().scaling_3d_scale = _res
+	for n in get_tree().root.find_children("*", "DirectionalLight3D", true, false):
+		_tune(n)
+	for n in get_tree().root.find_children("*", "WorldEnvironment", true, false):
+		_tune(n)
+
 func _adapt(dt: float) -> void:
+	if _busy or get_tree().paused or _pinned:
+		_fps_t = 0.0
+		_fps_n = 0
+		return
 	_fps_t += dt
 	_fps_n += 1
-	if _fps_t < 1.0:
+	if _fps_t < 0.5:
 		return
 	var fps := _fps_n / _fps_t
+	var span := _fps_t
 	_fps_t = 0.0
 	_fps_n = 0
-	if _busy or get_tree().paused or _pinned:
-		return
-	if fps < 45.0 and _res <= 0.51 and not _gi_off and not on_web():
-		_strain += 1
-		if _strain >= 2:
-			_gi_off = true
-			for we in get_tree().root.find_children("*", "WorldEnvironment", true, false):
-				var env: Environment = (we as WorldEnvironment).environment
-				if env and env.sdfgi_enabled:
-					env.sdfgi_enabled = false
-					env.ambient_light_energy *= 2.0
-	else:
-		_strain = 0
-	if fps < 44.0 and _res > 0.5:
-		_res = maxf(0.5, _res - 0.05)
-	elif fps > 57.0 and _res < 1.0:
-		_res = minf(1.0, _res + 0.05)
-	get_viewport().scaling_3d_scale = _res
+	_cool -= span
+	var floor_fps := 30.0 if on_web() else 40.0
+	_low_t = _low_t + span if fps < floor_fps else 0.0
+	_high_t = _high_t + span if fps > 57.0 else 0.0
+	if _low_t >= 3.0 and tier < _tiers().size() - 1:
+		_fails[tier] = int(_fails.get(tier, 0)) + 1
+		if _fails[tier] >= 2:
+			_floor_tier = maxi(_floor_tier, tier + 1)
+		set_tier(tier + 1)
+		settings["tier_web" if on_web() else "tier_desktop"] = tier
+		apply_settings()
+		_low_t = 0.0
+		_cool = 8.0
+	elif _high_t >= 10.0 and tier > _floor_tier and _cool <= 0.0:
+		set_tier(tier - 1)
+		_high_t = 0.0
+		_cool = 25.0
+	# Global illumination goes before anything else on a struggling desktop.
+	if not on_web() and not _gi_off and _low_t >= 2.0:
+		_gi_off = true
+		for we in get_tree().root.find_children("*", "WorldEnvironment", true, false):
+			var env: Environment = (we as WorldEnvironment).environment
+			if env and env.sdfgi_enabled:
+				env.sdfgi_enabled = false
+				env.ambient_light_energy *= 2.0
 
 ## Forward+ on desktop; the browser runs the Compatibility renderer, which has
 ## no SDFGI, volumetric fog or screen-space effects. Scenes ask this.
@@ -273,14 +332,36 @@ func go(scene: String) -> void:
 	Hud.loading(false)
 	Hud.fade_in(1.2)
 
-## The chapter after this one, for "Skip this part" in the pause menu.
+## The flight missions: skipping one marks it done (its pay is not paid), so
+## the save and the chain of chapters agree.
+const DONE_FLAG := {"test_flight": "act1_test_flight", "blackbox": "act1_blackbox", "descent": "act1_descent"}
+
+## The chapter after this one, or "" when there is none.
 func next_scene() -> String:
-	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
+	var here := scene_key()
 	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "title"]
 	for i in order.size() - 1:
-		if SCENES[order[i]] == here:
+		if order[i] == here:
 			return order[i + 1]
 	return ""
+
+## The key (as in SCENES) of the scene on screen, or "".
+func scene_key() -> String:
+	var path := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
+	for k in SCENES:
+		if SCENES[k] == path:
+			return k
+	return ""
+
+## "Skip this part" from the pause menu: a flight mission counts as done,
+## then the next chapter.
+func skip() -> void:
+	var here := scene_key()
+	if DONE_FLAG.has(here):
+		set_progress(DONE_FLAG[here], true)
+	var n := next_scene()
+	if n != "":
+		go(n)
 
 func in_title() -> bool:
 	return get_tree().current_scene != null and get_tree().current_scene.scene_file_path == SCENES.title

@@ -80,8 +80,23 @@ Next, in order:
 
 ## Working notes
 
-- **Web build:** `node scripts/godot-build.mjs web`, then upload
-  build/play as the `play` release asset (see .github/workflows/deploy.yml).
+- **Web build:** `node scripts/godot-build.mjs web` writes `build/play`,
+  not the copy Vite serves from `public/play`, and does not publish anything.
+  For an explicitly approved uncommitted release, set `SOURCE_DATE_EPOCH` to
+  the release timestamp so the version is newer than the last deployed build.
+  The export's `version.json` includes the PCK SHA-256 for live verification.
+  After gameplay and browser checks pass, archive `build/play` as
+  `play.tar.gz`, upload it to the `play` release, and dispatch the existing
+  Deploy workflow. Verify `/play/version.json` and the actual PCK hash after
+  deployment; a successful export alone is not a live update. Copy the
+  verified archive into `public/play` when testing through Vite.
+- **Gameplay checks:** `npm run godot:check` runs 26 scene, movement,
+  collision, HUD and mission checks. `PZ_GODOT_PROJECT` can point at a copied
+  project with a distinct application name to keep player saves untouched.
+  Arguments filter by check name, for example `npm run godot:check -- 'Down the Well'`.
+- **Human clips:** `node scripts/verify-people.mjs` checks all exported loops
+  and rejects discontinuities; it is also part of `verify:all`. Bake each
+  Blender action without earlier NLA clips evaluating over the authored pose.
 - **Test links:** /play/index.html#flight/ambush (also #corridor,
   #arrival, #flight/strike) jumps straight to a chapter.
 

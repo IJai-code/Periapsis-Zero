@@ -11,7 +11,8 @@ extends FlightScene
 ## For checks: `-- --autofly` flies the markers and reports; `--beat cp2`
 ## starts at a checkpoint; `--beat land` starts on the pad.
 
-const CHECKPOINTS := [0, 9, 10, 16]
+## Where a lost ship starts again: the gates tagged "cp" (filled at load).
+var CHECKPOINTS: Array[int] = []
 const CEILING := 470.0
 
 var wilds: Wilds
@@ -48,10 +49,13 @@ func _ready() -> void:
 	ship.turn_rate = 3.3
 	ship.min_speed = 60.0
 	ship.level_assist = true
+	ship.aero = true
 	ship.use_fpv()
 	ship.floor_integrity = 0.0
 	ship.missile_count = 0
 	ship.died.connect(_ship_lost)
+	CHECKPOINTS = wilds.gates_with("cp")
+	_racing_line()
 	for i in wilds.gates.size():
 		var r := _marker_ring()
 		add_child(r)
@@ -176,24 +180,27 @@ func _process(dt: float) -> void:
 	hud.altitude = maxf(0.0, p.y - maxf(ground, Wilds.WATER_Y))
 	if _auto and ship.controls:
 		var to := wilds.gates[_next] if _next < wilds.gates.size() else wilds.pad + Vector3(0, 30, 0)
-		ship.aim = (to - p).normalized()
-		ship.cruise = 120.0
+		# The verification pilot counters sideways momentum before a turn,
+		# rather than chasing the marker after drifting past it at the falls.
+		var direction := (to - p).normalized()
+		var lateral := ship.velocity - direction * ship.velocity.dot(direction)
+		var pace := 60.0 if _next < wilds.gates.size() and wilds.tags[_next].contains("slow") else 120.0
+		ship.aim = (direction * pace - lateral * 2.0).normalized()
+		ship.cruise = pace
 	_gates()
 	_ceiling(dt)
 	_hunt(dt)
-	if not _fell and wilds.rockfall_tower and _next >= 13 and p.distance_to(wilds.rockfall_tower.global_position) < 650.0:
+	if not _fell and wilds.rockfall_tower and _next >= wilds.fallen_gate + 1 and p.distance_to(wilds.rockfall_tower.global_position) < 650.0:
 		_rockfall()
 	if _next >= wilds.gates.size() and _beat != "landing":
-		var flat := Vector2(p.x - wilds.pad.x, p.z - wilds.pad.z).length()
-		if flat < 180.0 and p.y < wilds.pad.y + 160.0:
-			_land()
+		_land()
 
 var _bumps_seen := 0
 
 func _physics_process(dt: float) -> void:
 	if ship.bumps != _bumps_seen:
 		_bumps_seen = ship.bumps
-		Report.line("DESCENT bump near marker %d at %s" % [_next + 1, ship.global_position.snapped(Vector3.ONE)])
+		Report.line("DESCENT bump near marker %d at %s on %s" % [_next + 1, ship.global_position.snapped(Vector3.ONE), ship.last_bumped])
 	if not ship.controls or _beat in ["landing", "walk", "talk", "done"]:
 		return
 	# Close calls: rock within fifteen metres at speed, once per pass.
@@ -201,7 +208,8 @@ func _physics_process(dt: float) -> void:
 	if ship.velocity.length() > 70.0:
 		var q := PhysicsShapeQueryParameters3D.new()
 		var sp := SphereShape3D.new()
-		sp.radius = 15.0
+		# Closer than it looks at speed: the faster, the wider the call.
+		sp.radius = 14.0 + ship.velocity.length() * 0.05
 		q.shape = sp
 		q.collision_mask = 1
 		q.transform = Transform3D(Basis(), ship.global_position)
@@ -237,25 +245,100 @@ func _advance() -> void:
 	_next += 1
 	Hud.objective_extra("%d / %d" % [_next, wilds.gates.size()])
 	_light(_next)
-	match _next:
-		2: Hud.say("Renn Ayers", "Two hundred years ago this was a park. Now it's the only quiet place left.")
-		4: Hud.say("Mara Voss", "...It's beautiful.")
-		7: Hud.say("Renn Ayers", "Low and fast. Thread the pillars, they hide you.")
-		9: Hud.say("Renn Ayers", "Through the old gate. Don't look down.")
-		11:
-			Hud.say("Renn Ayers", "This was a city once. The river took it back.")
-			_release_hunters()
-		13: Hud.say("Renn Ayers", "Under the fallen tower. Keep it tight!")
-		16:
-			Hud.say("Renn Ayers", "Climb! Straight up the falls!")
-			_lose_hunters()
-		19: Hud.say("Renn Ayers", "There. The plateau. My lander's by the pad.")
+	# What is said, and what happens, as each part of the route comes up.
+	var ahead: String = wilds.tags[_next] if _next < wilds.gates.size() else ""
+	if _next == 2:
+		Hud.say("Renn Ayers", "Two hundred years ago this was a park. Now it's the only quiet place left.")
+	elif _next == wilds.gate_with("skim") + 1:
+		Hud.say("Mara Voss", "...It's beautiful.")
+	elif _next == 6:
+		Hud.say("Renn Ayers", "Low and fast. Thread the pillars, they hide you.")
+	elif ahead.contains("gorge"):
+		Hud.say("Renn Ayers", "Into the gorge! Stay down on the water.")
+	elif ahead.contains("arch"):
+		Hud.say("Renn Ayers", "Up and through the old gate. Don't look down.")
+	elif ahead.contains("canopy"):
+		Hud.say("Renn Ayers", "Under the trees, now. Nothing up there can see you under the canopy.")
+	elif ahead.contains("drones"):
+		Hud.say("Renn Ayers", "This was a city once. The river took it back.")
+		_release_hunters()
+	elif ahead.contains("under_tower"):
+		Hud.say("Renn Ayers", "Under the fallen tower. Keep it tight!")
+	elif ahead.contains("falls"):
+		Hud.say("Renn Ayers", "Climb! Straight up the falls!")
+		_lose_hunters()
+	elif ahead.contains("plateau"):
+		Hud.say("Renn Ayers", "Over the forest. Stay low, we're nearly there.")
+	elif ahead.contains("vista"):
+		Hud.say("Renn Ayers", "Now up. Over the ridge, and look.")
 	if _next >= wilds.gates.size():
 		clear_goal()
 		set_goal(wilds.pad + Vector3(0, 6, 0), "LANDING PAD", false)
 		FlightHud.mark(_shuttle, "Renn's lander", "Stolen Hollow lander", "objective")
-		Hud.objective("Land by Renn's [lander]", "The pad on the plateau")
+		Hud.objective("Land by Renn's [lander]", "On the ridge top")
 		Report.line("DESCENT markers %d hit %d missed, %d bumps, %d close calls" % [_hit, _missed, ship.bumps, _close])
+
+## The racing line: chevrons along a smooth curve through every marker,
+## pulsing forward, so the way is readable at full speed. They fade close
+## to the lens (no flash in the eyes) and far off.
+func _racing_line() -> void:
+	var pts := wilds.route_points()
+	var xf: Array[Transform3D] = []
+	var along: Array[float] = []
+	var run := 0.0
+	for i in pts.size() - 1:
+		var p0: Vector3 = pts[maxi(i - 1, 0)]
+		var p1: Vector3 = pts[i]
+		var p2: Vector3 = pts[i + 1]
+		var p3: Vector3 = pts[mini(i + 2, pts.size() - 1)]
+		var n := maxi(2, int(p1.distance_to(p2) / 10.0))
+		for k in n:
+			var t := float(k) / n
+			var at := _catmull(p0, p1, p2, p3, t)
+			var tan := (_catmull(p0, p1, p2, p3, minf(1.0, t + 0.02)) - at)
+			if tan.length() < 0.001:
+				continue
+			tan = tan.normalized()
+			var up := Vector3.UP if absf(tan.y) < 0.95 else Vector3.BACK
+			xf.append(Transform3D(Basis.looking_at(tan, up), at))
+			along.append(run)
+			run += p1.distance_to(p2) / n
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = _chevron()
+	mm.instance_count = xf.size()
+	for i in xf.size():
+		mm.set_instance_transform(i, xf[i])
+		mm.set_instance_custom_data(i, Color(along[i], 0, 0, 0))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/racing_line.gdshader")
+	mmi.material_override = m
+	add_child(mmi)
+
+static func _catmull(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t: float) -> Vector3:
+	var t2 := t * t
+	var t3 := t2 * t
+	return 0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3)
+
+## A chevron pointing along -Z, flat and also upright (seen from any side).
+func _chevron() -> ArrayMesh:
+	var v := PackedVector3Array()
+	var w := Vector3(0, 0, 0.3)
+	var b := Vector3(0, 0, -1.0)
+	for plane in 2:
+		for arm in [-1.0, 1.0]:
+			var a := Vector3(arm * 1.8, 0, 1.0) if plane == 0 else Vector3(0, arm * 1.8, 1.0)
+			v.append_array(PackedVector3Array([a - w, b - w, b + w, a - w, b + w, a + w]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = v
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 ## Above the pillar tops, Rook's net sees you: a warning, then flak.
 func _ceiling(dt: float) -> void:
@@ -351,6 +434,7 @@ func _rockfall() -> void:
 	var top := t.global_position + Basis(Vector3.RIGHT, tip) * base * Vector3(0, 150, 0)
 	if wilds.route_clearance(top.x, top.z) < 50.0:
 		tip = 1.25
+	t.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	var tw := create_tween()
 	tw.tween_method(func(a: float): t.global_basis = Basis(Vector3.RIGHT, a) * base, 0.0, tip, 3.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func():
@@ -361,28 +445,56 @@ func _rockfall() -> void:
 
 # --- Down -----------------------------------------------------------------------
 
+## Over the edge the land drops away to a basin of forest and lakes under
+## ranges of gold; the camera stands on the ridge and watches the Kestrel
+## bank round out of the view and settle on the top, facing it.
 func _land() -> void:
 	_beat = "landing"
+	Report.line("DESCENT crest at %.1f s" % _clock)
 	clear_goal()
 	Hud.clear_prompt()
 	Hud.clear_objective()
 	for r in _rings:
 		r.visible = false
+	hud.visible = false
 	ship.park(true)
 	ship.fpv = false
 	ship._model.visible = true
 	var spot := wilds.pad + Vector3(0, 2.6, 0)
-	var from := ship.global_transform
-	var face := (wilds.shuttle_spot - spot)
-	face.y = 0.0
-	var to := Transform3D(Basis.looking_at(face.normalized(), Vector3.UP), spot)
-	var tw := create_tween()
-	tw.tween_method(func(k: float): ship.global_transform = from.interpolate_with(to, k), 0.0, 1.0, 4.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	Sfx.play("door", -6.0, 0.6)
+	var cine := Camera3D.new()
+	cine.fov = 46.0
+	cine.far = 120_000.0
+	add_child(cine)
+	cine.global_position = wilds.pad + Vector3(-70.0, 16.0, 55.0)
+	cine.look_at(wilds.pad + Vector3(10.0, -60.0, -1600.0), Vector3.UP)
+	cine.make_current()
+	Hud.letterbox(true)
+	Sfx.play("objective", -4.0, 0.6)
+	var p0 := ship.global_position
+	var p1 := wilds.pad + Vector3(260.0, 140.0, -420.0)
+	var p2 := wilds.pad + Vector3(60.0, 30.0, -90.0)
+	var p3 := spot
+	var b0 := ship.global_basis
+	var b1 := Basis.looking_at(Vector3(0, 0, -1), Vector3.UP)
+	var tw := create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+	tw.tween_method(func(k: float):
+		var a := p0.lerp(p1, k)
+		var b := p1.lerp(p2, k)
+		var c := p2.lerp(p3, k)
+		var pos := a.lerp(b, k).lerp(b.lerp(c, k), k)
+		var ahead := (b.lerp(c, k) - a.lerp(b, k))
+		var face := Basis.looking_at(ahead.normalized(), Vector3.UP) if ahead.length() > 0.1 and k < 0.85 else b1
+		ship.global_transform = Transform3D(b0.slerp(face, minf(1.0, k * 3.0)).orthonormalized(), pos), 0.0, 1.0, 7.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	Hud.say("Mara Voss", "...Oh. Kestrel, look at that.", 3.0)
+	await get_tree().create_timer(3.4).timeout
+	Hud.say("Renn Ayers", "Forty years nobody's seen this. Set her down by my lander.", 3.5)
 	await tw.finished
 	Fx.explode(self, spot + Vector3(0, -2, 0), 3.0, false)
 	Surfaces.collide(ship._model)
+	await get_tree().create_timer(0.8).timeout
 	await Hud.fade_out(0.6)
+	Hud.letterbox(false)
+	cine.queue_free()
 	_on_foot()
 	await Hud.fade_in(0.8)
 
@@ -392,15 +504,17 @@ func _on_foot() -> void:
 	Hud.flight_layout(false)
 	_renn = Person.make("renn")
 	add_child(_renn)
-	_renn.global_position = wilds.pad.lerp(wilds.shuttle_spot, 0.55) + Vector3(0.0, 0.0, 4.0)
+	# At the edge: talking to her, the view is behind her.
+	_renn.global_position = wilds.pad + Vector3(6.0, 0.0, -40.0)
 	_renn.global_position.y = wilds.height(_renn.global_position.x, _renn.global_position.z)
 	_player = Player.new()
 	add_child(_player)
-	var side := ship.global_basis.x * -9.0
-	_player.global_position = wilds.pad + side + Vector3(0, 0.6, 0)
+	_player.global_position = wilds.pad + Vector3(-9.0, 0.6, -8.0)
 	_player.global_position.y = wilds.height(_player.global_position.x, _player.global_position.z) + 0.3
+	_player.reset_physics_interpolation()
 	_player.face(_renn.global_position + Vector3(0, 1.6, 0))
 	_player.camera.make_current()
+	Report.line("DESCENT on foot at %s, renn %s, ship %s" % [_player.global_position.snapped(Vector3.ONE), _renn.global_position.snapped(Vector3.ONE), ship.global_position.snapped(Vector3.ONE)])
 	_renn.face(_player.global_position)
 	_talk = Interactable.new(Vector3(1.4, 2.0, 1.4), "[E] Talk to Renn", 1.8)
 	add_child(_talk)
@@ -413,6 +527,7 @@ func _on_foot() -> void:
 		# The check walks over and talks, as a player would.
 		await get_tree().create_timer(1.5).timeout
 		_player.global_position = _renn.global_position + (_player.global_position - _renn.global_position).normalized() * 1.6
+		_player.reset_physics_interpolation()
 		await get_tree().create_timer(0.5).timeout
 		Report.line("DESCENT on foot, prompt '%s'" % Hud.focus_text())
 		_meet()
@@ -454,6 +569,9 @@ func _meet() -> void:
 	Flow.set_progress("act1_descent", true)
 	Flow.set_progress("descent_close_calls", maxi(int(Flow.progress("descent_close_calls", 0)), _close))
 	Report.line("DESCENT passed")
+	if "--verify-exit" in OS.get_cmdline_user_args():
+		Report.finish(get_tree())
+		return
 	await Hud.mission_passed("Down the Well · %d markers · %d close calls" % [_hit, _close], split[0], split[1], Flow.debt())
 	Flow.go("act1_end")
 
@@ -462,6 +580,9 @@ func _ship_lost() -> void:
 		return
 	_beat = "lost"
 	Report.line("DESCENT ship lost at marker %d" % _next)
+	if "--verify-exit" in OS.get_cmdline_user_args():
+		Report.finish(get_tree(), 1)
+		return
 	ship.controls = false
 	ship.set_process(false)
 	ship.set_physics_process(false)

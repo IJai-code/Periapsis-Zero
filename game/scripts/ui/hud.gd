@@ -75,6 +75,7 @@ var _card: Control
 var _card_title: Label
 var _card_sub: Label
 var _queue: Array = []
+var _current: Dictionary = {}
 var _speaking := false
 
 func _ready() -> void:
@@ -240,13 +241,25 @@ func _outline(l: Label, size := 7, alpha := 0.7) -> void:
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, alpha))
 
 ## [words] in an objective become ember; [keys] in a prompt become keycaps.
+## Compiled once: these run for every objective, prompt and marker frame.
+static var _bracket_re: RegEx
+static var _lead_key_re: RegEx
+
+static func _bracket() -> RegEx:
+	if not _bracket_re:
+		_bracket_re = RegEx.create_from_string("\\[([^\\]]+)\\]")
+	return _bracket_re
+
+static func _lead_key() -> RegEx:
+	if not _lead_key_re:
+		_lead_key_re = RegEx.create_from_string("^\\[([^\\]]+)\\]\\s*")
+	return _lead_key_re
+
 static func _accent(text: String) -> String:
-	var re := RegEx.create_from_string("\\[([^\\]]+)\\]")
-	return re.sub(text, "[color=#ff6b2c]$1[/color]", true)
+	return _bracket().sub(text, "[color=#ff6b2c]$1[/color]", true)
 
 static func _keys(text: String) -> String:
-	var re := RegEx.create_from_string("\\[([^\\]]+)\\]")
-	return re.sub(text, "[bgcolor=#f4e8cf30][code] $1 [/code][/bgcolor]", true)
+	return _bracket().sub(text, "[bgcolor=#f4e8cf30][code] $1 [/code][/bgcolor]", true)
 
 func _process(dt: float) -> void:
 	_marks.queue_redraw()
@@ -302,7 +315,7 @@ func _draw_marks() -> void:
 		var a := minf(1.0, _focus_t * 6.0)
 		var key := ""
 		var words := text
-		var m := RegEx.create_from_string("^\\[([^\\]]+)\\]\\s*").search(text)
+		var m := _lead_key().search(text)
 		if m:
 			key = m.get_string(1)
 			words = text.substr(m.get_end())
@@ -403,6 +416,7 @@ func _run_queue() -> void:
 	var gen := _gen
 	while _queue.size() > 0 and gen == _gen:
 		var q: Dictionary = _queue.pop_front()
+		_current = q
 		var col: Color = SPEAKERS.get(q.who, Style.MUTE)
 		_sub.text = "[center][color=#%s]%s:[/color] %s[/center]" % [col.to_html(false), q.who, q.line]
 		_sub.visible_ratio = 0.0
@@ -519,13 +533,21 @@ func overheard(line: String) -> void:
 	say("Passer-by", line, 3.2)
 
 func silence() -> void:
+	_release_queue()
+	_tween(_sub, 0.0, 0.2)
+
+## Ends the lines showing and queued: each awaiting caller returns now. The
+## line on screen is released too, or its `say` would wait out its timer.
+func _release_queue() -> void:
 	_gen += 1
 	_speaking = false
+	if not _current.is_empty():
+		_current.done = true
+	_current = {}
 	for q in _queue:
 		q.done = true
 	_queue.clear()
 	line_done.emit()
-	_tween(_sub, 0.0, 0.2)
 
 ## A line of the opening film's narration: fades up, holds, fades away.
 ## [words] are in ember. Awaitable.
@@ -660,9 +682,7 @@ func pause(on: bool) -> void:
 			v.add_child(keys)
 			for b in [["Resume", func(): pause(false)], ["Skip this part", func():
 					pause(false)
-					var n := Flow.next_scene()
-					if n != "":
-						Flow.go(n)], ["Back to the title", func():
+					Flow.skip()], ["Back to the title", func():
 					pause(false)
 					Flow.go("title")]]:
 				var btn := Button.new()
@@ -752,12 +772,7 @@ func reset() -> void:
 			t.kill()
 	_fades.clear()
 	_help_left = 0.0
-	_gen += 1
-	_speaking = false
-	for q in _queue:
-		q.done = true
-	_queue.clear()
-	line_done.emit()
+	_release_queue()
 	for c in [_obj_small, _obj_big, _sub, _help, _card, _narr]:
 		c.modulate.a = 0.0
 	_obj_plain = ""

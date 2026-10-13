@@ -115,7 +115,7 @@ func _ambush() -> void:
 	Hud.prompt("Hold the reticle on a raider to lock it, or press [T]. Then fire at the diamond: that's where it will be.", 0.0)
 
 func _spawn(at: Vector3, target: Hull) -> Raider:
-	var r := spawn_raider(at, target, false, [aster])
+	var r := spawn_raider(at, target, false, [aster], true)
 	r.died.connect(_raider_down.bind(r))
 	raiders.append(r)
 	return r

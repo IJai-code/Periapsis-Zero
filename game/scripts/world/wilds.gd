@@ -14,10 +14,14 @@ extends Node3D
 ## clear of it, so the line is always flyable, close to rock but never in it.
 ## Godot's -Z is "downstream": the route runs from z = +800 to the plateau.
 
-const SUN := Vector3(0.78, 0.36, -0.28)
+## Golden hour: low (about 11 degrees) and ahead to the right, so the
+## pillars are side-lit on the way and the last ridge looks into it.
+const SUN := Vector3(0.85, 0.2, -0.5)
 const CLIFF_Z := -7330.0        # the cliff face begins here, the plateau beyond
 const PLATEAU_Y := 270.0
-const PAD_Z := -7860.0
+const PAD_Z := -8660.0
+const RIDGE_Y := 515.0           # the last ridge, where the ship lands
+const GORGE := Vector2(-3260.0, -3920.0)   # the slot gorge, z from and to
 const WATER_Y := -1.0
 
 var hq := true
@@ -25,7 +29,10 @@ var hq := true
 var gates: Array[Vector3] = []
 var pad := Vector3.ZERO
 var shuttle_spot := Vector3.ZERO
-var fallen_gate := 12            # the gate under the fallen tower
+## Each gate's tags (cp, gorge, canopy, drones, under_tower, falls, plateau,
+## vista): the mission reads the route by them, not by number.
+var tags: Array[String] = []
+var fallen_gate := 0
 var rockfall_tower: Node3D
 var _noise := FastNoiseLite.new()
 var _big := FastNoiseLite.new()
@@ -46,7 +53,7 @@ func _init() -> void:
 func _ready() -> void:
 	hq = Flow.high_quality()
 	var t := Time.get_ticks_msec()
-	for step in [_lay_route, _terrain, _water, _pillars, _arch, _city, _falls, _forest, _mist, _birds]:
+	for step in [_lay_route, _terrain, _vista, _water, _pillars, _arch, _city, _falls, _forest, _mist, _birds]:
 		step.call()
 		if "--timing" in OS.get_cmdline_user_args():
 			printerr("wilds %s %d ms" % [step.get_method(), Time.get_ticks_msec() - t])
@@ -55,26 +62,61 @@ func _ready() -> void:
 # --- The route --------------------------------------------------------------
 
 func _lay_route() -> void:
-	# z, offset from the river, height above the valley floor.
+	# z, offset from the river, height (absolute; "agl" ones above the
+	# ground), tags. Fast and close: weaving through the pillars low and
+	# high, down a slot gorge, under the arch, through a tunnel of jungle,
+	# down the drowned city's river, up the falls, over the plateau forest,
+	# and up the last ridge to the view.
 	var plan := [
-		[-300.0, 0.0, 430.0], [-900.0, 40.0, 210.0], [-1350.0, -60.0, 110.0], [-1800.0, 70.0, 90.0],
-		[-2250.0, -50.0, 120.0], [-2700.0, 60.0, 80.0], [-3150.0, -40.0, 140.0], [-3600.0, 50.0, 90.0],
-		[-4050.0, 0.0, 110.0], [-4400.0, 0.0, 95.0],
-		[-4900.0, 30.0, 60.0], [-5350.0, -40.0, 45.0], [-5800.0, 0.0, 20.0], [-6250.0, 35.0, 50.0],
-		[-6700.0, -30.0, 40.0], [-7120.0, 0.0, 40.0],
-		[-7200.0, 0.0, 120.0], [-7280.0, 0.0, 255.0], [-7385.0, 0.0, 352.0],
+		[-300.0, 0.0, 430.0, "cp"], [-750.0, 50.0, 240.0, ""], [-1100.0, -70.0, 120.0, ""], [-1450.0, 60.0, 45.0, "skim"],
+		[-1800.0, -40.0, 140.0, ""], [-2150.0, 70.0, 80.0, ""], [-2500.0, -60.0, 200.0, ""], [-2850.0, 40.0, 85.0, ""],
+		[-3150.0, 0.0, 62.0, "cp gorge"], [-3330.0, 12.0, 32.0, ""], [-3500.0, -12.0, 26.0, ""], [-3670.0, 10.0, 30.0, ""],
+		[-3850.0, -8.0, 34.0, ""], [-4080.0, 0.0, 120.0, ""], [-4400.0, 0.0, 95.0, "cp arch"],
+		[-4520.0, 40.0, 50.0, ""], [-4660.0, 80.0, 16.0, "canopy agl"], [-4800.0, 86.0, 14.0, "agl"], [-4940.0, 80.0, 16.0, "agl"],
+		[-5150.0, 30.0, 45.0, "drones"], [-5350.0, -40.0, 45.0, ""], [-5800.0, 0.0, 20.0, "under_tower"], [-6250.0, 35.0, 50.0, ""],
+		[-6700.0, -30.0, 40.0, ""], [-7120.0, 0.0, 40.0, "cp slow"],
+		[-7200.0, 0.0, 120.0, "falls slow"], [-7280.0, 0.0, 255.0, "slow"], [-7385.0, 0.0, 352.0, "slow"],
+		[-7700.0, 0.0, 42.0, "plateau agl"], [-8000.0, 30.0, 42.0, "agl"], [-8280.0, -20.0, 48.0, "agl"], [-8500.0, 0.0, 560.0, ""], [-8840.0, 0.0, 610.0, "vista"],
 	]
+	pad = Vector3(centre_x(PAD_Z), RIDGE_Y, PAD_Z)
+	shuttle_spot = pad + Vector3(40.0, 0.0, -30.0)
 	for p in plan:
 		var z: float = p[0]
 		var x := centre_x(z) + float(p[1])
-		gates.append(Vector3(x, float(p[2]), z))
-	pad = Vector3(centre_x(PAD_Z) + 40.0, PLATEAU_Y, PAD_Z)
-	shuttle_spot = pad + Vector3(34.0, 0.0, -18.0)
+		var t: String = p[3]
+		var y: float = p[2]
+		if t.contains("agl"):
+			y += height(x, z)
+		gates.append(Vector3(x, y, z))
+		tags.append(t)
+	fallen_gate = gate_with("under_tower")
 	_route2d = PackedVector2Array()
 	_route2d.append(Vector2(centre_x(900.0), 900.0))
 	for g in gates:
 		_route2d.append(Vector2(g.x, g.z))
 	_route2d.append(Vector2(pad.x, pad.z))
+
+## The first gate with this tag (-1 if none).
+func gate_with(tag: String) -> int:
+	for i in tags.size():
+		if (" " + tags[i] + " ").contains(" " + tag + " "):
+			return i
+	return -1
+
+## Every gate with this tag.
+func gates_with(tag: String) -> Array[int]:
+	var out: Array[int] = []
+	for i in tags.size():
+		if (" " + tags[i] + " ").contains(" " + tag + " "):
+			out.append(i)
+	return out
+
+## The route as a smooth line, for the racing line drawn through it.
+func route_points() -> PackedVector3Array:
+	var pts := PackedVector3Array([Vector3(centre_x(500.0), 760.0, 500.0)])
+	pts.append_array(PackedVector3Array(gates))
+	pts.append(pad + Vector3(0, 40, 0))
+	return pts
 
 ## Horizontal distance from a point to the route line.
 func route_clearance(x: float, z: float) -> float:
@@ -100,7 +142,7 @@ func height(x: float, z: float) -> float:
 	var floor_h := 9.0 + n * 7.0
 	# Mountains wall the valley in, higher than anything flies, so the
 	# world's edge is never seen; they close both ends too.
-	var ends := maxf(_ease((z - 300.0) / 1000.0), _ease((-8500.0 - z) / 1100.0))
+	var ends := _ease((z - 300.0) / 1000.0)
 	var hills := 70.0 + 820.0 * _ease((d - 320.0) / 1500.0) + big * 170.0 + n * 50.0
 	var h := lerpf(floor_h, hills, _ease((d - 230.0) / 520.0))
 	h = lerpf(-8.0, h, _ease((d - 32.0) / 34.0))
@@ -111,10 +153,23 @@ func height(x: float, z: float) -> float:
 		top = lerpf(PLATEAU_Y - 9.0, top, _ease((d - 26.0) / 20.0))   # the upper river
 		h = lerpf(h, maxf(h, top), t)
 	h = lerpf(h, maxf(h, 900.0 + big * 150.0), ends * _ease((d - 120.0) / 400.0))
+	# The slot gorge: the river squeezed between sheer walls, 70 m apart.
+	var g := _ease((GORGE.x - z) / 150.0) * _ease((z - GORGE.y) / 150.0)
+	if g > 0.0:
+		var wall := lerpf(-8.0, 270.0 + n * 40.0 + big * 30.0, _ease((d - 34.0) / 22.0))
+		h = lerpf(h, maxf(wall, h) if d > 34.0 else -8.0, g)
+	# Past the plateau: the last ridge, then the land falls away to a basin
+	# of forest and lakes under the far mountains (the view).
+	if z < -8150.0:
+		var rise := _ease((-8150.0 - z) / 380.0)
+		var fall := _ease((-8740.0 - z) / 420.0)
+		var ridge := lerpf(PLATEAU_Y, RIDGE_Y + n * 6.0, rise)
+		ridge = lerpf(ridge, 45.0 + big * 90.0 + n * 20.0, fall)
+		h = lerpf(ridge, maxf(ridge, h), _ease((d - 520.0) / 900.0))
 	# The pad: flat.
 	var to_pad := Vector2(x - pad.x, z - pad.z).length()
 	if to_pad < 140.0:
-		h = lerpf(PLATEAU_Y, h, _ease((to_pad - 70.0) / 70.0))
+		h = lerpf(pad.y, h, _ease((to_pad - 70.0) / 70.0))
 	return h
 
 static func _ease(t: float) -> float:
@@ -219,6 +274,81 @@ func _terrain() -> void:
 	body.scale = Vector3.ONE * s
 	body.position = Vector3(x0 + (nx - 1) * s / 2.0, 0.0, z0 - (nz - 1) * s / 2.0)
 
+# --- The view ---------------------------------------------------------------
+
+## Beyond the flown valley: mountain ranges to the horizon, sharp-ridged,
+## snow on the high peaks, and straight ahead from the last ridge a long
+## valley of forest and lakes running away into the gold haze. One coarse
+## mesh, nothing to hit (it is all out of reach). Under the flown terrain
+## it sinks out of the way.
+func _vista() -> void:
+	var ridged := FastNoiseLite.new()
+	ridged.seed = 88
+	ridged.frequency = 0.00011
+	ridged.fractal_type = FastNoiseLite.FRACTAL_RIDGED
+	ridged.fractal_octaves = 5
+	var s := 320.0 if hq else 480.0
+	var x0 := -36000.0
+	var z0 := 9000.0
+	var nx := int(72000.0 / s) + 1
+	var nz := int(62000.0 / s) + 1
+	var verts := PackedVector3Array()
+	verts.resize(nx * nz)
+	for j in nz:
+		var z := z0 - j * s
+		for i in nx:
+			var x := x0 + i * s
+			# How far outside the flown area (where the real terrain is).
+			var ox := maxf(0.0, absf(x) - 2100.0)
+			var oz := maxf(0.0, maxf(z - 1300.0, -9700.0 - z))
+			var out := Vector2(ox, oz).length()
+			var y := -500.0
+			if out > 0.0:
+				var r := (ridged.get_noise_2d(x, z) + 1.0) * 0.5
+				var rise := _ease(out / 7000.0)
+				y = 300.0 + 2900.0 * r * r * rise + 500.0 * rise
+				# The long valley ahead of the last ridge.
+				if z < -9700.0:
+					y = lerpf(40.0 + r * 160.0, y, _ease((absf(x - centre_x(-9700.0)) - 1500.0) / 9000.0))
+				# Meet the flown terrain's edges.
+				y = lerpf(height(clampf(x, -2190.0, 2190.0), clampf(z, -9790.0, 1390.0)), y, _ease(out / 1200.0))
+			verts[j * nx + i] = Vector3(x, y, z)
+	var idx := PackedInt32Array()
+	idx.resize((nx - 1) * (nz - 1) * 6)
+	var w := 0
+	for j in nz - 1:
+		for i in nx - 1:
+			var a := j * nx + i
+			var b := a + 1
+			var c := a + nx
+			var d := c + 1
+			idx[w] = a; idx[w + 1] = c; idx[w + 2] = b
+			idx[w + 3] = b; idx[w + 4] = c; idx[w + 5] = d
+			w += 6
+	var st := SurfaceTool.new()
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_INDEX] = idx
+	st.create_from_arrays(arrays)
+	st.generate_normals()
+	var mesh := st.commit()
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/vista.gdshader")
+	m.set_shader_parameter("canopy_map", load("res://art/foliage/dense.png"))
+	m.set_shader_parameter("rock_map", Surfaces._tex("Rock030", "Color"))
+	mesh.surface_set_material(0, m)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	# Clouds catching the low sun, high over the far ranges.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 909
+	for k in (16 if hq else 9):
+		var at := Vector3(rng.randf_range(-16000, 16000), rng.randf_range(1800, 3400), rng.randf_range(-14000, -34000))
+		_mist_at(at, Vector2(rng.randf_range(3500, 7000), rng.randf_range(900, 1600)), 0.8)
+
 func _water() -> void:
 	var p := PlaneMesh.new()
 	p.size = Vector2(4400, 11400)
@@ -235,10 +365,10 @@ func _water() -> void:
 	# The upper river, on the plateau.
 	var up := MeshInstance3D.new()
 	var p2 := PlaneMesh.new()
-	p2.size = Vector2(1400, 2300)
+	p2.size = Vector2(1400, 820)
 	p2.material = m
 	up.mesh = p2
-	up.position = Vector3(centre_x(-8400.0), PLATEAU_Y - 4.0, -8460)
+	up.position = Vector3(centre_x(-7740.0), PLATEAU_Y - 4.0, -7740)
 	up.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(up)
 
@@ -322,7 +452,7 @@ func _pillars() -> void:
 		var across := Vector2(-along.y, along.x)
 		for sgn in [-1.0, 1.0]:
 			var r := rng.randf_range(20.0, 30.0)
-			var at: Vector2 = Vector2(g.x, g.z) + across * float(sgn) * (r + 26.0)
+			var at: Vector2 = Vector2(g.x, g.z) + across * float(sgn) * (r + 30.0)
 			var base := height(at.x, at.y) - 20.0
 			var tall := rng.randf_range(260.0, 380.0)
 			placed.append([at.x, at.y, r])
@@ -347,9 +477,12 @@ func _pillars() -> void:
 		var spread := rng.randf_range(-1.0, 1.0)
 		var x := centre_x(z) + spread * absf(spread) * 900.0
 		var r := rng.randf_range(16.0, 46.0)
+		# Not in the gorge (its walls are the rock there).
+		if z < GORGE.x + 60.0 and z > GORGE.y - 60.0:
+			continue
 		# Clear of the route, with room for close calls but not for crashes.
 		var clear := route_clearance(x, z)
-		if clear < r * 1.02 + 22.0:
+		if clear < r * 1.02 + 30.0:
 			continue
 		var ok := true
 		for q in placed:
@@ -713,9 +846,15 @@ func _forest() -> void:
 			continue
 		if Vector2(x - pad.x, z - pad.z).length() < 95.0 or Vector2(x - shuttle_spot.x, z - shuttle_spot.z).length() < 40.0:
 			continue
+		# The ridge top is bare, so the view from it is open.
+		if z < -8540.0 and z > -8790.0 and absf(x - pad.x) < 380.0:
+			continue
 		var h := height(x, z)
 		var slope := absf(height(x + 6.0, z) - h) + absf(height(x, z + 6.0) - h)
 		if slope > 8.0 or h < WATER_Y + 1.0:
+			continue
+		# Nothing grows on the flight line itself.
+		if route_clearance(x, z) < 12.0:
 			continue
 		var roll := rng.randf()
 		var sp := ""
@@ -727,6 +866,34 @@ func _forest() -> void:
 		var xf := Transform3D(Basis.from_euler(Vector3(rng.randf_range(-0.05, 0.05), rng.randf() * TAU, rng.randf_range(-0.05, 0.05))).scaled(Vector3.ONE * sc), Vector3(x, h - 0.6, z))
 		var hue := rng.randf()
 		plants.append([sp, xf, Color(0.82, 0.9, 0.78).lerp(Color(1.15, 1.08, 0.75), hue * hue) * rng.randf_range(0.8, 1.08)])
+	# The canopy tunnel: giants either side of the line, close, their crowns
+	# meeting over it. Their trunks are solid.
+	var cg := gates_with("canopy")
+	if not cg.is_empty():
+		var a: int = cg[0]
+		var pts := [gates[a - 1], gates[a], gates[a + 1], gates[a + 2], gates[a + 3]]
+		for i in pts.size() - 1:
+			var p0: Vector3 = pts[i]
+			var p1: Vector3 = pts[i + 1]
+			var steps := int(p0.distance_to(p1) / 13.0)
+			for k in steps:
+				var at := p0.lerp(p1, float(k) / steps)
+				var along := Vector3(p1.x - p0.x, 0, p1.z - p0.z).normalized()
+				var across := Vector3(-along.z, 0, along.x)
+				for sgn in [-1.0, 1.0]:
+					var q: Vector3 = at + across * float(sgn) * rng.randf_range(20.0, 25.0) + along * rng.randf_range(-4.0, 4.0)
+					q.y = height(q.x, q.z) - 0.6
+					var sc := rng.randf_range(1.2, 1.5)
+					plants.append(["giant", Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3.ONE * sc), q), Color(0.85, 0.95, 0.8) * rng.randf_range(0.8, 1.0)])
+					var body := StaticBody3D.new()
+					var cs := CollisionShape3D.new()
+					var cyl := CylinderShape3D.new()
+					cyl.radius = 1.4 * sc
+					cyl.height = 20.0 * sc
+					cs.shape = cyl
+					body.add_child(cs)
+					add_child(body)
+					body.position = q + Vector3(0, 10.0 * sc, 0)
 	# Crowns on the pillar tops, the arch and the towers.
 	for top in _pillar_tops:
 		var c: Vector3 = top[0]
@@ -796,15 +963,23 @@ func _forest() -> void:
 func _undergrowth(rng: RandomNumberGenerator) -> void:
 	var count := 45000 if hq else 12000
 	var cells := {}
-	for i in count:
+	for i in count + (2500 if hq else 900):
 		var z := rng.randf_range(-7300.0, 1000.0)
 		var spread := rng.randf_range(-1.0, 1.0)
 		var x := centre_x(z) + spread * absf(spread) * 900.0
+		# The last few on the ridge top, round the landing.
+		if i >= count:
+			z = rng.randf_range(-8790.0, -8540.0)
+			x = pad.x + rng.randf_range(-380.0, 380.0)
+			if Vector2(x - pad.x, z - pad.z).length() < 32.0 or Vector2(x - pad.x - 6.0, z - pad.z + 40.0).length() < 14.0:
+				continue
 		var d := absf(x - centre_x(z))
 		if d < 40.0:
 			continue
 		var h := height(x, z)
 		if h < WATER_Y + 0.8:
+			continue
+		if route_clearance(x, z) < 8.0:
 			continue
 		var sp := "fern" if rng.randf() < 0.7 else "shrub"
 		var key := "%s|%d_%d" % [sp, int(floor(x / 250.0)), int(floor(z / 250.0))]
@@ -889,8 +1064,8 @@ static func environment(parent: Node) -> DirectionalLight3D:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sm := ProceduralSkyMaterial.new()
-	sm.sky_top_color = Color(0.26, 0.45, 0.78)
-	sm.sky_horizon_color = Color(0.98, 0.8, 0.6)
+	sm.sky_top_color = Color(0.2, 0.36, 0.68)
+	sm.sky_horizon_color = Color(1.0, 0.72, 0.45)
 	sm.sky_curve = 0.12
 	sm.ground_horizon_color = Color(0.85, 0.74, 0.62)
 	sm.ground_bottom_color = Color(0.2, 0.26, 0.18)
@@ -907,11 +1082,12 @@ static func environment(parent: Node) -> DirectionalLight3D:
 	env.glow_intensity = 0.6
 	env.glow_bloom = 0.06
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.82, 0.8, 0.78)
-	env.fog_density = 0.00022
+	# Thin enough that ranges 20 km off still stand as layered silhouettes.
+	env.fog_light_color = Color(0.86, 0.68, 0.52)
+	env.fog_density = 0.00006
 	env.fog_sky_affect = 0.25
 	env.fog_sun_scatter = 0.45
-	env.fog_aerial_perspective = 0.55
+	env.fog_aerial_perspective = 0.4
 	env.fog_height = 40.0
 	env.fog_height_density = 0.0025
 	if hq:
@@ -926,8 +1102,8 @@ static func environment(parent: Node) -> DirectionalLight3D:
 	we.environment = env
 	parent.add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.light_color = Color(1.0, 0.86, 0.68)
-	sun.light_energy = 2.3
+	sun.light_color = Color(1.0, 0.8, 0.56)
+	sun.light_energy = 3.0
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 450.0 if hq else 300.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS

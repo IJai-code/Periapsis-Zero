@@ -17,12 +17,15 @@ var _beacons: Array[MeshInstance3D] = []
 var _next := 0
 var _clock := 0.0
 var _timing := false
+## Beacons count only once the briefing is over: flown through before, they
+## would move the count on while the goal still points at the first one.
+var _live := false
 var _docking := false
 var _rook_called := false
 var _timer_label: Label
 
 func _ready() -> void:
-	setup_flight(SUN, 1.0)
+	setup_flight(SUN, 1.0, true, "hearth")
 	add_child(Earth.toward(Vector3(-0.3, -0.5, 1.0), 9_000_000.0, SUN, 0.003))
 	station = load("res://art/station-hearth.glb").instantiate()
 	add_child(station)
@@ -51,6 +54,7 @@ func _ready() -> void:
 	overlay.add_child(_timer_label)
 	for i in BEACONS.size():
 		var b := _beacon()
+		b.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		add_child(b)
 		b.global_position = BEACONS[i]
 		_beacons.append(b)
@@ -98,6 +102,7 @@ func _start() -> void:
 	await Hud.say("Hearth Traffic", "Mind the tugs. They don't mind you.")
 	await Hud.say("Mara Voss", "Six beacons, in order, then back into the bay. The clock starts at the first one. Show me what the yard fixed.")
 	Hud.objective("Fly through the [beacons]", "0 / 6")
+	_live = true
 	_light(0)
 
 func _process(dt: float) -> void:
@@ -112,7 +117,7 @@ func _process(dt: float) -> void:
 		if b.visible:
 			b.look_at(ship.global_position, Vector3.UP)
 			b.rotate_object_local(Vector3.RIGHT, PI / 2)
-	if _next < BEACONS.size():
+	if _live and _next < BEACONS.size():
 		if ship.global_position.distance_to(BEACONS[_next]) < 15.0:
 			Sfx.play("objective", -4.0, 1.0 + _next * 0.08)
 			if _next == 0:
@@ -124,7 +129,7 @@ func _process(dt: float) -> void:
 				_rook()
 			if _next == BEACONS.size():
 				_return()
-	elif not _docking and ship.global_position.distance_to(BAY) < 30.0:
+	elif _live and not _docking and ship.global_position.distance_to(BAY) < 30.0:
 		_dock()
 
 ## Rook introduces himself.
@@ -150,7 +155,7 @@ func _dock() -> void:
 	Hud.clear_objective()
 	var from := ship.global_transform
 	var to := Transform3D(Basis.looking_at(Vector3(0, 0, 1)), Vector3(0, 0, -86))
-	var t := create_tween()
+	var t := create_tween().set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 	t.tween_method(func(k: float): ship.global_transform = from.interpolate_with(to, k), 0.0, 1.0, 3.0).set_trans(Tween.TRANS_SINE)
 	Sfx.play("door", -4.0, 0.7)
 	await t.finished

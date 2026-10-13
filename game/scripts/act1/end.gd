@@ -4,7 +4,7 @@ extends Node3D
 
 func _ready() -> void:
 	var sun := Vector3(0.5, 0.35, 0.8)
-	Space.environment(self, sun, 1.0)
+	Space.environment(self, sun, 1.0, "hearth")
 	add_child(Earth.toward(Vector3(-0.3, -0.5, 1.0), 9_000_000.0, sun, 0.003))
 	var st: Node3D = load("res://art/station-hearth.glb").instantiate()
 	add_child(st)

@@ -8,6 +8,8 @@ var _shot: Node3D
 var _skipping := false
 
 func _ready() -> void:
+	# This film moves its cameras and hulls with render-frame tweens.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	Flow.music(true)
 	Hud.letterbox(true)
 	Hud.prompt("[Enter] Skip the opening", 6.0)
@@ -59,7 +61,8 @@ func _move(cam: Camera3D, from: Vector3, to: Vector3, look: Vector3, seconds: fl
 	cam.position = from
 	cam.look_at(look)
 	var end_look := look if look_to == Vector3.INF else look_to
-	create_tween().tween_method(func(k: float):
+	# Bind to the shot camera so cutting away also stops its old tween.
+	cam.create_tween().tween_method(func(k: float):
 		if is_instance_valid(cam):
 			cam.position = from.lerp(to, k)
 			cam.look_at(look.lerp(end_look, k)), 0.0, 1.0, seconds).set_trans(Tween.TRANS_SINE)

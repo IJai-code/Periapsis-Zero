@@ -168,6 +168,7 @@ const GATES = [
   ['verify-allocation', true],
   ['verify-programs', false],
   ['verify-audio', false],
+  ['verify-people', false],
   ['verify-expeditions', false],
   ['verify-game', false],
   ['verify-game-opening', false],

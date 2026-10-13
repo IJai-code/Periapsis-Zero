@@ -49,8 +49,7 @@ func _ready() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
-	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/space_sky.gdshader")
+	var sm := Space.sky_material("harbor")
 	sky.sky_material = sm
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR

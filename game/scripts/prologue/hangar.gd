@@ -53,6 +53,7 @@ func _launch() -> void:
 	Hud.silence()
 	# The launch, from the deck by the open doors looking back.
 	var cam := Camera3D.new()
+	cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	cam.fov = 48.0
 	cam.far = 120_000.0
 	add_child(cam)
@@ -62,6 +63,7 @@ func _launch() -> void:
 	Hud.letterbox(true)
 	Hud.fade_in(0.6)
 	var k := _set.kestrel
+	k.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	var glow := OmniLight3D.new()
 	glow.light_color = Color(0.5, 0.8, 1.0)
 	glow.light_energy = 0.0

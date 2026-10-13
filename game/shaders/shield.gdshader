@@ -10,12 +10,15 @@ uniform float fade = 1.0;
 varying vec3 local;
 
 void vertex() {
-	local = normalize(VERTEX);
+	local = VERTEX / max(length(VERTEX), 0.0001);
 }
 
 void fragment() {
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
-	float spot = pow(max(dot(local, normalize(hit)), 0.0), 28.0);
+	// A hit at the very centre has no direction: never normalise a zero
+	// vector (the NaN it makes spreads across the whole screen in the glow).
+	vec3 h = length(hit) > 0.0001 ? hit / length(hit) : vec3(0.0, 0.0, 1.0);
+	float spot = pow(max(dot(local, h), 0.0), 28.0);
 	float cells = 0.75 + 0.25 * step(0.5, fract((local.x + local.y * 0.5) * 9.0)) * step(0.5, fract((local.y - local.z * 0.5) * 9.0));
 	ALBEDO = tint * 2.0;
 	ALPHA = (rim * 0.12 + spot * 1.2 * cells) * fade;

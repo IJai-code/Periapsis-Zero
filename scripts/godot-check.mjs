@@ -14,7 +14,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const GODOT = process.env.GODOT ?? '/Applications/Godot.app/Contents/MacOS/Godot'
-const game = join(new URL('..', import.meta.url).pathname, 'game')
+// A copied project can isolate test progress from the player's real save.
+const game = process.env.PZ_GODOT_PROJECT ?? join(new URL('..', import.meta.url).pathname, 'game')
 
 // Every test tool quits the game when it has its answer; output is read
 // when the process ends (Godot's stdout is buffered through a pipe). A run
@@ -27,22 +28,37 @@ function run(scene, args, until, ms = 120000) {
     const p = spawn(GODOT, ['--path', game, `res://scenes/${scene}.tscn`, '--', ...args, '--result', result])
     let out = ''
     let finished = false
-    const done = () => {
+    let exitTimer
+    const done = (code, signal) => {
       if (finished) return
       finished = true
       clearTimeout(timer)
+      clearTimeout(exitTimer)
       clearInterval(poll)
       if (existsSync(result)) out += readFileSync(result, 'utf8')
-      p.kill('SIGKILL')
+      if (code !== 0 || signal) out += `\nCHECK ERROR: exit ${code}, signal ${signal}`
       resolve(out)
     }
-    // The answer is in the result file the moment it is written; a run that
-    // hangs on its way out is not waited for.
-    const poll = setInterval(() => { if (existsSync(result) && until.test(readFileSync(result, 'utf8'))) setTimeout(done, 400) }, 500)
-    const timer = setTimeout(done, ms)
+    const poll = setInterval(() => {
+      if (!exitTimer && existsSync(result) && until.test(readFileSync(result, 'utf8'))) {
+        exitTimer = setTimeout(() => {
+          out += '\nCHECK ERROR: hung after reporting its result'
+          p.kill('SIGKILL')
+        }, 10000)
+      }
+    }, 500)
+    const timer = setTimeout(() => {
+      out += '\nCHECK ERROR: timed out'
+      p.kill('SIGKILL')
+    }, ms)
     p.stdout.on('data', (d) => { out += d })
     p.stderr.on('data', (d) => { out += d })
+    p.on('error', (error) => { out += `\nCHECK ERROR: ${error.message}`; done(null, null) })
     p.on('close', done)
+  }).then((out) => {
+    const errors = out.match(/(?:SCRIPT ERROR:|CHECK ERROR:|^ERROR:)[^\n]*/gm) ?? []
+    if (errors.length) throw new Error(errors.slice(0, 3).join('; '))
+    return out
   })
 }
 
@@ -63,17 +79,22 @@ const checks = [
     return [Boolean(m) && sees && Number(m[2]) === 0 && Number(m[1]) > 1000, m ? `${m[0]}, probe ${sees ? 'sees' : 'MISSES'} a bench` : 'no result']
   }],
   ['Black Box plays through: find, tractor, fight, reveal', async () => {
-    const out = await run('act1_blackbox', ['--beat', 'field', '--autofight'], /BLACKBOX (reveal|ship lost)/, 240000)
+    const out = await run('act1_blackbox', ['--beat', 'field', '--autofight', '--verify-exit'], /BLACKBOX (reveal|ship lost)/, 240000)
     const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
     const ok = /BLACKBOX recorder aboard/.test(out) && /BLACKBOX reveal after 4 kills/.test(out) && errors.length === 0
     return [ok, errors.length ? errors[0] : ((out.match(/BLACKBOX [^\n]*/g) ?? ['no result']).join(', '))]
   }],
   ['Down the Well plays through: every marker, no crash, lands, meets Renn', async () => {
-    const out = await run('act1_descent', ['--autofly', '--shot', join(tmpdir(), 'pz-descent.png'), '--at', '900'], /DESCENT (passed|ship lost)/, 360000)
+    const out = await run('act1_descent', ['--autofly', '--verify-exit'], /DESCENT (passed|ship lost)/, 360000)
     const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
     const m = out.match(/DESCENT markers (\d+) hit (\d+) missed, (\d+) bumps/)
     const ok = Boolean(m) && m[2] === '0' && m[3] === '0' && /DESCENT passed/.test(out) && /prompt '\[E\] Talk to Renn'/.test(out) && errors.length === 0
     return [ok, errors.length ? errors[0] : ((out.match(/DESCENT [^\n]*/g) ?? ['no result']).join(', '))]
+  }],
+  ['player movement and conversation headings', async () => {
+    const out = await run('act1_hearth', ['--movementtest', '--nohd'], /MOVEMENTTEST \d+ failed/)
+    const m = out.match(/MOVEMENTTEST (\d+) failed/)
+    return [m && m[1] === '0', (out.match(/MOVEMENTTEST FAIL[^\n]*/g) ?? []).join('; ') || (m ? 'all ok' : 'no result')]
   }],
   ['HUD text survives cutscenes and clears', async () => {
     const out = await run('ship_preview', ['--hudtest'], /HUDTEST \d+ failed/)
@@ -107,13 +128,31 @@ const checks = [
 
 // Godot learns new script classes on import; a stale class list would make
 // every test script fail to load and every check wait out its timeout.
-await new Promise((resolve) => spawn(GODOT, ['--headless', '--path', game, '--import'], { stdio: 'ignore' }).on('close', resolve))
+await new Promise((resolve, reject) => {
+  const p = spawn(GODOT, ['--headless', '--path', game, '--import'])
+  let out = ''
+  p.stdout.on('data', d => { out += d })
+  p.stderr.on('data', d => { out += d })
+  p.on('error', reject)
+  p.on('close', code => {
+    if (code !== 0 || /SCRIPT ERROR:|^ERROR:/m.test(out)) reject(new Error(`Godot import failed (${code}): ${out}`))
+    else resolve()
+  })
+})
 
+const filters = process.argv.slice(2)
+const selected = checks.filter(([name]) => !filters.length || filters.some(f => name.includes(f)))
+if (!selected.length) throw new Error('No Godot checks match the requested filters')
 let failed = 0
-for (const [name, check] of checks) {
-  const [ok, detail] = await check()
-  if (!ok) failed++
-  console.log(`${ok ? '✓' : '✗'} ${name}  ${detail}`)
+for (const [name, check] of selected) {
+  try {
+    const [ok, detail] = await check()
+    if (!ok) failed++
+    console.log(`${ok ? '✓' : '✗'} ${name}  ${detail}`)
+  } catch (error) {
+    failed++
+    console.log(`✗ ${name}  ${error.message}`)
+  }
 }
-console.log(failed ? `${failed} of ${checks.length} Godot checks failed.` : `${checks.length} Godot checks passed.`)
+console.log(failed ? `${failed} of ${selected.length} Godot checks failed.` : `${selected.length} Godot checks passed.`)
 process.exit(failed ? 1 : 0)

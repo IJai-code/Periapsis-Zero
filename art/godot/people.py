@@ -273,7 +273,7 @@ def relaxed(arm, t=0.0, talk=0.0):
     bpy.context.view_layer.update()
     w = 2 * math.pi * t / 4.0
     breath = math.sin(w)
-    sway = math.sin(w * 0.5)
+    sway = math.sin(w)
     # Arms: hanging at the sides (the rest pose has them out, forearms
     # forward); a soft elbow, hands following, fingers curled. Mirrored on x.
     for s in ('l', 'r'):
@@ -294,13 +294,13 @@ def relaxed(arm, t=0.0, talk=0.0):
     # Talking: the head nods and turns a little, the right hand comes up.
     if talk:
         rotate(arm, 'head', (1, 0, 0), math.sin(w * 2.0) * 3.0 * talk)
-        rotate(arm, 'head', (0, 0, 1), math.sin(w * 0.75) * 6.0 * talk)
+        rotate(arm, 'head', (0, 0, 1), math.sin(w) * 6.0 * talk)
         g = (0.5 + 0.5 * math.sin(w)) * talk
         aim(arm, 'upperarm_r', Vector((-0.2, -0.04, -0.98)).lerp(Vector((-0.22, -0.35, -0.9)), g))
         aim(arm, 'lowerarm_r', Vector((-0.1, -0.24, -0.96)).lerp(Vector((-0.1, -0.9, -0.2)), g))
         aim(arm, 'hand_r', Vector((-0.04, -0.14, -0.99)).lerp(Vector((-0.05, -0.95, 0.1)), g))
     else:
-        rotate(arm, 'head', (0, 0, 1), math.sin(w * 0.5) * 4.0)
+        rotate(arm, 'head', (0, 0, 1), math.sin(w) * 4.0)
 
 
 def stride(arm, t, period, run):
@@ -309,12 +309,18 @@ def stride(arm, t, period, run):
     about X. Arms counter-swing, the hips twist and the chest twists back."""
     relaxed(arm, 0.0, 0.0)
     ph = 2 * math.pi * t / period
-    swing = 24.0 + 18.0 * run
+    # Thighs swing further forward than back (a running hip flexes to ~40
+    # degrees but extends only ~15): a symmetric swing reads as the splits.
+    fwd = 24.0 + 16.0 * run
+    back = 20.0 - 5.0 * run
+    swing = (fwd + back) / 2.0
     for s, sgn in (('l', 1.0), ('r', -1.0)):
         f = math.sin(ph) * sgn                      # +1: this leg fully forward
         lift = max(0.0, math.cos(ph) * sgn)        # swinging through
-        rotate(arm, f'thigh_{s}', (1, 0, 0), -swing * f - (10.0 * run) * lift)
-        rotate(arm, f'calf_{s}', (1, 0, 0), 6.0 + (38.0 + 42.0 * run) * lift)
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -(swing * f + (fwd - back) / 2.0) - (6.0 * run) * lift)
+        # The knee folds high as the leg swings through, and stays a little
+        # bent under load (no straight-legged landing at a run).
+        rotate(arm, f'calf_{s}', (1, 0, 0), 6.0 + 10.0 * run + (38.0 + 52.0 * run) * lift)
         rotate(arm, f'foot_{s}', (1, 0, 0), -8.0 * lift + 6.0 * f)
         # The opposite arm swings with this leg.
         rotate(arm, f'upperarm_{s}', (1, 0, 0), swing * 0.75 * f)
@@ -388,13 +394,18 @@ def seated(arm, t=0.0):
 def bake_pose(arm, name, fn, period=2.0, fps=24, step=4):
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
-    arm.animation_data.action = action
     frames = int(round(period * fps))
-    for f in range(0, frames + 1, step):
-        fn(f / fps)
+    samples = sorted(set(range(0, frames + 1, step)) | {frames})
+    for f in samples:
+        # Previously baked actions must not evaluate over the pose being
+        # authored. Attach the action only while storing the finished pose.
+        arm.animation_data.action = None
+        fn(f / frames * period)
+        arm.animation_data.action = action
         for pb in arm.pose.bones:
             pb.keyframe_insert('rotation_quaternion', frame=f)
             pb.keyframe_insert('location', frame=f)
+        arm.animation_data.action = None
     action.use_fake_user = True
     track = arm.animation_data.nla_tracks.new()
     track.name = name
@@ -405,13 +416,16 @@ def bake_pose(arm, name, fn, period=2.0, fps=24, step=4):
 def bake_stride(arm, name, period, run, fps=24):
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
-    arm.animation_data.action = action
     frames = int(round(period * fps))
-    for f in range(0, frames + 1, 2):
-        stride(arm, f / fps, period, run)
+    samples = sorted(set(range(0, frames + 1, 2)) | {frames})
+    for f in samples:
+        arm.animation_data.action = None
+        stride(arm, f / frames * period, period, run)
+        arm.animation_data.action = action
         for pb in arm.pose.bones:
             pb.keyframe_insert('rotation_quaternion', frame=f)
             pb.keyframe_insert('location', frame=f)
+        arm.animation_data.action = None
     action.use_fake_user = True
     track = arm.animation_data.nla_tracks.new()
     track.name = name
@@ -422,13 +436,15 @@ def bake_stride(arm, name, period, run, fps=24):
 def bake(arm, name, talk, frames=96, fps=24):
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
-    arm.animation_data.action = action
     for f in range(0, frames + 1, 4):
+        arm.animation_data.action = None
         relaxed(arm, f / fps, talk)
+        arm.animation_data.action = action
         for pb in arm.pose.bones:
             pb.keyframe_insert('rotation_quaternion', frame=f)
             if pb.name in ('pelvis', 'Root'):
                 pb.keyframe_insert('location', frame=f)
+        arm.animation_data.action = None
     # Keep the action when it is no longer the active one.
     action.use_fake_user = True
     track = arm.animation_data.nla_tracks.new()
@@ -447,6 +463,10 @@ if '--hd' in args:
     smooth(basemesh)
 arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 bpy.context.scene.render.fps = 24
+arm.animation_data_create()
+# NLA is for exporting independent clips, not layering earlier clips over
+# the next pose while baking it (which corrupts crouches and seated poses).
+arm.animation_data.use_nla = False
 bake(arm, 'idle', 0.0)
 bake(arm, 'talk', 1.0)
 if PEOPLE[WHO].get('walks'):
@@ -456,6 +476,7 @@ if PEOPLE[WHO].get('walks'):
     bake_pose(arm, 'crouch_walk', lambda t: crouch(arm, t, 1.0, 1.0), 1.0, step=2)
     bake_pose(arm, 'jump', lambda t: tuck(arm), 0.5, step=12)
     bake_pose(arm, 'sit', lambda t: seated(arm, t), 4.0)
+arm.animation_data.use_nla = True
 # Textures: the skin at 2K for close-ups, everything else at 1K.
 for img in bpy.data.images:
     if img.size[0] == 0:

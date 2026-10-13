@@ -57,7 +57,7 @@ func launch(from: Vector3, dir: Vector3, inherit: Vector3, team: String, target:
 func incoming(ship: Node3D) -> Array:
 	var out := []
 	for m in _live:
-		if m.target == ship and not m.fooled:
+		if is_instance_valid(m.target) and m.target == ship and not m.fooled:
 			out.append(m.node)
 	out.sort_custom(func(a, b): return a.global_position.distance_to(ship.global_position) < b.global_position.distance_to(ship.global_position))
 	return out
@@ -67,8 +67,10 @@ func _physics_process(dt: float) -> void:
 		var m: Dictionary = _live[i]
 		var node: Node3D = m.node
 		m.t += dt
-		var tgt: Node3D = m.target
-		var ok: bool = tgt != null and is_instance_valid(tgt) and tgt.get("alive") != false
+		# The target may be gone (destroyed and freed): check before typing it.
+		var raw = m.target
+		var ok: bool = raw != null and is_instance_valid(raw) and raw.get("alive") != false
+		var tgt: Node3D = raw if ok else null
 		var v: Vector3 = m.v
 		var speed := minf(340.0, 60.0 + m.t * 260.0)
 		if ok and not m.fooled and m.t > 0.35:

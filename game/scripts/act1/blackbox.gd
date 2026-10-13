@@ -27,7 +27,7 @@ var _pull_hint := false
 var _auto := "--autofight" in OS.get_cmdline_user_args()
 
 func _ready() -> void:
-	setup_flight(SUN, 1.0)
+	setup_flight(SUN, 1.0, true, "hearth")
 	ship.floor_integrity = 0.0
 	ship.died.connect(_ship_lost)
 	Flow.music(true)
@@ -116,6 +116,7 @@ func _go_to_field() -> void:
 ## The Aster's grave: her modules torn apart and tumbling, her cargo spilled,
 ## a haze of fragments, Earth vast and close. Dark: nothing here has power.
 func _build_field(center: Vector3) -> void:
+	set_sky("field")
 	_field = Node3D.new()
 	add_child(_field)
 	_field.global_position = center
@@ -204,16 +205,30 @@ func _build_field(center: Vector3) -> void:
 	frag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_field.add_child(frag)
 
+## The box of a piece's meshes in its own space: each mesh's box carried
+## through the transforms between it and the piece (the parts sit at their
+## own positions in the model, so a mesh's box alone is in the wrong place).
 func _bounds(n: Node3D) -> AABB:
 	var box := AABB()
 	var first := true
 	for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
-		var b := mi.get_aabb()
+		var b := _to_space(mi, n)
 		box = b if first else box.merge(b)
 		first = false
 	if n is MeshInstance3D:
-		box = (n as MeshInstance3D).get_aabb() if first else box.merge((n as MeshInstance3D).get_aabb())
+		var own := (n as MeshInstance3D).get_aabb()
+		box = own if first else box.merge(own)
 	return box
+
+## A mesh's box in `root`'s space, walking up from the mesh to `root`.
+static func _to_space(mi: MeshInstance3D, root: Node3D) -> AABB:
+	var t := Transform3D.IDENTITY
+	var node: Node = mi
+	while node and node != root:
+		if node is Node3D:
+			t = (node as Node3D).transform * t
+		node = node.get_parent()
+	return t * mi.get_aabb()
 
 ## The recorder: an orange crash core lodged by the bridge, its strobe going.
 func _core_near(bridge: Node3D) -> void:
@@ -304,6 +319,8 @@ func _process(dt: float) -> void:
 func _tractor(on: bool) -> void:
 	if not _beam:
 		_beam = MeshInstance3D.new()
+		# Its ends follow the ship per rendered frame in _tractor.
+		_beam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		var c := CylinderMesh.new()
 		c.top_radius = 0.25
 		c.bottom_radius = 0.6
@@ -376,6 +393,9 @@ func _ship_lost() -> void:
 		return
 	_beat = "lost"
 	Report.line("BLACKBOX ship lost")
+	if "--verify-exit" in OS.get_cmdline_user_args():
+		Report.finish(get_tree(), 1)
+		return
 	ship.controls = false
 	ship.set_process(false)
 	ship.set_physics_process(false)
@@ -394,6 +414,9 @@ func _reveal() -> void:
 		return
 	_beat = "reveal"
 	Report.line("BLACKBOX reveal after %d kills" % kills)
+	if "--verify-exit" in OS.get_cmdline_user_args():
+		Report.finish(get_tree())
+		return
 	Hud.clear_prompt()
 	Hud.objective("Play the [recording]")
 	await wait(1.5)
@@ -434,5 +457,9 @@ func _go_home() -> void:
 ## A slowly tumbling piece of wreckage.
 class Tumbler extends Node3D:
 	var spin := Vector3.ZERO
+	func _ready() -> void:
+		# Turning is per rendered frame (see _process below); interpolation
+		# would render the same orientation between ticks.
+		physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	func _process(dt: float) -> void:
 		rotation += spin * dt

@@ -16,9 +16,9 @@ var _tunnel: MeshInstance3D
 var warping := false
 
 ## Build the common parts. Call first in `_ready`.
-func setup_flight(sun: Vector3, exposure := 1.0, space := true) -> void:
+func setup_flight(sun: Vector3, exposure := 1.0, space := true, region := "harbor") -> void:
 	if space:
-		sun_light = Space.environment(self, sun, exposure)
+		sun_light = Space.environment(self, sun, exposure, region)
 	bolts = Bolts.new()
 	add_child(bolts)
 	missiles = Missiles.new()
@@ -47,6 +47,7 @@ func setup_flight(sun: Vector3, exposure := 1.0, space := true) -> void:
 			hud.log_line("Missile launch detected", Style.EMBER))
 	ship.damaged.connect(func(_a):
 		ship.shake = maxf(ship.shake, 0.5))
+	_warm_effects.call_deferred()
 	ship.lock_changed.connect(func(t):
 		if t:
 			hud.log_line("Locked  %s" % t.display_name, Style.EMBER))
@@ -60,6 +61,7 @@ func _on_struck(team: String, target: Node3D, damage: float, layer: String, kind
 
 func _process(_dt: float) -> void:
 	if _ring.visible and ship:
+		_ring.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		_ring.global_position = _goal_node.global_position
 		_ring.look_at(ship.camera.global_position)
 		_ring.rotate_object_local(Vector3.RIGHT, PI / 2)
@@ -78,6 +80,13 @@ func _make_ring() -> MeshInstance3D:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
 
+## Change which part of space surrounds the ship (after a warp).
+func set_sky(region: String) -> void:
+	for we in find_children("*", "WorldEnvironment", true, false):
+		var env: Environment = (we as WorldEnvironment).environment
+		if env and env.sky:
+			env.sky.sky_material = Space.sky_material(region)
+
 func set_goal(at: Vector3, label: String, ring := true) -> void:
 	_goal_node.global_position = at
 	hud.goal = _goal_node
@@ -91,8 +100,9 @@ func clear_goal() -> void:
 func wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
-func spawn_raider(at: Vector3, target: Hull, gunship := false, avoid: Array = []) -> Raider:
+func spawn_raider(at: Vector3, target: Hull, gunship := false, avoid: Array = [], rookie := false) -> Raider:
 	var r := Raider.new()
+	r.rookie = rookie
 	r.bolts = bolts
 	r.missiles = missiles
 	r.gunship = gunship
@@ -103,14 +113,27 @@ func spawn_raider(at: Vector3, target: Hull, gunship := false, avoid: Array = []
 	r.look_at(target.global_position)
 	return r
 
-## Blow up a raider that has died, with the hit-stop and the confirmation.
+func _warm_effects() -> void:
+	await get_tree().process_frame
+	if is_instance_valid(ship) and ship.camera:
+		Fx.warm(self, ship.camera.global_position - ship.camera.global_basis.z * 120.0)
+
+var _streak := 0
+var _streak_t := -99.0
+
+## Blow up a raider that has died: the blast, the hit-stop, the
+## confirmation, and a callout when kills come close together.
 func raider_destroyed(r: Raider) -> void:
-	r.destroy(14.0 if r.gunship else 9.0, 28.0)
+	r.destroy(16.0 if r.gunship else 11.0, 32.0)
 	r.get_tree().create_timer(0.1).timeout.connect(r.queue_free)
-	ship.shake = maxf(ship.shake, 0.45)
+	ship.shake = maxf(ship.shake, 0.55)
 	hud.kill()
 	hud.log_line("%s destroyed" % r.display_name, Style.EMBER)
-	Fx.hitstop(get_tree())
+	var now := Time.get_ticks_msec() / 1000.0
+	_streak = _streak + 1 if now - _streak_t < 5.0 else 1
+	_streak_t = now
+	hud.pop(["", "+250  SPLASH ONE", "+500  DOUBLE KILL", "+800  TRIPLE KILL", "+1200  ACE"][mini(_streak, 4)] if _streak > 1 else "+250  SPLASH ONE", Style.EMBER)
+	Fx.hitstop(get_tree(), 0.09 if _streak < 2 else 0.14, 0.12)
 
 # --- The warp drive -----------------------------------------------------------
 
@@ -154,6 +177,7 @@ func warp(dir: Vector3, seconds: float, arrive: Callable, label := "") -> void:
 		add_child(_tunnel)
 	var tm := (_tunnel.mesh as CylinderMesh).material as ShaderMaterial
 	_tunnel.visible = true
+	_tunnel.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	ship.set_physics_process(false)
 	var go := create_tween()
 	go.tween_method(func(k: float):

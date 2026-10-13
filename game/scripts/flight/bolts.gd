@@ -16,6 +16,8 @@ var _shots: Array = []
 var _draw := {}
 
 func _ready() -> void:
+	# Instance transforms are submitted in _process, not the physics tick.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	var c := CapsuleMesh.new()
 	c.radius = 0.2
 	c.height = 12.0
@@ -57,7 +59,9 @@ func _physics_process(dt: float) -> void:
 		for h in hulls:
 			if h.team == s.team or not h.alive:
 				continue
-			if _segment_hits(a, b, h.global_position, h.radius):
+			# The player's tracers are forgiving: a near miss of a small
+			# ship still lands (the enemy's shots get no such help).
+			if _segment_hits(a, b, h.global_position, h.radius + (2.5 if s.team == "player" else 0.0)):
 				hit = h
 				break
 		s.life -= dt

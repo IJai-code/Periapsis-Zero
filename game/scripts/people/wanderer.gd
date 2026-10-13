@@ -35,6 +35,7 @@ func _ready() -> void:
 	add_child(_person)
 	_speed = randf_range(1.15, 1.5)
 	global_position = points[randi() % points.size()]
+	reset_physics_interpolation()
 	_wait = randf_range(0.2, 2.5)
 
 func _pick() -> void:
@@ -64,7 +65,10 @@ func _route() -> void:
 			_seat.remove_meta("taken")
 			_seat = null
 
-func _process(dt: float) -> void:
+## Steps on the physics tick, with interpolation smoothing the render between
+## ticks, same as the player. A person stepping at the frame rate with the
+## body animated on the tick rate is what made people look laggy.
+func _physics_process(dt: float) -> void:
 	_clock += dt
 	_chat()
 	if _wait > 0.0:
@@ -84,6 +88,7 @@ func _process(dt: float) -> void:
 		_path.remove_at(0)
 		return
 	var dir := d.normalized()
+	_person.follow_route()
 	# Give way: someone close ahead means wait a moment, then try round.
 	if _ahead(dir):
 		_person.locomote(0.0)
@@ -120,20 +125,24 @@ func _sidestep(dir: Vector3) -> void:
 			return
 	_wait = randf_range(0.4, 1.0)
 
+## Everyone else who could be in the way: walkers and the player. Two group
+## loops rather than joining the lists, which allocated every call.
 func _crowded(p: Vector3) -> bool:
-	for n in get_tree().get_nodes_in_group("walker") + get_tree().get_nodes_in_group("player"):
-		if n != self and (n as Node3D).global_position.distance_to(p) < 0.9:
-			return true
+	for group in ["walker", "player"]:
+		for n in get_tree().get_nodes_in_group(group):
+			if n != self and (n as Node3D).global_position.distance_to(p) < 0.9:
+				return true
 	return false
 
 func _ahead(dir: Vector3) -> bool:
-	for n in get_tree().get_nodes_in_group("walker") + get_tree().get_nodes_in_group("player"):
-		if n == self or not (n is Node3D):
-			continue
-		var to: Vector3 = (n as Node3D).global_position - global_position
-		to.y = 0.0
-		if to.length() < 1.05 and to.normalized().dot(dir) > 0.55:
-			return true
+	for group in ["walker", "player"]:
+		for n in get_tree().get_nodes_in_group(group):
+			if n == self or not (n is Node3D):
+				continue
+			var to: Vector3 = (n as Node3D).global_position - global_position
+			to.y = 0.0
+			if to.length() < 1.05 and to.normalized().dot(dir) > 0.55:
+				return true
 	return false
 
 func _arrive() -> void:
@@ -143,8 +152,10 @@ func _arrive() -> void:
 		_seat.set_meta("prompt", "")
 		var to := _seat.global_position + Vector3(0, -0.45, 0)
 		var t := create_tween()
+		t.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
 		t.tween_property(self, "global_position", to, 0.45).set_trans(Tween.TRANS_SINE)
 		rotation.y = _seat.global_rotation.y + PI
+		_person.follow_route()
 		_person.locomote(0.0, false, false, true)
 		_wait = randf_range(10.0, 24.0)
 	else:
@@ -156,6 +167,7 @@ func _stand() -> void:
 	if _seat:
 		global_position = _seat.global_position + _seat.global_basis * Vector3(0, 0, -0.75)
 		global_position.y = 0.0
+		reset_physics_interpolation()
 		_seat.set_meta("prompt", _seat.get_meta("prompt_was", "[E] Sit on the bench"))
 		_seat.remove_meta("taken")
 		_seat = null

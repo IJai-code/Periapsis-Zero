@@ -53,6 +53,10 @@ func _ready() -> void:
 	add_child(body)
 	_pivot = Node3D.new()
 	_pivot.top_level = true
+	# The rig commits every rendered frame (mouse look, height easing): the
+	# camera is handled by hand, per the engine's interpolation guide, and
+	# must not be auto-interpolated on top of that.
+	_pivot.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_pivot)
 	_arm = SpringArm3D.new()
 	_arm.spring_length = ARM
@@ -144,11 +148,15 @@ func _physics_process(dt: float) -> void:
 		Sfx.play("step", -18.0 if speed < 3.0 else -13.0, randf_range(0.85, 1.1))
 
 func _process(_dt: float) -> void:
+	# The body is interpolated between ticks; the rig follows the
+	# interpolated render position, not the physics position, or the view
+	# steps once a tick. (The docs' manual-camera recipe.)
+	var at := get_global_transform_interpolated().origin
 	# The camera rig follows the body without inheriting its turns.
 	_shoulder_y = lerpf(_shoulder_y, 1.18 if crouched else (1.5 if seated else 1.66), minf(1.0, _dt * 8.0))
 	# The camera follows the body's height softly, so a jump does not throw it.
-	_ground_y = lerpf(_ground_y, global_position.y, minf(1.0, _dt * (3.0 if is_on_floor() else 1.2)))
-	var base := Vector3(global_position.x, _ground_y, global_position.z)
+	_ground_y = lerpf(_ground_y, at.y, minf(1.0, _dt * (3.0 if is_on_floor() else 1.2)))
+	var base := Vector3(at.x, _ground_y, at.z)
 	_pivot.global_position = base + Basis(Vector3.UP, _yaw) * Vector3(SHOULDER.x, _shoulder_y, 0.0)
 	_pivot.rotation = Vector3(_pitch, _yaw, 0.0)
 	_look()
@@ -161,7 +169,7 @@ func _look() -> void:
 		var fwd := -camera.global_basis.z
 		fwd.y = 0.0
 		fwd = fwd.normalized()
-		var chest := global_position + Vector3(0, 1.0, 0)
+		var chest := get_global_transform_interpolated().origin + Vector3(0, 1.0, 0)
 		for n in get_tree().get_nodes_in_group("interactable"):
 			var it := n as Interactable
 			if not it or it.prompt_text() == "" or not it.is_inside_tree():
@@ -169,7 +177,7 @@ func _look() -> void:
 			var d := it.distance_to(chest)
 			if d > it.reach:
 				continue
-			var to := it.global_position - global_position
+			var to := it.global_position - chest
 			to.y = 0.0
 			if to.length() > 0.6 and to.normalized().dot(fwd) < -0.1:
 				continue
@@ -203,6 +211,7 @@ func sit(seat: Node3D) -> void:
 	_set_crouch(false)
 	velocity = Vector3.ZERO
 	global_position = seat.global_position
+	reset_physics_interpolation()
 	body.rotation.y = seat.global_rotation.y + PI
 	# Swing round to a three-quarter view from the front: from behind, the
 	# seat back would hide the sitter.
@@ -216,6 +225,7 @@ func stand() -> void:
 		if _seat.get_meta("taken", null) == self:
 			_seat.remove_meta("taken")
 		global_position = _seat.global_position + _seat.global_basis * Vector3(0, 0, -0.7)
+		reset_physics_interpolation()
 	_seat = null
 
 ## Turn to face a point (on spawn, or for a scripted look).

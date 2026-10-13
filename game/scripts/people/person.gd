@@ -13,7 +13,13 @@ var _gait := "idle"
 var _yaw_target := NAN
 ## Faces: every mesh carrying the expression keys (body, lashes, brows,
 ## teeth, tongue), so they move together.
-var _faces: Array[MeshInstance3D] = []
+## Each entry: [mesh, blend-shape index for each name in SHAPES (-1 if absent)].
+## Looked up once when the person is built, not by name every frame.
+const SHAPES := ["blink_l", "blink_r", "mouth_open", "purse", "smile", "brow_l", "brow_r"]
+var _faces: Array = []
+var _vals := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0])
+var _applied := PackedFloat32Array([INF, INF, INF, INF, INF, INF, INF])
+const STRIDES := ["walk", "run", "crouch_walk"]
 var _talking := false
 var _mouth := 0.0
 var _blink_in := 2.0
@@ -27,6 +33,10 @@ static func make(name: String) -> Person:
 	return p
 
 func _ready() -> void:
+	# The body turns to face within _process (see below); only the local
+	# transform is excluded, so the interpolation of the walking parent
+	# underneath still moves the figure smoothly.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	# Desktop gets the subdivided body; the browser the plain one.
 	var hd := "res://art/person-%s_hd.glb" % who
 	var path := hd if Flow.high_quality() and ResourceLoader.exists(hd) and not "--nohd" in OS.get_cmdline_user_args() else "res://art/person-%s.glb" % who
@@ -46,7 +56,10 @@ func _ready() -> void:
 	_dress(body)
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh and mi.find_blend_shape_by_name("blink_l") >= 0:
-			_faces.append(mi)
+			var idx := PackedInt32Array()
+			for s in SHAPES:
+				idx.append(mi.find_blend_shape_by_name(s))
+			_faces.append([mi, idx])
 	_blink_in = randf_range(0.5, 3.0)
 	var players := body.find_children("*", "AnimationPlayer", true, false)
 	if players.size() > 0:
@@ -111,6 +124,9 @@ static func _is_hair(part: String) -> bool:
 ## Start or stop talking (the talk loop: head and a hand).
 func talk(on: bool) -> void:
 	_talking = on
+	# The talk and idle loops replace the gait: forget it, so the next
+	# locomote plays the walk or run again instead of standing still.
+	_gait = ""
 	if _anim:
 		_anim.play("talk" if on else "idle", 0.4)
 
@@ -127,8 +143,26 @@ func locomote(speed: float, crouched := false, airborne := false, seated := fals
 	if seated:
 		gait = "sit"
 	if gait != _gait and _anim.has_animation(gait):
+		# Changing pace keeps the stride: walk, run and crouch-walk are the
+		# same body cycle, so carry the phase across proportionally and the
+		# legs do not snap back to the start of the new animation.
+		if _gait in STRIDES and gait in STRIDES:
+			var from := _anim.get_animation(_gait).length
+			var to := _anim.get_animation(gait).length
+			if from > 0.0 and to > 0.0:
+				var phase := _anim.current_animation_position / from
+				_anim.play(gait, 0.25)
+				_anim.seek(phase * to, true)
+				_gait = gait
+				_animate_speed(gait, speed)
+				return
 		_gait = gait
 		_anim.play(gait, 0.25)
+	_animate_speed(gait, speed)
+
+## Pace the gait to the speed covered: each cycle is authored for a
+## ground speed (walk 1.6 m/s, run 4.4 m/s, crouch-walk 1.0 m/s).
+func _animate_speed(gait: String, speed: float) -> void:
 	if gait == "walk":
 		_anim.speed_scale = clampf(speed / 1.6, 0.6, 1.6)
 	elif gait == "crouch_walk":
@@ -140,8 +174,14 @@ func locomote(speed: float, crouched := false, airborne := false, seated := fals
 
 ## Turn the whole body to face a point, over a second or so.
 func face(point: Vector3) -> void:
-	var d := point - global_position
+	var parent := get_parent_node_3d()
+	var d := (parent.to_local(point) if parent else point) - position
 	_yaw_target = atan2(d.x, d.z)
+
+## The moving parent supplies the route heading; undo a conversation turn
+## before walking or sitting so the figure does not travel sideways.
+func follow_route() -> void:
+	_yaw_target = 0.0
 
 func _process(dt: float) -> void:
 	if not is_nan(_yaw_target):
@@ -167,17 +207,23 @@ func _process(dt: float) -> void:
 		_mouth = float(get_meta("hold_mouth"))
 		lid = 0.0
 	_brow = lerpf(_brow, 0.35 if _talking and sin(_t * 0.9) > 0.7 else 0.0, minf(1.0, dt * 4.0))
-	for mi in _faces:
-		_shape(mi, "blink_l", lid)
-		_shape(mi, "blink_r", lid)
-		_shape(mi, "mouth_open", _mouth)
-		_shape(mi, "purse", _mouth * 0.25 * (0.5 + 0.5 * sin(_t * 7.0)))
-		# The open-mouth shape pulls the corners down; lift them back level.
-		_shape(mi, "smile", _mouth * 0.45)
-		_shape(mi, "brow_l", _brow)
-		_shape(mi, "brow_r", _brow)
-
-static func _shape(mi: MeshInstance3D, name: String, v: float) -> void:
-	var i := mi.find_blend_shape_by_name(name)
-	if i >= 0:
-		mi.set_blend_shape_value(i, v)
+	# Same order as SHAPES. The open-mouth shape pulls the corners down;
+	# the smile value lifts them back level.
+	_vals[0] = lid
+	_vals[1] = lid
+	_vals[2] = _mouth
+	_vals[3] = _mouth * 0.25 * (0.5 + 0.5 * sin(_t * 7.0))
+	_vals[4] = _mouth * 0.45
+	_vals[5] = _brow
+	_vals[6] = _brow
+	# Idle faces have mostly unchanged weights. Rewriting zero weights still
+	# dirties the mesh's morph data; submit only expressions that changed.
+	for k in SHAPES.size():
+		if _applied[k] == _vals[k]:
+			continue
+		_applied[k] = _vals[k]
+		for f in _faces:
+			var mi: MeshInstance3D = f[0]
+			var idx: PackedInt32Array = f[1]
+			if idx[k] >= 0:
+				mi.set_blend_shape_value(idx[k], _vals[k])

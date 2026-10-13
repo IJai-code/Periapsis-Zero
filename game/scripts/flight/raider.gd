@@ -12,6 +12,9 @@ var turn := 1.35
 var bolts: Bolts
 var missiles: Missiles
 var gunship := false
+## The prologue's raiders: fewer hit points, slower, wider to hit, worse
+## shots. The first fight teaches; it should not grind.
+var rookie := false
 var avoid: Array = []
 var damage_to_player := 4.0
 var _mode := "attack"
@@ -42,6 +45,14 @@ func _ready() -> void:
 		max_armor = 14.0
 		max_integrity = 28.0
 	speed *= randf_range(0.92, 1.12)
+	if rookie:
+		max_shield = 8.0
+		max_armor = 6.0
+		max_integrity = 18.0
+		radius = 9.5
+		speed *= 0.82
+		turn *= 0.85
+		damage_to_player = 2.5
 	shield = max_shield
 	armor = max_armor
 	integrity = max_integrity
@@ -50,14 +61,39 @@ func _ready() -> void:
 		body.scale = Vector3.ONE * 1.7
 	add_child(body)
 	make_solid(4.5 * (1.7 if gunship else 1.0))
+	_engines()
 	velocity = -global_basis.z * speed
 	damaged.connect(_on_hit)
+
+## Two burning engines astern, so a raider reads at a distance and its
+## heading shows at a glance.
+func _engines() -> void:
+	var k := 1.7 if gunship else 1.0
+	for x in [-1.6, 1.6]:
+		var c := CylinderMesh.new()
+		c.top_radius = 0.55 * k
+		c.bottom_radius = 0.05
+		c.height = 7.0 * k
+		c.radial_segments = 12
+		c.rings = 1
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/plume.gdshader")
+		m.set_shader_parameter("power", 1.1)
+		m.set_shader_parameter("hot", Color(1.0, 0.75, 0.45))
+		m.set_shader_parameter("cool", Color(1.0, 0.25, 0.08))
+		c.material = m
+		var mi := MeshInstance3D.new()
+		mi.mesh = c
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.rotation_degrees = Vector3(-90, 0, 0)
+		mi.position = Vector3(x * k, 0.1 * k, 7.5 * k + c.height / 2.0)
+		body.add_child(mi)
 
 ## Under fire: weave off the shooter's line for a moment.
 func _on_hit(_amount: float) -> void:
 	if _jink_cool > 0.0 or not alive:
 		return
-	_jink_cool = randf_range(2.5, 4.5) * (1.6 if gunship else 1.0)
+	_jink_cool = randf_range(2.5, 4.5) * (1.6 if gunship else 1.0) * (2.2 if rookie else 1.0)
 	_jink_t = randf_range(1.0, 2.0)
 	var fwd := -global_basis.z
 	var side := fwd.cross(Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()).normalized()
@@ -89,7 +125,7 @@ func _physics_process(dt: float) -> void:
 				var dmg := damage_to_player * (1.5 if gunship else 1.0) if target is PlayerShip else 0.6
 				var s := (2.2 if randf() < 0.5 else -2.2) * (1.7 if gunship else 1.0)
 				Fx.muzzle(self, Vector3(s, -0.25, -10.6 * (1.7 if gunship else 1.0)), Color(2.0, 0.6, 0.2))
-				bolts.fire(global_position + fwd * 11.0, (want + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.03).normalized(), velocity, "hollow", dmg)
+				bolts.fire(global_position + fwd * 11.0, (want + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * (0.06 if rookie else 0.03)).normalized(), velocity, "hollow", dmg)
 		else:
 			want = _break_dir
 			if _timer <= 0.0:

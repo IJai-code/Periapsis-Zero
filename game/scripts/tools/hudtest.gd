@@ -45,8 +45,22 @@ func _ready() -> void:
 	Hud.say("Mara Voss", "two")
 	await get_tree().create_timer(0.8).timeout
 	fails += _check("subtitle after silence", Hud._sub.modulate.a > 0.9 and Hud._sub.text.contains("two"))
+	# 6. A caller waiting on a line that is cut returns then, not when its
+	# timer would have ended (scripts await lines in order).
+	Hud.silence()
+	var out := {"at": -1}
+	_wait_say(out)
+	await get_tree().create_timer(0.3).timeout
+	var cut := Time.get_ticks_msec()
+	Hud.silence()
+	await get_tree().create_timer(0.2).timeout
+	fails += _check("caller released by silence", out.at >= cut and out.at - cut < 150)
 	Report.line("HUDTEST %d failed" % fails)
-	get_tree().quit()
+	Report.finish(get_tree())
+
+func _wait_say(out: Dictionary) -> void:
+	await Hud.say("Mara Voss", "a long line that is cut", 6.0)
+	out.at = Time.get_ticks_msec()
 
 func _check(name: String, ok: bool) -> int:
 	Report.line("HUDTEST %s %s" % ["ok  " if ok else "FAIL", name])

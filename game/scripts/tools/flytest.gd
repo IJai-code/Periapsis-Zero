@@ -42,4 +42,4 @@ func _process(dt: float) -> void:
 		_inside += 1
 	if _t > 14.0:
 		Report.line("FLYTEST closest %.1f m, frames inside solid %d, hull %.0f, speed now %.1f" % [_closest, _inside, _ship.integrity, _ship.velocity.length()])
-		get_tree().quit()
+		Report.finish(get_tree())

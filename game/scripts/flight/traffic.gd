@@ -25,6 +25,9 @@ func _ready() -> void:
 		m.scale = Vector3.ONE * (0.7 if big else 0.18)
 		h.add_child(m)
 		h.body = m
+		# _place in _process positions each one every rendered frame; the same
+		# reason the title ship opts out.
+		h.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		h.make_solid(h.radius * 0.8)
 		_lights(h, h.radius)
 		add_child(h)

@@ -79,6 +79,8 @@ func hit(amount: float, at: Vector3, from := Vector3.INF) -> void:
 	elif left > 0.0:
 		Fx.sparks(get_parent(), at, Color(5, 2.2, 0.8))
 	integrity = maxf(integrity - left, floor_integrity)
+	if team != "player":
+		Fx.hit_flash(body)
 	damaged.emit(amount)
 	# Badly hurt ships burn and smoke.
 	if integrity < max_integrity * 0.5 and _trail == null and radius < 30.0:

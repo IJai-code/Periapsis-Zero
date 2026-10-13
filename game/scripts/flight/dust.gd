@@ -30,6 +30,9 @@ func _ready() -> void:
 		_points[i] = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * BOX
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	top_level = true
+	# Points are re-wrapped round the camera every rendered frame; the node
+	# is never moved on the physics tick, so interpolation does not apply.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 func _process(_dt: float) -> void:
 	var cam := get_viewport().get_camera_3d()

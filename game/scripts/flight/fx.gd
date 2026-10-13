@@ -81,10 +81,11 @@ static func explode(world: Node3D, at: Vector3, size := 8.0, loud := true) -> vo
 	# The flash, the fireball, the sparks, the smoke. Big blasts stack more
 	# additive layers on screen, so each layer is dimmer.
 	var k := clampf(12.0 / size, 0.35, 1.0)
+	var lo := 0.5 if Flow.fx_low() else 1.0
 	_emitter(n, _fire, 3, 0.2, size * 0.4, size * 1.8, _ramp([Color(3.2 * k, 2.6 * k, 2.0 * k, 1), Color(2.4, 1.4, 0.6, 0)]))
-	_emitter(n, _fire, 34, 1.5, size * 2.2, size * 1.2, _ramp([Color(2.6 * k, 1.7 * k, 0.8 * k, 1), Color(2.2 * k, 0.75 * k, 0.16 * k, 0.95), Color(1.1 * k, 0.24 * k, 0.04 * k, 0.7), Color(0.3, 0.05, 0.01, 0.35), Color(0.0, 0.0, 0.0, 0)]))
-	_emitter(n, _spark, 90, 1.8, size * 10.0, clampf(size * 0.03, 0.18, 0.7), _ramp([Color(8, 5, 2, 1), Color(4, 1.4, 0.3, 1), Color(1, 0.2, 0, 0)]))
-	var sm := _emitter(n, _smoke, 22, 5.5, size * 1.1, size * 1.6, _ramp([Color(0.12, 0.1, 0.09, 0.0), Color(0.09, 0.085, 0.08, 0.85), Color(0.07, 0.07, 0.07, 0.6), Color(0.05, 0.05, 0.05, 0.0)]))
+	_emitter(n, _fire, int(34 * lo), 1.5, size * 2.2, size * 1.2, _ramp([Color(2.6 * k, 1.7 * k, 0.8 * k, 1), Color(2.2 * k, 0.75 * k, 0.16 * k, 0.95), Color(1.1 * k, 0.24 * k, 0.04 * k, 0.7), Color(0.3, 0.05, 0.01, 0.35), Color(0.0, 0.0, 0.0, 0)]))
+	_emitter(n, _spark, int(90 * lo), 1.8, size * 10.0, clampf(size * 0.03, 0.18, 0.7), _ramp([Color(8, 5, 2, 1), Color(4, 1.4, 0.3, 1), Color(1, 0.2, 0, 0)]))
+	var sm := _emitter(n, _smoke, int(22 * lo), 5.5, size * 1.1, size * 1.6, _ramp([Color(0.12, 0.1, 0.09, 0.0), Color(0.09, 0.085, 0.08, 0.85), Color(0.07, 0.07, 0.07, 0.6), Color(0.05, 0.05, 0.05, 0.0)]))
 	sm.explosiveness = 0.75
 	_shockwave(n, size)
 	var light := OmniLight3D.new()
@@ -116,12 +117,46 @@ static func _shockwave(n: Node3D, size: float) -> void:
 	t.tween_method(func(v: float): m.set_shader_parameter("fade", v), 1.0, 0.0, 0.7)
 
 ## Where a bolt meets a hull: a spray of sparks and a quick hot spot.
+static var _flash_mat: StandardMaterial3D
+
+## A hit landing: the struck hull flashes white for a moment.
+static func hit_flash(model: Node3D) -> void:
+	if not model or not is_instance_valid(model):
+		return
+	if not _flash_mat:
+		_flash_mat = StandardMaterial3D.new()
+		_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_flash_mat.albedo_color = Color(1.6, 1.4, 1.2, 0.55)
+	var meshes := model.find_children("*", "MeshInstance3D", true, false)
+	for mi: MeshInstance3D in meshes:
+		mi.material_overlay = _flash_mat
+	model.get_tree().create_timer(0.06).timeout.connect(func():
+		for mi in meshes:
+			if is_instance_valid(mi):
+				(mi as MeshInstance3D).material_overlay = null)
+
+## Every effect once, out of sight, while the scene fades in: the browser
+## compiles a shader the first time it is drawn, and doing that mid-fight is
+## a visible stall.
+static func warm(world: Node3D, at: Vector3) -> void:
+	explode(world, at, 6.0, false)
+	sparks(world, at)
+	var holder := Node3D.new()
+	world.add_child(holder)
+	holder.global_position = at
+	muzzle(holder, Vector3.ZERO, Color(1, 1, 1))
+	shield_hit(holder, 5.0, at + Vector3(0, 0, 5))
+	trail(holder, true)
+	holder.get_tree().create_timer(1.0).timeout.connect(holder.queue_free)
+
 static func sparks(world: Node3D, at: Vector3, color := Color(4, 2.5, 1.2)) -> void:
 	_materials()
 	var n := Node3D.new()
 	world.add_child(n)
 	n.global_position = at
-	_emitter(n, _spark, 18, 0.45, 40.0, 0.35, _ramp([color * 1.5, Color(color, 0.0)]))
+	_emitter(n, _spark, 8 if Flow.fx_low() else 18, 0.45, 40.0, 0.35, _ramp([color * 1.5, Color(color, 0.0)]))
 	_emitter(n, _fire, 2, 0.18, 2.0, 1.6, _ramp([Color(color.r, color.g, color.b, 1.0), Color(color, 0.0)]))
 	n.get_tree().create_timer(1.0).timeout.connect(n.queue_free)
 
@@ -132,11 +167,14 @@ static func muzzle(parent: Node3D, local: Vector3, color: Color) -> void:
 	parent.add_child(n)
 	n.position = local
 	_emitter(n, _fire, 2, 0.07, 1.0, 1.4, _ramp([Color(color.r * 2.0, color.g * 2.0, color.b * 2.0, 1.0), Color(color, 0.0)]))
-	var l := OmniLight3D.new()
-	l.light_color = color
-	l.light_energy = 3.0
-	l.omni_range = 6.0
-	n.add_child(l)
+	# A light per shot is a full extra pass over the scene in the browser's
+	# renderer, ten times a second: the desktop only.
+	if Flow.high_quality() and not Flow.fx_low():
+		var l := OmniLight3D.new()
+		l.light_color = color
+		l.light_energy = 3.0
+		l.omni_range = 6.0
+		n.add_child(l)
 	n.get_tree().create_timer(0.08).timeout.connect(n.queue_free)
 
 ## A shield taking the hit: a shell round the ship, bright where it was struck.
@@ -148,7 +186,8 @@ static func shield_hit(ship: Node3D, radius: float, at: Vector3) -> void:
 	s.rings = 12
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/shield.gdshader")
-	m.set_shader_parameter("hit", ship.global_basis.inverse() * (at - ship.global_position))
+	var local := ship.global_basis.inverse() * (at - ship.global_position)
+	m.set_shader_parameter("hit", local if local.length() > 0.01 else Vector3.FORWARD)
 	s.material = m
 	var mi := MeshInstance3D.new()
 	mi.mesh = s

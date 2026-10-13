@@ -14,15 +14,21 @@ func _ready() -> void:
 	Space.environment(self, SUN, 1.1)
 	add_child(Earth.below(520_000.0, SUN))
 	_cam = Camera3D.new()
+	# Driven per rendered frame in _process; no auto-interpolation on top.
+	_cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_cam.fov = 50.0
 	_cam.near = 0.1
 	_cam.far = 120_000.0
 	add_child(_cam)
 	# The Kestrel, gliding across the view on a slow pass.
 	_ship = Hull.model("kestrel")
+	# Moved per rendered frame (its slow pass below); an interpolated node
+	# would hold still between ticks and then jump.
+	_ship.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_ship)
 	# Earthshine and a rim from below so the ship reads against the Sun.
 	var fill := OmniLight3D.new()
+	fill.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	fill.light_color = Color(0.55, 0.7, 1.0)
 	fill.light_energy = 16.0
 	fill.omni_range = 60.0
