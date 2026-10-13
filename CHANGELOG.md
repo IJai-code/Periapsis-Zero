@@ -5,6 +5,45 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Smooth on weak machines, stars and nebulae, easier combat, a faster Down the Well, 12 October 2026
+
+- **Lag and the green screen (Chromebooks):**
+  - **Resolution churn:** the old scaler changed the 3D resolution every
+    second when the frame rate wavered. Each change reallocates the frame
+    and can flash garbage in a browser.
+  - **Quality tiers:** it now steps down a tier after a few seconds of
+    struggle, and back up only after ten smooth seconds. It never retries a
+    tier that failed twice, and remembers the machine's tier.
+  - **Low tiers** drop shadows, bloom, per-shot muzzle lights and half the
+    effect particles.
+  - **The green or grey screen:** a shield hit at a ship's centre made a
+    NaN (not a number) that the glow spread over the whole screen; it is
+    guarded now.
+  - **No first-use stall:** every effect is drawn once, hidden, at load.
+- **Space looks like space:**
+  - **The backdrop:** NASA's Deep Star Map (public domain) and nebulae are
+    baked into a panorama per region, violet at Harbor, teal and gold at
+    Hearth, embers at the Aster's grave.
+  - **Stars** are drawn live, sharp at any resolution. They used to be
+    smaller than a pixel and vanished.
+- **Combat:**
+  - **Easier:** the prologue's raiders have fewer hit points, fly slower,
+    are easier to hit and shoot worse. Aim assist reaches wider.
+  - **Punchier:** hulls flash white when hit, raiders burn bright engines,
+    kills are bigger, with kill-streak callouts.
+- **Down the Well, rebuilt for speed:**
+  - **The racing line:** glowing chevrons to follow.
+  - **The route:** 33 markers through the pillars, then a slot gorge, under
+    the arch, a tunnel beneath jungle giants, the drowned city and the
+    falls, a skim over the plateau forest, and up the last ridge.
+  - **The view:** over the ridge, a golden-hour valley under snow-capped
+    ranges. A landing cinematic, and the talk with Renn framed against it.
+  - **Handling:** in the air the ship carves like an aircraft.
+  - **Close calls:** they register wider at speed.
+- **People run properly:** the stride swings further forward than back,
+  instead of splits.
+- **Fixes:** missiles no longer error when their target dies first.
+
 ### Earth in detail: real trees, sculpted rock, ruins and falls, 11 October 2026
 
 - **Real foliage.** Leaves are photographed CC0 scans (ambientCG). Blender
