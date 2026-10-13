@@ -21,7 +21,7 @@ const listing = () => Object.fromEntries(JSON.parse(gh('release', 'view', 'deskt
 
 const manifest = JSON.parse(readFileSync(join(out, 'update.json'), 'utf8'))
 const packs = Object.values(manifest.platforms).flatMap((p) => [p.base, p.patch].filter(Boolean))
-const files = ['PeriapsisZero-mac.zip', 'PeriapsisZero-windows.zip', 'PeriapsisZero-linux.tar.gz', ...packs.map((p) => p.file)]
+const files = [...new Set(['PeriapsisZero-mac.zip', 'PeriapsisZero-windows.zip', 'PeriapsisZero-linux.tar.gz', ...packs.map((p) => p.file)])]
 
 const upload = (file) => {
   const size = statSync(join(out, file)).size
