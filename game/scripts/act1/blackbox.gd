@@ -122,7 +122,7 @@ func _build_field(center: Vector3) -> void:
 	_field.global_position = center
 	_earth = Earth.toward(FIELD_DIR + Vector3(-0.2, -0.75, 0.2), 5_500_000.0, SUN, 0.003)
 	add_child(_earth)
-	var model := Hull.model("freighter")
+	var model := Hull.model("freighter", false)
 	var holder: Node = model
 	while holder.get_child_count() == 1:
 		holder = holder.get_child(0)

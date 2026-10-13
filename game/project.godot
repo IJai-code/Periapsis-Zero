@@ -15,9 +15,11 @@ config/description="Dogfights where the orbits are real."
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.png"
+config/project_settings_override.template="user://update/settings.cfg"
 
 [autoload]
 
+Updater="*res://scripts/core/updater.gd"
 Flow="*res://scripts/core/flow.gd"
 Sfx="*res://scripts/core/sfx.gd"
 Hud="*res://scripts/ui/hud.gd"

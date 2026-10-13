@@ -102,10 +102,45 @@ func fractions() -> Vector3:
 
 ## A ship model from art/godot/ships.py (game/art/ship-<kind>.glb), its
 ## named surfaces turned into real materials.
-static func model(kind: String) -> Node3D:
+## `running`: a freighter under way burns its drive; a wreck does not.
+static func model(kind: String, running := true) -> Node3D:
 	var n: Node3D = load("res://art/ship-%s.glb" % kind).instantiate()
 	Surfaces.apply(n)
+	if running and kind.begins_with("freighter"):
+		_drive_plumes(n)
 	return n
+
+## A freighter's three drive plumes, long and faint at cruise, from the
+## glowing throats of its nozzles (art/godot/ships.py: the drive block).
+static func _drive_plumes(n: Node3D) -> void:
+	var glow := n.find_child("drive_glow", true, false) as MeshInstance3D
+	if glow == null:
+		return
+	var xf := Transform3D.IDENTITY
+	var at: Node = glow
+	while at != n:
+		xf = (at as Node3D).transform * xf
+		at = at.get_parent()
+	var throat := (xf * glow.get_aabb()).get_center().z
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/plume.gdshader")
+	m.set_shader_parameter("power", 0.7)
+	for p in [Vector2(0.0, 3.2), Vector2(-3.0, -2.2), Vector2(3.0, -2.2)]:
+		var c := CylinderMesh.new()
+		c.top_radius = 2.1
+		c.bottom_radius = 0.7
+		c.height = 38.0
+		c.radial_segments = 16
+		c.rings = 1
+		c.material = m
+		var mi := MeshInstance3D.new()
+		mi.mesh = c
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.rotation_degrees = Vector3(-90, 0, 0)
+		mi.position = Vector3(p.x, p.y, throat + 0.5 + c.height / 2.0)
+		# Light, not hull: Surfaces.collide leaves it out.
+		mi.set_meta("plume", true)
+		n.add_child(mi)
 
 ## Break apart: the model's pieces fly, a fireball where it was.
 func destroy(blast := 9.0, force := 30.0) -> void:

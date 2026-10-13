@@ -40,6 +40,7 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	_update_progress()
 	# Looking along the orbit at the horizon, the Sun just above it, drifting.
 	var yaw := sin(_t * 0.03) * 0.12
 	_cam.rotation = Vector3(deg_to_rad(-15.0) + sin(_t * 0.05) * 0.01, yaw, sin(_t * 0.04) * 0.02)
@@ -195,25 +196,48 @@ func _settings_panel() -> PanelContainer:
 	v.add_child(close)
 	return p
 
-## A downloaded copy asks the site which build is current; if a newer one is
-## out, it says so and offers the download. Progress is kept: it lives in the
-## user folder, not in the app.
-func _check_update() -> void:
-	if Flow.on_web() or Build.STAMP == 0 or "--noui" in OS.get_cmdline_user_args():
-		return
-	var http := HTTPRequest.new()
-	add_child(http)
-	http.request_completed.connect(func(result: int, code: int, _h, body: PackedByteArray):
-		http.queue_free()
-		if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-			return
-		var info = JSON.parse_string(body.get_string_from_utf8())
-		if typeof(info) != TYPE_DICTIONARY or int(info.get("build", 0)) <= Build.STAMP:
-			return
-		_update_notice(str(info.get("date", ""))))
-	http.request("https://periapsiszero.dev/play/version.json")
+## A downloaded copy keeps itself current (Updater): the notice says when a
+## newer build is on its way, when it is ready, and, for a release the app
+## cannot take in place (a new engine), offers the download. Progress is
+## kept either way: it lives in the user folder, not in the app.
+var _notice: PanelContainer
+var _notice_head: Label
+var _notice_body: Label
+var _notice_note: Label
+var _notice_button: Button
 
-func _update_notice(date: String) -> void:
+func _check_update() -> void:
+	Updater.changed.connect(_update_notice)
+	_update_notice()
+
+func _update_notice() -> void:
+	var s: int = Updater.state
+	if not s in [Updater.DOWNLOADING, Updater.VERIFYING, Updater.READY, Updater.REINSTALL]:
+		return
+	if _notice == null:
+		_build_notice()
+	var when := ("  ·  " + Updater.date) if Updater.date != "" else ""
+	_notice_button.visible = s in [Updater.READY, Updater.REINSTALL]
+	if s == Updater.READY:
+		_notice_head.text = "UPDATE READY" + when
+		_notice_body.text = "The new version is downloaded."
+		_notice_note.text = "It starts the next time you open the game."
+		_notice_button.text = "Restart now"
+	elif s == Updater.REINSTALL:
+		_notice_head.text = "NEW VERSION" + when
+		_notice_body.text = "This update needs a fresh download."
+		_notice_note.text = "Your progress is kept when you install it."
+		_notice_button.text = "Download the update"
+	else:
+		_notice_head.text = "UPDATING" + when
+		_notice_body.text = "Downloading the new version."
+		_update_progress()
+
+func _update_progress() -> void:
+	if _notice and Updater.state in [Updater.DOWNLOADING, Updater.VERIFYING]:
+		_notice_note.text = "%d%% of %d MB. Keep playing; it is ready next time." % [roundi(Updater.progress() * 100.0), ceili(Updater.download_size() / 1e6)]
+
+func _build_notice() -> void:
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", Style.panel(12))
 	p.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -223,15 +247,21 @@ func _update_notice(date: String) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
-	v.add_child(Style.label("UPDATE READY" + ("  ·  " + date if date != "" else ""), 13, Style.EMBER, Style.mono_bold))
-	v.add_child(Style.label("A newer version of the game is out.", 20, Style.BONE, Style.sans_bold))
-	v.add_child(Style.label("Your progress is kept when you install it.", 15, Style.MUTE))
-	var b := Button.new()
-	b.text = "Download the update"
-	var os := OS.get_name()
-	var file := "PeriapsisZero-mac.zip" if os == "macOS" else ("PeriapsisZero-windows.zip" if os == "Windows" else "PeriapsisZero-linux.tar.gz")
-	b.pressed.connect(func(): OS.shell_open("https://github.com/IJai-code/Periapsis-Zero/releases/download/desktop/" + file))
-	v.add_child(b)
+	_notice_head = Style.label("", 13, Style.EMBER, Style.mono_bold)
+	_notice_body = Style.label("", 20, Style.BONE, Style.sans_bold)
+	_notice_note = Style.label("", 15, Style.MUTE)
+	v.add_child(_notice_head)
+	v.add_child(_notice_body)
+	v.add_child(_notice_note)
+	_notice_button = Button.new()
+	_notice_button.pressed.connect(func():
+		if Updater.state == Updater.READY:
+			Updater.restart()
+		else:
+			var os := OS.get_name()
+			var file := "PeriapsisZero-mac.zip" if os == "macOS" else ("PeriapsisZero-windows.zip" if os == "Windows" else "PeriapsisZero-linux.tar.gz")
+			OS.shell_open("https://github.com/IJai-code/Periapsis-Zero/releases/download/desktop/" + file))
+	v.add_child(_notice_button)
 	var layer := CanvasLayer.new()
 	layer.layer = 8
 	add_child(layer)
@@ -241,3 +271,4 @@ func _update_notice(date: String) -> void:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(holder)
 	holder.add_child(p)
+	_notice = p

@@ -33,10 +33,24 @@ void fragment() {
 	w /= (w.x + w.y + w.z);
 	vec3 p = wpos * scale;
 	vec3 c = tri(albedo_map, p, w).rgb;
-	c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), paint);
+	float rough = tri(rough_map, p, w).r;
+	if (paint > 0.5) {
+		// Paint over metal: the scan's grime kept faint, about its own mean
+		// (the smallest mip), so at a ship's scale it reads as wear and not
+		// as speckle; a semi-gloss coat with a little metal flake in it.
+		float l = dot(c, vec3(0.299, 0.587, 0.114));
+		float mean = dot(textureLod(albedo_map, vec2(0.5), 12.0).rgb, vec3(0.299, 0.587, 0.114));
+		c = vec3(clamp(0.82 + (l - mean) * 0.7, 0.0, 1.2));
+		// Grime in broad drifts, metres across: the same scan, sampled
+		// large and smoothed, darkens and dulls the paint in patches.
+		float drift = dot(tri(albedo_map, wpos * 0.045, w).rgb, vec3(0.333));
+		float grime = smoothstep(mean - 0.08, mean + 0.12, drift);
+		c *= mix(0.72, 1.0, grime);
+		rough = mix(0.3, 0.6, rough) + (1.0 - grime) * 0.18;
+	}
 	ALBEDO = c * tint * tint_gain;
-	ROUGHNESS = tri(rough_map, p, w).r;
-	METALLIC = metal * tri(metal_map, p, w).r;
+	ROUGHNESS = rough;
+	METALLIC = paint > 0.5 ? 0.3 : metal * tri(metal_map, p, w).r;
 	// Whiteout-blended triplanar normals, world space, then to view.
 	vec3 tx = texture(normal_map, p.zy).xyz * 2.0 - 1.0;
 	vec3 ty = texture(normal_map, p.xz).xyz * 2.0 - 1.0;

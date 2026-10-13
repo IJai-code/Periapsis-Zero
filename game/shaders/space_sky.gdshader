@@ -7,6 +7,7 @@ shader_type sky;
 uniform sampler2D panorama : source_color, hint_default_black, filter_linear;
 uniform float panorama_gain = 1.0;
 uniform float star_gain = 1.0;
+uniform float reflect_gain = 2.5;
 
 vec3 hash33(vec3 p) {
 	p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -37,7 +38,13 @@ void sky() {
 	float v = acos(clamp(d.y, -1.0, 1.0)) / 3.1415927;
 	vec3 col = texture(panorama, vec2(u, v)).rgb * panorama_gain;
 	if (AT_CUBEMAP_PASS) {
-		// The reflections and ambient need the glow, not the points.
+		// The reflections need the glow, not the points, and stronger than
+		// the eye sees it, so metal and paint carry the nebulae's colour
+		// and a warm lobe round the Sun, as hulls do in EVE.
+		col *= reflect_gain;
+		if (LIGHT0_ENABLED) {
+			col += vec3(1.0, 0.85, 0.7) * pow(max(dot(d, LIGHT0_DIRECTION), 0.0), 6.0) * 0.35;
+		}
 		COLOR = col;
 	} else {
 		col += stars(d, 160.0, 0.32, 0.12, 1.0) * star_gain;

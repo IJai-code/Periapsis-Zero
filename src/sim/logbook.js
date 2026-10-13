@@ -140,6 +140,16 @@ export const logbookSnapshot = load
  * The writers — one call site each, none on a per-frame path
  * ---------------------------------------------------------------- */
 
+/*
+ * A preset fast-forwards to its starting point through phases nobody watched
+ * (the re-entry scenario passes trans-lunar injection on the way), and those
+ * are not the visitor's to log: they earned licences for burns never seen.
+ * startPreset pauses the writer for the run-up and records the phase it
+ * hands over, which is flown live.
+ */
+let paused = false
+export function pauseMilestones(on) { paused = Boolean(on) }
+
 /**
  * A milestone reached: phase entry with the mission clock at that moment.
  * Records each phase once per browser — a flight flown again is flown again,
@@ -148,7 +158,7 @@ export const logbookSnapshot = load
  */
 export function recordMilestone(phaseId, t) {
   const m = BY_PHASE.get(phaseId)
-  if (!m) return false
+  if (!m || paused) return false
   const rec = load()
   if (rec.milestones[phaseId] != null) return false
   rec.milestones[phaseId] = Number.isFinite(t) ? t : null

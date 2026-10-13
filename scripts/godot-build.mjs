@@ -14,11 +14,21 @@
  * so nothing tracked changes.
  *
  * Output: build/play (web, published as the `play` release asset) or
- * build/desktop.
+ * build/desktop (published to the `desktop` release by
+ * scripts/godot-publish-desktop.mjs).
+ *
+ * The desktop build also makes the game's updates (game/scripts/core/
+ * updater.gd). Beside the apps it writes, for each platform, a patch: the
+ * files that differ from a base pack, which is the whole game as of some
+ * earlier build. A copy of the app downloads the base once (unless it is
+ * that build) and then only patches. The base is kept in build/desktop-base
+ * (fetched back from the release if it is missing) and made again with
+ * `--rebase`, or by itself when the engine changes; rebase when the patches
+ * grow to a sizeable part of the whole. update.json names all of it.
  */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const target = process.argv[2]
@@ -74,8 +84,61 @@ if (target === 'web') {
   godot('--export-release', 'Web', join(out, 'index.html'))
   writeFileSync(join(out, 'version.json'), JSON.stringify({ build: stamp, date: new Date(stamp * 1000).toISOString().slice(0, 10), pck_sha256: createHash('sha256').update(readFileSync(join(out, 'index.pck'))).digest('hex') }))
 } else {
-  for (const [preset, file] of [['macOS', 'PeriapsisZero-mac.zip'], ['Windows', 'PeriapsisZero.exe'], ['Linux', 'PeriapsisZero.x86_64']]) {
-    try { godot('--export-release', preset, join(out, file)) } catch { console.log(`  ${preset}: export failed`) }
+  const engine = execFileSync(GODOT, ['--version']).toString().trim().split('.').slice(0, 4).join('.')
+  // Read by the updater before it mounts anything (game/.gitignore).
+  writeFileSync(join(game, 'build.json'), JSON.stringify({ build: stamp, engine }))
+  const PLATFORMS = [['macOS', 'mac', 'PeriapsisZero-mac.zip'], ['Windows', 'windows', 'PeriapsisZero.exe'], ['Linux', 'linux', 'PeriapsisZero.x86_64']]
+  for (const [preset, , file] of PLATFORMS) godot('--export-release', preset, join(out, file))
+  execFileSync('zip', ['-q', '-X', '-j', join(out, 'PeriapsisZero-windows.zip'), join(out, 'PeriapsisZero.exe')])
+  execFileSync('tar', ['-czf', join(out, 'PeriapsisZero-linux.tar.gz'), '-C', out, 'PeriapsisZero.x86_64'])
+
+  const sha = (f) => createHash('sha256').update(readFileSync(f)).digest('hex')
+  const entry = (f) => ({ file: f.split('/').pop(), sha256: sha(f), size: statSync(f).size })
+  const baseDir = join(root, 'build', 'desktop-base')
+  const readBase = () => existsSync(join(baseDir, 'base.json')) ? JSON.parse(readFileSync(join(baseDir, 'base.json'), 'utf8')) : null
+  if (!readBase() && !process.argv.includes('--rebase')) {
+    // The published base, if there is one.
+    try {
+      mkdirSync(baseDir, { recursive: true })
+      execFileSync('gh', ['release', 'download', 'desktop', '-p', 'update.json', '-D', baseDir, '--clobber'], { cwd: root })
+      const m = JSON.parse(readFileSync(join(baseDir, 'update.json'), 'utf8'))
+      for (const [preset, key] of PLATFORMS) {
+        const b = m.platforms[preset].base
+        execFileSync('gh', ['release', 'download', 'desktop', '-p', b.file, '-D', baseDir, '--clobber'], { cwd: root })
+        if (sha(join(baseDir, b.file)) !== b.sha256) throw new Error(`${b.file}: checksum`)
+        copyFileSync(join(baseDir, b.file), join(baseDir, `${key}.pck`))
+        rmSync(join(baseDir, b.file))
+      }
+      writeFileSync(join(baseDir, 'base.json'), JSON.stringify({ build: m.base, engine: m.engine }))
+    } catch (e) {
+      console.log(`  no published base (${e.message.split('\n')[0]}); making one`)
+      rmSync(baseDir, { recursive: true, force: true })
+    }
   }
+  let base = readBase()
+  if (!base || base.engine !== engine || process.argv.includes('--rebase')) {
+    rmSync(baseDir, { recursive: true, force: true })
+    mkdirSync(baseDir, { recursive: true })
+    for (const [preset, key] of PLATFORMS) godot('--export-pack', preset, join(baseDir, `${key}.pck`))
+    base = { build: stamp, engine }
+    writeFileSync(join(baseDir, 'base.json'), JSON.stringify(base))
+  }
+  const platforms = {}
+  for (const [preset, key] of PLATFORMS) {
+    const basePack = join(out, `PeriapsisZero-base-${base.build}-${key}.pck`)
+    copyFileSync(join(baseDir, `${key}.pck`), basePack)
+    platforms[preset] = { base: entry(basePack) }
+    if (base.build !== stamp) {
+      const patch = join(out, `PeriapsisZero-${stamp}-${key}.patch.pck`)
+      godot('--export-patch', preset, patch, '--patches', join(baseDir, `${key}.pck`))
+      platforms[preset].patch = entry(patch)
+    }
+  }
+  // The release's project settings travel with it: the updater hands them
+  // to the engine as an override at the next start.
+  writeFileSync(join(out, 'update.json'), JSON.stringify({
+    build: stamp, date: new Date(stamp * 1000).toISOString().slice(0, 10), engine, base: base.build,
+    settings: readFileSync(join(game, 'project.godot'), 'utf8'), platforms,
+  }, null, 1))
 }
 for (const f of readdirSync(out)) console.log(`  ${f}  ${(statSync(join(out, f)).size / 1e6).toFixed(1)} MB`)

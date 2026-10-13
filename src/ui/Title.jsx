@@ -22,11 +22,11 @@ function desktopDownload() {
 }
 function phone() { return Boolean(window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 1 && !window.matchMedia?.('(pointer: fine)').matches) }
 const TRAINING = [
-  { id: 'orbit', title: '01 / Make orbit', text: 'Watch the launch sequence, follow the flight computer and reach a stable Earth orbit.', preset: 'apollo8-launch', vessel: 'apollo8', site: 'ksc', image: 'game/shot-transfer.webp', tag: 'Start here · Earth', action: 'Start orbital training' },
-  { id: 'lunar', title: '02 / Cross to the Moon', text: 'Join Apollo 8 at trans-lunar ignition. Follow the burn and learn why the departure window matters.', preset: 'apollo8-tli', vessel: 'apollo8', site: 'ksc', image: 'game/shot-flight.webp', tag: 'Burn planning · Apollo 8', action: 'Start translunar training' },
-  { id: 'rendezvous', title: '03 / Meet another craft', text: 'Eagle brakes toward Columbia. Follow the closing speed and docking sequence above the Moon.', preset: 'apollo11-docking', vessel: 'apollo11', site: 'tranquility', image: 'game/shot-hangar.webp', tag: 'Precision flight · Apollo 11', action: 'Start rendezvous training' },
-  { id: 'lander', title: '04 / Leave the surface', text: 'Lift off from Tranquility Base, reach lunar orbit and meet the command module.', preset: 'apollo11-liftoff', vessel: 'apollo11', site: 'tranquility', image: 'stills/world-moon.webp', tag: 'Lunar ascent · Apollo 11', action: 'Start lunar ascent training' },
-  { id: 'splashdown', title: '05 / Bring them home', text: 'Join the crew before re-entry. Follow the corridor, parachutes and Pacific splashdown.', preset: 'apollo8-reentry', vessel: 'apollo8', site: 'ksc', image: 'game/shot-story.webp', tag: 'Atmospheric entry · Apollo 8', action: 'Start homecoming training' },
+  { id: 'orbit', title: '01 / Make orbit', text: 'Watch the launch sequence, follow the flight computer and reach a stable Earth orbit.', preset: 'apollo8-launch', vessel: 'apollo8', site: 'ksc', image: 'game/sim-pad.jpg', tag: 'Start here · Earth', action: 'Start orbital training' },
+  { id: 'lunar', title: '02 / Cross to the Moon', text: 'Join Apollo 8 at trans-lunar ignition. Follow the burn and learn why the departure window matters.', preset: 'apollo8-tli', vessel: 'apollo8', site: 'ksc', image: 'game/sim-moon.jpg', tag: 'Burn planning · Apollo 8', action: 'Start translunar training' },
+  { id: 'rendezvous', title: '03 / Meet another craft', text: 'Eagle brakes toward Columbia. Follow the closing speed and docking sequence above the Moon.', preset: 'apollo11-docking', vessel: 'apollo11', site: 'tranquility', image: 'game/sim-docking.jpg', tag: 'Precision flight · Apollo 11', action: 'Start rendezvous training' },
+  { id: 'lander', title: '04 / Leave the surface', text: 'Lift off from Tranquility Base, reach lunar orbit and meet the command module.', preset: 'apollo11-liftoff', vessel: 'apollo11', site: 'tranquility', image: 'game/sim-ascent.jpg', tag: 'Lunar ascent · Apollo 11', action: 'Start lunar ascent training' },
+  { id: 'splashdown', title: '05 / Bring them home', text: 'Join the crew before re-entry. Follow the corridor, parachutes and Pacific splashdown.', preset: 'apollo8-reentry', vessel: 'apollo8', site: 'ksc', image: 'game/sim-entry.jpg', tag: 'Atmospheric entry · Apollo 8', action: 'Start homecoming training' },
 ]
 const WORLDS = ['moon', 'mars', 'europa', 'titan', 'io', 'mercury', 'venus', 'ganymede', 'callisto', 'phobos', 'deimos', 'pluto', 'halley']
 const worldName = (id) => id === 'moon' ? 'The Moon' : id === 'halley' ? "Halley's Comet" : id[0].toUpperCase() + id.slice(1)
@@ -69,7 +69,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
       </aside>}
       <div className="tt-content">
         {tab === 'career' && <>
-          <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart-kestrel.jpg)` }}>
+          <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart-hero.jpg)` }}>
             <div className="tt-hero-copy"><span className="tt-eyebrow">A story in cislunar space / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
               <p className="tt-hook">Somebody sold the Aster&rsquo;s route. Six ships went out. You were the only one who came back.</p>
               <p>Walk the convoy, fly escort, survive the ambush, and find out who sold you. A story you play, in your browser or downloaded at full quality.</p>
@@ -84,7 +84,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
               </>}
             </div>
-            <div className="tt-hero-coordinate" aria-hidden>THE KESTREL<br />ESCORT FIGHTER / HARBOR ORBIT</div>
+            <div className="tt-hero-coordinate" aria-hidden>THE KESTREL AND THE ASTER<br />CONVOY ESCORT / HARBOR ORBIT</div>
           </section>
           <section className="tt-briefing"><div><span className="tt-eyebrow">The prologue and Act One / about 50 minutes</span><h2>How it starts.</h2><p>A short film sets the scene. Then it is yours: every control is shown the moment you need it. Lock targets, fire missiles, manage your capacitor and warp between grids, with an overview of everything in space.</p></div><ol><li><b>01</b><span><strong>The Aster</strong>Walk the convoy freighter. Meet her captain and her engineer.</span></li><li><b>02</b><span><strong>The ambush</strong>Fly escort, fight the Hollow, lose the Aster, wake up at Hearth owing a loan shark everything.</span></li><li><b>03</b><span><strong>The black box</strong>Warp to the wreck, find the recorder before Rook&rsquo;s people do, and learn who sold you.</span></li><li><b>04</b><span><strong>Down the well</strong>Fly first person through Earth&rsquo;s abandoned pillar country, a drowned city and a waterfall, to the one person who can name Rook&rsquo;s partner.</span></li></ol></section>
           {!isPhone && <section className="tt-install" id="install" aria-labelledby="install-title">
@@ -107,11 +107,11 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
                 <li>Start it: <code>./PeriapsisZero.x86_64</code> (needs a graphics driver with Vulkan).</li>
               </ol></article>
             </div>
-            <p className="tt-install-note">Your progress is kept when you install a newer version. Once the developer account is set up and the builds are signed, these steps will no longer be needed: the game will open like any other app.</p>
+            <p className="tt-install-note">You only do this once. From now on the game updates itself: new versions download in the background while you play and start the next time you open it, with your progress kept. Once the developer account is set up and the builds are signed, these steps will no longer be needed: the game will open like any other app.</p>
           </section>}
           <section className="tt-paths" aria-label="Choose your next flight">
-            <button className="tt-path control" onClick={() => setTab('training')}><img src={`${BASE}game/shot-transfer.webp`} alt="Earth beneath an orbital flight" /><span className="tt-eyebrow">Same career / real physics</span><h2>Train to fly</h2><p>Five simulator licences. New suits. ₡ 27,000 in career bonuses.</p><strong>Open flight school →</strong></button>
-            <button className="tt-path control" onClick={onSquadron}><img src={`${BASE}game/shot-flight.webp`} alt="A ship flying through the Earth-Moon system" /><span className="tt-eyebrow">Combat / separate wave mode</span><h2>Hold the sky</h2><p>Squadron combat with AI wingmates or friends by invitation code.</p><strong>Enter Squadron →</strong></button>
+            <button className="tt-path control" onClick={() => setTab('training')}><img src={`${BASE}game/sim-pad.jpg`} alt="A Saturn V on the pad at Kennedy, in the simulator" /><span className="tt-eyebrow">Same career / real physics</span><h2>Train to fly</h2><p>Five simulator licences. New suits. ₡ 27,000 in career bonuses.</p><strong>Open flight school →</strong></button>
+            <button className="tt-path control" onClick={onSquadron}><img src={`${BASE}game/art-raid.jpg`} alt="Hollow raiders closing on a freighter against a red nebula" /><span className="tt-eyebrow">Combat / separate wave mode</span><h2>Hold the sky</h2><p>Squadron combat with AI wingmates or friends by invitation code.</p><strong>Enter Squadron →</strong></button>
           </section>
         </>}
         {tab === 'training' && <section className="tt-school">

@@ -40,8 +40,13 @@ if (!childId) {
   const href = new URL(presetHref(p), 'https://example.test')
   assert.equal(href.searchParams.get('vessel'), p.vessel)
   assert.equal(href.searchParams.get('site'), p.site)
+  const { milestonesReached } = await import('../src/sim/logbook.js')
   const run = startPreset(p)
   assert.equal(run.arrived, true)
+  // The run-up is not the visitor's flight: at most the phase handed over is
+  // logged (re-entry once logged trans-lunar injection, and its licence).
+  const logged = milestonesReached().map((m) => m.phase)
+  assert.ok(logged.every((id) => id === run.phase), `${p.id}: the run-up logged ${logged.join(', ')}`)
   if (p.fromPad) { assert.equal(run.phase, p.site === 'tranquility' ? 'LUNAR_PRE_LAUNCH' : 'PRE_LAUNCH'); assert.equal(mission.t, -60) }
   else if (typeof p.until === 'string') assert.equal(run.phase, p.until)
   assert.ok(live.sim.state.every(Number.isFinite))

@@ -29,7 +29,7 @@ static func apply(root: Node) -> void:
 ## inside must stop the player whichever way its faces point.
 static func collide(root: Node, skip := "") -> void:
 	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
-		if skip != "" and mi.name.begins_with(skip):
+		if (skip != "" and mi.name.begins_with(skip)) or mi.has_meta("plume"):
 			continue
 		mi.create_trimesh_collision()
 		for cs: CollisionShape3D in mi.find_children("*", "CollisionShape3D", true, false):
@@ -57,10 +57,10 @@ static func _make(name: String) -> Material:
 		"pipe_ember": return _pbr("PaintedMetal004", 2.0, EMBER, true)
 		"pipe_ion": return _pbr("PaintedMetal004", 2.0, ION.darkened(0.2), true)
 		# Ships (art/godot/ships.py).
-		"paint_bone": return _pbr("PaintedMetal004", 1.6, Color(0.84, 0.82, 0.78), true)
+		"paint_bone": return _pbr("PaintedMetal004", 1.6, Color(0.7, 0.68, 0.64), true)
 		"paint_dark": return _pbr("MetalPlates013", 1.4, Color(0.42, 0.43, 0.47), true)
 		"paint_grey": return _pbr("PaintedMetal004", 1.6, Color(0.44, 0.45, 0.48), true)
-		"seam": return _pbr("Metal027", 2.0, Color(0.08, 0.08, 0.09))
+		"seam": return _pbr("Metal027", 2.0, Color(0.16, 0.16, 0.17))
 		"paint_ember": return _pbr("PaintedMetal004", 1.6, EMBER.darkened(0.08), true)
 		"paint_hollow": return _pbr("MetalPlates013", 0.5, Color(0.36, 0.34, 0.3), true)
 		"rust": return _pbr("DiamondPlate008C", 0.6, Color(0.55, 0.45, 0.38))
@@ -82,7 +82,7 @@ static func _make(name: String) -> Material:
 		"window_glow": return _glow(Color(1.0, 0.85, 0.6), 3.0)
 		"nav_red": return _glow(Color(1.0, 0.1, 0.05), 8.0)
 		"nav_green": return _glow(Color(0.1, 1.0, 0.3), 8.0)
-		"nav_white": return _glow(Color(1.0, 1.0, 1.0), 8.0)
+		"nav_white": return _strobe(Color(1.0, 1.0, 1.0), 8.0)
 		"light": return _glow(Color(1.0, 0.9, 0.78), 2.5)
 		"wall_clean": return _plain(Color(0.78, 0.81, 0.84), 0.6)
 		"shopglass": return _shopglass()
@@ -168,6 +168,14 @@ static func _plain(c: Color, roughness: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = roughness
+	return m
+
+## A flashing running light (shaders/strobe.gdshader).
+static func _strobe(c: Color, energy: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/strobe.gdshader")
+	m.set_shader_parameter("color", c)
+	m.set_shader_parameter("energy", energy)
 	return m
 
 static func _glow(c: Color, energy: float) -> StandardMaterial3D:

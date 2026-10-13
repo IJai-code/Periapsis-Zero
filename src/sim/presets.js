@@ -7,6 +7,7 @@ import { activeSite } from './launchsite.js'
 import { live, resetSimulation } from './live.js'
 import { nodes } from './nodes.js'
 import { WARP } from './warp.js'
+import { pauseMilestones, recordMilestone } from './logbook.js'
 
 /**
  * Missions to jump into, flown rather than restored.
@@ -371,10 +372,18 @@ export function startPreset(preset) {
    * scenario, so it puts the clock back where its numbers were measured.
    */
   resetSimulation(0)
-  const arrived = preset.fromPad
-    ? standOnPad(preset.launchHour ?? 0)
-    : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
+  // The run-up is not flown by the visitor; only the phase handed over is.
+  pauseMilestones(true)
+  let arrived
+  try {
+    arrived = preset.fromPad
+      ? standOnPad(preset.launchHour ?? 0)
+      : flyMission(preset.until, { onPhase: () => {}, launchHour: preset.launchHour ?? 0 })
+  } finally {
+    pauseMilestones(false)
+  }
   if (!arrived) throw new Error(`Mission ${preset.id} did not reach its advertised starting point`)
+  recordMilestone(currentPhase().id, mission.t)
   updateDirector()
   started = {
     preset,

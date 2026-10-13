@@ -5,6 +5,43 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The download updates itself, EVE-style hulls, the site shows the real game, 12 October 2026
+
+- **No more re-downloading the app:**
+  - **In the background:** each desktop release now also publishes the
+    game's data alone as a base pack plus a patch of only the files that
+    changed. A test patch for a one-line change was 35 KB, against 267 MB
+    for the whole game.
+  - **Applied at the next start:** a copy of the app checks for a newer
+    release while you play and downloads what it lacks, checking each file's
+    SHA-256. It applies the update the next time you open the game, with
+    the release's settings. The title screen shows the progress and offers
+    "Restart now".
+  - **Fallback:** a release built on a newer engine still asks for a fresh
+    download. This version has to be downloaded once by hand; every one
+    after it arrives on its own.
+  - **Tested end to end** on an exported Mac app:
+    - A patch with a new script class, a new autoload and new text
+      downloaded, verified and ran.
+    - A copy that also needed the 267 MB base did the same.
+    - "Restart now" relaunched it on the new build.
+- **Hulls closer to EVE:**
+  - **Paint:** reads as semi-gloss coated metal with broad grime, no
+    longer as speckled tile.
+  - **Reflections:** the sky's reflections are stronger and warmer, so
+    metal picks up the nebulae and the Sun.
+  - **Lights:** the freighters burn three long drive plumes, and running
+    lights flash in a chase along the hull.
+- **The site shows the game as it is now:**
+  - **New art:** the hero, the share card and the combat card are renders
+    from the Godot game (scenes/keyart.tscn).
+  - **Flight School:** the cards are screenshots of the simulator flying
+    each scenario.
+- **Simulator fix:** starting a scenario no longer logs the phases it
+  fast-forwards through. The re-entry scenario used to award the
+  Translunar licence for a burn nobody watched; verify-presets now checks
+  every scenario for this.
+
 ### Smooth on weak machines, stars and nebulae, easier combat, a faster Down the Well, 12 October 2026
 
 - **Lag and the green screen (Chromebooks):**
