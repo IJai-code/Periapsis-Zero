@@ -104,7 +104,7 @@ func _ui() -> void:
 		_button("Begin your journey", func(): Flow.go("intro"), true).grab_focus()
 	_button("Settings", _toggle_settings)
 	_check_update()
-	var told := Updater.take_notice()
+	var told := Graphics.take_notice()
 	if told != "":
 		Hud.prompt("Performance graphics are on, chosen for %s. You can change it in Settings, under Graphics." % GRAPHICS_WHY.get(told, "this PC"), 9.0)
 	if not Flow.on_web():
@@ -193,7 +193,7 @@ func _settings_panel() -> PanelContainer:
 			Flow.settings.cinematic = on
 			Flow.apply_settings())
 		v.add_child(gi)
-	if Updater.graphics_available():
+	if Graphics.available():
 		_graphics_row(v)
 	var close := Button.new()
 	close.text = "Done"
@@ -211,7 +211,7 @@ func _graphics_row(v: VBoxContainer) -> void:
 	for item in ["Auto", "Full detail", "Performance (older PCs)"]:
 		pick.add_item(item)
 	var modes := ["auto", "full", "light"]
-	pick.selected = modes.find(Updater.graphics_mode())
+	pick.selected = modes.find(Graphics.graphics_mode())
 	v.add_child(pick)
 	var note := Style.label("", 14, Style.MUTE)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -220,18 +220,18 @@ func _graphics_row(v: VBoxContainer) -> void:
 	var restart := Button.new()
 	restart.text = "Restart to apply"
 	restart.visible = false
-	restart.pressed.connect(Updater.restart)
+	restart.pressed.connect(Graphics.restart)
 	v.add_child(restart)
 	var why := GRAPHICS_WHY
 	var show := func():
-		if Updater.is_light():
-			var reason: String = why.get(Updater.light_reason(), "")
-			note.text = "Running on performance graphics" + (", chosen for " + reason if reason != "" and Updater.graphics_mode() == "auto" else "") + "."
+		if Graphics.is_light():
+			var reason: String = why.get(Graphics.light_reason(), "")
+			note.text = "Running on performance graphics" + (", chosen for " + reason if reason != "" and Graphics.graphics_mode() == "auto" else "") + "."
 		else:
 			note.text = "Running on full detail."
 	show.call()
 	pick.item_selected.connect(func(i: int):
-		restart.visible = Updater.set_graphics_mode(modes[i])
+		restart.visible = Graphics.set_graphics_mode(modes[i])
 		show.call())
 
 ## A downloaded copy keeps itself current (Updater): the notice says when a
@@ -294,7 +294,7 @@ func _build_notice() -> void:
 	_notice_button = Button.new()
 	_notice_button.pressed.connect(func():
 		if Updater.state == Updater.READY:
-			Updater.restart()
+			Graphics.restart()
 		else:
 			var os := OS.get_name()
 			var file := "PeriapsisZero-mac.zip" if os == "macOS" else ("PeriapsisZero-windows.zip" if os == "Windows" else "PeriapsisZero-linux.tar.gz")

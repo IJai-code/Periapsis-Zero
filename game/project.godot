@@ -20,6 +20,7 @@ config/project_settings_override.template="user://update/settings.cfg"
 [autoload]
 
 Updater="*res://scripts/core/updater.gd"
+Graphics="*res://scripts/core/graphics.gd"
 Flow="*res://scripts/core/flow.gd"
 Sfx="*res://scripts/core/sfx.gd"
 Hud="*res://scripts/ui/hud.gd"

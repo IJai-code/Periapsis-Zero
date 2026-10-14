@@ -41,6 +41,17 @@ resolution.
     card, and on Apple's chips.
   - Performance mode on a desktop still uses the desktop's sharper
     textures (1K to 4K, GPU-compressed), not the browser's 1K WebP.
+- **It reaches copies already installed:**
+  - The renderer choice lives in its own script (scripts/core/graphics.gd),
+    loaded after the update is mounted, so it arrives in a patch.
+  - The updater runs from the app as downloaded and can never update
+    itself; its first version held this logic, and a patch could not have
+    delivered it.
+  - Tested by updating last release's Mac app with a patch of this code:
+    - On a simulated weak chip it restarted on the light renderer.
+    - After a forced kill it came back on the light renderer.
+  - It records its process ID, so a "Restart now" from the older updater,
+    which does not close the session first, is not taken for a crash.
 - **Tooling:** `--shot` reports render CPU and GPU time and the time spent
   in scripts, so a slow frame can be put down to the right side.
 

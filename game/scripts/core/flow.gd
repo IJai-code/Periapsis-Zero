@@ -304,7 +304,7 @@ func _adapt(dt: float) -> void:
 		_cool = 25.0
 	# Still struggling on the full renderer's lowest tier: this PC wants the
 	# light renderer (Updater), from the next start.
-	if not lite() and tier == _tiers().size() - 1 and _low_t >= 6.0 and Updater.request_light("frame rate"):
+	if not lite() and tier == _tiers().size() - 1 and _low_t >= 6.0 and Graphics.request_light("frame rate"):
 		Hud.prompt("This PC is struggling. The game switches to performance graphics the next time you start it (Settings, Graphics).", 9.0)
 	# Global illumination goes before anything else on a struggling desktop.
 	if not on_web() and not _gi_off and _low_t >= 2.0:
