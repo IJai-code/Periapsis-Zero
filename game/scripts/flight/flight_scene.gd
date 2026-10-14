@@ -133,7 +133,16 @@ func raider_destroyed(r: Raider) -> void:
 	_streak = _streak + 1 if now - _streak_t < 5.0 else 1
 	_streak_t = now
 	hud.pop(["", "+250  SPLASH ONE", "+500  DOUBLE KILL", "+800  TRIPLE KILL", "+1200  ACE"][mini(_streak, 4)] if _streak > 1 else "+250  SPLASH ONE", Style.EMBER)
-	Fx.hitstop(get_tree(), 0.09 if _streak < 2 else 0.14, 0.12)
+	# The last raider of a fight: slow motion while it comes apart.
+	var left := 0
+	for h in get_tree().get_nodes_in_group("hull"):
+		if h is Raider and h != r and h.alive:
+			left += 1
+	if left == 0:
+		hud.pop("ALL HOSTILES DOWN", Style.ION)
+		Fx.slowmo(get_tree())
+	else:
+		Fx.hitstop(get_tree(), 0.09 if _streak < 2 else 0.14, 0.12)
 
 # --- The warp drive -----------------------------------------------------------
 

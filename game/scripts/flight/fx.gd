@@ -239,6 +239,37 @@ static func shatter(world: Node3D, model: Node3D, velocity: Vector3, force: floa
 
 ## A moment of slow motion on a kill: the hit lands, then time resumes.
 static func hitstop(tree: SceneTree, seconds := 0.07, scale := 0.15) -> void:
+	if _slow > 0:
+		return
 	Engine.time_scale = scale
 	await tree.create_timer(seconds, true, false, true).timeout
 	Engine.time_scale = 1.0
+
+static var _slow := 0
+
+## The last of them goes: time drops to a crawl while it breaks apart, the
+## sound muffles as if heard through the hull, then both come back. In real
+## seconds, whatever the game's own clock is doing.
+static func slowmo(tree: SceneTree, scale := 0.22, hold := 1.1, back := 0.6) -> void:
+	_slow += 1
+	var mine := _slow
+	var lp := AudioEffectLowPassFilter.new()
+	lp.cutoff_hz = 700.0
+	AudioServer.add_bus_effect(0, lp)
+	Engine.time_scale = scale
+	await tree.create_timer(hold, true, false, true).timeout
+	var start := Time.get_ticks_msec()
+	while _slow == mine:
+		var k := clampf((Time.get_ticks_msec() - start) / (back * 1000.0), 0.0, 1.0)
+		Engine.time_scale = lerpf(scale, 1.0, k * k)
+		lp.cutoff_hz = lerpf(700.0, 20000.0, k)
+		if k >= 1.0:
+			break
+		await tree.process_frame
+	for i in AudioServer.get_bus_effect_count(0):
+		if AudioServer.get_bus_effect(0, i) == lp:
+			AudioServer.remove_bus_effect(0, i)
+			break
+	if _slow == mine:
+		Engine.time_scale = 1.0
+		_slow = 0

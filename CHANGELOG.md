@@ -5,6 +5,63 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The desktop game on weak PCs, 13 October 2026
+
+A Windows PC lagged so badly in the desktop game that it nearly crashed,
+while the browser version ran fine on it. The browser draws with Godot's
+Compatibility renderer through ANGLE on Direct3D 11; the app always used
+Forward+ on Direct3D 12, and its lowest quality tier only lowered the
+resolution.
+
+- **Two renderers, chosen at start:** the app now runs the browser's
+  renderer, with the same lighter content and quality tiers, on a PC that
+  needs it. The choice is under Settings, Graphics: Auto, Full detail or
+  Performance (older PCs).
+- **When Auto switches** (the title says so, once):
+  - the graphics chip is integrated (Intel UHD and Iris, AMD APUs; Apple's
+    chips run the full game well and are left alone);
+  - the last session never closed, which means a lock-up or a crash;
+  - the lowest quality tier still cannot hold 40 fps.
+  The first two restart the game at once on the light renderer; the third
+  takes effect at the next start.
+- **On Windows the light renderer uses ANGLE,** as the browser does, not
+  the native OpenGL drivers, which are poor on many Intel chips.
+- **It caps at 60 fps** on the light renderer.
+- **Less video memory at start:** the default shadow map was 8192 square
+  (about 256 MB) until the quality code shrank it; it starts at 4096 now.
+- **Tested on an exported Mac app:**
+  - A forced kill came back on the light renderer.
+  - A simulated integrated chip (`-- --weak-gpu`) did the same.
+  - Choosing Full detail came back to Forward+.
+  - Down the Well, the convoy fight and the Hearth hold 60 fps on the
+    light renderer.
+  - Not yet tried on a Windows PC.
+- **Detail is kept where the PC can carry it:**
+  - Full detail stays the default on every PC with a dedicated graphics
+    card, and on Apple's chips.
+  - Performance mode on a desktop still uses the desktop's sharper
+    textures (1K to 4K, GPU-compressed), not the browser's 1K WebP.
+- **Tooling:** `--shot` reports render CPU and GPU time and the time spent
+  in scripts, so a slow frame can be put down to the right side.
+
+### Photo mode and a last-kill slow motion, 13 October 2026
+
+- **Photo mode, F2, anywhere in the game:**
+  - Time stops, the interface goes and a free camera takes over.
+  - Controls: right-drag to look, W A S D to fly, Space and C to go up and
+    down, Shift to go faster, Q and E to roll, the wheel to zoom.
+  - F gives focus blur on whatever the centre of the frame is on, with
+    Full detail graphics.
+  - A click keeps the picture: a PNG in Pictures/Periapsis Zero on a
+    desktop, a download in the browser.
+  - F2 or Esc goes back to the game exactly as it was.
+  - `-- --phototest out.png` checks the whole round trip.
+- **The last raider of a fight:**
+  - It goes down in slow motion, with the sound muffled as if heard
+    through the hull, and "ALL HOSTILES DOWN" on the HUD.
+  - The game's clock eases back over half a second, so the moment lands
+    without breaking the flow.
+
 ### The download updates itself, EVE-style hulls, the site shows the real game, 12 October 2026
 
 - **No more re-downloading the app:**

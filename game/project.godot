@@ -23,6 +23,7 @@ Updater="*res://scripts/core/updater.gd"
 Flow="*res://scripts/core/flow.gd"
 Sfx="*res://scripts/core/sfx.gd"
 Hud="*res://scripts/ui/hud.gd"
+Photo="*res://scripts/core/photo.gd"
 Shot="*res://scripts/tools/shot.gd"
 WalkTest="*res://scripts/tools/walktest.gd"
 FlyTest="*res://scripts/tools/flytest.gd"
@@ -45,9 +46,10 @@ common/physics_interpolation=true
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+gl_compatibility/driver.windows="opengl3_angle"
 textures/vram_compression/import_etc2_astc=true
-lights_and_shadows/directional_shadow/size=8192
-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=4
+lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
 textures/default_filters/anisotropic_filtering_level=4
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_debanding=true

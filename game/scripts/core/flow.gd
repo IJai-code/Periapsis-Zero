@@ -21,7 +21,7 @@ const SCENES := {
 	"act1_end": "res://scenes/act1_end.tscn",
 }
 
-var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1}
+var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1}
 var _music: AudioStreamPlayer
 var _busy := false
 ## A chapter's starting beat, from a test link or `-- --beat`.
@@ -103,10 +103,13 @@ func _ready() -> void:
 	_music.stream = m
 	add_child(_music)
 	apply_settings()
-	if on_web():
+	if lite():
 		_web_quality()
 	else:
 		_desktop_quality()
+	# The light renderer on a desktop is a weak PC: no faster than it needs.
+	if lite() and not on_web():
+		Engine.max_fps = 60
 	get_tree().node_added.connect(_tune)
 	await get_tree().process_frame
 	# A link straight to a chapter, for testing: /play/#flight, #flight/strike.
@@ -235,11 +238,15 @@ var _high_t := 0.0
 var _cool := 0.0
 
 func _tiers() -> Array:
-	return TIERS_WEB if on_web() else TIERS_DESKTOP
+	return TIERS_WEB if lite() else TIERS_DESKTOP
 
 ## Effects keep to the essentials on the lower tiers.
 func fx_low() -> bool:
-	return tier >= (2 if on_web() else 3)
+	return tier >= (2 if lite() else 3)
+
+## Where the tier reached is remembered: per renderer.
+func _tier_key() -> String:
+	return "tier_web" if on_web() else ("tier_lite" if lite() else "tier_desktop")
 
 func _start_tier() -> void:
 	var a := OS.get_cmdline_user_args().find("--res")
@@ -248,7 +255,7 @@ func _start_tier() -> void:
 		_res = float(OS.get_cmdline_user_args()[a + 1])
 		get_viewport().scaling_3d_scale = _res
 		return
-	var key := "tier_web" if on_web() else "tier_desktop"
+	var key := _tier_key()
 	var vp := get_viewport()
 	var px := float(vp.size.x * vp.size.y)
 	var guess := 1 if px > 2_400_000.0 else 0
@@ -279,7 +286,7 @@ func _adapt(dt: float) -> void:
 	_fps_t = 0.0
 	_fps_n = 0
 	_cool -= span
-	var floor_fps := 30.0 if on_web() else 40.0
+	var floor_fps := 30.0 if lite() else 40.0
 	_low_t = _low_t + span if fps < floor_fps else 0.0
 	_high_t = _high_t + span if fps > 57.0 else 0.0
 	if _low_t >= 3.0 and tier < _tiers().size() - 1:
@@ -287,7 +294,7 @@ func _adapt(dt: float) -> void:
 		if _fails[tier] >= 2:
 			_floor_tier = maxi(_floor_tier, tier + 1)
 		set_tier(tier + 1)
-		settings["tier_web" if on_web() else "tier_desktop"] = tier
+		settings[_tier_key()] = tier
 		apply_settings()
 		_low_t = 0.0
 		_cool = 8.0
@@ -295,6 +302,10 @@ func _adapt(dt: float) -> void:
 		set_tier(tier - 1)
 		_high_t = 0.0
 		_cool = 25.0
+	# Still struggling on the full renderer's lowest tier: this PC wants the
+	# light renderer (Updater), from the next start.
+	if not lite() and tier == _tiers().size() - 1 and _low_t >= 6.0 and Updater.request_light("frame rate"):
+		Hud.prompt("This PC is struggling. The game switches to performance graphics the next time you start it (Settings, Graphics).", 9.0)
 	# Global illumination goes before anything else on a struggling desktop.
 	if not on_web() and not _gi_off and _low_t >= 2.0:
 		_gi_off = true
@@ -308,6 +319,11 @@ func _adapt(dt: float) -> void:
 ## no SDFGI, volumetric fog or screen-space effects. Scenes ask this.
 func high_quality() -> bool:
 	return RenderingServer.get_current_rendering_method() != "gl_compatibility"
+
+## The light renderer, in the browser or on a weak PC: the browser's tiers
+## and quality settings, and the scenes' lighter content.
+func lite() -> bool:
+	return not high_quality()
 
 func on_web() -> bool:
 	return OS.has_feature("web")

@@ -28,7 +28,7 @@ IN FLIGHT
   G         warp drive    V       wider view
   Double-tap A or D  barrel roll (breaks a missile's lock)
 
-  Esc / P   pause"""
+  Esc / P   pause         F2      photo mode"""
 
 const SPEAKERS := {
 	"Captain Hale": Style.EMBER,

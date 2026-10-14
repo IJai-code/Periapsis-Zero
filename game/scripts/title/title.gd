@@ -104,6 +104,9 @@ func _ui() -> void:
 		_button("Begin your journey", func(): Flow.go("intro"), true).grab_focus()
 	_button("Settings", _toggle_settings)
 	_check_update()
+	var told := Updater.take_notice()
+	if told != "":
+		Hud.prompt("Performance graphics are on, chosen for %s. You can change it in Settings, under Graphics." % GRAPHICS_WHY.get(told, "this PC"), 9.0)
 	if not Flow.on_web():
 		_button("Quit", get_tree().quit)
 	var foot := Style.label("Prologue · early build · periapsiszero.dev", 14, Style.MUTE, Style.mono)
@@ -190,11 +193,46 @@ func _settings_panel() -> PanelContainer:
 			Flow.settings.cinematic = on
 			Flow.apply_settings())
 		v.add_child(gi)
+	if Updater.graphics_available():
+		_graphics_row(v)
 	var close := Button.new()
 	close.text = "Done"
 	close.pressed.connect(_toggle_settings)
 	v.add_child(close)
 	return p
+
+const GRAPHICS_WHY := {"gpu": "this PC's graphics chip", "crash": "the last session stopping unexpectedly", "frame rate": "a low frame rate"}
+
+## Graphics: the full renderer or the light one (Updater). The choice takes
+## a restart, offered on the spot.
+func _graphics_row(v: VBoxContainer) -> void:
+	v.add_child(Style.label("Graphics", 20))
+	var pick := OptionButton.new()
+	for item in ["Auto", "Full detail", "Performance (older PCs)"]:
+		pick.add_item(item)
+	var modes := ["auto", "full", "light"]
+	pick.selected = modes.find(Updater.graphics_mode())
+	v.add_child(pick)
+	var note := Style.label("", 14, Style.MUTE)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size = Vector2(380, 0)
+	v.add_child(note)
+	var restart := Button.new()
+	restart.text = "Restart to apply"
+	restart.visible = false
+	restart.pressed.connect(Updater.restart)
+	v.add_child(restart)
+	var why := GRAPHICS_WHY
+	var show := func():
+		if Updater.is_light():
+			var reason: String = why.get(Updater.light_reason(), "")
+			note.text = "Running on performance graphics" + (", chosen for " + reason if reason != "" and Updater.graphics_mode() == "auto" else "") + "."
+		else:
+			note.text = "Running on full detail."
+	show.call()
+	pick.item_selected.connect(func(i: int):
+		restart.visible = Updater.set_graphics_mode(modes[i])
+		show.call())
 
 ## A downloaded copy keeps itself current (Updater): the notice says when a
 ## newer build is on its way, when it is ready, and, for a release the app
