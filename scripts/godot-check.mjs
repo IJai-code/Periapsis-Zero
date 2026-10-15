@@ -2,8 +2,11 @@
 /**
  * The Godot game's own checks:  npm run godot:check
  *
- * Runs the game headful (it needs a GPU) once per check and reads what it
- * prints: the HUD sequences that used to hide text, walks along every route
+ * Runs the game once per check and reads what it prints. Headless by
+ * default: no window, so a run never takes the screen or the keyboard from
+ * whoever is using the machine (on macOS a windowed Godot brings itself to
+ * the front however it is launched). PZ_GODOT_HEADFUL=1 shows the window.
+ * What it prints: the HUD sequences that used to hide text, walks along every route
  * a player must take, and full-thrust rams into the big ships. Each check
  * passes or fails on numbers, not screenshots. Needs Godot (GODOT or
  * /Applications/Godot.app) and the assets from scripts/godot-sync.mjs.
@@ -25,7 +28,8 @@ function run(scene, args, until, ms = 120000) {
   const result = join(tmpdir(), `pz-godot-check-${process.pid}-${runs++}.txt`)
   rmSync(result, { force: true })
   return new Promise((resolve) => {
-    const p = spawn(GODOT, ['--path', game, `res://scenes/${scene}.tscn`, '--', ...args, '--result', result])
+    const window = process.env.PZ_GODOT_HEADFUL ? [] : ['--headless']
+    const p = spawn(GODOT, [...window, '--path', game, `res://scenes/${scene}.tscn`, '--', ...args, '--result', result])
     let out = ''
     let finished = false
     let exitTimer

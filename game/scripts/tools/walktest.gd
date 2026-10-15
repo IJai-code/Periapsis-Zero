@@ -66,8 +66,15 @@ func _check(ok: bool, label: String) -> void:
 	Report.line("MOVEMENTTEST %s %s" % ["ok" if ok else "FAIL", label])
 
 func _movement_checks() -> void:
-	await get_tree().create_timer(2.5).timeout
-	var player: Player = get_tree().get_first_node_in_group("player")
+	# The scene may take a while to build on a busy machine: wait for the
+	# player rather than a fixed time.
+	var player: Player = null
+	for i in 60:
+		await get_tree().create_timer(0.5).timeout
+		player = get_tree().get_first_node_in_group("player")
+		if player and player.body and player.body._anim:
+			break
+	await get_tree().create_timer(1.0).timeout
 	_check(player != null, "scene has a player")
 	if not player:
 		Report.finish(get_tree(), 1)

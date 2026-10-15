@@ -54,9 +54,15 @@ func _process(_dt: float) -> void:
 	_left -= 1
 	if _left == 0:
 		_left = -1
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(_path)
-		Report.line("shot: " + _path)
+		# Headless (the check suite): nothing is drawn, so nothing to wait
+		# for and nothing to save.
+		var drawn := DisplayServer.get_name() != "headless"
+		if drawn:
+			await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image() if drawn else null
+		if img:
+			img.save_png(_path)
+		Report.line("shot: " + _path + ("" if img else " (headless, not drawn)"))
 		if _frames > 0:
 			var vp := get_viewport().get_viewport_rid()
 			Report.line("RENDER cpu %.1f ms, gpu %.1f ms; scripts %.1f ms (process callbacks), physics %.1f ms" % [
