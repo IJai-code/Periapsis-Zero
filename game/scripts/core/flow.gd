@@ -3,7 +3,10 @@ extends Node
 ## and the handoff to Act One on periapsiszero.dev.
 
 const SETTINGS := "user://settings.cfg"
-const PROGRESS := "user://progress.cfg"
+const PROGRESS_FILE := "user://progress.cfg"
+## Automated runs (they pass --result) keep their own save, so a check never
+## touches a player's progress on the same machine.
+var PROGRESS := "user://progress-test.cfg" if "--result" in OS.get_cmdline_user_args() else PROGRESS_FILE
 const ACT_ONE := "https://periapsiszero.dev/#game"
 const SCENES := {
 	"title": "res://scenes/title.tscn",
@@ -19,6 +22,8 @@ const SCENES := {
 	"blackbox": "res://scenes/act1_blackbox.tscn",
 	"descent": "res://scenes/act1_descent.tscn",
 	"act1_end": "res://scenes/act1_end.tscn",
+	"lowdeck": "res://scenes/act2_lowdeck.tscn",
+	"rim": "res://scenes/act2_rim.tscn",
 }
 
 var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1}
@@ -285,6 +290,9 @@ func _adapt(dt: float) -> void:
 	var span := _fps_t
 	_fps_t = 0.0
 	_fps_n = 0
+	# The page can read the frame rate and tier (scripts/godot-webshot.mjs).
+	if on_web():
+		JavaScriptBridge.eval("window.pzFps=%d;window.pzTier=%d" % [roundi(fps), tier], true)
 	_cool -= span
 	var floor_fps := 30.0 if lite() else 40.0
 	_low_t = _low_t + span if fps < floor_fps else 0.0
@@ -339,7 +347,7 @@ func go(scene: String) -> void:
 	get_tree().paused = false
 	get_tree().change_scene_to_file(SCENES[scene])
 	# Remember the furthest chapter reached, for "Continue the journey".
-	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent"]:
+	if scene in ["corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "lowdeck", "rim"]:
 		set_progress("chapter", scene)
 	ambience(scene in ["corridor", "bridge", "hangar", "arrival", "hearth", "hearth_bay"])
 	await get_tree().process_frame
@@ -355,7 +363,7 @@ const DONE_FLAG := {"test_flight": "act1_test_flight", "blackbox": "act1_blackbo
 ## The chapter after this one, or "" when there is none.
 func next_scene() -> String:
 	var here := scene_key()
-	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "title"]
+	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "lowdeck"]
 	for i in order.size() - 1:
 		if order[i] == here:
 			return order[i + 1]
@@ -450,6 +458,14 @@ func earn(amount: int) -> Array:
 	set_progress("debt", debt() - to_debt)
 	set_progress("credits", credits() + amount - to_debt)
 	return [amount - to_debt, to_debt]
+
+## Pay out of the pilot's own pocket. False (and nothing spent) when there
+## is not enough.
+func spend(amount: int) -> bool:
+	if credits() < amount:
+		return false
+	set_progress("credits", credits() - amount)
+	return true
 
 func open_act_one() -> void:
 	set_progress("prologue_done", true)

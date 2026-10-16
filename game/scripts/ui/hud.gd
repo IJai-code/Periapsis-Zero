@@ -388,12 +388,11 @@ func objective(text: String, extra := "") -> void:
 	_obj_plain = plain
 	_obj_text.text = "[right]" + _accent(text) + "[/right]"
 	_obj_extra.text = extra
+	# A new objective: a tone and the corner panel fading in. (It used to
+	# be announced across the middle of the screen as well, on top of
+	# whatever else was there.)
 	if changed:
 		Sfx.play("objective", -8.0)
-		_obj_big.text = "[center]" + _accent(text) + "[/center]"
-		var t := _tween(_obj_big, 1.0, 0.4)
-		t.tween_interval(4.0)
-		t.tween_property(_obj_big, "modulate:a", 0.0, 0.8)
 		_obj_small.modulate.a = 0.0
 		_tween(_obj_small, 1.0, 0.6)
 

@@ -80,6 +80,34 @@ PEOPLE = {
         'hair': 'braid01/braid01.mhclo', 'eyebrows': 'eyebrow005/eyebrow005.mhclo',
         'clothes': ['male_casualsuit05/male_casualsuit05.mhclo', 'shoes03/shoes03.mhclo'],
     },
+    # Vex: Lowdeck's fixer. Thirties, sleek, amused, never sits with her
+    # back to a door.
+    'vex': {
+        'phenotype': {'gender': 0.0, 'age': 0.48, 'muscle': 0.55, 'weight': 0.4, 'proportions': 0.7, 'height': 0.6,
+                      'cupsize': 0.45, 'firmness': 0.6, 'race': {'asian': 0.45, 'caucasian': 0.15, 'african': 0.4}},
+        'skin': 'young_african_female/young_african_female.mhmat',
+        'hair': 'bob01/bob01.mhclo', 'eyebrows': 'eyebrow005/eyebrow005.mhclo',
+        'clothes': ['female_sportsuit01/female_sportsuit01.mhclo', 'shoes06/shoes06.mhclo'], 'walks': True,
+    },
+    # Okafor: a journalist the governor does not own. Sixties, tired eyes,
+    # careful hands.
+    'okafor': {
+        'phenotype': {'gender': 1.0, 'age': 0.78, 'muscle': 0.45, 'weight': 0.58, 'proportions': 0.5, 'height': 0.6,
+                      'cupsize': 0.5, 'firmness': 0.5, 'race': {'asian': 0.0, 'caucasian': 0.1, 'african': 0.9}},
+        'skin': 'middleage_african_male/middleage_african_male.mhmat',
+        'hair': 'afro01/afro01.mhclo', 'eyebrows': 'eyebrow002/eyebrow002.mhclo',
+        'clothes': ['male_casualsuit04/male_casualsuit04.mhclo', 'shoes03/shoes03.mhclo'], 'walks': True,
+    },
+    # The Warden: Hearth Security's chief, the governor's man. Fifties, a
+    # good suit, a hat he never takes off.
+    'warden': {
+        'phenotype': {'gender': 1.0, 'age': 0.66, 'muscle': 0.65, 'weight': 0.6, 'proportions': 0.55, 'height': 0.68,
+                      'cupsize': 0.5, 'firmness': 0.5, 'race': {'asian': 0.1, 'caucasian': 0.85, 'african': 0.05}},
+        'skin': 'middleage_caucasian_male/middleage_caucasian_male.mhmat',
+        'hair': 'short01/short01.mhclo', 'eyebrows': 'eyebrow003/eyebrow003.mhclo',
+        'clothes': ['male_elegantsuit01/male_elegantsuit01.mhclo', 'fedora_cocked/fedora_cocked.mhclo', 'shoes02/shoes02.mhclo'],
+        'walks': True,
+    },
 }
 
 

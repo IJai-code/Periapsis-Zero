@@ -92,9 +92,10 @@ func _ui() -> void:
 	var seen: bool = Flow.progress("intro_seen", false)
 	if done:
 		var chapter: String = Flow.progress("chapter", "hearth")
-		if not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end"]:
+		if not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "lowdeck", "rim"]:
 			chapter = "hearth"
-		_button("Continue Act One", func(): Flow.go(chapter), true).grab_focus()
+		var act2 := chapter in ["lowdeck", "rim"]
+		_button("Continue Act Two" if act2 else "Continue Act One", func(): Flow.go(chapter), true).grab_focus()
 		_button("Replay the prologue", func(): Flow.go("intro"))
 	elif seen:
 		var chapter: String = Flow.progress("chapter", "corridor")

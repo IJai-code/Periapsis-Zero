@@ -104,7 +104,79 @@ static func _make(name: String) -> Material:
 		"light_floor": return _glow(ION, 4.0)
 		"grate": return _grate()
 		"hazard": return _hazard()
+		# Lowdeck (art/godot/lowdeck.py).
+		"asphalt": return _wet("Asphalt025C", 0.35, Color(0.62, 0.62, 0.68), 0.7, 0.5)
+		"sidewalk": return _wet("Tiles074", 0.5, Color(0.6, 0.6, 0.64), 0.55, 0.62)
+		"concrete": return _pbr("Concrete034", 0.4, Color(0.5, 0.49, 0.52), true)
+		"facade": return _building()
+		"brick": return _pbr("Bricks076C", 0.5, Color(0.42, 0.34, 0.31))
+		"shop_back": return _shop_light()
+		"shop_wall": return _plain(Color(0.72, 0.7, 0.66), 0.6)
+		"floor_shop": return _pbr("Tiles074", 1.0, Color(0.62, 0.62, 0.64))
+		"counter": return _plain(Color(0.2, 0.18, 0.17), 0.35)
+		"shelf": return _plain(Color(0.55, 0.55, 0.58), 0.5)
+		"shutter": return _pbr("CorrugatedSteel005", 0.5, Color(0.42, 0.42, 0.45), true)
+		"signband": return _plain(Color(0.05, 0.05, 0.06), 0.7)
+		"awning_ember": return _cloth(EMBER.darkened(0.35))
+		"awning_ion": return _cloth(ION.darkened(0.55))
+		"awning_bone": return _cloth(BONE.darkened(0.45))
+		"awning_dark": return _cloth(Color(0.12, 0.12, 0.14))
+		"marking": return _plain(Color(0.62, 0.6, 0.52), 0.55)
+		"metal_dark": return _pbr("Metal027", 1.5, Color(0.2, 0.2, 0.22))
+		"lamp": return _glow(Color(0.85, 0.92, 1.0), 5.0)
+		"vending": return _glow(Color(0.55, 0.85, 1.0), 2.2)
+		"cable": return _plain(Color(0.025, 0.025, 0.03), 0.6)
+		"rubber": return _pbr("Rubber004", 1.0, Color(0.1, 0.1, 0.11))
+		"vent": return _plain(Color(0.18, 0.18, 0.2), 0.7)
+		"ringfloor": return _pbr("Asphalt025C", 0.05, Color(0.3, 0.3, 0.34))
+		"streetglow": return _glow(Color(1.0, 0.6, 0.3), 3.0)
+		"bulkhead": return _two_sided(_pbr_std(Color(0.16, 0.16, 0.19), 0.6, 0.6))
+		"ringwindows": return _two_sided(_glow(Color(0.7, 0.85, 1.0), 1.6))
+		"axis_light": return _glow(Color(0.55, 0.62, 0.95), 1.6)
+		"neon_ember": return _glow(EMBER, 6.0)
+		"neon_ion": return _glow(ION, 6.0)
 	return null
+
+## The street at night, wet: puddles reflect the neon above (shaders/
+## wet_street.gdshader).
+static func _wet(id: String, scale: float, tint: Color, wet: float, puddles: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/wet_street.gdshader")
+	m.set_shader_parameter("albedo_map", _tex(id, "Color"))
+	m.set_shader_parameter("normal_map", _tex(id, "NormalGL"))
+	m.set_shader_parameter("scale", scale)
+	m.set_shader_parameter("tint", tint)
+	m.set_shader_parameter("wet", wet)
+	m.set_shader_parameter("puddles", puddles)
+	return m
+
+## Towers: storeys of windows, some lit (shaders/building.gdshader).
+static func _building() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/building.gdshader")
+	m.set_shader_parameter("grime", _tex("Concrete034", "Color"))
+	return m
+
+## A shop's back wall, lit: warm, white, pink or cyan by where it is.
+static func _shop_light() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded;
+varying vec3 w;
+void vertex() { w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	float h = fract(sin(floor(w.z / 11.0) * 12.9898 + sign(w.x) * 4.1) * 43758.5);
+	vec3 c = h < 0.4 ? vec3(1.0, 0.78, 0.55) : (h < 0.65 ? vec3(0.95, 0.95, 1.0) : (h < 0.85 ? vec3(1.0, 0.45, 0.7) : vec3(0.35, 0.9, 1.0)));
+	float shelf = 0.75 + 0.25 * step(0.5, fract(w.y * 1.4));
+	ALBEDO = c * 1.25 * shelf;
+}"""
+	m.shader = sh
+	return m
+
+static func _two_sided(m: BaseMaterial3D) -> BaseMaterial3D:
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
 
 static func _tex(id: String, map: String) -> Texture2D:
 	var p := "res://assets/materials/%s/%s_2K-JPG_%s.jpg" % [id, id, map]

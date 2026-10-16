@@ -15,6 +15,9 @@ var gunship := false
 ## The prologue's raiders: fewer hit points, slower, wider to hit, worse
 ## shots. The first fight teaches; it should not grind.
 var rookie := false
+## Flying for someone else: "security" is Hearth Security's interceptors
+## (blue drives, their own name; their fire never hits their own).
+var side := "hollow"
 var avoid: Array = []
 var damage_to_player := 4.0
 var _mode := "attack"
@@ -27,7 +30,7 @@ var _jink_t := 0.0
 var _jink_cool := 0.0
 
 func _ready() -> void:
-	team = "hollow"
+	team = side
 	if gunship:
 		display_name = "Hollow gunship"
 		ship_class = "Assault frigate"
@@ -38,12 +41,17 @@ func _ready() -> void:
 		max_armor = 60.0
 		max_integrity = 90.0
 	else:
-		display_name = "Hollow raider"
+		display_name = "Hollow raider" if side == "hollow" else "Security interceptor"
 		ship_class = "Interceptor"
 		radius = 7.5
 		max_shield = 18.0
 		max_armor = 14.0
 		max_integrity = 28.0
+	if side == "security":
+		max_shield = 26.0
+		max_armor = 18.0
+		max_integrity = 30.0
+		speed = 90.0
 	speed *= randf_range(0.92, 1.12)
 	if rookie:
 		max_shield = 8.0
@@ -79,8 +87,9 @@ func _engines() -> void:
 		var m := ShaderMaterial.new()
 		m.shader = load("res://shaders/plume.gdshader")
 		m.set_shader_parameter("power", 1.1)
-		m.set_shader_parameter("hot", Color(1.0, 0.75, 0.45))
-		m.set_shader_parameter("cool", Color(1.0, 0.25, 0.08))
+		var blue := side == "security"
+		m.set_shader_parameter("hot", Color(0.75, 0.9, 1.0) if blue else Color(1.0, 0.75, 0.45))
+		m.set_shader_parameter("cool", Color(0.2, 0.45, 1.0) if blue else Color(1.0, 0.25, 0.08))
 		c.material = m
 		var mi := MeshInstance3D.new()
 		mi.mesh = c
@@ -125,7 +134,7 @@ func _physics_process(dt: float) -> void:
 				var dmg := damage_to_player * (1.5 if gunship else 1.0) if target is PlayerShip else 0.6
 				var s := (2.2 if randf() < 0.5 else -2.2) * (1.7 if gunship else 1.0)
 				Fx.muzzle(self, Vector3(s, -0.25, -10.6 * (1.7 if gunship else 1.0)), Color(2.0, 0.6, 0.2))
-				bolts.fire(global_position + fwd * 11.0, (want + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * (0.06 if rookie else 0.03)).normalized(), velocity, "hollow", dmg)
+				bolts.fire(global_position + fwd * 11.0, (want + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * (0.06 if rookie else 0.03)).normalized(), velocity, side, dmg)
 		else:
 			want = _break_dir
 			if _timer <= 0.0:

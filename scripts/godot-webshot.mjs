@@ -57,7 +57,8 @@ try {
     if (e.shot) {
       const out = `${prefix}-${e.t}s.png`
       writeFileSync(out, await page.shot())
-      console.log(`shot ${out}`)
+      const perf = await page.evaluate('[window.pzFps, window.pzTier]').catch(() => [])
+      console.log(`shot ${out}  fps ${perf[0] ?? '?'}  tier ${perf[1] ?? '?'}`)
     } else if (e.code === 'click') {
       for (const type of ['mousePressed', 'mouseReleased']) await page.send('Input.dispatchMouseEvent', { type, x: w / 2, y: h / 2, button: 'left', clickCount: 1 })
     } else {

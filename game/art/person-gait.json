@@ -14,9 +14,24 @@
   "run": 3.996,
   "walk": 1.5
  },
+ "okafor": {
+  "crouch_walk": 0.766,
+  "run": 4.257,
+  "walk": 1.64
+ },
  "pilot": {
   "crouch_walk": 0.664,
   "run": 3.899,
   "walk": 1.488
+ },
+ "vex": {
+  "crouch_walk": 0.645,
+  "run": 3.656,
+  "walk": 1.448
+ },
+ "warden": {
+  "crouch_walk": 0.662,
+  "run": 4.489,
+  "walk": 1.565
  }
 }

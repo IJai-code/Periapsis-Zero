@@ -46,18 +46,18 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 14)
 	root.add_child(v)
 	var done: bool = Flow.progress("act1_descent", false)
-	v.add_child(Style.label("ACT ONE COMPLETE · ACT TWO IN PRODUCTION" if done else "ACT ONE · TO BE CONTINUED", 16, Style.EMBER, Style.mono_bold))
+	v.add_child(Style.label("ACT ONE COMPLETE" if done else "ACT ONE · TO BE CONTINUED", 16, Style.EMBER, Style.mono_bold))
 	v.add_child(Style.label("The Hollow are Rook's." if done else "Hearth knows your name now.", 52, Style.BONE, Style.sans_bold))
 	if done:
 		v.add_child(Style.label("And the governor's seal is on his permits.", 28, Style.BONE, Style.sans))
 	v.add_child(Style.label("₡ %s in hand  ·  ₡ %s still owed to Rook" % [Hud._thousands(Flow.credits()), Hud._thousands(Flow.debt())], 22, Style.MUTE, Style.mono))
-	var note := Style.label("Act Two, the governor, is being built. Until then there is more to fly in the browser edition's open career: courier runs, the Drift, and the Hollow.", 20, Style.MUTE)
+	var note := Style.label("Act Two: bring Renn home through Lowdeck, find someone the governor doesn't own, and work the Rim for anyone who pays.", 20, Style.MUTE)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(620, 0)
 	v.add_child(note)
 	var go := Button.new()
-	go.text = "Open the browser edition's career"
-	go.pressed.connect(Flow.open_act_one)
+	go.text = "Begin Act Two" if Act2.stage() == 0 else "Continue Act Two"
+	go.pressed.connect(func(): Flow.go("lowdeck"))
 	v.add_child(go)
 	var well := Button.new()
 	well.text = "Fly Down the Well again"

@@ -23,10 +23,10 @@ func _ready() -> void:
 	c.height = 12.0
 	c.radial_segments = 6
 	c.rings = 1
-	for team in ["player", "hollow"]:
+	for team in ["player", "hollow", "security"]:
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(1.2, 3.2, 4.8) if team == "player" else Color(6.0, 1.4, 0.4)
+		m.albedo_color = {"player": Color(1.2, 3.2, 4.8), "hollow": Color(6.0, 1.4, 0.4), "security": Color(3.2, 3.6, 6.0)}[team]
 		var mesh := c.duplicate() as CapsuleMesh
 		mesh.material = m
 		var mm := MultiMesh.new()
@@ -85,7 +85,7 @@ func _physics_process(dt: float) -> void:
 			s.p = b
 
 func _process(_dt: float) -> void:
-	var n := {"player": 0, "hollow": 0}
+	var n := {"player": 0, "hollow": 0, "security": 0}
 	for s in _shots:
 		var mm: MultiMesh = _draw[s.team]
 		var k: int = n[s.team]

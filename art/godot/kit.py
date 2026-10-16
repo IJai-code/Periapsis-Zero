@@ -16,11 +16,13 @@ from mathutils.bvhtree import BVHTree
 V = Vector
 
 
+_mats = {}
+
+
 def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
-
-
-_mats = {}
+    # The materials went with the old scene; a cached one is a dead handle.
+    _mats.clear()
 
 
 def material(name):
