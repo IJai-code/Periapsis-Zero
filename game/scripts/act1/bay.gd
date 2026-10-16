@@ -4,7 +4,7 @@ extends Node3D
 
 var _set: AsterHangar
 var _player: Player
-var _board: Interactable
+var _board: Node3D
 var _gone := false
 
 func _ready() -> void:
@@ -25,24 +25,28 @@ func _ready() -> void:
 	add_child(_player)
 	_player.position = Vector3(-6.5, 0.15, -1.2)
 	_player.face(Vector3(0.0, 2.0, -14.0))
-	_board = Interactable.new(Vector3(1.2, 2.4, 1.4), "[E] Climb into the Kestrel", 1.8)
+	# No key: walking up to the ladder's foot starts the climb.
+	_board = Node3D.new()
 	_board.position = Vector3(-2.7, 1.2, -17.2)
 	add_child(_board)
-	_board.activated.connect(_launch)
 	Flow.music(false)
 	await get_tree().create_timer(0.8).timeout
 	Hud.objective("Board your [Kestrel]", "The ladder at her cockpit, port side")
 	Hud.waypoint(_board, "KESTREL")
 	Hud.say("Mara Voss", "Berth nine. The yard patched the holes. Try not to make new ones.")
 
+func _process(_dt: float) -> void:
+	if not _gone and _player.enabled and Vector2(_player.global_position.x - _set.ladder_foot.x, _player.global_position.z - _set.ladder_foot.z).length() < 1.1:
+		_launch()
+
 func _launch() -> void:
 	if _gone:
 		return
 	_gone = true
-	_player.enabled = false
+	Report.line("BOARD climbing")
 	Hud.clear_prompt()
 	Hud.waypoint(null)
-	await Hud.fade_out(0.5)
+	await _set.climb_aboard(_player)
 	# The pilot is in the cockpit now, not on the deck.
 	_player.visible = false
 	_player.process_mode = Node.PROCESS_MODE_DISABLED
@@ -56,11 +60,10 @@ func _launch() -> void:
 	cam.look_at(_set.kestrel.position + Vector3(0, 0.5, 0))
 	cam.make_current()
 	Hud.letterbox(true)
-	Hud.fade_in(0.6)
 	var k := _set.kestrel
 	k.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	Sfx.play("door", -6.0, 0.6)
-	await get_tree().create_timer(0.8).timeout
+	await _set.retract_ladder()
 	var t := create_tween()
 	t.tween_property(k, "position:y", 3.8, 1.4).set_trans(Tween.TRANS_SINE)
 	await t.finished

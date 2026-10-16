@@ -194,7 +194,7 @@ static func shield_hit(ship: Node3D, radius: float, at: Vector3) -> void:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ship.add_child(mi)
 	var t := mi.create_tween()
-	t.tween_method(func(v: float): m.set_shader_parameter("fade", v), 1.0, 0.0, 0.25)
+	t.tween_method(func(v: float): m.set_shader_parameter("fade", v), 1.0, 0.0, 0.16)
 	t.tween_callback(mi.queue_free)
 
 ## Smoke and fire streaming from a damaged ship (or a piece of one).

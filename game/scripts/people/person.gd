@@ -64,7 +64,7 @@ func _ready() -> void:
 	var players := body.find_children("*", "AnimationPlayer", true, false)
 	if players.size() > 0:
 		_anim = players[0]
-		for a in ["idle", "talk", "walk", "run", "crouch", "crouch_walk", "sit"]:
+		for a in ["idle", "talk", "walk", "run", "crouch", "crouch_walk", "sit", "climb"]:
 			if _anim.has_animation(a):
 				_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_anim.play("idle")
@@ -130,8 +130,16 @@ func talk(on: bool) -> void:
 	if _anim:
 		_anim.play("talk" if on else "idle", 0.4)
 
+## Hand over hand up a ladder (the walking people have the clip), or stop.
+func climb(on: bool) -> void:
+	if not _anim or not _anim.has_animation("climb"):
+		return
+	_gait = "climb" if on else "idle"
+	_anim.speed_scale = 1.0
+	_anim.play("climb" if on else "idle", 0.25)
+
 ## Walking pace in metres a second: idle, walk or run, the cycle's speed
-## matched to the ground covered (walk 1.6 m/s, run 4.4 m/s at 1x).
+## matched to the ground covered (see _animate_speed).
 func locomote(speed: float, crouched := false, airborne := false, seated := false) -> void:
 	if not _anim or _talking:
 		return
@@ -160,15 +168,22 @@ func locomote(speed: float, crouched := false, airborne := false, seated := fals
 		_anim.play(gait, 0.25)
 	_animate_speed(gait, speed)
 
-## Pace the gait to the speed covered: each cycle is authored for a
-## ground speed (walk 1.6 m/s, run 4.4 m/s, crouch-walk 1.0 m/s).
+## Pace the gait to the speed covered, so a planted foot stays planted:
+## each stride clip covers the ground speed measured from its own feet when
+## it was baked (art/godot/people.py writes art/person-gait.json).
+static var _gaits := {}
+
+func _natural(gait: String) -> float:
+	if _gaits.is_empty():
+		var f := FileAccess.open("res://art/person-gait.json", FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f else null
+		_gaits = d if d is Dictionary else {"_": {}}
+	var mine: Dictionary = _gaits.get(who, _gaits.get("pilot", {}))
+	return float(mine.get(gait, {"walk": 1.45, "run": 3.9, "crouch_walk": 0.66}.get(gait, 1.0)))
+
 func _animate_speed(gait: String, speed: float) -> void:
-	if gait == "walk":
-		_anim.speed_scale = clampf(speed / 1.6, 0.6, 1.6)
-	elif gait == "crouch_walk":
-		_anim.speed_scale = clampf(speed / 1.0, 0.6, 1.5)
-	elif gait == "run":
-		_anim.speed_scale = clampf(speed / 4.4, 0.7, 1.4)
+	if gait in STRIDES:
+		_anim.speed_scale = clampf(speed / _natural(gait), 0.5, 1.8)
 	else:
 		_anim.speed_scale = 1.0
 

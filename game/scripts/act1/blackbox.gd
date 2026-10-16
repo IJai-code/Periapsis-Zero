@@ -35,6 +35,10 @@ func _ready() -> void:
 	var i := args.find("--beat")
 	var start: String = args[i + 1] if i >= 0 and i + 1 < args.size() else Flow.beat
 	Flow.beat = ""
+	# Only a retry of the fight keeps its kills.
+	if start != "ambush":
+		Flow.set_progress("blackbox_kills", 0)
+		Flow.set_progress("blackbox_gunship_down", false)
 	match start:
 		"field":
 			_build_field(Vector3.ZERO)
@@ -151,6 +155,11 @@ func _build_field(center: Vector3) -> void:
 		# The big sections are solid and hold still (moving solids that size
 		# cost the browser's physics every frame); the cargo drifts.
 		Surfaces.collide(pivot)
+		# Layer 4: the Kestrel still bumps into the wreck, but gunfire (which
+		# tests layer 1) crosses it. A fight in a debris field where every
+		# second shot stopped on drifting plate could not be won.
+		for body: CollisionObject3D in pivot.find_children("*", "CollisionObject3D", true, false):
+			body.collision_layer = 8
 		# Torn ends still venting and burning.
 		if k % 3 == 0:
 			var fire := Fx.trail(pivot, true)
@@ -365,25 +374,41 @@ func _ambush() -> void:
 	_beat = "ambush"
 	Sfx.play("alarm", -2.0)
 	var around := ship.global_position
-	var kinds := [false, false, false, true]
+	# A retry brings back only the ships still flying: kills are kept.
+	kills = int(Flow.progress("blackbox_kills", 0))
+	var gunship_down := bool(Flow.progress("blackbox_gunship_down", false))
+	var kinds := []
+	for k in maxi(0, 3 - (kills - (1 if gunship_down else 0))):
+		kinds.append(false)
+	if not gunship_down:
+		kinds.append(true)
 	for k in kinds.size():
 		var dir := Vector3(randf_range(-1, 1), randf_range(-0.3, 0.3), randf_range(-1, 1)).normalized()
 		var at := around + dir * randf_range(900.0, 1200.0)
 		Fx.explode(self, at, 6.0, false)
-		var r := spawn_raider(at, ship, kinds[k])
+		# Interceptors light enough to kill in a few bursts; the gunship is
+		# the one to work for.
+		var r := spawn_raider(at, ship, kinds[k], [], not kinds[k])
 		r.died.connect(_down.bind(r))
 		hostiles.append(r)
-	hud.log_line("Warp signatures: four contacts", Style.EMBER)
-	Hud.objective("Destroy the [Hollow] ships", "0 / 4")
+	Hud.objective("Destroy the [Hollow] ships", "%d / 4" % kills)
 	_beat = "fight"
+	if kills > 0:
+		hud.pop("RETRY  ·  %d OF 4 LEFT" % kinds.size(), Style.ION)
+		Hud.say("Mara Voss", "You're back. %d of them left, Kestrel. Finish it." % kinds.size())
+		return
+	hud.log_line("Warp signatures: four contacts", Style.EMBER)
 	await Hud.say("Rook", "I did ask nicely. Well. I didn't ask. Give my people the box, pilot.")
 	await Hud.say("Mara Voss", "Those are Hollow ships, with Rook on the channel. Kestrel, don't you dare let them have that core.")
-	Hud.prompt("[T] lock    [Right click] missiles    Missile coming? Double-tap [A] or [D]", 9.0)
+	Hud.prompt("[T] lock    [Right click] missiles", 6.0)
 
 func _down(r: Raider) -> void:
 	hostiles.erase(r)
 	raider_destroyed(r)
 	kills += 1
+	Flow.set_progress("blackbox_kills", kills)
+	if r.gunship:
+		Flow.set_progress("blackbox_gunship_down", true)
 	Hud.objective_extra("%d / 4" % kills)
 	if r.gunship:
 		Hud.say("Mara Voss", "The big one's down! Finish them!")
@@ -443,6 +468,8 @@ func _go_home() -> void:
 		Hud.fade_out(0.6), "Hearth Station")
 	var split := Flow.earn(6000)
 	Flow.set_progress("act1_blackbox", true)
+	Flow.set_progress("blackbox_kills", 0)
+	Flow.set_progress("blackbox_gunship_down", false)
 	Hud.fade_in(0.4)
 	ship.park(true)
 	await Hud.mission_passed("Black Box", split[0], split[1], Flow.debt())

@@ -41,6 +41,9 @@ for f in bm.faces:
         f.normal_flip()
 # Cut the window band out of the forward face (it has no end cap) by removing
 # nothing: the open end is the window, framed and glazed below.
+# The starboard hatch to the flight deck is a real opening (the game's door
+# slides on it).
+kit.doorway(bm, 0, W, 1, (3.1, 4.3), (0.0, 2.1))
 kit.part('bridge_shell', bm, 'hull')
 
 # The deck: plates at the sides, grating down the middle aisle.

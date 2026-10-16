@@ -1,0 +1,22 @@
+{
+ "crowd1": {
+  "crouch_walk": 0.727,
+  "run": 4.264,
+  "walk": 1.631
+ },
+ "crowd2": {
+  "crouch_walk": 0.37,
+  "run": 2.574,
+  "walk": 1.208
+ },
+ "crowd3": {
+  "crouch_walk": 0.584,
+  "run": 3.996,
+  "walk": 1.5
+ },
+ "pilot": {
+  "crouch_walk": 0.664,
+  "run": 3.899,
+  "walk": 1.488
+ }
+}

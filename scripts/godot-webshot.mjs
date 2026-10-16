@@ -61,8 +61,10 @@ try {
     } else if (e.code === 'click') {
       for (const type of ['mousePressed', 'mouseReleased']) await page.send('Input.dispatchMouseEvent', { type, x: w / 2, y: h / 2, button: 'left', clickCount: 1 })
     } else {
-      const name = e.code.replace(/^Key/, '').toLowerCase()
-      await page.send('Input.dispatchKeyEvent', { type: e.dir === 'up' ? 'keyUp' : 'keyDown', code: e.code, key: name, windowsVirtualKeyCode: name.toUpperCase().charCodeAt(0) })
+      const SPECIAL = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, ShiftLeft: 16, Space: 32, Tab: 9, Escape: 27, Enter: 13 }
+      const name = SPECIAL[e.code] ? (e.code === 'Space' ? ' ' : e.code.replace('Left', '') === 'Shift' ? 'Shift' : e.code) : e.code.replace(/^Key/, '').toLowerCase()
+      const vk = SPECIAL[e.code] ?? name.toUpperCase().charCodeAt(0)
+      await page.send('Input.dispatchKeyEvent', { type: e.dir === 'up' ? 'keyUp' : 'keyDown', code: e.code, key: name, windowsVirtualKeyCode: vk })
     }
   }
   const logs = await page.logs()

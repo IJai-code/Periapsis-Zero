@@ -259,6 +259,17 @@ for y, name in ((0.0, 'aft'), (LEN, 'fore')):
     bm = bmesh.new()
     verts = [bm.verts.new(v3(p, y)) for p in PROFILE]
     bm.faces.new(verts if name == 'fore' else list(reversed(verts)))
+    if name == 'fore':
+        # A real doorway: the game slides the door open on it
+        # (game/scripts/sets/auto_door.gd).
+        for k, v in ((0, -0.55), (0, 0.55), (2, DECK), (2, DECK + 2.1)):
+            no = [0.0, 0.0, 0.0]
+            no[k] = 1.0
+            co = [0.0, 0.0, 0.0]
+            co[k] = v
+            bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no)
+        dead = [f for f in bm.faces if -0.55 < f.calc_center_median().x < 0.55 and DECK < f.calc_center_median().z < DECK + 2.1]
+        bmesh.ops.delete(bm, geom=dead, context='FACES')
     o = obj(f'bulkhead_{name}', bm, 'hull')
     door = bmesh.new()
     sign = -1 if name == 'fore' else 1

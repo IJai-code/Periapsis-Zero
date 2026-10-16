@@ -5,19 +5,21 @@ extends Node3D
 
 var _walker: Player
 var _window_done := false
-var _door: Interactable
+var _door: AutoDoor
 var _leaving := false
 
 func _ready() -> void:
-	add_child(AsterCorridor.new())
+	var set := AsterCorridor.new()
+	add_child(set)
+	# The fore door opens for the pilot; walking through is going to the bridge.
+	Surfaces.remove_named(set, "door_fore")
+	_door = AutoDoor.make(Vector3(0.0, 0.25, -15.94), 0.0, Vector2(1.1, 2.1), 2.6)
+	add_child(_door)
+	_door.passed.connect(_leave)
 	_walker = Player.new()
 	add_child(_walker)
 	_walker.position = Vector3(0.0, 0.3, -1.2)
 	_walker.face(Vector3(0.0, 1.6, -16.0))
-	_door = Interactable.new(Vector3(1.4, 2.2, 0.6), "[E] Open the door to the bridge")
-	_door.position = Vector3(0.0, 1.3, -15.6)
-	add_child(_door)
-	_door.activated.connect(_leave)
 	Flow.music(false)
 	_script()
 
@@ -51,9 +53,8 @@ func _leave() -> void:
 	if _leaving:
 		return
 	_leaving = true
-	_walker.enabled = false
+	Report.line("DOOR passed")
 	Hud.clear_prompt()
 	Hud.waypoint(null)
-	Sfx.play("door", -2.0)
 	Hud.silence()
 	Flow.go("bridge")

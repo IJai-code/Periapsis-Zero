@@ -95,6 +95,26 @@ def lathe(bm, profile, segments=32, at=V((0, 0, 0)), axis='Y', cap_start=True, c
     return loft(bm, rings, cap_start, cap_end)
 
 
+def doorway(bm, axis, at, u_axis, u_range, z_range, tol=0.06):
+    """Open a doorway in a wall: the wall is the faces lying in the plane
+    `axis` (0 x, 1 y) = `at`; the opening spans `u_range` along `u_axis`
+    and `z_range` up. The wall is cut along the opening's edges and the
+    faces inside removed, leaving a hole a door can slide open on."""
+    for k, v in ((u_axis, u_range[0]), (u_axis, u_range[1]), (2, z_range[0]), (2, z_range[1])):
+        no = [0.0, 0.0, 0.0]
+        no[k] = 1.0
+        co = [0.0, 0.0, 0.0]
+        co[k] = v
+        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no)
+    dead = []
+    for f in bm.faces:
+        c = f.calc_center_median()
+        if abs(c[axis] - at) < tol and u_range[0] < c[u_axis] < u_range[1] and z_range[0] < c.z < z_range[1]:
+            dead.append(f)
+    bmesh.ops.delete(bm, geom=dead, context='FACES')
+    return len(dead)
+
+
 def box(bm, centre, size, rot=None):
     r = bmesh.ops.create_cube(bm, size=1.0)
     m = Matrix.Translation(V(centre)) @ (rot or Matrix.Identity(3)).to_4x4() @ Matrix.Diagonal((*size, 1.0))

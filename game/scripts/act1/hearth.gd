@@ -14,13 +14,17 @@ var _set: HearthConcourse
 var _player: Player
 var _mara: Person
 var _talk: Interactable
-var _door: Interactable
+var _door: AutoDoor
 var _talked := false
 var _leaving := false
 
 func _ready() -> void:
 	_set = HearthConcourse.new()
 	add_child(_set)
+	Surfaces.remove_named(_set, "doors")
+	var aft := AutoDoor.make(Vector3(-1.0, 0.0, -0.18), PI, Vector2(2.0, 2.6))
+	aft.locked = true
+	add_child(aft)
 	# The crowd: station people going about their day on paths baked from
 	# the concourse's collision, so they walk round the benches and planters.
 	Walkways.bake(self, _set)
@@ -44,10 +48,13 @@ func _ready() -> void:
 	_talk.position = Vector3(-0.5, 1.0, -41.0)
 	add_child(_talk)
 	_talk.activated.connect(_job)
-	_door = Interactable.new(Vector3(3.2, 3.0, 0.6), "", 2.0)
-	_door.position = Vector3(-1.0, 1.5, -43.6)
+	# The docking bay's door opens for the pilot once Mara has given the job.
+	_door = AutoDoor.make(Vector3(-1.0, 0.0, -43.82), 0.0, Vector2(3.2, 3.2), 3.0)
+	_door.locked = true
+	_door.lock_text = "Find Mara first: she's by this door"
+	_door.reach = 3.0
 	add_child(_door)
-	_door.activated.connect(_leave)
+	_door.passed.connect(_leave)
 	Flow.music(false)
 	_script()
 
@@ -105,7 +112,7 @@ func _job() -> void:
 	cam.done()
 	Hud.letterbox(false)
 	_player.enabled = true
-	_door.set_meta("prompt", "[E] Go through to the docking bay")
+	_door.locked = false
 	Hud.objective("Go to the [docking bay]", "The big door behind Mara")
 	Hud.waypoint(_door, "DOCKING BAY", 0.6)
 
@@ -113,8 +120,7 @@ func _leave() -> void:
 	if not _talked or _leaving:
 		return
 	_leaving = true
-	_player.enabled = false
+	Report.line("DOOR passed")
 	Hud.clear_prompt()
 	Hud.waypoint(null)
-	Sfx.play("door", -2.0)
 	Flow.go("hearth_bay")

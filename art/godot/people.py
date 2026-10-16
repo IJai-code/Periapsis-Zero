@@ -276,16 +276,24 @@ def relaxed(arm, t=0.0, talk=0.0):
     sway = math.sin(w)
     # Arms: hanging at the sides (the rest pose has them out, forearms
     # forward); a soft elbow, hands following, fingers curled. Mirrored on x.
+    # (Close to the body: held further out they read as a mannequin's.)
     for s in ('l', 'r'):
         sg = 1.0 if s == 'l' else -1.0
-        aim(arm, f'upperarm_{s}', (sg * 0.2, -0.04 + breath * 0.01, -0.98))
-        aim(arm, f'lowerarm_{s}', (sg * 0.1, -0.24, -0.96))
-        aim(arm, f'hand_{s}', (sg * 0.04, -0.14, -0.99))
+        aim(arm, f'upperarm_{s}', (sg * 0.1, -0.06 + breath * 0.01, -0.99))
+        aim(arm, f'lowerarm_{s}', (sg * 0.05, -0.28, -0.96))
+        aim(arm, f'hand_{s}', (sg * 0.01, -0.2, -0.98))
+        # Palms toward the thighs, thumbs forward (measured: the rig leaves
+        # them turned ~37 degrees forward, palms up as the arm swings).
+        rotate(arm, f'hand_{s}', (0, 0, 1), -sg * 36.0)
         for f in ('index', 'middle', 'ring', 'pinky'):
             for k in ('01', '02', '03'):
                 rotate(arm, f'{f}_{k}_{s}', (0, 1, 0), sg * (16 if k == '01' else 22))
     # The body: a slow weight shift and breathing in the chest.
     rotate(arm, 'pelvis', (0, 1, 0), sway * 1.5)
+    # Feet under the hips, not planted wide.
+    for s, sg in (('l', 1.0), ('r', -1.0)):
+        rotate(arm, f'thigh_{s}', (0, 1, 0), sg * 2.5)
+        rotate(arm, f'foot_{s}', (0, 1, 0), -sg * 2.5)
     rotate(arm, 'spine_02', (1, 0, 0), -breath * 1.0)
     rotate(arm, 'spine_03', (1, 0, 0), -breath * 0.8)
     rotate(arm, 'thigh_l', (0, 1, 0), -sway * 1.5)
@@ -306,37 +314,84 @@ def relaxed(arm, t=0.0, talk=0.0):
 def stride(arm, t, period, run):
     """One moment of a walk (run=0) or a run (run=1) cycle of `period`
     seconds. The figure faces -Y: a leg swings forward with a negative turn
-    about X. Arms counter-swing, the hips twist and the chest twists back."""
+    about X. A leg's cycle: heel strike with the toes up, the body rolling
+    over a softly bent knee, push-off from the toes, then the knee folding
+    high as it swings through. The opposite arm swings with it, the elbow
+    bending more as it comes forward; the hips turn and drop toward the
+    swinging leg and shift over the planted one; the chest turns back."""
     relaxed(arm, 0.0, 0.0)
     ph = 2 * math.pi * t / period
-    # Thighs swing further forward than back (a running hip flexes to ~40
-    # degrees but extends only ~15): a symmetric swing reads as the splits.
-    fwd = 24.0 + 16.0 * run
-    back = 20.0 - 5.0 * run
+    # Thighs swing further forward than back (a running hip flexes to ~45
+    # degrees but extends only ~25): a symmetric swing reads as the splits.
+    fwd = 26.0 + 20.0 * run
+    back = 20.0 + 6.0 * run
     swing = (fwd + back) / 2.0
     for s, sgn in (('l', 1.0), ('r', -1.0)):
         f = math.sin(ph) * sgn                      # +1: this leg fully forward
-        lift = max(0.0, math.cos(ph) * sgn)        # swinging through
-        rotate(arm, f'thigh_{s}', (1, 0, 0), -(swing * f + (fwd - back) / 2.0) - (6.0 * run) * lift)
-        # The knee folds high as the leg swings through, and stays a little
-        # bent under load (no straight-legged landing at a run).
-        rotate(arm, f'calf_{s}', (1, 0, 0), 6.0 + 10.0 * run + (38.0 + 52.0 * run) * lift)
-        rotate(arm, f'foot_{s}', (1, 0, 0), -8.0 * lift + 6.0 * f)
-        # The opposite arm swings with this leg.
-        rotate(arm, f'upperarm_{s}', (1, 0, 0), swing * 0.75 * f)
-        rotate(arm, f'lowerarm_{s}', (1, 0, 0), -(12.0 + 55.0 * run) - 10.0 * max(0.0, -f))
+        v = math.cos(ph) * sgn                      # >0: swinging forward
+        lift = max(0.0, v) ** 1.3                   # the swing, peaking mid-way
+        load = max(0.0, -v)                         # the stance
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -(swing * f + (fwd - back) / 2.0) - (8.0 * run) * lift)
+        rotate(arm, f'calf_{s}', (1, 0, 0), (4.0 + 14.0 * run) + 10.0 * load * (1.0 - abs(f)) + (54.0 + 46.0 * run) * lift)
+        # Toes up at the heel strike and through the swing; down at push-off.
+        heel = max(0.0, f) * (1.0 - lift)
+        push = max(0.0, -f) * load
+        # (Through the swing the toes stay pointed as the foot leaves the
+        # ground and come up only as the leg reaches forward.)
+        clear = 10.0 + (-22.0 - 10.0) * (f + 1.0) / 2.0
+        rotate(arm, f'foot_{s}', (1, 0, 0), -10.0 * heel + (14.0 + 10.0 * run) * push + clear * lift)
+        # The opposite arm swings with this leg, the elbow bending more as it
+        # comes forward. Running, the elbow holds near a right angle and the
+        # hands pass between hip and chest.
+        ahead = max(0.0, -f)
+        rotate(arm, f'upperarm_{s}', (1, 0, 0), (13.0 + 17.0 * run) * f + 8.0 * run)
+        rotate(arm, f'lowerarm_{s}', (1, 0, 0), -(8.0 + 58.0 * run) - (22.0 - 10.0 * run) * ahead)
+        # Running hands close into loose fists.
+        if run:
+            for fg in ('index', 'middle', 'ring', 'pinky'):
+                for k in ('01', '02', '03'):
+                    rotate(arm, f'{fg}_{k}_{s}', (0, 1, 0), sgn * 34.0 * run)
     rotate(arm, 'pelvis', (0, 0, 1), math.sin(ph) * (5.0 + 3.0 * run))
+    # The hip drops on the side of the swinging leg.
+    rotate(arm, 'pelvis', (0, 1, 0), math.cos(ph) * (3.0 + 1.0 * run))
     rotate(arm, 'spine_02', (0, 0, 1), -math.sin(ph) * (6.0 + 4.0 * run))
-    rotate(arm, 'spine_01', (1, 0, 0), -4.0 - 8.0 * run)
-    rotate(arm, 'neck_01', (1, 0, 0), 2.0 + 5.0 * run)
-    # The body rises over each step, twice a cycle.
+    rotate(arm, 'spine_01', (1, 0, 0), -3.0 - 9.0 * run)
+    rotate(arm, 'neck_01', (1, 0, 0), 2.0 + 6.0 * run)
+    # The body rises over each planted leg (twice a cycle) and shifts over it.
     arm.pose.bones['pelvis'].location = (0.0, 0.0, 0.0)
     bpy.context.view_layer.update()
     pb = arm.pose.bones['pelvis']
     m = arm.matrix_world @ pb.matrix
-    m.translation.z += (0.025 + 0.03 * run) * (abs(math.cos(ph)) - 0.5)
+    m.translation.z += (0.022 + 0.035 * run) * (abs(math.cos(ph)) - 0.5)
+    m.translation.x += -(0.02 - 0.01 * run) * math.cos(ph)
     pb.matrix = arm.matrix_world.inverted() @ m
     bpy.context.view_layer.update()
+
+
+def measure_gait(arm, name, period, fps=24):
+    """How fast the body must travel for the planted foot not to slide: the
+    speed of the lowest foot backward under the body, over the stance."""
+    action = bpy.data.actions[name]
+    arm.animation_data.action = action
+    frames = int(round(period * fps))
+    samples = []
+    for f in range(frames + 1):
+        bpy.context.scene.frame_set(f)
+        bpy.context.view_layer.update()
+        feet = []
+        for s in ('l', 'r'):
+            pb = arm.pose.bones[f'foot_{s}']
+            feet.append(arm.matrix_world @ pb.tail)
+        samples.append(feet)
+    arm.animation_data.action = None
+    low = min(min(p.z for p in feet) for feet in samples)
+    speeds = []
+    for i in range(frames):
+        for k in range(2):
+            a, b = samples[i][k], samples[i + 1][k]
+            if min(a.z, b.z) < low + 0.03:
+                speeds.append((b.y - a.y) * fps)
+    return sum(speeds) / len(speeds) if speeds else 0.0
 
 
 def drop(arm, dz, dy=0.0):
@@ -359,12 +414,36 @@ def crouch(arm, t=0.0, period=0.9, moving=0.0):
     for s, sgn in (('l', 1.0), ('r', -1.0)):
         f = math.sin(ph) * sgn * moving
         lift = max(0.0, math.cos(ph) * sgn) * moving
-        rotate(arm, f'thigh_{s}', (1, 0, 0), -62.0 - 16.0 * f - 10.0 * lift)
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -62.0 - 28.0 * f - 12.0 * lift)
         rotate(arm, f'calf_{s}', (1, 0, 0), 96.0 + 14.0 * lift)
         rotate(arm, f'foot_{s}', (1, 0, 0), -30.0)
         rotate(arm, f'upperarm_{s}', (1, 0, 0), -18.0 + 12.0 * f)
         rotate(arm, f'lowerarm_{s}', (1, 0, 0), -40.0)
     rotate(arm, 'pelvis', (0, 0, 1), math.sin(ph) * 4.0 * moving)
+
+
+def climb(arm, t, period=1.0):
+    """Climbing a ladder in front (-Y): hands reach up rung over rung, the
+    opposite knee lifts to the next step, the body close in."""
+    relaxed(arm, 0.0, 0.0)
+    ph = 2 * math.pi * t / period
+    rotate(arm, 'spine_01', (1, 0, 0), -8.0)
+    rotate(arm, 'neck_01', (1, 0, 0), -10.0)
+    for s, sg in (('l', 1.0), ('r', -1.0)):
+        reach = 0.5 + 0.5 * math.sin(ph) * sg          # 1: this hand high
+        step = 0.5 + 0.5 * math.sin(ph + math.pi) * sg  # the other side's knee
+        up = Vector((sg * 0.12, -0.5, 0.86))
+        low = Vector((sg * 0.2, -0.88, 0.1))
+        aim(arm, f'upperarm_{s}', low.lerp(up, reach))
+        aim(arm, f'lowerarm_{s}', Vector((sg * 0.05, -0.3, 0.95)).lerp(Vector((sg * 0.02, -0.15, 0.99)), reach))
+        aim(arm, f'hand_{s}', (sg * 0.0, -0.6, 0.8))
+        for f in ('index', 'middle', 'ring', 'pinky'):
+            for k in ('01', '02', '03'):
+                rotate(arm, f'{f}_{k}_{s}', (0, 1, 0), sg * 40.0)
+        rotate(arm, f'thigh_{s}', (1, 0, 0), -(18.0 + 52.0 * step))
+        rotate(arm, f'calf_{s}', (1, 0, 0), 20.0 + 70.0 * step)
+        rotate(arm, f'foot_{s}', (1, 0, 0), -6.0)
+    drop(arm, -0.05 * math.sin(ph * 2.0))
 
 
 def tuck(arm):
@@ -469,13 +548,18 @@ arm.animation_data_create()
 arm.animation_data.use_nla = False
 bake(arm, 'idle', 0.0)
 bake(arm, 'talk', 1.0)
+gait = {}
 if PEOPLE[WHO].get('walks'):
-    bake_stride(arm, 'walk', 1.05, 0.0)
-    bake_stride(arm, 'run', 0.7, 1.0)
+    bake_stride(arm, 'walk', 1.0, 0.0)
+    bake_stride(arm, 'run', 0.68, 1.0)
     bake_pose(arm, 'crouch', lambda t: crouch(arm, t, 2.0, 0.0), 2.0)
     bake_pose(arm, 'crouch_walk', lambda t: crouch(arm, t, 1.0, 1.0), 1.0, step=2)
     bake_pose(arm, 'jump', lambda t: tuck(arm), 0.5, step=12)
     bake_pose(arm, 'sit', lambda t: seated(arm, t), 4.0)
+    bake_pose(arm, 'climb', lambda t: climb(arm, t, 1.0), 1.0, step=2)
+    for name, period in (('walk', 1.0), ('run', 0.68), ('crouch_walk', 1.0)):
+        gait[name] = round(measure_gait(arm, name, period), 3)
+    print('gait', WHO, gait)
 arm.animation_data.use_nla = True
 # Textures: the skin at 2K for close-ups, everything else at 1K.
 for img in bpy.data.images:
@@ -489,6 +573,16 @@ bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', export_yup=True, ex
                           export_animation_mode='NLA_TRACKS', export_cameras=False, export_lights=False,
                           export_image_format='JPEG', export_jpeg_quality=86, export_morph=True,
                           export_morph_normal=False)
+# The measured ground speed of each stride clip, for the game to play
+# them at the speed the body moves (game/scripts/people/person.gd).
+if gait:
+    import json
+    import os
+    path = os.path.join(os.path.dirname(OUT), 'person-gait.json')
+    data = json.load(open(path)) if os.path.exists(path) else {}
+    data[WHO] = gait
+    with open(path, 'w') as fh:
+        json.dump(data, fh, indent=1, sort_keys=True)
 eyes = next((o for o in bpy.data.objects if 'eye' in o.name.lower() and o.type == 'MESH'), None)
 print('person:', WHO, OUT, [o.name for o in bpy.data.objects])
 print('facing check: head', arm.matrix_world @ arm.pose.bones['head'].head, 'eyes', eyes and eyes.matrix_world @ Vector(eyes.bound_box[0]))

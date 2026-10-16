@@ -7,12 +7,20 @@ var _walker: Player
 var _hale: Person
 var _renn: Person
 var _talk: Interactable
-var _hatch: Interactable
+var _hatch: AutoDoor
 var _talked := false
 var _leaving := false
 
 func _ready() -> void:
-	add_child(AsterBridge.new())
+	var room := AsterBridge.new()
+	add_child(room)
+	# The doors open for the pilot (the set's own are taken out): the hatch
+	# to the flight deck once the captain has briefed them, the way back aft
+	# stays shut.
+	Surfaces.remove_named(room, "doors")
+	var aft := AutoDoor.make(Vector3(0.0, 0.0, -0.05), PI, Vector2(1.2, 2.1))
+	aft.locked = true
+	add_child(aft)
 	_hale = Person.make("hale")
 	add_child(_hale)
 	_hale.position = Vector3(0.0, 0.0, -8.1)
@@ -29,11 +37,11 @@ func _ready() -> void:
 	_talk.position = Vector3(0.0, 1.0, -8.1)
 	add_child(_talk)
 	_talk.activated.connect(_briefing)
-	_hatch = Interactable.new(Vector3(0.6, 2.2, 1.4), "[E] Open the hatch to the flight deck")
-	_hatch.position = Vector3(5.0, 1.1, -3.7)
-	_hatch.set_meta("prompt", "The hatch is sealed until the captain has briefed you")
+	_hatch = AutoDoor.make(Vector3(5.16, 0.0, -3.7), -PI / 2.0, Vector2(1.2, 2.1), 2.4)
+	_hatch.locked = true
+	_hatch.lock_text = "The hatch is sealed until the captain has briefed you"
 	add_child(_hatch)
-	_hatch.activated.connect(_leave)
+	_hatch.passed.connect(_leave)
 	# The captain's chair, and the two crew seats at the forward consoles.
 	var chair := Seat.make(Vector3(0.0, 0.12, -2.5), 0.0, "Sit in the captain's chair")
 	add_child(chair)
@@ -97,7 +105,7 @@ func _briefing() -> void:
 	_walker.enabled = true
 	_hale.face(_hale.global_position + Vector3(0, 0, -5))
 	_renn.face(_renn.global_position + Vector3(0, 0, -5))
-	_hatch.set_meta("prompt", "[E] Open the hatch to the flight deck")
+	_hatch.locked = false
 	Hud.objective("Go to the [flight deck]", "Starboard hatch")
 	Hud.waypoint(_hatch, "FLIGHT DECK")
 
@@ -105,8 +113,7 @@ func _leave() -> void:
 	if not _talked or _leaving:
 		return
 	_leaving = true
-	_walker.enabled = false
+	Report.line("DOOR passed")
 	Hud.clear_prompt()
 	Hud.waypoint(null)
-	Sfx.play("door", -2.0)
 	Flow.go("hangar")

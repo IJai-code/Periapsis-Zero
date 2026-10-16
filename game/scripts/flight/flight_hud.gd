@@ -22,6 +22,7 @@ var _dmg_dir := Vector2.ZERO
 var _dmg_t := 0.0
 var _warned := 0.0
 var _agg := {}
+var _hit_col := Style.BONE
 ## In air: the height above the ground, shown by the speed (-1 hides it).
 var altitude := -1.0
 var _pops: Array = []       # [text, colour, age]              # outgoing hits gathered per target: {id: [name, total, count, layer, t]}
@@ -62,15 +63,15 @@ func pop(text: String, color := Style.BONE) -> void:
 
 func log_line(text: String, color := Style.BONE) -> void:
 	_log.append([text, color, 0.0])
-	if _log.size() > 6:
+	if _log.size() > 3:
 		_log.pop_front()
 
 ## The player's shot or missile landed: gathered into one log line a target
 ## every half second, the way a fleet's log reads.
 func outgoing(target: Node3D, amount: float, layer: String, kind := "gun") -> void:
 	_hit = 1.0
+	_hit_col = LAYER_COL.get(layer, Style.BONE)
 	if kind == "missile":
-		log_line("%d  to  %s  ·  missile  ·  %s" % [int(amount), _name(target), _quality(amount, 24.0)], LAYER_COL.get(layer, Style.BONE))
 		return
 	var id := target.get_instance_id()
 	if not _agg.has(id):
@@ -125,16 +126,15 @@ func _process(dt: float) -> void:
 		p[2] += dt
 	while not _pops.is_empty() and _pops[0][2] > 1.3:
 		_pops.pop_front()
-	while not _log.is_empty() and _log[0][2] > 7.0:
+	while not _log.is_empty() and _log[0][2] > 4.5:
 		_log.pop_front()
 	for id in _agg.keys():
 		var a: Array = _agg[id]
 		a[4] += dt
+		# Damage is shown where it happens (the reticle's tick takes the
+		# colour of the layer hit, the screen's edge flares toward a hit
+		# taken), not as a running list of numbers.
 		if a[4] > 0.6:
-			if id is String:
-				log_line("%d  from  %s  ·  %s" % [int(a[1]), a[0], "%d hits" % a[2] if a[2] > 1 else _quality(a[1], 4.0)], Style.EMBER)
-			else:
-				log_line("%d  to  %s  ·  %s  ·  %s" % [int(a[1]), a[0], a[3], ("%d hits" % a[2]) if a[2] > 1 else _quality(a[1], 6.0)], LAYER_COL.get(a[3], Style.BONE))
 			_agg.erase(id)
 	# Missile warning tone.
 	if ship and missiles and not missiles.incoming(ship).is_empty():
@@ -293,54 +293,57 @@ func _panel(r: Rect2) -> void:
 	draw_rect(r, Color(0.03, 0.02, 0.06, 0.6))
 	draw_rect(Rect2(r.position, Vector2(r.size.x, 2)), Color(Style.BONE, 0.25))
 
-## The overview: every contact by range, nearest first.
+## The overview: what matters now, nearest first: hostiles and the
+## objective, four rows at most. Holding Tab shows every contact.
 func _overview(vp: Vector2, contacts: Array) -> void:
-	var rows := mini(contacts.size(), 7)
+	var full := Input.is_key_pressed(KEY_TAB)
+	var shown := contacts if full else contacts.filter(func(c): return c[4] in ["hostile", "objective"])
+	var rows := mini(shown.size(), 8 if full else 4)
 	if rows == 0:
 		return
-	var w := 330.0
-	var at := Vector2(vp.x - w - 30.0, vp.y * 0.5 - 20.0)
-	_panel(Rect2(at, Vector2(w, 30 + rows * 21)))
-	draw_string(Style.mono_bold, at + Vector2(10, 18), "OVERVIEW", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(Style.BONE, 0.7))
-	draw_string(Style.mono, at + Vector2(10, 18), "%d CONTACTS" % contacts.size(), HORIZONTAL_ALIGNMENT_RIGHT, w - 20, 10, Color(Style.BONE, 0.45))
+	var w := 250.0
+	var at := Vector2(vp.x - w - 28.0, 132.0)
+	_panel(Rect2(at, Vector2(w, 24 + rows * 19)))
+	var title := "ALL CONTACTS" if full else "THREATS"
+	draw_string(Style.mono_bold, at + Vector2(10, 15), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(Style.BONE, 0.6))
+	draw_string(Style.mono, at + Vector2(10, 15), "TAB  ALL" if not full else "", HORIZONTAL_ALIGNMENT_RIGHT, w - 20, 9, Color(Style.BONE, 0.35))
 	for i in rows:
-		var c: Array = contacts[i]
-		var y := at.y + 40 + i * 21
+		var c: Array = shown[i]
+		var y := at.y + 36 + i * 19
 		var col := _tag_col(c[4])
 		if c[0] == ship.target:
-			draw_rect(Rect2(Vector2(at.x + 2, y - 14), Vector2(w - 4, 19)), Color(Style.EMBER, 0.18))
-		var icon := Vector2(at.x + 16, y - 4)
+			draw_rect(Rect2(Vector2(at.x + 2, y - 13), Vector2(w - 4, 17)), Color(Style.EMBER, 0.18))
+		var icon := Vector2(at.x + 14, y - 4)
 		if c[4] == "hostile":
-			draw_colored_polygon(PackedVector2Array([icon + Vector2(0, -5), icon + Vector2(5, 4), icon + Vector2(-5, 4)]), col)
+			draw_colored_polygon(PackedVector2Array([icon + Vector2(0, -4), icon + Vector2(4, 3), icon + Vector2(-4, 3)]), col)
 		elif c[4] in ["structure", "objective"]:
-			_diamond(icon, 5.0, col, 1.5)
+			_diamond(icon, 4.0, col, 1.5)
 		else:
-			draw_circle(icon, 4.0, col)
-		draw_string(Style.mono_bold, Vector2(at.x + 30, y), _range_of(c[0], c[1]), HORIZONTAL_ALIGNMENT_RIGHT, 64, 11, Color(Style.BONE, 0.9))
-		draw_string(Style.sans_bold, Vector2(at.x + 104, y), c[2], HORIZONTAL_ALIGNMENT_LEFT, 120, 12, col)
-		draw_string(Style.mono, Vector2(at.x + 228, y), c[3], HORIZONTAL_ALIGNMENT_LEFT, w - 236, 10, Color(Style.BONE, 0.5))
+			draw_circle(icon, 3.0, col)
+		draw_string(Style.sans_bold, Vector2(at.x + 26, y), c[2], HORIZONTAL_ALIGNMENT_LEFT, 150, 12, col)
+		draw_string(Style.mono_bold, Vector2(at.x + 170, y), _range_of(c[0], c[1]), HORIZONTAL_ALIGNMENT_RIGHT, 70, 11, Color(Style.BONE, 0.85))
 
-## The locked target: name, class, range, closing speed, its three rings.
+## The locked target, compact: name, range, closing speed and three thin
+## bars (shield, armour, structure).
 func _target_panel(vp: Vector2) -> void:
 	var t := ship.target
 	if not t or not is_instance_valid(t) or not t.alive:
 		return
-	var w := 330.0
-	var at := Vector2(vp.x - w - 30.0, vp.y * 0.5 - 168.0)
-	_panel(Rect2(at, Vector2(w, 132)))
-	var c := at + Vector2(62, 72)
-	_rings(c, 46.0, t.fractions(), 6.0)
-	draw_string(Style.mono_bold, at + Vector2(124, 24), "TARGET LOCKED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Style.EMBER)
-	draw_string(Style.sans_bold, at + Vector2(124, 48), t.display_name, HORIZONTAL_ALIGNMENT_LEFT, w - 132, 18, Style.BONE)
-	draw_string(Style.mono, at + Vector2(124, 66), t.ship_class.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(Style.BONE, 0.55))
+	var w := 250.0
+	var at := Vector2(vp.x - w - 28.0, 62.0)
+	_panel(Rect2(at, Vector2(w, 62)))
+	draw_string(Style.mono_bold, at + Vector2(10, 15), "LOCKED", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Style.EMBER)
+	draw_string(Style.sans_bold, at + Vector2(60, 16), t.display_name, HORIZONTAL_ALIGNMENT_LEFT, w - 70, 13, Style.BONE)
 	var d := ship.global_position.distance_to(t.global_position)
 	var closing := -(t.velocity - ship.velocity).dot((t.global_position - ship.global_position).normalized())
-	draw_string(Style.mono_bold, at + Vector2(124, 92), _range(d), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Style.BONE)
-	draw_string(Style.mono, at + Vector2(124, 112), "%+d m/s closing" % int(closing), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(Style.BONE, 0.6))
+	draw_string(Style.mono, at + Vector2(10, 33), "%s   %+d m/s" % [_range(d), int(closing)], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(Style.BONE, 0.65))
 	var f := t.fractions()
-	draw_string(Style.mono, at + Vector2(232, 92), "S %d%%" % int(f.x * 100), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, LAYER_COL.shield)
-	draw_string(Style.mono, at + Vector2(232, 106), "A %d%%" % int(f.y * 100), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, LAYER_COL.armor)
-	draw_string(Style.mono, at + Vector2(232, 120), "H %d%%" % int(f.z * 100), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, LAYER_COL.hull)
+	var k := 0
+	for layer in [["shield", f.x], ["armor", f.y], ["hull", f.z]]:
+		var bar := Rect2(at + Vector2(10 + k * 78, 44), Vector2(72, 5))
+		draw_rect(bar, Color(LAYER_COL[layer[0]], 0.15))
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * clampf(layer[1], 0.0, 1.0), bar.size.y)), LAYER_COL[layer[0]])
+		k += 1
 
 ## Three concentric arcs over the top: shield outside, armour, structure inside.
 func _rings(c: Vector2, r: float, f: Vector3, w: float) -> void:
@@ -355,46 +358,44 @@ func _rings(c: Vector2, r: float, f: Vector3, w: float) -> void:
 			draw_arc(c, rr, from, from + span * clampf(layer[1], 0.0, 1.0), 40, col, w, true)
 		k += 1
 
-## The ship's own status, bottom centre.
+## The ship's own status, bottom centre, small: three rings (shield,
+## armour, structure), the capacitor's cells inside them, the speed.
 func _status(vp: Vector2) -> void:
-	var c := Vector2(vp.x / 2.0, vp.y - 96.0)
-	draw_circle(c, 92.0, Color(0.03, 0.02, 0.06, 0.45))
-	_rings(c, 84.0, ship.fractions(), 7.0)
-	# The capacitor: twenty cells round the inside, lit by charge.
+	var c := Vector2(vp.x / 2.0, vp.y - 74.0)
+	draw_circle(c, 66.0, Color(0.03, 0.02, 0.06, 0.4))
+	_rings(c, 60.0, ship.fractions(), 5.0)
 	var cells := 20
 	var lit := int(round(ship.capacitor / ship.max_capacitor * cells))
 	for i in cells:
 		var a := deg_to_rad(160.0) + deg_to_rad(220.0) * (i + 0.5) / cells
 		var dir := Vector2(cos(a), sin(a))
 		var on := i < lit
-		var col := Color(Style.BONE, 0.85) if on else Color(Style.BONE, 0.12)
+		var col := Color(Style.BONE, 0.8) if on else Color(Style.BONE, 0.1)
 		if on and lit <= 4:
 			col = Color(Style.EMBER, 0.6 + 0.4 * sin(_clock * 10.0))
-		draw_line(c + dir * 44.0, c + dir * 54.0, col, 4.0, true)
+		draw_line(c + dir * 32.0, c + dir * 39.0, col, 3.0, true)
 	var spd := ship.velocity.length()
-	draw_string(Style.mono_bold, c + Vector2(-60, 8), "%d" % int(spd), HORIZONTAL_ALIGNMENT_CENTER, 120, 26, Style.BONE)
-	draw_string(Style.mono, c + Vector2(-60, 26), "BOOST" if ship.boosting else "M/S", HORIZONTAL_ALIGNMENT_CENTER, 120, 11, Style.EMBER if ship.boosting else Style.MUTE)
-	draw_string(Style.mono, c + Vector2(-110, 60), "CAP %d%%" % int(ship.capacitor / ship.max_capacitor * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(Style.BONE, 0.6))
+	draw_string(Style.mono_bold, c + Vector2(-50, 6), "%d" % int(spd), HORIZONTAL_ALIGNMENT_CENTER, 100, 20, Style.BONE)
+	draw_string(Style.mono, c + Vector2(-50, 20), "BOOST" if ship.boosting else "M/S", HORIZONTAL_ALIGNMENT_CENTER, 100, 9, Style.EMBER if ship.boosting else Style.MUTE)
+	# Missiles as pips under the speed.
+	for i in ship.missile_count:
+		draw_rect(Rect2(c + Vector2(-ship.missile_count * 5 + i * 10, 30), Vector2(6, 3)), Color(Style.ION, 0.85))
 	if altitude >= 0.0:
 		var low := altitude < 25.0
-		draw_string(Style.mono_bold, c + Vector2(-60, 46), "ALT %d m" % int(altitude), HORIZONTAL_ALIGNMENT_CENTER, 120, 12, Style.EMBER if low else Color(Style.BONE, 0.8))
-	var mtxt := "MSL %d" % ship.missile_count
-	draw_string(Style.mono, c + Vector2(110, 60), mtxt, HORIZONTAL_ALIGNMENT_RIGHT, -1, 10, Color(Style.ION, 0.8) if ship.missile_count > 0 else Color(Style.BONE, 0.3))
-	if not ship.weapons:
-		draw_string(Style.mono_bold, c + Vector2(-80, -100), "WEAPONS HOLD", HORIZONTAL_ALIGNMENT_CENTER, 160, 12, Style.MUTE)
-	elif ship.capacitor < PlayerShip.GUN_COST * 3.0:
-		draw_string(Style.mono_bold, c + Vector2(-90, -100), "CAPACITOR LOW", HORIZONTAL_ALIGNMENT_CENTER, 180, 12, Style.EMBER)
+		draw_string(Style.mono_bold, c + Vector2(-50, -42), "ALT %d m" % int(altitude), HORIZONTAL_ALIGNMENT_CENTER, 100, 11, Style.EMBER if low else Color(Style.BONE, 0.75))
+	if ship.weapons and ship.capacitor < PlayerShip.GUN_COST * 3.0:
+		draw_string(Style.mono_bold, c + Vector2(-90, -76), "CAPACITOR LOW", HORIZONTAL_ALIGNMENT_CENTER, 180, 11, Style.EMBER)
 	var f := ship.fractions()
 	if f.z < 0.3 and fmod(_clock, 0.8) < 0.5:
-		draw_string(Style.mono_bold, c + Vector2(-90, -118), "STRUCTURE CRITICAL", HORIZONTAL_ALIGNMENT_CENTER, 180, 14, Style.EMBER)
+		draw_string(Style.mono_bold, c + Vector2(-90, -90), "STRUCTURE CRITICAL", HORIZONTAL_ALIGNMENT_CENTER, 180, 12, Style.EMBER)
 
 func _combat_log(vp: Vector2) -> void:
-	var y := vp.y - 250.0
+	var y := vp.y - 60.0
 	for i in _log.size():
 		var l: Array = _log[_log.size() - 1 - i]
-		var a := clampf(1.0 - (l[2] - 5.0) / 2.0, 0.0, 1.0) * (1.0 - i * 0.12)
-		draw_string_outline(Style.mono_bold, Vector2(40, y - i * 20), l[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 5, Color(0, 0, 0, 0.75 * a))
-		draw_string(Style.mono_bold, Vector2(40, y - i * 20), l[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(l[1], a))
+		var a := clampf(1.0 - (l[2] - 3.0) / 1.5, 0.0, 1.0) * (1.0 - i * 0.2)
+		draw_string_outline(Style.mono_bold, Vector2(32, y - i * 18), l[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.7 * a))
+		draw_string(Style.mono_bold, Vector2(32, y - i * 18), l[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(l[1], a))
 
 func _missile_warning(vp: Vector2) -> void:
 	if not missiles:
@@ -403,11 +404,11 @@ func _missile_warning(vp: Vector2) -> void:
 	if inc.is_empty():
 		return
 	var d := ship.global_position.distance_to((inc[0] as Node3D).global_position)
-	if fmod(_clock, 0.5) < 0.32:
-		var t := "MISSILE  %s" % _range(d)
-		draw_string_outline(Style.sans_bold, Vector2(vp.x / 2.0 - 200, vp.y * 0.24), t, HORIZONTAL_ALIGNMENT_CENTER, 400, 30, 8, Color(0, 0, 0, 0.7))
-		draw_string(Style.sans_bold, Vector2(vp.x / 2.0 - 200, vp.y * 0.24), t, HORIZONTAL_ALIGNMENT_CENTER, 400, 30, Style.EMBER)
-	draw_string(Style.mono_bold, Vector2(vp.x / 2.0 - 200, vp.y * 0.24 + 26), "DOUBLE-TAP A OR D TO BREAK ITS LOCK", HORIZONTAL_ALIGNMENT_CENTER, 400, 12, Style.BONE)
+	var a := 1.0 if fmod(_clock, 0.5) < 0.32 else 0.55
+	var t := "MISSILE %s  ·  DOUBLE-TAP A OR D" % _range(d)
+	var at := Vector2(vp.x / 2.0 - 250, vp.y / 2.0 + 78)
+	draw_string_outline(Style.mono_bold, at, t, HORIZONTAL_ALIGNMENT_CENTER, 500, 15, 5, Color(0, 0, 0, 0.7 * a))
+	draw_string(Style.mono_bold, at, t, HORIZONTAL_ALIGNMENT_CENTER, 500, 15, Color(Style.EMBER, a))
 	_edge_arrow(ship.camera, (inc[0] as Node3D).global_position, Style.EMBER)
 
 ## The reticle: a broken ring and the hit and kill confirmations; an arc on
@@ -422,7 +423,7 @@ func _reticle(c: Vector2) -> void:
 		draw_arc(c, 120.0, ang - 0.35, ang + 0.35, 16, Color(Style.EMBER, _dmg_t), 6.0, true)
 	if _hit > 0.0:
 		var k := 10.0 + (1.0 - _hit) * 6.0
-		var col := Color(Style.BONE, _hit)
+		var col := Color(_hit_col, _hit)
 		for d in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
 			draw_line(c + d * k, c + d * (k + 8.0), col, 2.5, true)
 	if _kill > 0.0:

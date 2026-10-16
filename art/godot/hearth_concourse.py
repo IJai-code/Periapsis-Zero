@@ -40,8 +40,13 @@ kit.part('floor_inlay', inlay, 'paint_dark')
 kit.box(bm, (0, D / 2, H + 0.1), (2 * W + 6, D, 0.2))
 kit.part('ceiling', bm, 'panel')
 bm = bmesh.new()
-for y in (0.0, D):
-    kit.box(bm, (0, y, H / 2), (2 * W + 6, 0.3, H))
+kit.box(bm, (0, 0.0, H / 2), (2 * W + 6, 0.3, H))
+# The fore wall stands round the docking bay's doorway (x -2.6 to 0.6,
+# 3.2 high): the game's door slides open on it.
+left, right = -(W + 3), W + 3
+kit.box(bm, ((left - 2.6) / 2, D, H / 2), (-2.6 - left, 0.3, H))
+kit.box(bm, ((0.6 + right) / 2, D, H / 2), (right - 0.6, 0.3, H))
+kit.box(bm, (-1.0, D, (3.2 + H) / 2), (3.2, 0.3, H - 3.2))
 kit.part('end_walls', bm, 'wall_clean')
 
 # The window wall: mullions and transoms, open between (the sky shows).

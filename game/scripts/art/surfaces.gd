@@ -37,6 +37,13 @@ static func collide(root: Node, skip := "") -> void:
 			if shape:
 				shape.backface_collision = true
 
+## Take a set's own (closed, merged) door mesh out, collision and all, so
+## an AutoDoor can stand in its place.
+static func remove_named(root: Node, name: String) -> void:
+	for n in root.find_children(name, "MeshInstance3D", true, false):
+		n.get_parent().remove_child(n)
+		n.queue_free()
+
 static func get_material(name: String) -> Material:
 	if _cache.has(name):
 		return _cache[name]

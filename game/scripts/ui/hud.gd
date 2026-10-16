@@ -269,6 +269,12 @@ func _process(dt: float) -> void:
 		_help_left -= dt
 		if _help_left <= 0.0:
 			_tween(_help, 0.0, 0.4)
+	# A prompt that stays (no time given) steps back after a while: still
+	# there to read, no longer shouting.
+	elif _help.modulate.a > 0.5:
+		_help_shown += dt
+		if _help_shown > 8.0:
+			_tween(_help, 0.4, 1.2)
 
 var _marks: Control
 var _focus: Node3D = null
@@ -364,9 +370,12 @@ func _draw_marks() -> void:
 		_marks.draw_string_outline(Style.mono_bold, e - d * 34.0 + Vector2(-60, 5), "%d m" % int(dist), HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 5, Color(0, 0, 0, 0.7))
 		_marks.draw_string(Style.mono_bold, e - d * 34.0 + Vector2(-60, 5), "%d m" % int(dist), HORIZONTAL_ALIGNMENT_CENTER, 120, 13, c)
 
+var _help_shown := 0.0
+
 func prompt(text: String, seconds := 0.0) -> void:
 	_help_text.text = _keys(text)
 	_help_left = seconds
+	_help_shown = 0.0
 	_tween(_help, 1.0, 0.3)
 
 func clear_prompt() -> void:
@@ -740,14 +749,14 @@ var _click: Label
 ## mouse and the browser has let it go.
 func click_hint(on: bool) -> void:
 	if not _click:
-		_click = Style.label("Click to take control\nor steer with the arrow keys", 28, Style.BONE, Style.sans_bold)
-		_click.set_anchors_preset(Control.PRESET_CENTER)
+		# Small and low: it used to sit across the middle of the view.
+		_click = Style.label("Click to steer with the mouse  ·  or use the arrow keys", 15, Style.BONE, Style.sans_bold)
+		_click.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 		_click.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		_click.grow_vertical = Control.GROW_DIRECTION_BOTH
-		_click.offset_top = 200
-		_click.offset_bottom = 200
+		_click.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_click.offset_bottom = -12
 		_click.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_outline(_click, 10, 0.8)
+		_outline(_click, 6, 0.7)
 		_click.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(_click)
 	_click.visible = on

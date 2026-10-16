@@ -11,7 +11,7 @@ const PLANS := {
 	"bridge_chair": [Vector3(0.0, 0, -1.9)],
 	"corridor_back": [Vector3(0.0, 0, 4.0)],
 	"hearth_mara": [Vector3(-1.6, 0, -20.0), Vector3(-1.0, 0, -39.6)],
-	"corridor_door": [Vector3(0.0, 0, -15.0)],
+	"corridor_door": [Vector3(0.0, 0, -15.0), Vector3(0.0, 0, -17.4)],
 }
 
 var plan: Array = []
@@ -34,6 +34,12 @@ func _ready() -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	if _t < 2.5:
+		return
+	# Walked through a door into the next scene: the walk is over.
+	if _player and not is_instance_valid(_player):
+		Report.line("WALKTEST final (scene changed) prompt: ''")
+		Report.finish(get_tree())
+		set_process(false)
 		return
 	if not _player:
 		var ps := get_tree().get_nodes_in_group("player")

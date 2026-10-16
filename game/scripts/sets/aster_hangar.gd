@@ -7,11 +7,21 @@ extends Node3D
 
 const SUN_DIR := Vector3(0.4, 0.55, -0.73)
 var kestrel: Node3D
+## The Kestrel's boarding ladder (add_ladder): its own node, so it can
+## retract into the hull before she lifts.
+var ladder: Node3D
+var ladder_foot := Vector3.ZERO
+var ladder_top := Vector3.ZERO
 
 ## A boarding ladder leaning on the ship, its foot at `foot`.
 func add_ladder(foot: Vector3) -> void:
 	var m := Surfaces.get_material("paint_ember")
 	var top := foot + Vector3(1.2, 3.0, 0.0)
+	ladder_foot = foot
+	ladder_top = top
+	ladder = Node3D.new()
+	ladder.name = "Ladder"
+	add_child(ladder)
 	for dz in [-0.28, 0.28]:
 		var rail := MeshInstance3D.new()
 		var c := CylinderMesh.new()
@@ -20,7 +30,7 @@ func add_ladder(foot: Vector3) -> void:
 		c.height = (top - foot).length()
 		c.material = m
 		rail.mesh = c
-		add_child(rail)
+		ladder.add_child(rail)
 		rail.position = (foot + top) / 2.0 + Vector3(0, 0, dz)
 		rail.basis = Basis(Vector3.BACK, -atan2(top.x - foot.x, top.y - foot.y))
 	for k in range(1, 10):
@@ -32,9 +42,63 @@ func add_ladder(foot: Vector3) -> void:
 		r.height = 0.56
 		r.material = Surfaces.get_material("metal")
 		rung.mesh = r
-		add_child(rung)
+		ladder.add_child(rung)
 		rung.position = foot.lerp(top, t)
 		rung.rotation_degrees = Vector3(90, 0, 0)
+
+## The pilot climbs aboard by themselves: up to the foot of the ladder,
+## hand over hand up it, over the sill and down into the seat. Awaitable;
+## the pilot is hidden in the cockpit at the end.
+func climb_aboard(player: Player) -> void:
+	player.enabled = false
+	player.set_physics_process(false)
+	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	player.velocity = Vector3.ZERO
+	var axis := (ladder_top - ladder_foot).normalized()
+	var face := Vector3(axis.x, 0.0, axis.z).normalized()
+	# Stand at the foot, facing the ship.
+	var start := ladder_foot - face * 0.3
+	var t := create_tween()
+	t.tween_property(player, "global_position", start, maxf(0.25, player.global_position.distance_to(start) / 1.4))
+	player.body.rotation.y = atan2(face.x, face.z)
+	player.body.locomote(1.4)
+	await t.finished
+	player.body.climb(true)
+	Sfx.play("step", -12.0, 0.7)
+	# Up the rungs: the feet ride the ladder's lean.
+	var top := ladder_top - face * 0.3 - axis * 0.9
+	t = create_tween()
+	t.tween_property(player, "global_position", top, 3.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var clank := func():
+		for i in 6:
+			await get_tree().create_timer(0.55).timeout
+			Sfx.play("step", -14.0, 1.25)
+	clank.call()
+	await t.finished
+	# Over the sill and down into the seat.
+	player.body.climb(false)
+	var seat := ladder_top + face * 1.25 + Vector3(0, 0.15, 0)
+	t = create_tween()
+	t.tween_property(player, "global_position", seat + Vector3(0, 0.55, 0), 0.7).set_trans(Tween.TRANS_SINE)
+	t.tween_property(player, "global_position", seat - Vector3(0, 0.5, 0), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await t.finished
+	player.body.visible = false
+	Sfx.play("door", -10.0, 0.6)
+
+## Before lift-off the ladder slides up into the hull and stays with her.
+func retract_ladder() -> void:
+	if not ladder:
+		return
+	var xf := ladder.global_transform
+	remove_child(ladder)
+	kestrel.add_child(ladder)
+	ladder.global_transform = xf
+	var axis := kestrel.global_basis.inverse() * (ladder_top - ladder_foot).normalized()
+	var t := create_tween()
+	t.tween_property(ladder, "position", ladder.position + axis * 2.9, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	Sfx.play("door", -8.0, 0.8)
+	await t.finished
+	ladder.visible = false
 
 func _ready() -> void:
 	var hq := Flow.high_quality()

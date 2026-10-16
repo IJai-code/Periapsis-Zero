@@ -106,11 +106,11 @@ const checks = [
     return [m && m[1] === '0', (out.match(/HUDTEST (FAIL.*)/g) ?? []).join('; ') || (m ? 'all ok' : 'no result')]
   }],
   ...[
-    ['prologue_corridor', 'corridor_door', 'Open the door'],
+    ['prologue_corridor', 'corridor_door', 'DOOR passed'],
     ['prologue_corridor', 'corridor_back', null],
     ['prologue_bridge', 'bridge_hale', 'Talk to Captain Hale'],
     ['prologue_bridge', 'bridge_chair', 'Sit in'],
-    ['prologue_hangar', 'hangar_ladder', 'Climb into the Kestrel'],
+    ['prologue_hangar', 'hangar_ladder', 'BOARD climbing'],
     ['act1_hearth', 'hearth_mara', 'Talk to Mara'],
   ].map(([scene, plan, prompt]) => [`walk ${plan}`, async () => {
     const out = await run(scene, ['--walktest', plan], /WALKTEST final/)
@@ -118,6 +118,9 @@ const checks = [
     if (!line) return [false, 'no result']
     // corridor_back walks at the aft wall: passing means it held (z stays < 0).
     if (!prompt) return [/\(-?[\d.]+, -?[\d.]+, -[\d.]+\)/.test(line), line]
+    // Doors and the ladder report what happened (DOOR passed, BOARD
+    // climbing) rather than offering a prompt.
+    if (/^[A-Z]+ /.test(prompt)) return [out.includes(prompt), out.includes(prompt) ? prompt : line]
     return [line.includes(prompt), line]
   }]),
   ...[
