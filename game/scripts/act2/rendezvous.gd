@@ -121,7 +121,7 @@ func _process(dt: float) -> void:
 		_thrust.z = float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A))
 	if has_meta("auto"):
 		_thrust = _autopilot()
-	_warp = 4.0 if Input.is_key_pressed(KEY_T) and _thrust == Vector3.ZERO else 1.0
+	_warp = 4.0 if (Input.is_key_pressed(KEY_T) and _thrust == Vector3.ZERO) or has_meta("auto") else 1.0
 	var a := _thrust.normalized() * ACC if _thrust != Vector3.ZERO else Vector3.ZERO
 	used += a.length() * dt
 	var steps := 4
@@ -206,6 +206,10 @@ func _draw_ui() -> void:
 func _finish(ok: bool) -> void:
 	_done = true
 	Report.line("RENDEZVOUS %s" % ("docked" if ok else "struck"))
+	if has_meta("auto"):
+		Report.line("RENDEZVOUS delta-v used %.1f m/s" % used)
+		Report.finish(get_tree())
+		return
 	Sfx.play("objective" if ok else "alarm", -2.0)
 	if ok:
 		Hud.say("Calla", "Hard dock. Textbook, Kestrel. We'll take those fuel cells now.")

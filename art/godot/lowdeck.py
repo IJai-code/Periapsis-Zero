@@ -54,9 +54,15 @@ class Mats:
         return self.b[name]
 
     def done(self, prefix, bevels=None):
-        bevels = bevels or {}
+        """Architecture is flat-shaded and crisp: kit.part's smooth shading
+        and weighted normals (made for ship hulls) blur merged boxes into
+        tubes, and its bevels multiply thin rails and stairs many times."""
         for name, bm in self.b.items():
-            kit.part(f'{prefix}{name}', bm, name, bevel=bevels.get(name, 0.0))
+            o = kit.part(f'{prefix}{name}', bm, name)
+            for mod in list(o.modifiers):
+                o.modifiers.remove(mod)
+            for p in o.data.polygons:
+                p.use_smooth = False
         self.b = {}
 
 

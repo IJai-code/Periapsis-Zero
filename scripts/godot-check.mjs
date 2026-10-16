@@ -67,7 +67,8 @@ function run(scene, args, until, ms = 120000) {
 }
 
 const SCENES = ['title', 'prologue_intro', 'prologue_corridor', 'prologue_bridge', 'prologue_hangar', 'prologue_flight',
-  'prologue_arrival', 'act1_hearth', 'act1_bay', 'act1_test_flight', 'act1_blackbox', 'act1_descent', 'act1_end']
+  'prologue_arrival', 'act1_hearth', 'act1_bay', 'act1_test_flight', 'act1_blackbox', 'act1_descent', 'act1_end',
+  'act2_lowdeck', 'act2_rim']
 
 const checks = [
   // Every scene loads and runs ten seconds without a script error.
@@ -76,6 +77,10 @@ const checks = [
     const errors = (out.match(/SCRIPT ERROR: [^\n]*/g) ?? [])
     return [/shot:/.test(out) && errors.length === 0, errors.length ? errors.slice(0, 2).join('; ') : (/shot:/.test(out) ? 'no script errors' : 'did not finish')]
   }]),
+  ['rendezvous: docks with the Calla by her orbit', async () => {
+    const out = await run('act2_rim', ['--act2stage', '2', '--job', 'dock', '--near', '--autofight'], /RENDEZVOUS (docked|struck)/, 180000)
+    return [/RENDEZVOUS docked/.test(out), (out.match(/RENDEZVOUS \w+/g) ?? ['no result']).join(', ')]
+  }],
   ['crowd never walks through anything', async () => {
     const out = await run('act1_hearth', ['--crowdtest'], /CROWDTEST frames/)
     const m = out.match(/CROWDTEST frames (\d+) inside solid (\d+)/)

@@ -244,7 +244,10 @@ func _neon() -> void:
 		# either way.
 		var l := _label(stacked, 110, colour, n.global_position, 0.0, 4.0)
 		l.pixel_size = 0.006
-		l.double_sided = true
+		# Read from either way down the street: a face each side (one
+		# two-sided label reads backwards from behind).
+		var back := _label(stacked, 110, colour, n.global_position - Vector3(0, 0, 0.32), PI, 4.0)
+		back.pixel_size = 0.006
 		var box := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(0.9, 0.62 * word.length() + 0.4, 0.2)

@@ -126,7 +126,7 @@ func _places() -> void:
 	lift_sign.pixel_size = 0.006
 	lift_sign.modulate = Color(0.7, 3.0, 3.6)
 	lift_sign.position = l + Vector3(0, 2.9, -0.1)
-	lift_sign.rotation.y = 0.0
+	lift_sign.rotation.y = PI
 	add_child(lift_sign)
 	# The noodle stall: a cook, and something hot for twenty credits.
 	var stalls: Array = set.markers.get("stall", [])

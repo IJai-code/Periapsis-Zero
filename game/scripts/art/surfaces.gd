@@ -106,7 +106,7 @@ static func _make(name: String) -> Material:
 		"hazard": return _hazard()
 		# Lowdeck (art/godot/lowdeck.py).
 		"asphalt": return _wet("Asphalt025C", 0.35, Color(0.62, 0.62, 0.68), 0.7, 0.5)
-		"sidewalk": return _wet("Tiles074", 0.5, Color(0.6, 0.6, 0.64), 0.55, 0.62)
+		"sidewalk": return _wet("Tiles074", 1.4, Color(0.42, 0.42, 0.46), 0.55, 0.62)
 		"concrete": return _pbr("Concrete034", 0.4, Color(0.5, 0.49, 0.52), true)
 		"facade": return _building()
 		"brick": return _pbr("Bricks076C", 0.5, Color(0.42, 0.34, 0.31))
@@ -163,13 +163,30 @@ static func _shop_light() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
 render_mode unshaded;
+// A shop's back wall seen through the glass: shelves of goods in rows,
+// bright strip lights over them, the wall's colour by shop.
 varying vec3 w;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void vertex() { w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
-	float h = fract(sin(floor(w.z / 11.0) * 12.9898 + sign(w.x) * 4.1) * 43758.5);
-	vec3 c = h < 0.4 ? vec3(1.0, 0.78, 0.55) : (h < 0.65 ? vec3(0.95, 0.95, 1.0) : (h < 0.85 ? vec3(1.0, 0.45, 0.7) : vec3(0.35, 0.9, 1.0)));
-	float shelf = 0.75 + 0.25 * step(0.5, fract(w.y * 1.4));
-	ALBEDO = c * 1.25 * shelf;
+	float h = hash(vec2(floor(w.z / 11.0), sign(w.x)));
+	vec3 wall = h < 0.4 ? vec3(1.0, 0.8, 0.6) : (h < 0.65 ? vec3(0.92, 0.94, 1.0) : (h < 0.85 ? vec3(1.0, 0.5, 0.72) : vec3(0.4, 0.9, 1.0)));
+	float row = floor(w.y / 0.62);
+	float fy = fract(w.y / 0.62);
+	// Goods: boxes and bottles of every colour, packed along each shelf.
+	vec2 cell = vec2(floor(w.z * 3.2), row);
+	float g = hash(cell + h * 17.0);
+	float tall = 0.35 + 0.45 * hash(cell + 3.1);
+	float good = step(fy, tall) * step(0.06, fract(w.z * 3.2)) * step(fract(w.z * 3.2), 0.92) * step(0.5, w.y) * step(w.y, 3.1);
+	vec3 goods = mix(vec3(0.95, 0.3, 0.2), vec3(0.2, 0.6, 1.0), g);
+	goods = mix(goods, vec3(1.0, 0.85, 0.3), step(0.7, hash(cell + 9.7)));
+	float shelf = step(0.94, fy) * step(0.5, w.y);
+	float strip = smoothstep(3.0, 3.35, w.y);
+	vec3 c = wall * (0.55 + 0.25 * fy);
+	c = mix(c, goods * 0.9, good * 0.85);
+	c = mix(c, vec3(0.12), shelf);
+	c += vec3(1.6) * strip;
+	ALBEDO = c * 1.2;
 }"""
 	m.shader = sh
 	return m
