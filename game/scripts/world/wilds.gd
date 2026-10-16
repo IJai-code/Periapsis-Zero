@@ -53,7 +53,7 @@ func _init() -> void:
 func _ready() -> void:
 	hq = Flow.high_quality()
 	var t := Time.get_ticks_msec()
-	for step in [_lay_route, _terrain, _vista, _water, _pillars, _arch, _city, _falls, _forest, _mist, _birds]:
+	for step in [_lay_route, _terrain, _vista, _water, _pillars, _arch, _city, _falls, _forest, _far_forest, _islands, _mist, _birds, _spores]:
 		step.call()
 		if "--timing" in OS.get_cmdline_user_args():
 			printerr("wilds %s %d ms" % [step.get_method(), Time.get_ticks_msec() - t])
@@ -933,14 +933,15 @@ func _forest() -> void:
 		if spec.has(pl[0]) and pl[0] != "shrub":
 			var size: Array = spec[pl[0]]
 			var s := xf.basis.get_scale().x
-			var b := Basis.from_euler(Vector3(0, xf.basis.get_euler().y, 0)).scaled(Vector3(size[1] * s * 0.55, size[0] * s, size[1] * s * 0.55))
+			var b := Basis.from_euler(Vector3(0, xf.basis.get_euler().y, 0)).scaled(Vector3(size[1] * s * 0.95, size[0] * s, size[1] * s * 0.95))
 			if not far.has(key):
 				far[key] = [[], []]
 			far[key][0].append(Transform3D(b, xf.origin))
 			far[key][1].append(pl[2])
 	for nk in near:
 		Flora.batch(self, String(nk).get_slice("|", 0), near[nk][0], near[nk][1], 0.0, near_far, hq and Flow.settings.cinematic)
-	var blob := _tree_mesh()
+	# Leaf-card crowns, not blobs: at a distance they still read as leaves.
+	var blob := _card_crown()
 	for key in far:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -994,6 +995,280 @@ func _undergrowth(rng: RandomNumberGenerator) -> void:
 # --- Air ------------------------------------------------------------------------
 
 var _mist_mat: ShaderMaterial
+
+# --- The far forest -----------------------------------------------------------
+
+var _crown: ArrayMesh
+
+## The hills under jungle: thousands of stand-in trees beyond the real
+## forest along the river, each a crown of leaf cards (two crossed and one
+## over the top) drawn as one multimesh. Up close the real trees take over.
+## A stand-in tree's crown: leaf cards, two crossed and one over the top,
+## and a dark trunk; unit size, scaled per tree. Built once.
+func _card_crown() -> ArrayMesh:
+	if _crown:
+		return _crown
+	var mesh := ArrayMesh.new()
+	var v := PackedVector3Array()
+	var n := PackedVector3Array()
+	var uv := PackedVector2Array()
+	var quad := func(a: Vector3, b: Vector3, c: Vector3, d: Vector3, up: Vector3):
+		for p in [[a, Vector2(0, 1)], [b, Vector2(1, 1)], [c, Vector2(1, 0)], [a, Vector2(0, 1)], [c, Vector2(1, 0)], [d, Vector2(0, 0)]]:
+			v.append(p[0])
+			uv.append(p[1])
+			n.append(up)
+	# A unit crown with volume from any side: three upright cards in a
+	# star, and a roof of four cards sloping down from the top, so from
+	# above it reads as a rounded crown, not a flat disc.
+	for k in 3:
+		var a := PI * k / 3.0
+		var d := Vector3(cos(a), 0, sin(a)) * 0.5
+		var nrm := Vector3(-sin(a), 0.6, cos(a)).normalized()
+		quad.call(Vector3(0, 0.25, 0) - d, Vector3(0, 0.25, 0) + d, Vector3(0, 1.0, 0) + d, Vector3(0, 1.0, 0) - d, nrm)
+	for k in 4:
+		var a := PI * 0.5 * k + PI * 0.25
+		var o := Vector3(cos(a), 0, sin(a))
+		var t := Vector3(-sin(a), 0, cos(a))
+		var top := Vector3(0, 1.0, 0) - o * 0.05
+		var rim := Vector3(0, 0.62, 0) + o * 0.48
+		quad.call(rim - t * 0.36, rim + t * 0.36, top + t * 0.2, top - t * 0.2, (o * 0.6 + Vector3.UP).normalized())
+	# A dark trunk under it.
+	quad.call(Vector3(-0.04, 0.0, 0), Vector3(0.04, 0.0, 0), Vector3(0.04, 0.3, 0), Vector3(-0.04, 0.3, 0), Vector3(0, 0, 1))
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	arr[Mesh.ARRAY_NORMAL] = n
+	arr[Mesh.ARRAY_TEX_UV] = uv
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/foliage_card.gdshader")
+	m.set_shader_parameter("card", load("res://art/foliage/dense.png"))
+	m.set_shader_parameter("sway", 0.25)
+	m.set_shader_parameter("cutoff", 0.4)
+	mesh.surface_set_material(0, m)
+	_crown = mesh
+	return mesh
+
+func _far_forest() -> void:
+	if "--notrees" in OS.get_cmdline_user_args():
+		return
+	var mesh := _card_crown()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var want := 32000 if hq else 11000
+	var xfs: Array = []
+	var cols: Array = []
+	var tries := 0
+	while xfs.size() < want and tries < want * 4:
+		tries += 1
+		# The slopes seen from the river: a band either side of it.
+		var z := rng.randf_range(-9600.0, 1300.0)
+		var off := rng.randf_range(260.0, 1150.0) * (-1.0 if rng.randf() < 0.5 else 1.0)
+		var x := centre_x(z) + off
+		# Groves: most trees near another, so the hills read as forest
+		# with clearings, not as a scatter.
+		if not xfs.is_empty() and rng.randf() < 0.7:
+			var near: Vector3 = (xfs[rng.randi() % xfs.size()] as Transform3D).origin
+			x = near.x + rng.randf_range(-20.0, 20.0)
+			z = near.z + rng.randf_range(-20.0, 20.0)
+		if absf(x - centre_x(z)) < 260.0 or absf(x) > 2180.0:
+			continue
+		if route_clearance(x, z) < 70.0:
+			continue
+		if z < -8540.0 and z > -8790.0 and absf(x - pad.x) < 420.0:
+			continue
+		var h := height(x, z)
+		if h < WATER_Y + 3.0:
+			continue
+		var slope := absf(height(x + 8.0, z) - h) + absf(height(x, z + 8.0) - h)
+		if slope > 9.0:
+			continue
+		var tall := rng.randf_range(16.0, 40.0)
+		var wide := tall * rng.randf_range(0.75, 1.05)
+		var b := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(wide, tall, wide))
+		xfs.append(Transform3D(b, Vector3(x, h - 0.8, z)))
+		var k := rng.randf()
+		cols.append(Color(0.62, 0.78, 0.58).lerp(Color(1.05, 1.0, 0.62), k * k) * rng.randf_range(0.75, 1.05))
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = mesh
+	mm.instance_count = xfs.size()
+	for i in xfs.size():
+		mm.set_instance_transform(i, xfs[i])
+		mm.set_instance_color(i, cols[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+# --- Floating islands ---------------------------------------------------------
+
+## Pandora's sign: islands of rock hanging in the air over the valley, their
+## tops forested, water spilling off their lips into the mist below.
+func _islands() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+	var rock := _rock_material()
+	var grass := ShaderMaterial.new()
+	grass.shader = load("res://shaders/terrain.gdshader")
+	grass.set_shader_parameter("ground_map", Surfaces._tex("Ground037", "Color"))
+	grass.set_shader_parameter("ground_normal", Surfaces._tex("Ground037", "NormalGL"))
+	grass.set_shader_parameter("rock_map", Surfaces._tex("Rock030", "Color"))
+	grass.set_shader_parameter("rock_normal", Surfaces._tex("Rock030", "NormalGL"))
+	grass.set_shader_parameter("water_level", -9999.0)
+	grass.set_shader_parameter("canopy_map", load("res://art/foliage/dense.png"))
+	var fall := ShaderMaterial.new()
+	fall.shader = load("res://shaders/waterfall.gdshader")
+	var placed: Array = []
+	var tries := 0
+	while placed.size() < (11 if hq else 7) and tries < 400:
+		tries += 1
+		var z := rng.randf_range(-8200.0, 600.0)
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var x := centre_x(z) + side * rng.randf_range(520.0, 1700.0)
+		if route_clearance(x, z) < 380.0:
+			continue
+		var far := false
+		for p: Vector3 in placed:
+			if Vector2(p.x - x, p.z - z).length() < 900.0:
+				far = true
+		if far:
+			continue
+		var r := rng.randf_range(70.0, 190.0)
+		var y := height(x, z) + rng.randf_range(260.0, 620.0)
+		var at := Vector3(x, y, z)
+		placed.append(at)
+		var body := MeshInstance3D.new()
+		body.mesh = _island_mesh(r, rng.randi())
+		body.material_override = rock
+		body.position = at
+		body.rotation.y = rng.randf() * TAU
+		body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(body)
+		var top := MeshInstance3D.new()
+		var cap := CylinderMesh.new()
+		cap.top_radius = r * 0.98
+		cap.bottom_radius = r * 1.02
+		cap.height = 6.0
+		cap.radial_segments = 20
+		top.mesh = cap
+		top.material_override = grass
+		top.position = at + Vector3(0, 1.0, 0)
+		add_child(top)
+		# A grove on top.
+		var grove := MultiMeshInstance3D.new()
+		var trees: MultiMesh = MultiMesh.new()
+		trees.transform_format = MultiMesh.TRANSFORM_3D
+		trees.use_colors = true
+		if not _crown:
+			continue
+		trees.mesh = _crown
+		var count := int(r * r / 150.0)
+		trees.instance_count = count
+		for i in count:
+			var a := rng.randf() * TAU
+			var d := sqrt(rng.randf()) * r * 0.85
+			var tall := rng.randf_range(20.0, 38.0)
+			trees.set_instance_transform(i, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(tall * 0.9, tall, tall * 0.9)), at + Vector3(cos(a) * d, 3.0, sin(a) * d)))
+			trees.set_instance_color(i, Color(0.62, 0.8, 0.58).lerp(Color(1.0, 0.95, 0.6), rng.randf()))
+		grove.multimesh = trees
+		grove.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(grove)
+		# Water spilling off the lip into a cloud of spray far below.
+		if rng.randf() < 0.75:
+			var a := rng.randf() * TAU
+			var lip := at + Vector3(cos(a) * r * 0.97, 3.0, sin(a) * r * 0.97)
+			var drop := rng.randf_range(260.0, 480.0)
+			var q := QuadMesh.new()
+			q.size = Vector2(rng.randf_range(14.0, 30.0), drop)
+			var w := MeshInstance3D.new()
+			w.mesh = q
+			w.material_override = fall
+			w.position = lip - Vector3(0, drop / 2.0, 0)
+			w.rotation.y = -a + PI / 2.0
+			w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(w)
+			_mist_at(lip - Vector3(0, drop - 20.0, 0), Vector2(160, 70), 0.9)
+
+## An island's underside: a rough inverted cone, ragged at the lip.
+func _island_mesh(r: float, seed_i: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_i
+	var rings := 9
+	var segs := 22
+	var depth := r * rng.randf_range(1.2, 1.9)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts: Array = []
+	for k in rings + 1:
+		var t := float(k) / rings
+		var row: Array = []
+		for i in segs:
+			var a := TAU * i / segs
+			var rr := r * pow(1.0 - t, 0.75) * (1.0 + 0.16 * sin(a * 3.0 + seed_i) + 0.1 * rng.randf_range(-1, 1))
+			row.append(Vector3(cos(a) * rr, -t * depth + (rng.randf_range(-6, 4) if k == 0 else 0.0), sin(a) * rr))
+		pts.append(row)
+	for k in rings:
+		for i in segs:
+			var j := (i + 1) % segs
+			var a: Vector3 = pts[k][i]
+			var b: Vector3 = pts[k][j]
+			var c: Vector3 = pts[k + 1][i]
+			var d: Vector3 = pts[k + 1][j]
+			for p in [a, c, b, b, c, d]:
+				st.add_vertex(p)
+	st.generate_normals()
+	return st.commit()
+
+# --- Spores ---------------------------------------------------------------------
+
+var _spore: CPUParticles3D
+
+## Pandora's air: points of pale light drifting round the ship, more of
+## them low over the forest.
+func _spores() -> void:
+	_spore = CPUParticles3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.35, 0.35)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	var tex := GradientTexture2D.new()
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	tex.gradient = g
+	m.albedo_texture = tex
+	q.material = m
+	_spore.mesh = q
+	_spore.amount = 380 if hq else 150
+	_spore.lifetime = 7.0
+	_spore.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_spore.emission_box_extents = Vector3(70, 30, 70)
+	_spore.direction = Vector3.UP
+	_spore.spread = 180.0
+	_spore.initial_velocity_min = 0.2
+	_spore.initial_velocity_max = 0.8
+	_spore.gravity = Vector3(0, 0.05, 0)
+	_spore.local_coords = false
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.5, 1.6, 1.4, 0.0))
+	ramp.add_point(0.3, Color(0.6, 1.8, 1.3, 0.9))
+	ramp.set_color(ramp.get_point_count() - 1, Color(0.9, 1.6, 0.6, 0.0))
+	_spore.color_ramp = ramp
+	add_child(_spore)
+
+func _process(_dt: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if _spore and cam:
+		_spore.global_position = cam.global_position - cam.global_basis.z * 40.0
 
 func _mist_at(at: Vector3, size: Vector2, density := 0.75) -> void:
 	if not _mist_mat:

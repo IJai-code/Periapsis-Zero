@@ -34,19 +34,40 @@ void fragment() {
 	// Ground: two scales of the scan (the fine one fades out with distance,
 	// where it would only crawl), tinted to wet jungle green.
 	vec3 g = mix(texture(ground_map, wpos.xz / 53.0).rgb, texture(ground_map, wpos.xz / 9.0).rgb, 0.55 * fine);
-	vec3 jungle = g * mix(vec3(0.34, 0.6, 0.24), vec3(0.5, 0.72, 0.3), drift) * 0.9;
-	// Forest canopy (rendered leaves) on gentle ground, in large patches.
-	vec4 can = texture(canopy_map, wpos.xz / 24.0 + drift * 0.8);
-	// Only at a distance: up close the floor is ground and undergrowth, and
-	// the tiling would show.
-	float forest = smoothstep(180.0, 700.0, dist) * smoothstep(0.12, 0.4, drift + 0.2) * smoothstep(0.7, 0.9, n.y) * smoothstep(water_level + 4.0, water_level + 14.0, wpos.y);
-	vec3 canopy = mix(vec3(0.05, 0.1, 0.03), can.rgb, can.a) * vec3(0.85, 1.0, 0.8);
-	jungle = mix(jungle, canopy, forest * 0.9);
-	// Rock on the steep parts, mapped from the side it faces.
+	// The floor: deep moss in the hollows, brighter grass on the rises, dry
+	// clearings here and there, all drifting at several scales.
+	float patch = vnoise(wpos.xz / 90.0) * 0.6 + vnoise(wpos.xz / 23.0) * 0.4;
+	vec3 moss = vec3(0.18, 0.36, 0.16);
+	vec3 grass = vec3(0.44, 0.66, 0.26);
+	vec3 dry = vec3(0.62, 0.56, 0.32);
+	vec3 floor_col = mix(moss, grass, smoothstep(0.35, 0.7, patch));
+	floor_col = mix(floor_col, dry, smoothstep(0.78, 0.92, vnoise(wpos.xz / 160.0 + 7.0)) * 0.6);
+	vec3 jungle = g * floor_col * mix(0.85, 1.12, drift) * 1.25;
+	// Forest canopy (rendered leaves) over the land beyond the near ground:
+	// on the flats and up the slopes, in big stands with clearings.
+	// Two scales, turned against each other, so the leaves never tile.
+	vec2 q = wpos.xz;
+	vec4 can = texture(canopy_map, vec2(q.x * 0.8 - q.y * 0.6, q.x * 0.6 + q.y * 0.8) / 37.0 + drift * 0.8);
+	vec4 can2 = texture(canopy_map, q / 83.0 - drift * 0.3);
+	float stand = smoothstep(0.25, 0.45, vnoise(wpos.xz / 260.0) * 0.7 + drift * 0.5);
+	float forest = smoothstep(380.0, 1100.0, dist) * stand * smoothstep(0.45, 0.72, n.y) * smoothstep(water_level + 4.0, water_level + 14.0, wpos.y);
+	vec3 canopy = mix(vec3(0.03, 0.07, 0.025), mix(can.rgb, can2.rgb, 0.4), max(can.a, can2.a)) * vec3(0.8, 1.0, 0.75);
+	jungle = mix(jungle, canopy, forest * 0.95);
+	// Rock on the steep parts, mapped from the side it faces, in bands of
+	// strata that wander a little.
 	vec2 side = abs(n.x) > abs(n.z) ? wpos.zy / 14.0 : wpos.xy / 14.0;
 	vec3 r = texture(rock_map, side * vec2(1.0, 0.35)).rgb * rock_tint * 1.6;
+	// Strata: uneven beds, some thick, some thin, fading in and out.
+	float bed = wpos.y * 0.31 + vnoise(wpos.xz / 55.0) * 6.0 + vnoise(side * 0.7) * 1.2;
+	float strata = vnoise(vec2(bed, 3.7)) * 2.0 - 1.0;
+	r *= 0.86 + 0.14 * strata * smoothstep(0.2, 0.6, vnoise(wpos.xz / 120.0));
+	// Moss creeping onto the rock's upper faces.
+	r = mix(r, moss * 1.3, smoothstep(0.35, 0.62, n.y) * 0.7);
 	vec3 col = mix(r, jungle, flat_);
-	float wet = 1.0 - smoothstep(water_level, water_level + 3.0, wpos.y);
+	// Pale sand where the river has worked the banks, then wet and dark.
+	float bank = smoothstep(water_level + 5.0, water_level + 1.5, wpos.y);
+	col = mix(col, vec3(0.62, 0.55, 0.42) * g * 1.8, bank * 0.7 * flat_);
+	float wet = 1.0 - smoothstep(water_level, water_level + 1.6, wpos.y);
 	col *= mix(1.0, 0.45, wet);
 	ALBEDO = col;
 	vec3 nm = flat_ > 0.5 ? texture(ground_normal, wpos.xz / 9.0).rgb : texture(rock_normal, side).rgb;

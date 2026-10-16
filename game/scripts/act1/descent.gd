@@ -76,6 +76,10 @@ func _ready() -> void:
 	var i := args.find("--beat")
 	var start: String = args[i + 1] if i >= 0 and i + 1 < args.size() else Flow.beat
 	Flow.beat = ""
+	# From a browser link: #descent/autocp2 flies itself from checkpoint 2.
+	if start.begins_with("auto"):
+		_auto = true
+		start = start.trim_prefix("auto")
 	if start == "land":
 		_place_at(wilds.gates.size())
 		_land()
