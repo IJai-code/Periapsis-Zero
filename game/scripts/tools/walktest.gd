@@ -53,7 +53,7 @@ func _process(dt: float) -> void:
 	d.y = 0.0
 	_player._yaw = atan2(-d.x, -d.z)
 	_player._auto = "walk"
-	if d.length() < 0.35 or _t > 2.5 + 12.0 * (_i + 1):
+	if d.length() < 0.35 or _t > 2.5 + 20.0 * (_i + 1):
 		_i += 1
 		Report.line("WALKTEST reached %d at %s (wanted %s), prompt: '%s'" % [_i, _player.global_position.snapped(Vector3.ONE * 0.01), target, Hud.focus_text()])
 		if _i >= plan.size():

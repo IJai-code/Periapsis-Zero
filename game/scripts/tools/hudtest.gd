@@ -26,12 +26,13 @@ func _ready() -> void:
 	Hud.letterbox(false)
 	await get_tree().create_timer(1.0).timeout
 	fails += _check("objective after cutscene", Hud._obj_small.modulate.a > 0.9 and Hud._play_ui.modulate.a > 0.9 and Hud._obj_text.text.contains("during"))
-	# 3. A new objective while the last one's banner is still fading.
+	# 3. A new objective straight after another: the corner shows the new
+	# one, and nothing is announced across the middle of the screen.
 	Hud.objective("one")
-	await get_tree().create_timer(4.6).timeout
+	await get_tree().create_timer(0.4).timeout
 	Hud.objective("two")
 	await get_tree().create_timer(0.8).timeout
-	fails += _check("banner over a fading banner", Hud._obj_big.modulate.a > 0.9)
+	fails += _check("new objective replaces the last", Hud._obj_small.modulate.a > 0.9 and Hud._obj_text.text.contains("two") and Hud._obj_big.modulate.a < 0.05)
 	# 4. A prompt shown during a cutscene appears when it ends.
 	Hud.letterbox(true)
 	Hud.prompt("cut")

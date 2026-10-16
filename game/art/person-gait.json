@@ -1,18 +1,18 @@
 {
  "crowd1": {
-  "crouch_walk": 0.727,
-  "run": 4.264,
-  "walk": 1.631
+  "crouch_walk": 0.726,
+  "run": 4.26,
+  "walk": 1.629
  },
  "crowd2": {
-  "crouch_walk": 0.37,
-  "run": 2.574,
+  "crouch_walk": 0.371,
+  "run": 2.575,
   "walk": 1.208
  },
  "crowd3": {
   "crouch_walk": 0.584,
-  "run": 3.996,
-  "walk": 1.5
+  "run": 3.999,
+  "walk": 1.502
  },
  "okafor": {
   "crouch_walk": 0.766,

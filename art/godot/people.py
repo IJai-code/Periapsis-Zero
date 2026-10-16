@@ -290,7 +290,7 @@ def aim(arm, name, direction):
     bpy.context.view_layer.update()
 
 
-def relaxed(arm, t=0.0, talk=0.0):
+def relaxed(arm, t=0.0, talk=0.0, fist=0.0):
     """A standing pose out of the T: arms down, a little bend everywhere,
     with breathing, a weight shift and (for talking) head and hand moving.
     `t` is the time in seconds; all motion loops every 4 seconds."""
@@ -315,7 +315,7 @@ def relaxed(arm, t=0.0, talk=0.0):
         rotate(arm, f'hand_{s}', (0, 0, 1), -sg * 36.0)
         for f in ('index', 'middle', 'ring', 'pinky'):
             for k in ('01', '02', '03'):
-                rotate(arm, f'{f}_{k}_{s}', (0, 1, 0), sg * (16 if k == '01' else 22))
+                rotate(arm, f'{f}_{k}_{s}', (0, 1, 0), sg * ((16 if k == '01' else 22) + 34.0 * fist))
     # The body: a slow weight shift and breathing in the chest.
     rotate(arm, 'pelvis', (0, 1, 0), sway * 1.5)
     # Feet under the hips, not planted wide.
@@ -347,7 +347,9 @@ def stride(arm, t, period, run):
     high as it swings through. The opposite arm swings with it, the elbow
     bending more as it comes forward; the hips turn and drop toward the
     swinging leg and shift over the planted one; the chest turns back."""
-    relaxed(arm, 0.0, 0.0)
+    # (Running hands close into loose fists: curled in the rest pose, so the
+    # curl is fixed in the hand and rides the arm's swing seamlessly.)
+    relaxed(arm, 0.0, 0.0, fist=run)
     ph = 2 * math.pi * t / period
     # Thighs swing further forward than back (a running hip flexes to ~45
     # degrees but extends only ~25): a symmetric swing reads as the splits.
@@ -374,11 +376,6 @@ def stride(arm, t, period, run):
         ahead = max(0.0, -f)
         rotate(arm, f'upperarm_{s}', (1, 0, 0), (13.0 + 17.0 * run) * f + 8.0 * run)
         rotate(arm, f'lowerarm_{s}', (1, 0, 0), -(8.0 + 58.0 * run) - (22.0 - 10.0 * run) * ahead)
-        # Running hands close into loose fists.
-        if run:
-            for fg in ('index', 'middle', 'ring', 'pinky'):
-                for k in ('01', '02', '03'):
-                    rotate(arm, f'{fg}_{k}_{s}', (0, 1, 0), sgn * 34.0 * run)
     rotate(arm, 'pelvis', (0, 0, 1), math.sin(ph) * (5.0 + 3.0 * run))
     # The hip drops on the side of the swinging leg.
     rotate(arm, 'pelvis', (0, 1, 0), math.cos(ph) * (3.0 + 1.0 * run))
@@ -498,6 +495,32 @@ def seated(arm, t=0.0):
     rotate(arm, 'spine_01', (1, 0, 0), 4.0)
 
 
+def _fcurves(action):
+    """An action's curves, in Blender's layered actions (4.4+) or the old kind."""
+    try:
+        return list(action.fcurves)
+    except AttributeError:
+        out = []
+        for layer in action.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    out += list(bag.fcurves)
+        return out
+
+
+def close_loop(action):
+    """Make a looping clip's last key its first, exactly: a clip baked from
+    world-space posing can drift a degree or two over the cycle, and the
+    seam then shows as a twitch every loop."""
+    for fc in _fcurves(action):
+        ks = fc.keyframe_points
+        if len(ks) > 1:
+            ks[-1].co[1] = ks[0].co[1]
+            ks[-1].handle_left[1] = ks[0].co[1]
+            ks[-1].handle_right[1] = ks[0].co[1]
+        fc.update()
+
+
 def bake_pose(arm, name, fn, period=2.0, fps=24, step=4):
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
@@ -513,6 +536,7 @@ def bake_pose(arm, name, fn, period=2.0, fps=24, step=4):
             pb.keyframe_insert('rotation_quaternion', frame=f)
             pb.keyframe_insert('location', frame=f)
         arm.animation_data.action = None
+    close_loop(action)
     action.use_fake_user = True
     track = arm.animation_data.nla_tracks.new()
     track.name = name
@@ -533,6 +557,7 @@ def bake_stride(arm, name, period, run, fps=24):
             pb.keyframe_insert('rotation_quaternion', frame=f)
             pb.keyframe_insert('location', frame=f)
         arm.animation_data.action = None
+    close_loop(action)
     action.use_fake_user = True
     track = arm.animation_data.nla_tracks.new()
     track.name = name

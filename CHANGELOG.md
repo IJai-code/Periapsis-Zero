@@ -5,6 +5,96 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Act Two, Lowdeck, the Rim, walk-in doors and a real walk, 15 October 2026
+
+- **Act Two, the governor** (docs/story.md):
+  - **Lowdeck:** Hearth's lower ring at night, in the rain.
+    - Get Renn to the Lantern past the Security drones' searchlights.
+    - Meet Vex at the Ninth Orbit; she wants two jobs done.
+    - Bring the journalist Okafor's shuttle in past the Warden's
+      interceptors.
+    - Act One's end now leads into it.
+  - **Open-world play between the story missions:**
+    - The street and the Rim are free to roam.
+    - A job board (at a street kiosk, or J in the cockpit) and a map (M).
+    - Bounties on Hollow aces, courier runs, a ring race round Hearth,
+      salvage by tractor, and distress calls that pay a bounty per raider.
+    - Contraband runs draw Security's scanners.
+    - Heat: shoot a civilian or get scanned with the wrong cargo and
+      Hearth Security's interceptors hunt you, up to five stars, until
+      they lose you. The berth stays locked while they have a hold on
+      you.
+  - **The simulator in the game:**
+    - Docking with the tanker Calla is flown by her orbit (the
+      Hill-Clohessy-Wiltshire equations), the flight school's lesson:
+      burn forward and you rise and fall behind.
+    - The coast ahead is drawn as you burn; time x4 while coasting.
+    - A check docks with it by itself every run.
+  - **New people** built with MakeHuman in Blender: Vex, Okafor, the
+    Warden.
+- **Lowdeck itself** (art/godot/lowdeck.py, built in Blender):
+  - **The street:** wet asphalt and tiled pavements; stocked shops lit
+    behind glass; neon on every sign band; blade and rooftop signs;
+    awnings; balconies, air-conditioners, fire escapes and water tanks;
+    alleys with steam; cables and paper lanterns strung across; a
+    skybridge.
+  - **The ring:** its city curves up overhead, with the axial light
+    tube dimmed for the night shift.
+  - **The life in it:** towers with lit windows (a shader, so each one
+    differs); flying traffic; Security drones with searchlights; a
+    giant hologram; a crowd; a noodle stall.
+  - **Puddles reflect the neon** by a cheap planar trick that works in
+    both renderers.
+  - **Frame rate:** 60 fps in the browser on this Mac's GPU. In
+    software GL (the CI stand-in for the weakest machines) it is
+    7-8 fps, as Down the Well is: a real Chromebook GPU sits well above
+    that.
+- **Down the Well:**
+  - Floating islands over the valley, forested on top, spilling
+    waterfalls into the mist.
+  - Leaf-card forest up every slope.
+  - Spores drifting in the air.
+  - Strata in the cliffs, pale sand on the banks, moss on the rock.
+  - A river with three scales of ripple and the evening sky in it.
+- **Doors and boarding, done by the character:**
+  - Doors slide open as the pilot walks up, and walking through moves
+    the story on: the corridor, the bridge hatch (once Hale has briefed
+    you), Hearth's docking bay (once Mara has given the job). The sets
+    have real doorways now.
+  - Walk up to the Kestrel and the pilot climbs her ladder, a new climb
+    animation, steps over the sill and drops in.
+  - The ladder retracts into the hull before she lifts; it used to hang
+    in the air.
+- **The walk, rebuilt in Blender:**
+  - Arms close to the body, palms in, the elbow bending as the arm
+    comes forward.
+  - Heel strike and push-off, the hip dropping over the swinging leg.
+  - Each stride's ground speed is measured from its own feet when baked
+    (art/person-gait.json), and the game plays it at the speed the body
+    moves. The run used to skate at nearly twice its stride.
+- **Black Box:**
+  - Shields flare at the point hit instead of a whole cyan shell, the
+    "green clouds" that hid the targets.
+  - Gunfire crosses the drifting wreck.
+  - The interceptors are lighter.
+  - A retry keeps the kills already made and says how many are left;
+    it used to spawn all four again.
+- **A calmer HUD:**
+  - No running list of damage numbers.
+  - The threat list shows only hostiles and the objective (Tab for
+    all), with a compact target panel and status gauge.
+  - Missile warning on one line.
+  - Prompts dim after a while.
+  - The click hint is a small line at the bottom.
+  - New objectives no longer flash across the middle of the screen.
+- **Working without disturbing anyone:**
+  - The checks run headless. A full run of all 30 was measured with no
+    focus taken.
+  - Visual checks go through the browser build in headless Chrome
+    (scripts/godot-webshot.mjs), with timed clicks and keys and the
+    frame rate.
+  - Checks keep their own save, so they never touch a player's progress.
+
 ### The desktop game on weak PCs, 13 October 2026
 
 A Windows PC lagged so badly in the desktop game that it nearly crashed,

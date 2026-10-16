@@ -69,7 +69,30 @@ moves along convoy lanes.
    promised nobody would be hurt, and she has his ledger. The Hollow are
    Rook's, and the governor of Hearth seals his permits.
 
-## Act Two: the governor (to come)
+## Act Two: the governor
 
-Bring Renn home quietly. Decide what she is owed. Take Rook's ledger to
-someone the governor doesn't own, if there is anyone.
+New people:
+
+- **Vex.** Lowdeck's fixer, at the Ninth Orbit. Sleek, amused, never sits
+  with her back to a door. Wants work, not money ("you haven't got any").
+- **Okafor.** A journalist the governor does not own. Sixties, tired eyes,
+  careful hands. Dry: "Stolen. Funny word for a ledger he's in."
+- **The Warden.** Hearth Security's chief, the governor's man. A good suit,
+  a hat he never takes off. His drones log every face in Lowdeck.
+- **The cook** at the noodle stall, who has opinions about your credit.
+
+11. **Lowdeck.** Hearth's lower ring at night: a wet neon street at the
+    bottom of a habitat ring, the city curving up overhead. Get Renn from
+    the berth lift to the Lantern, a back room at the end of an alley,
+    without a Security drone's light falling on her. There she shows the
+    ledger: Rook's payments and the governor's permits, locked.
+12. **Vex.** At the Ninth Orbit. She'll open the ledger for two jobs from
+    her board. The street and the Rim are open from here: bounties on
+    Hollow aces, courier runs (some carrying what Security scans for), a
+    race round Hearth, salvage, distress calls in the lanes, and the
+    tanker Calla to dock with by hand, by the orbits.
+13. **Okafor.** Vex cracks the first layer: a name nobody owns. Okafor's
+    shuttle comes in at night and the Warden sends interceptors to take
+    the ledger back. Bring him in. He puts it out on the three channels
+    the governor doesn't own.
+14. **(To come.)** The governor answers. Rook stops being patient.
