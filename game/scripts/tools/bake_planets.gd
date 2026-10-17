@@ -96,7 +96,7 @@ func _deco(b: ReachBody) -> Dictionary:
 	var spec := {}
 	match b.key:
 		"hearthstone":
-			spec = {"pine": 2600, "bush": 900, "rock": 260, "stump": 40}
+			spec = {"pine": 3200, "bush": 1100, "rock": 320, "stump": 60}
 		"verdance":
 			spec = {"giant": 700, "tree": 2600, "palm": 700, "fern": 2600, "rock": 200}
 		"ashfall":
@@ -140,7 +140,8 @@ func _deco(b: ReachBody) -> Dictionary:
 			if kind == "palm" and h > b.sea + 6.0:
 				continue
 			var p := d * (b.radius + h - 0.3)
-			var s := rng.randf_range(0.75, 1.35)
+			# The valley's pines are tall (19 to 30 m at scale 1).
+			var s := rng.randf_range(0.6, 1.05) if kind == "pine" else rng.randf_range(0.75, 1.35)
 			data.append_array([p.x, p.y, p.z, d.x, d.y, d.z, rng.randf() * TAU, s])
 			placed += 1
 		out[kind] = data

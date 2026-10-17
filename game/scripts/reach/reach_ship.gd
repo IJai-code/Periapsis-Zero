@@ -15,7 +15,7 @@ signal destroyed(cause: String)
 
 const MAIN := 20.0
 const SIDE := 12.0
-const EYE := Vector3(0.0, 1.12, -3.35)
+const EYE := Vector3(0.0, 1.3, -3.35)
 
 var system: ReachSystem
 var explorer: Explorer
@@ -29,6 +29,7 @@ var target := ""
 var landed := false
 var _mouse := Vector2.ZERO
 var _canopy: Node3D
+var _canopy_frame: Node3D
 var _canopy_open := 0.0
 var _plumes: Array[ShaderMaterial] = []
 var _rumble: AudioStreamPlayer
@@ -39,6 +40,11 @@ var _view_chase := false
 var _board: Usable
 var _moving := false
 var _dead := false
+var _screen_main: Label3D
+var _screen_status: Label3D
+var _needle: Node3D
+var _alarm_mat: StandardMaterial3D
+var _alarm_t := 0.0
 ## Controls let go (the map is open).
 var hold := false
 
@@ -63,6 +69,8 @@ func _ready() -> void:
 	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		if mi.name == "canopy":
 			_canopy = mi
+		elif mi.name == "canopy_frame":
+			_canopy_frame = mi
 	_shapes()
 	_gear()
 	_plumes_make()
@@ -161,45 +169,96 @@ func _plumes_make() -> void:
 ## The cockpit as seen from the seat: a dashboard with lit screens, the
 ## canopy's frame, the sill. Only drawn while piloted from inside.
 func _cockpit() -> void:
-	cockpit = Node3D.new()
+	# The cockpit (art/godot/kestrel_cockpit.py), in the ship's own space.
+	cockpit = load("res://art/kestrel-cockpit.glb").instantiate()
+	Surfaces.apply(cockpit)
 	add_child(cockpit)
-	var dark := Surfaces.get_material("paint_dark")
-	var parts := [
-		[Vector3(0.0, 0.78, -4.25), Vector3(1.05, 0.34, 0.55), dark],
-		[Vector3(0.0, 0.6, -3.35), Vector3(1.1, 0.12, 2.0), dark],
-		[Vector3(-0.56, 0.86, -3.3), Vector3(0.06, 0.3, 2.2), dark],
-		[Vector3(0.56, 0.86, -3.3), Vector3(0.06, 0.3, 2.2), dark],
-	]
-	for p in parts:
-		var mi := MeshInstance3D.new()
-		var b := BoxMesh.new()
-		b.size = p[1]
-		b.material = p[2]
-		mi.mesh = b
-		mi.position = p[0]
+	for mi: MeshInstance3D in cockpit.find_children("*", "MeshInstance3D", true, false):
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		cockpit.add_child(mi)
-	# Three screens on the dash, angled at the pilot.
-	for k in 3:
-		var scr := MeshInstance3D.new()
-		var q := QuadMesh.new()
-		q.size = Vector2(0.26, 0.17)
-		var sm := StandardMaterial3D.new()
-		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		sm.albedo_color = [Color(0.95, 0.5, 0.2), Color(0.35, 0.85, 0.55), Color(0.95, 0.75, 0.4)][k] * 0.55
-		q.material = sm
-		scr.mesh = q
-		scr.position = Vector3(-0.33 + k * 0.33, 0.97, -4.0)
-		scr.rotation_degrees = Vector3(-28.0, 0.0, 0.0)
-		cockpit.add_child(scr)
+	var glow := func(c: Color, e: float) -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c * 0.3
+		m.emission_enabled = true
+		m.emission = c
+		m.emission_energy_multiplier = e
+		return m
+	var named := {"screen_main": glow.call(Color(0.12, 0.3, 0.72), 1.2), "screen_status": glow.call(Color(0.04, 0.26, 0.1), 1.5),
+		"alarm_lamp": glow.call(Color(0.5, 0.06, 0.04), 1.0), "knob_blue": glow.call(Color(0.35, 0.55, 1.0), 0.8),
+		"knob_teal": glow.call(Color(0.3, 0.9, 0.8), 0.8), "knob_cream": glow.call(Color(1.0, 0.92, 0.75), 0.7)}
+	for key in named:
+		var mi := cockpit.find_child(key, true, false) as MeshInstance3D
+		if mi:
+			mi.material_override = named[key]
+	_alarm_mat = named["alarm_lamp"]
+	# The dial's needle turns about its centre.
+	var needle := cockpit.find_child("dial_needle", true, false) as Node3D
+	if needle:
+		_needle = Node3D.new()
+		cockpit.add_child(_needle)
+		_needle.position = Vector3(0.4, 0.84 + 0.12, -3.94 - 0.3)
+		needle.get_parent().remove_child(needle)
+		_needle.add_child(needle)
+		needle.transform = Transform3D(Basis(), Vector3(0.0, 0.025, 0.0))
+	# What the screens say.
+	_screen_main = _screen_text(Vector3(0.0, 1.12, -4.368), Vector3(0, 0.53, 0.848), Color(0.82, 0.95, 1.0), 34)
+	_screen_status = _screen_text(Vector3(-0.388, 1.07, -4.28), Vector3(0.377, 0.375, 0.847), Color(0.55, 1.0, 0.62), 26)
 	var lamp := OmniLight3D.new()
-	lamp.light_color = Color(1.0, 0.7, 0.45)
-	lamp.light_energy = 0.35
-	lamp.omni_range = 1.6
-	lamp.position = Vector3(0.0, 1.05, -3.8)
+	lamp.light_color = Color(1.0, 0.75, 0.5)
+	lamp.light_energy = 0.5
+	lamp.omni_range = 1.8
+	lamp.position = Vector3(0.0, 1.35, -3.6)
 	lamp.shadow_enabled = false
 	cockpit.add_child(lamp)
 	cockpit.visible = false
+
+func _screen_text(at: Vector3, normal: Vector3, col: Color, size: int) -> Label3D:
+	var l := Label3D.new()
+	l.font = Style.mono_bold
+	l.font_size = size
+	l.pixel_size = 0.0006
+	l.modulate = col
+	l.outline_size = 0
+	l.shaded = false
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.width = 560.0
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	cockpit.add_child(l)
+	var n := normal.normalized()
+	l.transform = Transform3D(Basis.looking_at(-n, Vector3.UP), at + n * 0.004)
+	return l
+
+## The cockpit's screens, dial and alarm, while flown from inside.
+func _instruments(dt: float) -> void:
+	if not cockpit or not cockpit.visible:
+		return
+	_alarm_t += dt
+	var r := get_tree().get_first_node_in_group("reach_root")
+	var b := system.ruling()
+	var v := linear_velocity
+	if target != "":
+		v -= system.world_vel(target)
+	var speed := v.length()
+	var lines := ["%d m/s" % int(speed)]
+	if b.key != "lantern":
+		lines.append("%d m  %s" % [int(global_position.length() - b.radius), b.title.to_upper()])
+	else:
+		lines.append("OPEN SPACE")
+	if target != "":
+		var d := global_position.distance_to(system.world(target)) - (system.bodies[target] as ReachBody).radius
+		lines.append("LOCK  %s  %s" % [(system.bodies[target] as ReachBody).title.to_upper(), ("%d m" % int(d)) if d < 1000.0 else ("%.1f km" % (d / 1000.0))])
+	if r and r.system:
+		var t: float = r.system.t
+		lines.append("%02d:%02d" % [int(t) / 60, int(t) % 60])
+	_screen_main.text = "\n".join(lines)
+	_screen_status.text = "KESTREL\nHULL %d%%\n%s\n%s" % [int(integrity), "GEAR DOWN" if landed else "IN FLIGHT", "MATCHING" if Input.is_key_pressed(KEY_F) and target != "" else ""]
+	if _needle:
+		_needle.rotation.z = lerpf(2.1, -2.1, clampf(speed / 200.0, 0.0, 1.0))
+	var late: bool = r != null and r.system != null and float(r.system.t) > 1250.0
+	var alarm: bool = integrity < 40.0 or late
+	var on: bool = alarm and fmod(_alarm_t, 0.8) < 0.4
+	_alarm_mat.emission = Color(1.0, 0.12, 0.06) if on else Color(0.5, 0.06, 0.04)
+	_alarm_mat.emission_energy_multiplier = 4.0 if on else 0.8
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not piloted or _moving or _dead or hold:
@@ -290,6 +349,7 @@ func _landed_state() -> void:
 	landed = slow and get_contact_count() > 0 and b.key != "lantern"
 
 func _process(dt: float) -> void:
+	_instruments(dt)
 	var p := clampf(-_thrust.z, 0.0, 1.0) if piloted else 0.0
 	for pm in _plumes:
 		pm.set_shader_parameter("power", 0.2 + p * 1.6)
@@ -319,6 +379,8 @@ func _cameras() -> void:
 	cockpit.visible = not _view_chase
 	if _canopy:
 		_canopy.visible = _view_chase
+	if _canopy_frame:
+		_canopy_frame.visible = _view_chase or not piloted
 
 ## Climb in: the explorer's view rises up her side, over the sill and down
 ## into the seat, as the canopy lifts and closes.
@@ -328,7 +390,7 @@ func board() -> void:
 	if not Lore.known("hearth_codes"):
 		var r := get_tree().get_first_node_in_group("reach_root")
 		if r:
-			r.hud.caption("The canopy is locked. Mara has the launch codes.", 3.5)
+			r.hud.caption("The canopy is locked. Okafor has the launch codes, at the observatory.", 3.5)
 		Sfx.play("beep", -8.0, 0.7)
 		return
 	_moving = true
@@ -366,6 +428,8 @@ func leave() -> void:
 	cockpit.visible = false
 	if _canopy:
 		_canopy.visible = true
+	if _canopy_frame:
+		_canopy_frame.visible = true
 	cam.make_current()
 	var down := -system.gravity(global_position).normalized()
 	var ground := global_transform * Vector3(-3.2, -0.2, -3.4)
@@ -401,6 +465,8 @@ func reset_to(xf: Transform3D) -> void:
 	cockpit.visible = false
 	if _canopy:
 		_canopy.visible = true
+	if _canopy_frame:
+		_canopy_frame.visible = true
 	if explorer and explorer.process_mode == Node.PROCESS_MODE_DISABLED:
 		explorer.process_mode = Node.PROCESS_MODE_INHERIT
 		explorer.visible = true

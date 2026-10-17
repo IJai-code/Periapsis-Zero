@@ -142,12 +142,52 @@ static func _make(name: String) -> Material:
 		"stone": return _obj(_pbr("Rock030", 0.5, Color(0.78, 0.76, 0.72)))
 		"bark": return _obj(_pbr("Bark012", 0.8, Color(0.7, 0.6, 0.5)))
 		"lantern": return _glow(Color(1.0, 0.72, 0.38), 4.0)
+		# The valley's cliffs (art/godot/hearth_valley.py): blue-grey strata
+		# and warmer bands.
+		"cliff": return _obj(_pbr("Rock030", 0.22, Color(0.62, 0.66, 0.72)))
+		"path_dirt": return _path_dirt()
+		"dome_glass": return _dome_glass()
+		"cliff_warm": return _obj(_pbr("Rock030", 0.22, Color(0.82, 0.72, 0.6)))
 		# The Choir's stonework, their glowing writing, a core (art/godot/reach_sites.py).
 		"choir_stone": return _obj(_pbr("Rock030", 0.35, Color(0.92, 0.86, 0.78)))
 		"choir_glyph": return _glow(Color(0.5, 0.78, 1.0), 1.4)
 		"core_glow": return _glow(Color(0.7, 0.9, 1.0), 9.0)
 		"neon_ion": return _glow(ION, 6.0)
 	return null
+
+## The observatory's dome: tinted glass, seen from inside and out.
+static func _dome_glass() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.55, 0.78, 0.9, 0.32)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 0.08
+	m.metallic_specular = 0.9
+	m.rim_enabled = true
+	m.rim = 0.6
+	m.rim_tint = 0.3
+	return m
+
+## A worn dirt path: brown, soft-edged so it fades into the grass.
+static func _path_dirt() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_disabled;
+uniform sampler2D ground : source_color, filter_linear_mipmap, repeat_enable;
+varying vec3 wpos;
+void vertex() { wpos = VERTEX; }
+void fragment() {
+	vec3 g = texture(ground, wpos.xz * 0.18 + wpos.y * 0.05).rgb;
+	vec3 dirt = mix(vec3(0.42, 0.33, 0.24), vec3(0.55, 0.45, 0.32), g.r);
+	ALBEDO = dirt * (0.85 + 0.3 * g.g);
+	ROUGHNESS = 0.95;
+	float edge = smoothstep(0.0, 0.22, UV.x) * smoothstep(1.0, 0.78, UV.x);
+	ALPHA = edge;
+}"""
+	m.shader = sh
+	m.set_shader_parameter("ground", _tex("Ground037", "Color"))
+	return m
 
 ## Mapped in the object's own space (for things on a small world).
 static func _obj(m: ShaderMaterial) -> ShaderMaterial:

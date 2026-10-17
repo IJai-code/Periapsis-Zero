@@ -15,7 +15,7 @@ const PLACES := {
 ## id: [place, text, leads to (a place this is a rumour of, or "")]
 const FACTS := {
 	"hearth_crash": ["hearth", "Your Kestrel came down outside Hearth three days ago, burning, half an hour after the Aster's distress call. The village pulled you out.", ""],
-	"hearth_codes": ["hearth", "Mara gave you the Kestrel's launch codes. The ship will fly.", ""],
+	"hearth_codes": ["hearth", "Okafor gave you the Kestrel's launch codes. She waits on top of the launch tower: the lift at its foot goes up.", ""],
 	"hearth_loop": ["hearth", "You woke at the campfire again, the same morning. Nobody else remembers.", ""],
 	"hearth_lantern": ["hearth", "Okafor says the Lantern is dying: it flickered three nights ago and has been swelling since.", ""],
 	"hearth_choir": ["hearth", "The Choir lived in the Reach before anyone. Their writing spirals; Okafor's translator reads it.", ""],
@@ -160,28 +160,28 @@ static func forget_all() -> void:
 const TALK := {
 	"mara": {
 		"start": {"first": [["hearth_loop", "again"], ["@mara", "short"]], "lines": [
-			["Mara Voss", "There you are. On your feet, too. You came down burning, pilot. Three days ago, half an hour after the Aster called mayday."],
-			["Mara Voss", "We pulled you out of the cockpit. Okafor's people patched your Kestrel. She's on the pad."],
+			["Mara Voss", "There you are. Sleep well? You came down burning, pilot. Three days ago, half an hour after the Aster called mayday."],
+			["Mara Voss", "We pulled you out of the cockpit and patched your Kestrel. She's up on the launch tower, fuelled."],
+			["Mara Voss", "Okafor has her launch codes. He wanted a word with you before you fly. The observatory: the glass dome on the rise. Follow the lamps from the signpost."],
 		], "learn": ["hearth_crash"], "choices": [
-			["I need to fly.", "codes", "", ""],
+			["How do I get up to the ship?", "codes", "", ""],
 			["What is this place?", "place", "", ""],
 			["The Aster. Were there other survivors?", "aster", "", ""],
 		]},
 		"codes": {"lines": [
-			["Mara Voss", "Course you do. Launch codes are in the Kestrel's computer now. I keyed them in myself."],
-			["Mara Voss", "Take it slow off the pad. Gravity's light here and the air is thin; she'll want to climb."],
-			["Mara Voss", "And pilot? Okafor's at the observatory, up the hill. Go and see him before you go chasing anything. He's been listening to the sky."],
-		], "learn": ["hearth_codes"], "choices": [["Thank you, Mara.", "bye", "", ""]]},
+			["Mara Voss", "Codes from Okafor first. Then the lift at the foot of the tower: step on and it takes you up to her."],
+			["Mara Voss", "Take it slow off the deck. Gravity's light here and the air is thin; she'll want to climb."],
+		], "choices": [["Thank you, Mara.", "bye", "", ""]]},
 		"place": {"lines": [
 			["Mara Voss", "Hearth. Forty souls on a rock you can walk round before lunch. We mine the ice in the hills and sell it to whoever comes through the Fold."],
 			["Mara Voss", "Which is nobody, mostly. The Reach is off every chart that matters. That's why we like it."],
-		], "choices": [["I need to fly.", "codes", "", "hearth_codes"], ["The Aster?", "aster", "", ""], ["I'll look around.", "bye", "", ""]]},
+		], "choices": [["How do I get up to the ship?", "codes", "", "hearth_codes"], ["The Aster?", "aster", "", ""], ["I'll look around.", "bye", "", ""]]},
 		"aster": {"lines": [
 			["Mara Voss", "We saw her come apart over Ashfall, the grey moon. Six ships in the convoy. Five burned in the Fold. She made it here and then she didn't."],
 			["Mara Voss", "Elias Hale was her captain. I flew his wing for eleven years. If anyone could have brought her down whole, it was him."],
-		], "choices": [["I'm sorry.", "bye", "", ""], ["I need to fly.", "codes", "", "hearth_codes"]]},
+		], "choices": [["I'm sorry.", "bye", "", ""], ["How do I get up to the ship?", "codes", "", "hearth_codes"]]},
 		"again": {"lines": [
-			["Mara Voss", "You look like you've seen a ghost, pilot. Sit by the fire a minute. Codes are in your ship, same as they were."],
+			["Mara Voss", "You look like you've seen a ghost, pilot. Sit by the fire a minute. Your ship's up on the tower, same as she was."],
 		], "choices": [
 			["Mara, I've lived this morning before.", "loop", "hearth_loop", ""],
 			["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""],
@@ -201,14 +201,15 @@ const TALK := {
 			["Mara Voss", "The ones who were here first. Spirals carved in every rock in the Reach. There's one down the old mine, past the lake."],
 			["Mara Voss", "Okafor reads them. I just mine round them."],
 		], "choices": [["Thanks.", "bye", "", ""]]},
-		"short": {"lines": [["Mara Voss", "Codes are in, pilot. Okafor's up at the observatory if you want him. The sky won't wait."]], "choices": [["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""], ["The Choir?", "choir", "", ""], ["On my way.", "bye", "", ""]]},
+		"short": {"lines": [["Mara Voss", "Okafor's up at the observatory, pilot. The lift's at the foot of the tower. The sky won't wait."]], "choices": [["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""], ["The Choir?", "choir", "", ""], ["On my way.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Mara Voss", "Go on. The fire's here when you get back."]]},
 	},
 	"okafor": {
 		"start": {"lines": [
-			["Okafor", "Ah, the pilot who fell out of the sky. Come in, mind the telescope. I've been watching the Lantern."],
+			["Okafor", "Ah, the pilot who fell out of the sky. Come in, mind the telescope. Your launch codes: there, keyed into your suit. The Kestrel will answer to you now."],
+			["Okafor", "Have a look round the stands before you go; they'll tell you more about the Reach than I can in a morning. I've been watching the Lantern."],
 			["Okafor", "Three nights ago it flickered. It's been swelling ever since. Stars don't do that, not on any clock we'd notice."],
-		], "learn": ["hearth_lantern"], "choices": [
+		], "learn": ["hearth_codes", "hearth_lantern"], "choices": [
 			["Can you help me find anyone else?", "scope", "", ""],
 			["What are the spirals on the rocks?", "choir", "", ""],
 			["Is the Lantern going to die?", "die", "", ""],

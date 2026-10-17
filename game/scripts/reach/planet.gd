@@ -18,6 +18,16 @@ var _air_mat: ShaderMaterial
 var _deco: Array[GeometryInstance3D] = []
 var sites: Array[Site] = []
 var is_ref := false
+## Trunks and rocks made solid (one physics body, many shapes, made the
+## first time this is the frame's body): [kind, transform in body space].
+var _solids: Array = []
+var _solid_body := RID()
+var _solid_shapes: Array = []
+
+## Solid size of each kind at scale 1: [shape, radius, height] (a trunk is
+## a cylinder up to the boughs; a rock a sphere).
+const SOLID := {"pine": ["cyl", 0.62, 18.0], "stump": ["cyl", 0.42, 0.7], "tree": ["cyl", 0.45, 9.0], "giant": ["cyl", 1.3, 18.0],
+	"palm": ["cyl", 0.32, 8.0], "rock": ["ball", 0.82, 0.0], "shard": ["cyl", 0.38, 2.4]}
 
 static func make(b: ReachBody) -> Planet:
 	var p := Planet.new()
@@ -111,7 +121,51 @@ func set_ref(on: bool) -> void:
 		water.visible = on
 	for d in _deco:
 		d.visible = on
+	_solid_on(on)
 	_wake_sites()
+
+## The trunks and rocks, solid while this is the frame's body (its node
+## then sits at the world's origin and does not move).
+func _solid_on(on: bool) -> void:
+	if _solids.is_empty() or not is_inside_tree():
+		return
+	if on and not _solid_body.is_valid():
+		_solid_body = PhysicsServer3D.body_create()
+		PhysicsServer3D.body_set_mode(_solid_body, PhysicsServer3D.BODY_MODE_STATIC)
+		PhysicsServer3D.body_set_collision_layer(_solid_body, 1)
+		PhysicsServer3D.body_set_collision_mask(_solid_body, 0)
+		# Shapes shared by size (scale quantised to a tenth).
+		var shared := {}
+		for item in _solids:
+			var kind: String = item[0]
+			var xf: Transform3D = item[1]
+			var spec: Array = SOLID[kind]
+			var sc := snappedf(xf.basis.get_scale().y, 0.1)
+			var key := "%s/%.1f" % [kind, sc]
+			if not shared.has(key):
+				var shape := RID()
+				if spec[0] == "ball":
+					shape = PhysicsServer3D.sphere_shape_create()
+					PhysicsServer3D.shape_set_data(shape, float(spec[1]) * sc)
+				else:
+					shape = PhysicsServer3D.cylinder_shape_create()
+					PhysicsServer3D.shape_set_data(shape, {"radius": float(spec[1]) * sc, "height": float(spec[2]) * sc})
+				shared[key] = shape
+				_solid_shapes.append(shape)
+			var up := xf.basis.y.normalized()
+			var at := xf.origin + (up * float(spec[2]) * sc * 0.5 if spec[0] == "cyl" else up * float(spec[1]) * sc * 0.35)
+			PhysicsServer3D.body_add_shape(_solid_body, shared[key], Transform3D(Site.upright(up, up.cross(Vector3.RIGHT) if absf(up.x) < 0.9 else up.cross(Vector3.UP)), at))
+	if _solid_body.is_valid():
+		PhysicsServer3D.body_set_space(_solid_body, get_world_3d().space if on else RID())
+		PhysicsServer3D.body_set_state(_solid_body, PhysicsServer3D.BODY_STATE_TRANSFORM, global_transform)
+
+func _exit_tree() -> void:
+	if _solid_body.is_valid():
+		PhysicsServer3D.free_rid(_solid_body)
+		_solid_body = RID()
+	for shape in _solid_shapes:
+		PhysicsServer3D.free_rid(shape)
+	_solid_shapes.clear()
 
 ## Sites are drawn while this is the frame's body or the camera is within
 ## a few radii of it, and run only while it is the frame's.
@@ -150,6 +204,8 @@ func _decorate(deco: Dictionary) -> void:
 			var b := Basis(fwd.cross(up).normalized(), up, -fwd).orthonormalized()
 			b = b.rotated(up, data[i + 6]).scaled(Vector3.ONE * data[i + 7])
 			chunks[key].append(Transform3D(b, p))
+			if SOLID.has(kind):
+				_solids.append([kind, Transform3D(b, p)])
 		var range_end := _range(kind)
 		for key in chunks:
 			var xfs: Array = chunks[key]
@@ -159,24 +215,42 @@ func _decorate(deco: Dictionary) -> void:
 			for xf: Transform3D in xfs:
 				centre += xf.origin
 			centre /= xfs.size()
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.mesh = _mesh_for(kind)
-			mm.instance_count = xfs.size()
-			for k in xfs.size():
-				var xf: Transform3D = xfs[k]
-				mm.set_instance_transform(k, Transform3D(xf.basis, xf.origin - centre))
-			var mi := MultiMeshInstance3D.new()
-			mi.position = centre
-			mi.multimesh = mm
-			if kind in ["pine", "rock", "shard", "stump", "bush"]:
-				mi.material_override = Props.material()
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if kind in ["fern", "bush", "stump", "rock"] else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-			mi.visibility_range_end = range_end
-			mi.visibility_range_end_margin = 30.0
-			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-			add_child(mi)
-			_deco.append(mi)
+			if kind == "pine":
+				# The valley's tall pines: three shapes up close, one simple
+				# far off.
+				for v in 3:
+					var some: Array = []
+					for k in xfs.size():
+						if k % 3 == v:
+							some.append(xfs[k])
+					if not some.is_empty():
+						_deco_mm(Valley.mesh(["pine_a", "pine_b", "pine_c"][v]), some, centre, Valley.pine_material(), 0.0, 240.0, true)
+				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 220.0, range_end, true)
+				continue
+			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] else null
+			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])
+
+## One drawing of many plants (a chunk's worth), seen between two distances.
+func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: float, end: float, shadow: bool) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xfs.size()
+	for k in xfs.size():
+		var xf: Transform3D = xfs[k]
+		mm.set_instance_transform(k, Transform3D(xf.basis, xf.origin - centre))
+	var mi := MultiMeshInstance3D.new()
+	mi.position = centre
+	mi.multimesh = mm
+	if mat:
+		mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.visibility_range_begin = begin
+	mi.visibility_range_end = end
+	mi.visibility_range_end_margin = 30.0
+	mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	add_child(mi)
+	_deco.append(mi)
 
 func _chunk(d: Vector3) -> String:
 	var a := d.abs()

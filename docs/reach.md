@@ -111,6 +111,19 @@ Bodies don't spin, so where the Lantern stands over a place depends on its
 longitude: Verdance's places sit where it is up for most of the loop;
 Hearth has two days a loop; Ashfall one.
 
+## Hearth's valley
+
+The village is on the floor of a crater (Worlds.raw_height: floor 2 m, wall
+from 110 to 134 m out, crest 46 m) with the river from the falls (azimuth
+40) to the pond (110). Pieces come from art/godot/hearth_valley.py: pines
+(pine_a/b/c near, pine_far beyond 220 m, all in Planet's multimeshes),
+cliff segments every 25 degrees of the wall, stilt houses, the launch tower
+(tower2) with its lift shaft 11 m toward the village (TowerLift), the
+observatory (observatory2) with the Museum inside, paths (Site.path),
+lamps and the signpost. Trunks and rocks are solid through one physics body
+per planet (Planet._solid_on). Stairs carry a hidden ramp ('collide_only').
+The Kestrel rests on the tower (Village.ship_rest); Okafor gives the codes.
+
 ## Night, fire and the end
 
 - Hearth wakes before dawn (the village is where the Lantern is 12

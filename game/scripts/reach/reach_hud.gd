@@ -20,6 +20,13 @@ var _place_sub: Label
 var _place_t := 0.0
 var _gauge_t := 0.0
 var _last_fuel := 100.0
+var _plaque: PanelContainer
+var _plaque_title: Label
+var _plaque_text: Label
+var _plaque_at := Vector3.ZERO
+var _plaque_t := 0.0
+var _goal: HBoxContainer
+var _goal_text: Label
 var _caption: Label
 var _caption_t := 0.0
 var _fade: ColorRect
@@ -91,6 +98,39 @@ func _ready() -> void:
 	_card_text = ReachStyle.label("", 16, ReachStyle.BONE)
 	_card_text.add_theme_font_override("font", ReachStyle.serif)
 	ch.add_child(_card_text)
+	# A museum's plaque, read (bottom middle, above the prompt).
+	_plaque = PanelContainer.new()
+	_plaque.add_theme_stylebox_override("panel", ReachStyle.panel(8))
+	_plaque.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_plaque.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_plaque.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_plaque.offset_bottom = -150
+	_plaque.custom_minimum_size = Vector2(620, 0)
+	_plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_plaque.visible = false
+	root.add_child(_plaque)
+	var pv := VBoxContainer.new()
+	pv.add_theme_constant_override("separation", 8)
+	_plaque.add_child(pv)
+	_plaque_title = ReachStyle.title("", 22, ReachStyle.EMBER)
+	pv.add_child(_plaque_title)
+	_plaque_text = ReachStyle.label("", 17, ReachStyle.BONE)
+	_plaque_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_plaque_text.custom_minimum_size = Vector2(576, 0)
+	pv.add_child(_plaque_text)
+	# What to do next, quietly, top left.
+	_goal = HBoxContainer.new()
+	_goal.position = Vector2(34, 30)
+	_goal.add_theme_constant_override("separation", 10)
+	_goal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_goal)
+	var gm := ReachStyle.label("◆", 13, ReachStyle.EMBER)
+	_goal.add_child(gm)
+	_goal_text = ReachStyle.label("", 17, ReachStyle.BONE)
+	_goal_text.add_theme_font_override("font", ReachStyle.serif)
+	_shadow(_goal_text)
+	_goal.add_child(_goal_text)
+	_goal.modulate.a = 0.0
 	# Arriving somewhere: its name, large, at the top.
 	_place = VBoxContainer.new()
 	_place.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -162,6 +202,22 @@ func toast(text: String, seconds := 3.0) -> void:
 	_card_text.text = text.capitalize() if text == text.to_upper() and text.length() > 3 else text
 	_card_t = seconds
 
+## A plaque's words, while you stay near the thing it is on.
+func plaque(title: String, text: String, at: Vector3) -> void:
+	_plaque_title.text = title
+	_plaque_text.text = text
+	_plaque_at = at
+	_plaque_t = 20.0
+	_plaque.visible = true
+
+## What to do next ("" for nothing).
+func goal(text: String) -> void:
+	if text == _goal_text.text:
+		return
+	_goal_text.text = text
+	if text != "":
+		_goal.modulate.a = 0.0
+
 ## Arriving somewhere: its name, large, and what it is above it.
 func place(title: String, what := "") -> void:
 	_place_title.text = title
@@ -203,6 +259,13 @@ func _process(dt: float) -> void:
 	_card.offset_left = _card.offset_right - _card.size.x
 	_place_t -= dt
 	_place.modulate.a = clampf(minf(_place_t, 4.0 - _place_t) * 1.2, 0.0, 1.0)
+	var pl: Explorer = reach.player
+	if _plaque.visible:
+		_plaque_t -= dt
+		if _plaque_t <= 0.0 or not pl or pl.global_position.distance_to(_plaque_at) > 4.5:
+			_plaque.visible = false
+	var want_goal: bool = _goal_text.text != "" and pl != null and (pl.enabled or (reach.ship != null and reach.ship.piloted))
+	_goal.modulate.a = move_toward(_goal.modulate.a, 0.9 if want_goal else 0.0, dt * 1.5)
 	_caption_t -= dt
 	_caption.modulate.a = clampf(_caption_t, 0.0, 1.0)
 	_hint_t -= dt

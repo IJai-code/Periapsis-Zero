@@ -14,10 +14,14 @@ extends CharacterBody3D
 signal died(cause: String)
 signal used_thing(what: Usable)
 
-const WALK := 3.4
-const RUN := 6.2
-const JUMP := 4.4
+const WALK := 4.6
+const RUN := 7.0
+## A jump: a tap is small; held while crouching (to CHARGE seconds), big.
+const JUMP := 3.6
+const JUMP_MAX := 7.4
+const CHARGE := 0.75
 const JET := 11.0
+const JET_SIDE := 6.5
 const JET_FREE := 4.5
 const OXY_MAX := 240.0
 const FUEL_MAX := 100.0
@@ -45,6 +49,15 @@ var _hurt_t := 0.0
 var _dead := false
 var _ladder: Node3D
 var _jet_sound: AudioStreamPlayer
+## The jump being charged (seconds held, -1 not crouching); whether Space
+## has been let go since leaving the ground (a second press is the jetpack).
+var _charge := -1.0
+var _space_free := true
+## The view's own movement: crouch, a dip on landing, a bob with the steps.
+var _crouch := 0.0
+var _dip := 0.0
+var _dip_v := 0.0
+var _bob := 0.0
 
 func wants_mouse() -> bool:
 	return enabled and not _dead
@@ -154,17 +167,36 @@ func _physics_process(dt: float) -> void:
 		if wish.length() > 1.0:
 			wish = wish.normalized()
 		if is_on_floor():
-			var target := wish * (RUN if shift else WALK)
-			horiz = horiz.move_toward(target, (28.0 if wish.length() > 0.1 else 22.0) * dt)
+			var target := wish * (RUN if shift and _charge < 0.0 else WALK)
+			if _charge >= 0.0:
+				target *= 0.45
+			horiz = horiz.move_toward(target, (30.0 if wish.length() > 0.1 else 24.0) * dt)
+			# Space down: crouch and charge; let go: jump.
 			if space and _jet_t <= 0.0:
-				vert = up * JUMP
-				_jet_t = 0.35
+				_charge = minf((_charge if _charge >= 0.0 else 0.0) + dt, CHARGE)
+			elif _charge >= 0.0:
+				var k := clampf(_charge / CHARGE, 0.0, 1.0)
+				vert = up * lerpf(JUMP, JUMP_MAX, k * k * (3.0 - 2.0 * k))
+				_charge = -1.0
+				_jet_t = 0.25
+				_space_free = false
+				Sfx.play("step", -12.0, 0.7)
+			_space_free = not space
 		else:
-			horiz += wish * 3.0 * dt
-			# Held after the jump's first moment: the jetpack.
-			if space and _jet_t <= 0.0 and fuel > 0.0:
-				vert += up * JET * dt
-				fuel = maxf(0.0, fuel - 7.0 * dt)
+			_charge = -1.0
+			if not space:
+				_space_free = true
+			# The jetpack: Space up (pressed again after the jump), Shift
+			# down, the move keys sideways; all on the suit's fuel.
+			var thrust := wish * JET_SIDE
+			if space and _space_free and _jet_t <= 0.0:
+				thrust += up * JET
+			if shift:
+				thrust -= up * JET * 0.7
+			if thrust.length() > 0.01 and fuel > 0.0:
+				vert += up * thrust.dot(up) * dt
+				horiz += (thrust - up * thrust.dot(up)) * dt
+				fuel = maxf(0.0, fuel - (3.0 + thrust.length() * 0.45) * dt)
 				jet_on = true
 		_jet_t -= dt
 		velocity = horiz + vert + g * dt
@@ -205,6 +237,8 @@ func _landing() -> void:
 				return
 	if is_on_floor() and not _was_floor:
 		Sfx.play("step", -10.0, 0.8)
+		# The view dips with the landing, harder the faster.
+		_dip_v -= clampf(-_last_vel.dot(up_direction), 0.0, 14.0) * 0.55
 
 func _suit(dt: float) -> void:
 	_hurt_t -= dt
@@ -244,12 +278,19 @@ func _look() -> void:
 			u = cand
 	focus = u
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
 	# The head follows the body's drawn position, turned by the body's own
 	# (not interpolated) facing, so the mouse answers at once.
 	var at := get_global_transform_interpolated().origin
 	var b := global_basis
-	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * 1.62)
+	# Crouched while a jump charges; a sprung dip on landing; a small bob.
+	_crouch = move_toward(_crouch, 0.42 if _charge >= 0.0 else 0.0, dt * (1.6 if _charge >= 0.0 else 4.0))
+	_dip_v += (-_dip * 60.0 - _dip_v * 11.0) * dt
+	_dip = clampf(_dip + _dip_v * dt, -0.5, 0.2)
+	var speed := (velocity - up_direction * velocity.dot(up_direction)).length() if is_on_floor() else 0.0
+	_bob += dt * speed * 1.9
+	var bob := sin(_bob * 2.0) * 0.022 * clampf(speed / WALK, 0.0, 1.4)
+	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch + _dip + bob))
 
 ## The world's frame moved (Reach): move with it.
 func frame_shift(dp: Vector3, dv: Vector3) -> void:

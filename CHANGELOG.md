@@ -5,6 +5,49 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Hearth's valley, rebuilt the Outer Wilds way, 17 October 2026
+
+From waking to reaching space, the Reach now follows Outer Wilds closely.
+
+- **The valley.** Hearth sits on the floor of a crater 220 m across, its
+  walls 46 m of stratified rock (warm and blue-grey bands, ledges, a
+  talus of boulders) with a waterfall down one side into the river and a
+  pond with a dock. Tall pines (19 to 30 m, drooping fronds on a bare
+  trunk, swaying in the wind; simple ones far off) crowd the slopes.
+  Houses on stilts with stairs, porches, railings, lanterns, chimneys,
+  dishes and woodpiles. Dirt paths lit by lanterns from the fire to the
+  tower, the observatory, the pond and the old mine, and a signpost where
+  they part.
+- **The way up.** The Kestrel rests on top of a 30 m launch tower. A lift
+  in its own shaft beside it takes you up; at the top you step off onto
+  the deck by the ship.
+- **The way to start.** Mara, by the fire, sends you to Okafor in the
+  observatory for the launch codes. The observatory is a domed glass hall
+  with its telescope out through the dome, a balcony round it, and inside
+  a museum: plaques on stands to read (what the Reach is, the Lantern,
+  listening with the signalscope, the Choir, flying the Kestrel, your
+  suit, the Fold) and a working model of the Reach. A quiet line at the
+  top left says what to do next until you are off the ground, then the
+  Reach is yours.
+- **Nothing to walk through.** Every building, tree trunk and rock is
+  solid. A check walks into all 55 nearest solids and finds the explorer
+  inside none of them, and a control run with collision off proves the
+  check would notice.
+- **Moving like Outer Wilds.** Hold Space to crouch and charge a jump; let
+  go to jump (a tap is 0.8 m, a full charge 3.2 m). In the air, Space again
+  fires the jetpack up, Shift down, and the move keys push you sideways,
+  all on the suit's fuel; momentum carries. The view dips when you land
+  and bobs a little as you walk.
+- **The Kestrel's cockpit** (art/godot/kestrel_cockpit.py): a wood and
+  brass dash; the main screen shows speed, height, your target and the
+  loop's clock; the green status screen the hull; a speed dial; the master
+  alarm, which blinks when the hull is low or the loop is ending; three
+  round knobs, switches, the yoke, the throttle, riveted side panels.
+- **Checks:** the wall test, the lift (ride up, step off, board) and the
+  jump (tap, charge, jetpack) join the Reach's checks; the walk test now
+  follows the path to the mine.
+
+
 ### The Reach, night and fire: the start made worth waking for, 17 October 2026
 
 - **The nebulae are back.** The sky over the Reach is the original game's

@@ -127,8 +127,8 @@ const checks = [
     return [Boolean(m) && m[1] === 'true' && m[2] === 'true' && Number(m[5]) >= 0 && Number(m[5]) < 0.01 && Number(m[6]) < 0.01 && m[7] === '100', m ? m[0] : 'no result']
   }],
   ...[
-    ['mara', ['hearth_crash', 'hearth_codes']],
-    ['okafor', ['hearth_lantern', 'hearth_choir']],
+    ['mara', ['hearth_crash']],
+    ['okafor', ['hearth_codes', 'hearth_lantern', 'hearth_choir']],
     ['fen', ['hearth_phantom', 'ph_photo']],
   ].map(([who, facts]) => [`the Reach: talk to ${who} and learn ${facts.join(', ')}`, async () => {
     const out = await run('reach', ['--talktest', who, '--talkauto'], /TALKTEST/)
@@ -140,6 +140,22 @@ const checks = [
     const m = out.match(/FIRETEST toast ([\d.]+) eaten (\d+) slept (\d+) s warp after (\d+) stood (\w+) talking (\w+)/)
     const ok = Boolean(m) && Number(m[1]) > 0.3 && m[2] === '1' && Number(m[3]) > 20 && m[4] === '1' && m[5] === 'true' && m[6] === 'false'
     return [ok, m ? m[0] : (out.match(/FIRETEST[^\n]*/) ?? ['no result'])[0]]
+  }],
+  ['the Reach: nothing in the village can be walked through (with a control)', async () => {
+    const out = await run('reach', ['--walltest'], /WALLTEST/, 480000)
+    const m = out.match(/WALLTEST tried (\d+) inside (\d+) (\[[^\]]*\]) control (\w+)/)
+    return [Boolean(m) && Number(m[1]) > 30 && m[2] === '0' && m[4] === 'true', m ? m[0] : 'no result']
+  }],
+  ['the Reach: ride the lift up the launch tower and board the Kestrel', async () => {
+    const out = await run('reach', ['--lifttest'], /LIFTTEST/)
+    const m = out.match(/LIFTTEST risen ([\d.]+) m, on deck (\w+), piloted (\w+)/)
+    return [Boolean(m) && Number(m[1]) > 28 && m[2] === 'true' && m[3] === 'true', m ? m[0] : 'no result']
+  }],
+  ['the Reach: a tapped jump is small, a charged one big, the jetpack lifts', async () => {
+    const out = await run('reach', ['--jumptest'], /JUMPTEST/)
+    const m = out.match(/JUMPTEST tap ([\d.]+) m charged ([\d.]+) m jetpack ([\d.]+) m fuel used (\d+)/)
+    const ok = Boolean(m) && Number(m[1]) > 0.4 && Number(m[2]) > Number(m[1]) * 2.5 && Number(m[3]) > 2.0 && Number(m[4]) > 0
+    return [ok, m ? m[0] : 'no result']
   }],
   ['the Reach: L opens the ship log', async () => {
     const out = await run('reach', ['--logtest'], /LOGTEST/)

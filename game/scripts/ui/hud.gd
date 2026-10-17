@@ -15,7 +15,8 @@ signal line_done
 ## In the Reach (scenes/reach.tscn), its own keys.
 const REACH_CONTROLS := """ON FOOT
   W A S D   walk          Shift   run
-  Space     jump; hold for the jetpack
+  Space     hold to crouch, let go to jump
+  In the air: Space up, Shift down (jetpack)
   E         use, talk, read     F   flashlight
   In space: Shift down, Q / E roll
 

@@ -69,6 +69,12 @@ func _ready() -> void:
 		_log_test()
 	if "--firetest" in args:
 		_fire_test()
+	if "--walltest" in args:
+		_wall_test()
+	if "--lifttest" in args:
+		_lift_test()
+	if "--jumptest" in args:
+		_jump_test()
 	if "--reachwalk" in args:
 		_walk_test()
 	if "--reachfly" in args:
@@ -83,9 +89,29 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest"]:
 			return true
 	return false
+
+## What to do next, until you are off the ground: Mara, Okafor's codes, the
+## lift, the sky. After that the Reach is yours, and nothing is said.
+func _next_goal() -> String:
+	if not player or not ship or loop.ending:
+		return ""
+	if system.ref != "hearthstone" or (ship.piloted and ship.global_position.length() > 420.0):
+		_launched = true
+	if _launched:
+		return ""
+	if not Lore.known("hearth_codes"):
+		if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
+			return "Talk to Mara, by the fire"
+		return "Get the launch codes from Okafor, in the observatory"
+	if ship.piloted:
+		return "Take off: hold Space to rise, then W" if ship.landed else "Climb: up and out of the air"
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	if village.lift.at_top():
+		return "Board the Kestrel"
+	return "Ride the lift up the launch tower to the Kestrel"
 
 ## The places on each world (Site), the campfire.
 func _build_sites() -> void:
@@ -107,6 +133,7 @@ func _build_sites() -> void:
 ## engine reports them as leaked at exit.
 func _exit_tree() -> void:
 	Grass.clear_cache()
+	Valley.clear_cache()
 	Props._cache.clear()
 	Worlds._noise.clear()
 
@@ -159,6 +186,9 @@ func _environment() -> void:
 	add_child(sun)
 
 var _arrived := {}
+## Off Hearthstone at least once this loop (the first steps are done).
+var _launched := false
+var _goal_t := 0.0
 const PLACE_WORDS := {"verdance": "the jungle world", "ashfall": "where the Aster fell", "phantom": "the moon that moves",
 	"wanderer": "the comet", "hearthstone": "home"}
 
@@ -196,6 +226,10 @@ func _process(_dt: float) -> void:
 		(planets[key] as Planet).light(star, power)
 	_air(cam)
 	_carry()
+	_goal_t -= _dt
+	if hud and _goal_t <= 0.0:
+		_goal_t = 0.5
+		hud.goal(_next_goal())
 	if _drift:
 		_drift_t += _dt
 		_place_drift()
@@ -300,6 +334,9 @@ func _start_player() -> void:
 				Lore.learn(id)
 			_log = ShipLog.open(self)
 			_log.closed.connect(func(): _log = null)
+		elif beat == "cockpit":
+			Lore.learn("hearth_codes")
+			ship.board()
 		elif beat == "map":
 			_map = ReachMap.open(self)
 			_map.closed.connect(func(): _map = null)
@@ -469,8 +506,11 @@ func reset_loop() -> void:
 	for key in planets:
 		(planets[key] as Planet).set_ref(key == "hearthstone")
 	var home: ReachBody = system.bodies["hearthstone"]
-	var pad := Worlds.place(home, "pad")
-	ship.reset_to(Transform3D(pad.basis, pad.origin + pad.basis.y * 1.95))
+	# The Kestrel on the launch tower's deck, the lift at its foot.
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	ship.reset_to(village.ship_rest)
+	village.lift.reset()
+	_launched = false
 	var fire := Worlds.place(home, "village")
 	var at := fire.origin + fire.basis.x * 2.4 + fire.basis.y * 0.3
 	player.place(Transform3D(fire.basis, at), -fire.basis.x)
@@ -622,6 +662,158 @@ func _talk_test(key: String) -> void:
 	Report.line("TALKTEST %s learned %s, player enabled %s" % [key, Lore._facts(), player.enabled])
 	Report.finish(get_tree())
 
+## Walk straight at every solid piece of the village (and the nearest trees
+## and rocks) from 6 m away for 3 s; report any time the explorer's chest
+## was inside something solid (it must never be).
+func _wall_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var targets := []
+	for n in village.get_children():
+		if n is Node3D and not n is Npc and (n as Node3D).find_children("*", "CollisionShape3D", true, false).size() > 0:
+			targets.append([String(n.name), (n as Node3D).global_position, (n as Node3D).global_basis.z])
+	var pl: Planet = planets["hearthstone"]
+	var near := pl._solids.duplicate()
+	var here := village.center.origin
+	near.sort_custom(func(a, b): return (a[1] as Transform3D).origin.distance_to(here) < (b[1] as Transform3D).origin.distance_to(here))
+	var trunks := 0
+	for item in near:
+		if trunks >= 6:
+			break
+		if item[0] in ["pine", "rock"]:
+			trunks += 1
+			var xf: Transform3D = item[1]
+			targets.append([String(item[0]), xf.origin, xf.basis.y.cross(Vector3.RIGHT).normalized()])
+	var probe := SphereShape3D.new()
+	probe.radius = 0.12
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = probe
+	q.collision_mask = 1
+	q.exclude = [player.get_rid()]
+	var inside := []
+	var space := get_world_3d().direct_space_state
+	for t in targets:
+		var at: Vector3 = t[1]
+		var up := at.normalized()
+		var out: Vector3 = t[2]
+		out = (out - up * out.dot(up)).normalized()
+		var start := at + out * 7.0
+		var d := start.normalized()
+		start = d * (system.ruling().radius + Worlds.height("hearthstone", d, system.ruling().radius) + 0.15)
+		player.place(Transform3D(Site.upright(d, -out), start), -out)
+		await get_tree().physics_frame
+		Input.action_press("forward")
+		var s := 0.0
+		var hit := false
+		while s < 3.0:
+			await get_tree().physics_frame
+			s += get_physics_process_delta_time()
+			q.transform = Transform3D(Basis(), player.global_position + player.global_basis.y * 1.2)
+			if not space.intersect_shape(q, 1).is_empty():
+				hit = true
+		Input.action_release("forward")
+		if hit:
+			inside.append(t[0])
+	# The control: with the explorer's own collision off it walks into a
+	# house, and the probe must notice (else the test proves nothing).
+	var control := false
+	for t in targets:
+		if String(t[0]).begins_with("valley-house"):
+			var at: Vector3 = t[1]
+			var up := at.normalized()
+			var out: Vector3 = t[2]
+			out = (out - up * out.dot(up)).normalized()
+			var start := at + out * 7.0
+			var d := start.normalized()
+			start = d * (system.ruling().radius + Worlds.height("hearthstone", d, system.ruling().radius) + 3.0)
+			player.collision_mask = 0
+			player.place(Transform3D(Site.upright(d, -out), start), -out)
+			Input.action_press("forward")
+			var s2 := 0.0
+			while s2 < 3.0:
+				await get_tree().physics_frame
+				s2 += get_physics_process_delta_time()
+				q.transform = Transform3D(Basis(), player.global_position + player.global_basis.y * 1.2)
+				if not space.intersect_shape(q, 1).is_empty():
+					control = true
+			Input.action_release("forward")
+			player.collision_mask = 1
+			break
+	Report.line("WALLTEST tried %d inside %d %s control %s" % [targets.size(), inside.size(), inside, control])
+	Report.finish(get_tree())
+
+## A tapped jump, a jump charged a full second, and the jetpack fired in
+## the air after one: report each apex above the ground.
+func _jump_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var key := func(code: Key, down: bool):
+		var k := InputEventKey.new()
+		k.keycode = code
+		k.physical_keycode = code
+		k.pressed = down
+		Input.parse_input_event(k)
+	var apex := func() -> float:
+		var base := player.global_position.length()
+		var best := 0.0
+		var t := 0.0
+		while t < 4.0:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			best = maxf(best, player.global_position.length() - base)
+			if t > 0.4 and player.is_on_floor():
+				break
+		return best
+	var results := []
+	for hold in [0.05, 1.0]:
+		key.call(KEY_SPACE, true)
+		await get_tree().create_timer(hold).timeout
+		key.call(KEY_SPACE, false)
+		results.append(await apex.call())
+		await get_tree().create_timer(0.6).timeout
+	# The jetpack: a tap jump, then Space held again in the air.
+	var fuel0 := player.fuel
+	key.call(KEY_SPACE, true)
+	await get_tree().create_timer(0.05).timeout
+	key.call(KEY_SPACE, false)
+	await get_tree().create_timer(0.3).timeout
+	key.call(KEY_SPACE, true)
+	var base := player.global_position.length()
+	var best := 0.0
+	var t2 := 0.0
+	while t2 < 1.5:
+		await get_tree().physics_frame
+		t2 += get_physics_process_delta_time()
+		best = maxf(best, player.global_position.length() - base)
+	key.call(KEY_SPACE, false)
+	Report.line("JUMPTEST tap %.2f m charged %.2f m jetpack %.2f m fuel used %.0f" % [results[0], results[1], best, fuel0 - player.fuel])
+	Report.finish(get_tree())
+
+## Codes known: ride the lift up the tower, walk to the Kestrel, board her;
+## report the height reached and whether she is flown.
+func _lift_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.5).timeout
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var lift := village.lift
+	var car_at := lift.car.global_position
+	var up := car_at.normalized()
+	var out := village.tower.global_basis.z
+	out = (out - up * out.dot(up)).normalized()
+	player.place(Transform3D(Site.upright(up, -out), car_at + out * 2.6 + up * 0.1), -out)
+	await get_tree().create_timer(0.5).timeout
+	var ground := player.global_position.length()
+	lift._ride(player)
+	while not lift.at_top() or lift._moving:
+		await get_tree().physics_frame
+	await get_tree().create_timer(0.5).timeout
+	var risen := player.global_position.length() - ground
+	# Walk to the Kestrel's side and board.
+	var on_deck := player.is_on_floor()
+	ship.board()
+	await get_tree().create_timer(4.0).timeout
+	Report.line("LIFTTEST risen %.1f m, on deck %s, piloted %s" % [risen, on_deck, ship.piloted])
+	Report.finish(get_tree())
+
 ## Sit at Hearth's fire, roast a marshmallow, eat it, sleep a while, wake,
 ## stand, and report each.
 func _fire_test() -> void:
@@ -717,6 +909,15 @@ func _map_test() -> void:
 ## whether it is still standing on something.
 func _walk_test() -> void:
 	await get_tree().create_timer(1.5).timeout
+	# Along the path from the fire toward the old mine.
+	var hb0: ReachBody = system.bodies["hearthstone"]
+	var cave := Worlds.place(hb0, "cave").origin
+	var here := player.global_position
+	var up0 := here.normalized()
+	var toward := cave - here
+	toward -= up0 * toward.dot(up0)
+	player.place(Transform3D(Site.upright(up0, toward), here), toward)
+	await get_tree().physics_frame
 	var lowest := INF
 	var walked := 0.0
 	var last := player.global_position
@@ -817,7 +1018,14 @@ func _place_view() -> void:
 		var marks := Worlds.landmarks(key)
 		var name: String = marks.keys()[0] if parts[1] == "surface" else parts[1]
 		var xf := Worlds.place(b, name)
-		if parts.size() > 2 and parts[2] == "top":
+		if parts.size() > 2 and parts[2] == "in":
+			# Inside a building at the landmark: from near its door, looking in.
+			var door := xf.origin + xf.basis.y * 2.2
+			var to_c := (Worlds.place(b, "village").origin - xf.origin)
+			to_c = (to_c - xf.basis.y * to_c.dot(xf.basis.y)).normalized()
+			_view_cam.global_position = door + to_c * 6.0
+			_view_cam.look_at(xf.origin + xf.basis.y * 1.6, xf.basis.y)
+		elif parts.size() > 2 and parts[2] == "top":
 			_view_cam.global_position = xf.origin + xf.basis.y * 75.0 + xf.basis.z * 20.0
 			_view_cam.look_at(xf.origin, -xf.basis.z)
 		else:

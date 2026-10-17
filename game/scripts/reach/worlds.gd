@@ -14,13 +14,17 @@ static func landmarks(key: String) -> Dictionary:
 			# The village is on the equator, where at waking (t = 0) the
 			# Lantern is 12 degrees below the horizon and rising: the last of
 			# the night, the nebulae overhead, dawn in half a minute.
+			# It sits on the floor of a crater 220 m across, its walls 46 m
+			# of stratified rock (see raw_height; one degree is 4.9 m here).
 			var f := _frame(Vector3(0.208, 0.0, 0.978))
 			return {
-				"village": [f.y, 58.0, 6.0],
-				"pad": [f * _dir(14.0, 0.0), 16.0, 6.0],
-				"observatory": [f * _dir(22.0, 130.0), 14.0, 16.0],
-				"lookout": [f * _dir(62.0, 205.0), 10.0, 34.0],
-				"cave": [f * _dir(48.0, 300.0), 17.0, 2.0],
+				"village": [f.y, 24.0, 2.0],
+				"pad": [f * _dir(10.6, 0.0), 14.0, 2.0],
+				"observatory": [f * _dir(17.2, 130.0), 13.0, 5.0],
+				"lookout": [f * _dir(29.1, 205.0), 9.0, 46.0],
+				"cave": [f * _dir(23.7, 300.0), 12.0, 2.0],
+				"falls": [f * _dir(21.3, 40.0), 0.0, -5.5],
+				"pond": [f * _dir(10.6, 110.0), 0.0, -5.0],
 				"lake": [f * _dir(40.0, 60.0), 0.0, -14.0],
 			}
 		"verdance":
@@ -42,6 +46,12 @@ static func landmarks(key: String) -> Dictionary:
 		"wanderer":
 			return {"engine": [Vector3(0, 1, 0), 14.0, 4.0]}
 	return {}
+
+## On Hearthstone: the direction `dist` metres from the village along the
+## ground, at `az` degrees round it (the landmarks' own reckoning).
+static func crater_dir(az: float, dist: float) -> Vector3:
+	var f := _frame(Vector3(0.208, 0.0, 0.978))
+	return (f * _dir(rad_to_deg(dist / 280.0), az)).normalized()
 
 ## A frame whose +Y is `pole` (landmarks laid out round it), +X toward the
 ## body's north.
@@ -92,12 +102,28 @@ static func raw_height(key: String, d: Vector3, radius: float) -> float:
 			var ridges := (1.0 - absf(_n(key, 2, 0.011, 3).get_noise_3dv(p))) * 14.0 - 7.0
 			var h := hills + maxf(ridges, 0.0) * smoothstep(0.1, 0.5, _n(key, 3, 0.004, 2).get_noise_3dv(p) + 0.3)
 			# The lake: a bowl.
-			var lake: Vector3 = landmarks(key)["lake"][0]
+			var marks := landmarks(key)
+			var lake: Vector3 = marks["lake"][0]
 			h -= 22.0 * smoothstep(0.92, 0.985, d.dot(lake))
-			# A rim of hills round the village basin.
-			var v: Vector3 = landmarks(key)["village"][0]
-			var ang := acos(clampf(d.dot(v), -1.0, 1.0))
-			h += 16.0 * exp(-pow((ang - 0.42) / 0.12, 2.0))
+			# The crater the village sits in: a floor, walls rising 44 m over
+			# 24 m, a crest, then down to the hills outside.
+			var v: Vector3 = marks["village"][0]
+			var dist := acos(clampf(d.dot(v), -1.0, 1.0)) * radius
+			var floor := 2.0 + _n(key, 5, 0.03, 2).get_noise_3dv(p) * 1.2
+			var crest := 46.0 + _n(key, 6, 0.02, 2).get_noise_3dv(p) * 4.0
+			var inner := lerpf(floor, crest, pow(smoothstep(110.0, 134.0, dist), 0.85))
+			h = lerpf(inner, maxf(h, 6.0), smoothstep(142.0, 190.0, dist))
+			# The waterfall's pool at the wall's foot, the river from it to
+			# the pond by the village (below the sea's level, so water).
+			var falls: Vector3 = marks["falls"][0] * radius
+			var pond: Vector3 = marks["pond"][0] * radius
+			var at := d * radius
+			var seg := pond - falls
+			var u := clampf((at - falls).dot(seg) / seg.length_squared(), 0.0, 1.0)
+			var off := (at - (falls + seg * u)).length()
+			h = lerpf(h, -4.6, smoothstep(4.2, 1.4, off) * (1.0 - smoothstep(110.0, 118.0, dist)))
+			h = lerpf(h, -5.5, smoothstep(10.0, 4.0, at.distance_to(falls)))
+			h = lerpf(h, -5.0, smoothstep(11.0, 5.0, at.distance_to(pond)))
 			return h
 		"verdance":
 			var cont := _n(key, 1, 0.0028, 4).get_noise_3dv(p) * 46.0 + 6.0
