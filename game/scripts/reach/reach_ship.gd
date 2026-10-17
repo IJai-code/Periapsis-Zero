@@ -64,6 +64,12 @@ var _lift_xf := Transform3D()
 var _lift_full := true
 var _shake := 0.0
 var _shake_t := 0.0
+## Her mass in the seat: the view hangs back from the thrust.
+var _seat := Vector3.ZERO
+## Off the ground (the last time contacts were counted), and how recently
+## she set down (so a rocking hull throws its dust only once).
+var _airborne := false
+var _land_t := 0.0
 var _gear_k := 1.0
 var _legs: Array = []
 var _engine_light: OmniLight3D
@@ -400,9 +406,22 @@ func _match(_dt: float) -> Vector3:
 	return local.normalized() * clampf(rel.length() / 6.0, 0.2, 1.0)
 
 func _impacts() -> void:
-	if get_contact_count() == 0:
-		return
+	var touching := get_contact_count() > 0
 	var dv := (linear_velocity - _last_v).length()
+	# Setting down: the first touch after flying throws the ground's grit out
+	# from under the gear and takes the hull with a thud. Softly from a
+	# hover, hard from a fall.
+	if touching and _airborne and piloted and _land_t <= 0.0 and dv > 0.2:
+		_land_t = 0.7
+		var g := system.gravity(global_position)
+		var down := g.normalized() if g.length() > 0.001 else -global_basis.y.normalized()
+		LaunchFx.land(get_parent(), global_position + down * 1.9, -down, clampf(maxf(dv, 0.5) / 4.0, 0.3, 1.5))
+		# A hard one will hit the hull below and sound for itself.
+		if dv <= 8.0:
+			Sfx.play("hit", -13.0, 0.5)
+	_airborne = not touching
+	if not touching:
+		return
 	if dv > 8.0:
 		integrity -= (dv - 8.0) * 4.5
 		Sfx.play("hit", -2.0, 0.6)
@@ -556,6 +575,7 @@ func _finish_lift() -> void:
 func _process(dt: float) -> void:
 	_instruments(dt)
 	_shake_t += dt
+	_land_t = maxf(_land_t - dt, 0.0)
 	if launching:
 		if dt * 1000.0 > _lift_worst:
 			_lift_worst = dt * 1000.0
@@ -579,11 +599,15 @@ func _process(dt: float) -> void:
 	if not is_equal_approx(_gear_k, want_gear):
 		_gear_k = move_toward(_gear_k, want_gear, dt * 0.85)
 		_gear_pose()
-	# The engines, felt in the seat: three slow sines, never random.
+	# The engines, felt in the seat: three slow sines, never random. Idling
+	# she is a hum you can feel in the frame; under thrust the whole view
+	# buzzes, and the pilot hangs back from her acceleration.
 	if piloted and not _moving and not _view_chase:
-		_shake = maxf(_shake - dt * 0.62, 0.0)
+		var push := 1.0 if launching else clampf(_thrust.length(), 0.0, 1.0)
+		_shake = maxf(maxf(_shake - dt * 0.62, 0.0), 0.3 + push * 0.6)
 		var amp := _shake * _shake
-		cam.position = EYE + Vector3(sin(_shake_t * 37.0), cos(_shake_t * 43.0), sin(_shake_t * 31.0)) * 0.017 * amp
+		_seat = _seat.lerp(Vector3(-_thrust.x, -_thrust.y, -_thrust.z) * 0.1, minf(1.0, dt * 3.2))
+		cam.position = EYE + _seat + Vector3(sin(_shake_t * 37.0), cos(_shake_t * 43.0), sin(_shake_t * 31.0)) * 0.017 * amp
 		cam.rotation = Vector3(sin(_shake_t * 41.0), sin(_shake_t * 34.0 + 1.1), sin(_shake_t * 27.0 + 2.3)) * 0.009 * amp
 	var rum := -80.0
 	if piloted:
@@ -643,6 +667,7 @@ func board() -> void:
 	await t.finished
 	cam.position = EYE
 	cam.rotation = Vector3.ZERO
+	_seat = Vector3.ZERO
 	explorer.visible = false
 	explorer.process_mode = Node.PROCESS_MODE_DISABLED
 	explorer.remove_from_group("reach_dynamic")

@@ -5,6 +5,39 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Weight, grit and a cheaper surface, 17 October 2026
+
+- **Every surface costs a third less in the browser.** Each photo-scanned
+  material was sampling roughness and metalness triplanar as well as albedo
+  and normal — six extra texture fetches on every pixel of every wall,
+  plank and hull, to say what one number per material already said. The
+  light renderer takes those numbers instead: the same picture, a third
+  less of the frame's texture work.
+- **Off the per-frame path**: the far worlds' lighting and their sites'
+  visibility update ten times a second (the Lantern's direction moves a
+  degree a minute), the visor's canvas is rebuilt at 30 Hz rather than 60,
+  and the "what would E use" ray is cast twelve times a second with one
+  query object reused instead of sixty times with a new one allocated each
+  time.
+- **Relief comes sooner**: a quality tier drops after two seconds under the
+  floor frame rate instead of three, and climbs back only after twelve
+  smooth ones.
+- **Setting down throws dust.** Touching the ground with any speed throws a
+  ring of grit out from under the gear and a low puff that settles — scaled
+  by how hard she came down, with a thud through the hull.
+- **The ship has weight in the seat.** The view now hangs back from her
+  acceleration, and the frame buzzes with the engines: a hum at idle, a
+  rattle at full thrust. Flying reads as a 4,000-tonne craft rather than a
+  cursor with a camera on it.
+- **The suit throws grit too**: a ring of dust at the boots on a hard
+  landing, and when the jetpack first lights.
+- **A deeper sky**: a fourth layer of stars between the bright ones,
+  thousands too faint to name, which is what makes a sky read as deep.
+- **Gates**: `--landtest` lifts her off the deck, lets her go, and requires
+  that she comes to rest with dust under her (the dust is a one-shot, so it
+  is counted as it happens). `--launchtest`, `--reachwalk`, `--jumptest` and
+  the rest still pass.
+
 ### The lift-off, and the price of a frame, 17 October 2026
 
 - **Taking off is a ride.** Space on the tower deck no longer just pushes:

@@ -35,6 +35,8 @@ var _photo_note: Label
 var _flash: ColorRect
 var _hint: Label
 var _hint_t := 0.0
+## The overlay's canvas is rebuilt this often, not every frame.
+var _paint_t := 0.0
 
 func _ready() -> void:
 	layer = 6
@@ -292,7 +294,12 @@ func _process(dt: float) -> void:
 	if on_foot:
 		var vp := _visor.get_viewport_rect().size
 		_visor_mat.set_shader_parameter("aspect", Vector2(vp.x / maxf(vp.y, 1.0), 1.0))
-	_draw.queue_redraw()
+	# At 30 a second: a dot, three capsules and a line of text rebuilt sixty
+	# times is half of the work done for nothing (the eye cannot tell).
+	_paint_t += dt
+	if _paint_t >= 1.0 / 30.0:
+		_paint_t = 0.0
+		_draw.queue_redraw()
 
 func _paint() -> void:
 	var vp := _draw.get_viewport_rect().size

@@ -133,6 +133,37 @@ func _build(size: float) -> void:
 	create_tween().tween_property(m, "albedo_color:a", 0.55, 0.35)
 	create_tween().tween_property(m, "albedo_color:a", 0.0, 5.0).set_delay(2.0)
 
+## Setting down: a ring of grit thrown out from under the gear and a low
+## puff that settles. Small, quick and gone — a lift-off seen backwards.
+## `strength` follows how hard she came down.
+static func land(world: Node3D, at: Vector3, up: Vector3, strength := 1.0) -> void:
+	var f := LaunchFx.new()
+	f.add_to_group("launch_fx")
+	world.add_child(f)
+	var y := up.normalized()
+	var x := y.cross(Vector3.RIGHT if absf(y.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD).normalized()
+	f.global_transform = Transform3D(Basis(x, y, x.cross(y).normalized()), at)
+	var k := clampf(strength, 0.2, 2.0)
+	var lo := Flow.fx_low()
+	var ring := f._emitter(f, dust_material(), int(20 * (0.5 if lo else 1.0) * k), 1.9, Vector3(0.7, -0.35, 0.7), 4.4 * k, 0.55 * k, k)
+	ring.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	ring.emission_ring_axis = Vector3.UP
+	ring.emission_ring_radius = 1.5 * k
+	ring.emission_ring_inner_radius = 0.7 * k
+	ring.emission_ring_height = 0.1
+	ring.flatness = 0.9
+	ring.direction = Vector3.UP
+	ring.spread = 88.0
+	ring.initial_velocity_min = 2.2 * k
+	ring.initial_velocity_max = 6.5 * k
+	ring.damping_min = 2.4
+	ring.damping_max = 4.2
+	ring.scale_amount_min = 0.4
+	ring.scale_amount_max = 1.0
+	ring.color_ramp = _ramp([Color(0.6, 0.53, 0.44, 0.0), Color(0.6, 0.53, 0.44, 0.5),
+		Color(0.5, 0.45, 0.38, 0.22), Color(0.45, 0.41, 0.36, 0.0)])
+	f.get_tree().create_timer(2.4).timeout.connect(f.queue_free)
+
 ## A one-shot burst: the shared shape of every puff here.
 func _emitter(parent: Node3D, mat: Material, amount: int, life: float, gravity: Vector3, speed: float, size: float, k: float) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
@@ -171,5 +202,7 @@ static func _ramp(colors: Array) -> Gradient:
 ## and out of the way, on screen, for a fifth of a second.
 static func warm(world: Node3D, at: Vector3) -> void:
 	var f := make(world, at, Vector3.UP, 0.03)
+	# Its dust and its landing ring too, so a touchdown costs nothing new.
+	land(world, at + Vector3.UP * 0.02, Vector3.UP, 0.03)
 	f.get_tree().create_timer(0.2).timeout.connect(f.queue_free)
 

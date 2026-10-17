@@ -317,7 +317,9 @@ func _adapt(dt: float) -> void:
 	var floor_fps := 30.0 if lite() else 40.0
 	_low_t = _low_t + span if fps < floor_fps else 0.0
 	_high_t = _high_t + span if fps > 57.0 else 0.0
-	if _low_t >= 3.0 and tier < _tiers().size() - 1:
+	# Two seconds under the floor is a slideshow, not a moment: relieve it
+	# then, but only climb back after twelve smooth ones.
+	if _low_t >= 2.0 and tier < _tiers().size() - 1:
 		_fails[tier] = int(_fails.get(tier, 0)) + 1
 		if _fails[tier] >= 2:
 			_floor_tier = maxi(_floor_tier, tier + 1)
@@ -325,8 +327,8 @@ func _adapt(dt: float) -> void:
 		settings[_tier_key()] = tier
 		apply_settings()
 		_low_t = 0.0
-		_cool = 8.0
-	elif _high_t >= 10.0 and tier > _floor_tier and _cool <= 0.0:
+		_cool = 6.0
+	elif _high_t >= 12.0 and tier > _floor_tier and _cool <= 0.0:
 		set_tier(tier - 1)
 		_high_t = 0.0
 		_cool = 25.0

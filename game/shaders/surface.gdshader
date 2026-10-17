@@ -14,6 +14,11 @@ uniform float tint_gain = 1.0;
 uniform float paint = 0.0;
 uniform float scale = 1.0;
 uniform float metal = 0.0;
+// The browser draws every surface pixel six times less: the roughness and
+// metalness maps are the two that read the least (a surface's sheen barely
+// changes across a plank) and their uniforms stand in for them.
+uniform float detail = 1.0;
+uniform float rough = 0.62;
 // Map in the object's own space (things standing on a small world, whose
 // up is not the world's), not the world's.
 uniform float object_space = 0.0;
@@ -40,7 +45,12 @@ void fragment() {
 	w /= (w.x + w.y + w.z);
 	vec3 p = wpos * scale;
 	vec3 c = tri(albedo_map, p, w).rgb;
-	float rough = tri(rough_map, p, w).r;
+	float r = rough;
+	float mt = 0.7;
+	if (detail > 0.5) {
+		r = tri(rough_map, p, w).r;
+		mt = tri(metal_map, p, w).r;
+	}
 	if (paint > 0.5) {
 		// Paint over metal: the scan's grime kept faint, about its own mean
 		// (the smallest mip), so at a ship's scale it reads as wear and not
@@ -53,11 +63,11 @@ void fragment() {
 		float drift = dot(tri(albedo_map, wpos * 0.045, w).rgb, vec3(0.333));
 		float grime = smoothstep(mean - 0.08, mean + 0.12, drift);
 		c *= mix(0.72, 1.0, grime);
-		rough = mix(0.3, 0.6, rough) + (1.0 - grime) * 0.18;
+		r = mix(0.3, 0.6, r) + (1.0 - grime) * 0.18;
 	}
 	ALBEDO = c * tint * tint_gain;
-	ROUGHNESS = rough;
-	METALLIC = paint > 0.5 ? 0.3 : metal * tri(metal_map, p, w).r;
+	ROUGHNESS = r;
+	METALLIC = paint > 0.5 ? 0.3 : metal * mt;
 	// Whiteout-blended triplanar normals, world space, then to view.
 	vec3 tx = texture(normal_map, p.zy).xyz * 2.0 - 1.0;
 	vec3 ty = texture(normal_map, p.xz).xyz * 2.0 - 1.0;

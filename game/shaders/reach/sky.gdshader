@@ -49,6 +49,9 @@ void sky() {
 	} else {
 		col += stars(EYEDIR, 160.0, 0.32, 0.12, 1.0) * star_gain;
 		col += stars(EYEDIR, 380.0, 0.38, 0.16, 0.45) * star_gain;
+		// The grain between them: thousands of stars too faint to name, which
+		// is what makes a sky look deep rather than painted.
+		col += stars(EYEDIR, 760.0, 0.5, 0.14, 0.16) * star_gain;
 		col += stars(EYEDIR, 60.0, 0.12, 0.05, 4.0) * star_gain;
 		COLOR = col * brightness;
 	}

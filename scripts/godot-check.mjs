@@ -153,6 +153,13 @@ const checks = [
     const ok = Number(m[1]) > 0 && Number(m[2]) > 2.5 && Number(m[3]) > 12 && Number(m[4]) > 8 && m[5] === 'true' && m[6] === 'true'
     return [ok, m[0]]
   }],
+  ['the Reach: she sets down and the ground throws its dust', async () => {
+    const out = await run('reach', ['--landtest'], /LANDTEST/)
+    const m = out.match(/LANDTEST landed (\w+) after ([\d.]+) s, dust (\d+), hull (\d+)%/)
+    if (!m) return [false, (out.match(/LANDTEST[^\n]*/) ?? ['no result'])[0]]
+    // She is down again, and the ground threw dust when she touched it.
+    return [m[1] === 'true' && Number(m[3]) > 0, m[0]]
+  }],
   ['the Reach: ride the lift up the launch tower and board the Kestrel', async () => {
     const out = await run('reach', ['--lifttest'], /LIFTTEST/)
     const m = out.match(/LIFTTEST risen ([\d.]+) m, on deck (\w+), piloted (\w+)/)

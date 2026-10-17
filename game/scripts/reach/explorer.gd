@@ -58,6 +58,13 @@ var _crouch := 0.0
 var _dip := 0.0
 var _dip_v := 0.0
 var _bob := 0.0
+## What E would use is looked for a dozen times a second, with one query
+## object reused, rather than sixty times a second with a new one each time.
+var _look_t := 0.0
+var _q: PhysicsRayQueryParameters3D
+## Grit at the boots, a ring of puffs on a landing or the first burn.
+var _dust: CPUParticles3D
+var _jet_was := false
 
 func wants_mouse() -> bool:
 	return enabled and not _dead
@@ -206,7 +213,14 @@ func _physics_process(dt: float) -> void:
 	_suit(dt)
 	_sounds(dt, jet_on)
 	_was_floor = is_on_floor()
-	_look()
+	# The pack lighting throws grit off whatever is underfoot.
+	if jet_on and not _jet_was:
+		_boot_dust(0.5)
+	_jet_was = jet_on
+	_look_t -= dt
+	if _look_t <= 0.0:
+		_look_t = 0.083
+		_look()
 
 ## Turn so that up is `want`, smoothly (fast enough for a walk round a moon).
 func _align(want: Vector3, dt: float) -> void:
@@ -237,8 +251,12 @@ func _landing() -> void:
 				return
 	if is_on_floor() and not _was_floor:
 		Sfx.play("step", -10.0, 0.8)
-		# The view dips with the landing, harder the faster.
-		_dip_v -= clampf(-_last_vel.dot(up_direction), 0.0, 14.0) * 0.55
+		# The view dips with the landing, harder the faster; a hard one
+		# throws dust off the ground too.
+		var fall := clampf(-_last_vel.dot(up_direction), 0.0, 14.0)
+		_dip_v -= fall * 0.55
+		if fall > 3.0:
+			_boot_dust(clampf(fall / 12.0, 0.25, 1.0))
 
 func _suit(dt: float) -> void:
 	_hurt_t -= dt
@@ -263,14 +281,66 @@ func _sounds(dt: float, jet_on: bool) -> void:
 			_step = 0.0
 			Sfx.play("step", -18.0 if speed < 4.5 else -14.0, randf_range(0.85, 1.1))
 
+## Grit at the boots: a low ring of puffs, thrown out and settling. The
+## dust stays where it was thrown rather than following the suit.
+func _boot_dust(k: float) -> void:
+	if _dust == null:
+		_dust = CPUParticles3D.new()
+		_dust.top_level = true
+		var q := QuadMesh.new()
+		q.size = Vector2(0.3, 0.3)
+		q.material = LaunchFx.dust_material()
+		_dust.mesh = q
+		_dust.emitting = false
+		_dust.one_shot = true
+		_dust.amount = 12
+		_dust.lifetime = 1.0
+		_dust.explosiveness = 0.95
+		_dust.local_coords = false
+		_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+		_dust.emission_ring_axis = Vector3.UP
+		_dust.emission_ring_radius = 0.34
+		_dust.emission_ring_inner_radius = 0.12
+		_dust.emission_ring_height = 0.04
+		_dust.direction = Vector3.UP
+		_dust.spread = 80.0
+		_dust.initial_velocity_min = 0.7
+		_dust.initial_velocity_max = 2.2
+		_dust.damping_min = 1.6
+		_dust.damping_max = 3.2
+		_dust.gravity = Vector3(0, -0.9, 0)
+		_dust.scale_amount_min = 0.45
+		_dust.scale_amount_max = 1.3
+		_dust.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var c := Curve.new()
+		c.add_point(Vector2(0.0, 0.3))
+		c.add_point(Vector2(0.25, 1.0))
+		c.add_point(Vector2(1.0, 1.9))
+		_dust.scale_amount_curve = c
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.18, 0.6, 1.0])
+		g.colors = PackedColorArray([Color(0.6, 0.54, 0.45, 0.0), Color(0.6, 0.54, 0.45, 0.52),
+			Color(0.52, 0.47, 0.4, 0.28), Color(0.45, 0.41, 0.36, 0.0)])
+		_dust.color_ramp = g
+		add_child(_dust)
+	var up := global_basis.y
+	_dust.global_transform = Transform3D(global_basis, global_position + up * 0.1)
+	_dust.gravity = -up * 0.9
+	_dust.scale = Vector3.ONE * lerpf(0.7, 1.4, clampf(k, 0.0, 1.0))
+	_dust.restart()
+
 ## What is looked at, within reach.
 func _look() -> void:
 	var space := get_world_3d().direct_space_state
 	var from := camera.global_position
-	var q := PhysicsRayQueryParameters3D.create(from, from - camera.global_basis.z * 3.4, 8)
-	q.collide_with_areas = true
-	q.collide_with_bodies = false
-	var hit := space.intersect_ray(q)
+	if _q == null:
+		_q = PhysicsRayQueryParameters3D.new()
+		_q.collision_mask = 8
+		_q.collide_with_areas = true
+		_q.collide_with_bodies = false
+	_q.from = from
+	_q.to = from - camera.global_basis.z * 3.4
+	var hit := space.intersect_ray(_q)
 	var u: Usable = null
 	if not hit.is_empty() and hit.collider is Usable:
 		var cand := hit.collider as Usable

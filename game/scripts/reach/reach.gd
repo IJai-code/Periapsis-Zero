@@ -83,6 +83,8 @@ func _ready() -> void:
 		_jump_test()
 	if "--launchtest" in args:
 		_launch_test()
+	if "--landtest" in args:
+		_land_test()
 	if "--reachwalk" in args:
 		_walk_test()
 	if "--reachfly" in args:
@@ -97,7 +99,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest"]:
 			return true
 	return false
 
@@ -269,6 +271,8 @@ var _arrived := {}
 ## Off Hearthstone at least once this loop (the first steps are done).
 var _launched := false
 var _goal_t := 0.0
+## The far worlds are lit on a timer, not every frame: see _process.
+var _light_t := 0.0
 const PLACE_WORDS := {"verdance": "the jungle world", "ashfall": "where the Aster fell", "phantom": "the moon that moves",
 	"wanderer": "the comet", "hearthstone": "home"}
 
@@ -302,8 +306,18 @@ func _process(_dt: float) -> void:
 		lit = smoothstep(-0.1, 0.06, up.dot(-dir))
 	sun.light_energy = 1.6 * power * lit
 	sun.visible = lit > 0.001
-	for key in planets:
-		(planets[key] as Planet).light(star, power)
+	# The world under your feet is lit every frame (it is what you are
+	# standing on). The others are seen from far off, where the Lantern's
+	# direction drifts by a degree over minutes: ten times a second is
+	# smooth, and it takes four shader writes per world off every frame.
+	if planets.has(system.ref):
+		(planets[system.ref] as Planet).light(star, power)
+	_light_t -= _dt
+	if _light_t <= 0.0:
+		_light_t = 0.1
+		for key in planets:
+			if key != system.ref:
+				(planets[key] as Planet).light(star, power)
 	_air(cam)
 	_carry()
 	_goal_t -= _dt
@@ -900,6 +914,34 @@ func _launch_test() -> void:
 		t += get_physics_process_delta_time()
 		peak = maxf(peak, ship.global_position.length() - y0)
 	Report.line("LAUNCHTEST dust %d, ride %.1f s, rose %.1f m, speed %.1f m/s, hands back %s, airborne %s" % [fx, t, peak, ship.linear_velocity.length(), not ship.launching, not ship.landed])
+	Report.finish(get_tree())
+
+## She lifts off the deck, is let go, and sets down again: the grit thrown
+## out from under the gear, the thud through the hull, and her resting on
+## the deck afterwards (the dust is a one-shot, so it is counted as it happens).
+func _land_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	await get_tree().create_timer(0.5).timeout
+	var up := ship.global_basis.y.normalized()
+	ship.freeze = true
+	ship.global_position += up * 5.0
+	ship.reset_physics_interpolation()
+	ship.freeze = false
+	ship.linear_velocity = -up * 3.0
+	ship.landed = false
+	var start := Time.get_ticks_msec()
+	var dust := 0
+	while Time.get_ticks_msec() - start < 6000:
+		await get_tree().physics_frame
+		for n in get_tree().get_nodes_in_group("launch_fx"):
+			dust = maxi(dust, n.get_child_count())
+		if ship.landed:
+			break
+	var t := (Time.get_ticks_msec() - start) / 1000.0
+	Report.line("LANDTEST landed %s after %.1f s, dust %d, hull %d%%" % [ship.landed, t, dust, int(maxf(ship.integrity, 0.0))])
 	Report.finish(get_tree())
 
 ## Codes known: ride the lift up the tower, walk to the Kestrel, board her;

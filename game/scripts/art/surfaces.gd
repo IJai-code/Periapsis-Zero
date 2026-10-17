@@ -280,6 +280,9 @@ static func _pbr(id: String, scale: float, tint: Color, paint := false) -> Shade
 	m.set_shader_parameter("tint_gain", gain)
 	m.set_shader_parameter("paint", 1.0 if paint else 0.0)
 	m.set_shader_parameter("scale", scale)
+	# The light renderer (the browser, a weak PC) leaves out the two maps
+	# that read least: six texture fetches off every surface pixel.
+	m.set_shader_parameter("detail", 0.0 if Flow.lite() else 1.0)
 	return m
 
 ## Solar cells: deep blue, glossy, a fine grid.
