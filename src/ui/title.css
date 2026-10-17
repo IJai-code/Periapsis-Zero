@@ -134,3 +134,50 @@
 @media(max-width:1100px) { .tt-install-grid { grid-template-columns: 1fr; } .tt-content { padding: 32px 28px 0 0; } .tt-hero { padding: 48px 40px; } }
 @media(max-width:800px) { .tt-content, .tt-fresh .tt-content { padding: 18px; } .tt-hero { padding: 36px 24px; } .tt-briefing { grid-template-columns: 1fr; gap: 32px; padding: 48px 0; } .tt-install, .tt-paths { padding: 48px 0; margin: 0; } .tt-bar { padding: 12px 18px; } }
 @media(max-width:520px) { .tt-hero { padding: 28px 18px; } .tt-install article { padding: 22px; } }
+
+/* The front door, in the game's title style (Lilita One, Fredoka; cream on a
+   dark outline over the scene). */
+.lp-root { --lp-cream: #fbf1dc; --lp-ink: #3a2618; --lp-warm: #ffd9a0; background: #0b0d16; font-family: 'Fredoka', var(--font-sans); }
+.lp-hero { position: relative; min-height: 100vh; background-size: cover; background-position: 60% center; display: flex; flex-direction: column; }
+.lp-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,6,10,.62), rgba(8,6,10,.18) 46%, transparent 70%), linear-gradient(0deg, rgba(11,13,22,.85), transparent 22%); pointer-events: none; }
+.lp-top { position: relative; z-index: 2; display: flex; justify-content: flex-end; gap: 6px; padding: 18px 28px; }
+.lp-top button { background: none; border: 0; color: var(--lp-cream); font: 500 17px 'Fredoka', sans-serif; padding: 8px 12px; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.lp-top button:hover { color: var(--lp-warm); }
+.lp-left { position: relative; z-index: 1; padding: 2vh 0 0 clamp(24px, 6vw, 110px); flex: 1; }
+.lp-logo { margin: 0; line-height: .9; color: var(--lp-cream); font-family: 'Lilita One', sans-serif; font-weight: 400; -webkit-text-stroke: 14px var(--lp-ink); paint-order: stroke fill; text-shadow: 6px 8px 0 rgba(0,0,0,.3); }
+.lp-logo-top { display: block; font-size: clamp(44px, 5.4vw, 86px); margin-left: .25em; }
+.lp-logo-main { display: flex; align-items: center; font-size: clamp(96px, 11.5vw, 186px); letter-spacing: .01em; }
+.lp-planet { width: 1.2em; height: .8em; margin-left: -.06em; overflow: visible; filter: drop-shadow(6px 8px 0 rgba(0,0,0,.3)); }
+.lp-tag { margin: 14px 0 26px 6px; max-width: 30ch; color: var(--lp-cream); font: 500 21px/1.4 'Fredoka', sans-serif; text-shadow: 0 2px 8px rgba(0,0,0,.75); }
+.lp-menu { list-style: none; margin: 0; padding: 0 0 0 64px; display: grid; gap: 2px; }
+.lp-menu a, .lp-menu button { position: relative; display: inline-block; background: none; border: 0; padding: 2px 4px; color: var(--lp-cream); text-decoration: none; font: 600 clamp(30px, 3.2vw, 48px)/1.25 'Fredoka', sans-serif; -webkit-text-stroke: 9px var(--lp-ink); paint-order: stroke fill; text-shadow: 3px 4px 0 rgba(0,0,0,.25); transition: color .15s, transform .15s; }
+.lp-menu a:hover, .lp-menu a:focus-visible, .lp-menu button:hover, .lp-menu button:focus-visible { color: var(--lp-warm); transform: translateX(4px); outline: none; }
+.lp-menu a::before, .lp-menu button::before { content: ''; position: absolute; left: -62px; top: 50%; width: 54px; height: 40px; margin-top: -20px; opacity: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-30 -20 60 40'%3E%3Cellipse rx='26' ry='9' transform='rotate(-18)' fill='none' stroke='%233a2618' stroke-width='8'/%3E%3Cellipse rx='26' ry='9' transform='rotate(-18)' fill='none' stroke='%23ffb36b' stroke-width='4'/%3E%3Ccircle r='13' fill='%233a2618'/%3E%3Ccircle r='10.5' fill='%237fae74'/%3E%3Ccircle cx='-3' cy='-3' r='4.5' fill='%23a9d39a'/%3E%3Cpath d='M -26 0 A 26 9 0 0 0 26 0' transform='rotate(-18)' fill='none' stroke='%233a2618' stroke-width='8'/%3E%3Cpath d='M -26 0 A 26 9 0 0 0 26 0' transform='rotate(-18)' fill='none' stroke='%23ffb36b' stroke-width='4'/%3E%3C/svg%3E") center / contain no-repeat; animation: lp-bob 1.8s ease-in-out infinite; }
+.lp-menu a:hover::before, .lp-menu a:focus-visible::before, .lp-menu button:hover::before, .lp-menu button:focus-visible::before { opacity: 1; }
+@keyframes lp-bob { 50% { transform: translateY(-4px); } }
+.lp-note { color: var(--lp-cream); font-size: 19px; max-width: 30ch; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+.lp-links { position: relative; z-index: 1; padding: 0 0 22px clamp(24px, 6vw, 110px); max-width: 860px; }
+.lp-links p { margin: 6px 0; color: var(--lp-cream); font: 500 16px/1.5 'Fredoka', sans-serif; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
+.lp-links a, .lp-links button { background: none; border: 0; padding: 0; color: var(--lp-warm); text-decoration: underline; text-underline-offset: 3px; font: inherit; }
+.lp-confirm button { margin-left: 10px; }
+.lp-version { position: absolute; z-index: 1; right: 28px; bottom: 22px; color: var(--lp-cream); font: 500 15px 'Fredoka', sans-serif; opacity: .85; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
+.lp-worlds, .lp-install { max-width: 1100px; margin: 0 auto; padding: 72px 28px 24px; color: var(--lp-cream); }
+.lp-worlds h2, .lp-install h2 { margin: 0 0 12px; font: 400 clamp(34px, 4vw, 54px)/1.05 'Lilita One', sans-serif; color: var(--lp-cream); -webkit-text-stroke: 8px var(--lp-ink); paint-order: stroke fill; }
+.lp-lede { max-width: 62ch; font: 400 19px/1.55 'Fredoka', sans-serif; opacity: .9; }
+.lp-worlds ol { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.lp-worlds li { padding: 18px; border-radius: 14px; background: rgba(251,241,220,.06); border: 1px solid rgba(251,241,220,.12); font: 400 16px/1.5 'Fredoka', sans-serif; }
+.lp-worlds li strong { display: block; margin-bottom: 6px; font: 400 23px 'Lilita One', sans-serif; color: #ffb36b; }
+.lp-install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 24px; }
+.lp-install article { padding: 18px 20px; border-radius: 14px; background: rgba(251,241,220,.06); border: 1px solid rgba(251,241,220,.12); font: 400 16px/1.55 'Fredoka', sans-serif; }
+.lp-install h3 { margin: 0 0 8px; font: 400 24px 'Lilita One', sans-serif; color: #ffb36b; }
+.lp-install ol { padding-left: 20px; margin: 0; }
+.lp-small { font-size: 13px; opacity: .8; }
+.lp-install code { font: 13px var(--font-mono); background: rgba(0,0,0,.3); padding: 1px 5px; border-radius: 4px; }
+.lp-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; max-width: 1100px; margin: 0 auto; padding: 40px 28px 34px; color: rgba(251,241,220,.65); font: 400 14px 'Fredoka', sans-serif; }
+.lp-foot a { color: rgba(251,241,220,.85); }
+@media (max-width: 700px) {
+  .lp-menu { padding-left: 46px; }
+  .lp-menu a::before, .lp-menu button::before { left: -48px; width: 42px; }
+  .lp-version { position: static; padding: 0 0 18px 24px; }
+  .lp-logo { -webkit-text-stroke-width: 9px; }
+}

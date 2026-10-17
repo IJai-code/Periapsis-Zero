@@ -47,6 +47,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
   }, [])
   const next = TRAINING.find((t) => !earned.has(t.id)) ?? TRAINING[0]
   const newGame = () => save && !confirm ? setConfirm(true) : onNew()
+  if (tab === 'career') return <Landing {...{ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, setTab }} />
   return <main className="tt-root">
     <header className="tt-bar">
       <a className="tt-brand" href="#" aria-label="Periapsis Zero home"><Mark size={26} /><span>PERIAPSIS ZERO<small>FLIGHT OPERATIONS</small></span></a>
@@ -123,5 +124,94 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
         <footer className="tt-foot"><span>Built by Ishaan Jha · NASA Earth and Moon imagery</span><a href={FEEDBACK_URL} target="_blank" rel="noreferrer">Report a problem ↗</a><span>Ships and stations authored in Blender · saves stored locally</span></footer>
       </div>
     </div>
+  </main>
+}
+
+// The front door, framed like the game's own title: Hearth's lake under the
+// nebulae, the logo top left, the menu under it in big friendly words, a
+// little planet by the line you point at, links at the foot.
+function Logo() {
+  return <h1 className="lp-logo" aria-label="Periapsis Zero">
+    <span className="lp-logo-top" aria-hidden>Periapsis</span>
+    <span className="lp-logo-main" aria-hidden>ZER<svg className="lp-planet" viewBox="-120 -80 240 160" aria-hidden>
+      <ellipse cx="0" cy="0" rx="104" ry="34" transform="rotate(-18)" fill="none" stroke="#3a2618" strokeWidth="20" />
+      <ellipse cx="0" cy="0" rx="104" ry="34" transform="rotate(-18)" fill="none" stroke="#ffb36b" strokeWidth="9" />
+      <circle r="66" fill="#3a2618" />
+      <circle r="56" fill="#6fa86a" />
+      <circle cx="14" cy="12" r="40" fill="#5b9459" />
+      <circle cx="-18" cy="-18" r="20" fill="#9fd08e" />
+      <circle cx="20" cy="-26" r="8" fill="#fbf1dc" opacity=".8" />
+      <path d="M -104 0 A 104 34 0 0 0 104 0" transform="rotate(-18)" fill="none" stroke="#3a2618" strokeWidth="20" />
+      <path d="M -104 0 A 104 34 0 0 0 104 0" transform="rotate(-18)" fill="none" stroke="#ffb36b" strokeWidth="9" />
+      <g transform="rotate(-18)"><circle r="9" fill="#3a2618"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle><circle r="6" fill="#e8853d"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle></g>
+    </svg></span>
+  </h1>
+}
+
+function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, setTab }) {
+  const toInstall = (e) => { e.preventDefault(); document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' }) }
+  return <main className="tt-root lp-root">
+    <section className="lp-hero" style={{ backgroundImage: `url(${BASE}game/landing-lake.jpg)` }}>
+      <nav className="lp-top" aria-label="More">
+        <button onClick={() => setTab('training')}>Flight school</button>
+        <button onClick={() => setTab('worlds')}>Worlds</button>
+        <AccountButton />
+      </nav>
+      <div className="lp-left">
+        <Logo />
+        <p className="lp-tag">Twenty-two minutes. Then the star goes out, and you wake by the campfire again.</p>
+        <ul className="lp-menu">
+          {isPhone
+            ? <li className="lp-note">The game needs a keyboard and mouse. Come back on a computer, or try the simulator here.</li>
+            : <>
+              {/* The game is the Godot build (game/, published to /play/); #reach goes straight in. */}
+              <li><a href={`${BASE}play/index.html#reach`}>Play in your browser</a></li>
+              <li><a href={`${DESKTOP}${download.file}`}>Download for {download.name}</a></li>
+            </>}
+          <li><button onClick={onSimulator}>Explore the Cosmos</button></li>
+          <li><button onClick={() => setTab('training')}>Flight School</button></li>
+          <li><button onClick={onSquadron}>Squadron</button></li>
+        </ul>
+      </div>
+      <div className="lp-links">
+        {!isPhone && <p>Free in your browser, about 95 MB the first time · also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> and <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> · <a href="#install" onClick={toInstall}>how to open the download</a></p>}
+        <p>{save ? <>Your career in the original flight game: <button onClick={onPlay}>continue</button> or <button onClick={newGame}>start a new pilot</button></> : <>Rather fly and fight? <button onClick={newGame}>Start a career</button> in the original flight game</>}{flown ? ` · Flight log: ${flown}` : ''}</p>
+        {confirm && <p className="lp-confirm" role="alert">Replace your saved career with a new pilot? <button onClick={onNew}>Replace it</button> <button onClick={() => setConfirm(false)}>Keep my pilot</button></p>}
+      </div>
+      <div className="lp-version">Periapsis Zero · The Reach · early build</div>
+    </section>
+    <section className="lp-worlds" aria-labelledby="lp-worlds-title">
+      <h2 id="lp-worlds-title">Five small worlds, one loop</h2>
+      <p className="lp-lede">You wake by Hearth&rsquo;s campfire. After that there are no waypoints: only rumours in your ship&rsquo;s log, signals on your scope, and twenty-two minutes before the Lantern falls.</p>
+      <ol>
+        <li><strong>Hearthstone</strong>A village in a crater: houses on stilts, a lake and a pier, a waterfall, an observatory, and your ship on top of the launch tower.</li>
+        <li><strong>Verdance</strong>Sandstone pillars and waterfalls, and a harmonica on the Travellers frequency that nobody in Hearth plays.</li>
+        <li><strong>Ashfall</strong>The Aster&rsquo;s wreck in a grey crater, drones sweeping it with searchlights, her captain&rsquo;s recorder still talking.</li>
+        <li><strong>The Phantom</strong>A little moon that is never where you left it, unless you keep its picture.</li>
+        <li><strong>The Wanderer</strong>A comet that dives past the Lantern at twenty and a half minutes. Something on it has been waiting a long time.</li>
+      </ol>
+    </section>
+    {!isPhone && <section className="lp-install" id="install" aria-labelledby="install-title">
+      <h2 id="install-title">Opening the download</h2>
+      <p className="lp-lede">The desktop builds aren&rsquo;t signed yet, so your computer will warn you the first time. It&rsquo;s safe to continue; you only do this once, and after that the game updates itself.</p>
+      <div className="lp-install-grid">
+        <article><h3>Mac</h3><ol>
+          <li>Open the zip and drag <b>Periapsis Zero</b> into Applications.</li>
+          <li>Open it. When macOS says it could not verify the app, click <b>Done</b>.</li>
+          <li>In <b>System Settings › Privacy &amp; Security</b>, click <b>Open Anyway</b>, then confirm.</li>
+        </ol><p className="lp-small">No Open Anyway button? In Terminal: <code>xattr -dr com.apple.quarantine &quot;/Applications/Periapsis Zero.app&quot;</code></p></article>
+        <article><h3>Windows</h3><ol>
+          <li>If your browser flags the download, choose <b>Keep</b>.</li>
+          <li>Right-click the zip and choose <b>Extract All</b>.</li>
+          <li>Run <b>PeriapsisZero.exe</b>. If Windows protects your PC, click <b>More info</b>, then <b>Run anyway</b>.</li>
+        </ol></article>
+        <article><h3>Linux</h3><ol>
+          <li><code>tar -xzf PeriapsisZero-linux.tar.gz</code></li>
+          <li><code>chmod +x PeriapsisZero.x86_64</code></li>
+          <li><code>./PeriapsisZero.x86_64</code> (needs Vulkan).</li>
+        </ol></article>
+      </div>
+    </section>}
+    <footer className="lp-foot"><span>Made by Ishaan Jha · models built in Blender, game in Godot · NASA imagery for the simulator</span><a href={FEEDBACK_URL} target="_blank" rel="noreferrer">Report a problem ↗</a></footer>
   </main>
 }

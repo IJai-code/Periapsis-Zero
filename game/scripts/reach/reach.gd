@@ -50,6 +50,10 @@ func _ready() -> void:
 	_build_sites()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
+	# The title's scene alone, for pictures: #reach/backdrop.
+	if Flow.beat == "backdrop":
+		Flow.beat = ""
+		set_meta("backdrop", true)
 	if has_meta("backdrop"):
 		_backdrop()
 		return
