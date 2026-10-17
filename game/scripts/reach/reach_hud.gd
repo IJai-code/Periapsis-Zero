@@ -6,9 +6,20 @@ extends CanvasLayer
 
 var reach: Node
 var _draw: Control
-var _prompt: Label
-var _toast: Label
-var _toast_t := 0.0
+var _visor: ColorRect
+var _visor_mat: ShaderMaterial
+var _prompt_box: HBoxContainer
+var _key: Label
+var _act: Label
+var _card: PanelContainer
+var _card_text: Label
+var _card_t := 0.0
+var _place: VBoxContainer
+var _place_title: Label
+var _place_sub: Label
+var _place_t := 0.0
+var _gauge_t := 0.0
+var _last_fuel := 100.0
 var _caption: Label
 var _caption_t := 0.0
 var _fade: ColorRect
@@ -24,25 +35,78 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	# The helmet's glass, on foot.
+	_visor = ColorRect.new()
+	_visor.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_visor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_visor_mat = ShaderMaterial.new()
+	_visor_mat.shader = load("res://shaders/reach/visor.gdshader")
+	_visor.material = _visor_mat
+	_visor.visible = false
+	root.add_child(_visor)
 	_draw = Control.new()
 	_draw.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_draw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_draw.draw.connect(_paint)
 	root.add_child(_draw)
-	_prompt = ReachStyle.label("", 18, ReachStyle.BONE)
-	_prompt.set_anchors_preset(Control.PRESET_CENTER)
-	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.position.y += 44
-	_shadow(_prompt)
-	root.add_child(_prompt)
-	_toast = ReachStyle.label("", 15, ReachStyle.EMBER, true)
-	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.offset_top = 36
-	_shadow(_toast)
-	root.add_child(_toast)
+	# What E would do: a key, and the words.
+	_prompt_box = HBoxContainer.new()
+	_prompt_box.set_anchors_preset(Control.PRESET_CENTER)
+	_prompt_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_prompt_box.position.y += 52
+	_prompt_box.add_theme_constant_override("separation", 10)
+	_prompt_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_prompt_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_prompt_box)
+	var cap := PanelContainer.new()
+	cap.add_theme_stylebox_override("panel", ReachStyle.keycap())
+	_prompt_box.add_child(cap)
+	_key = ReachStyle.label("E", 14, ReachStyle.CHARCOAL, true)
+	_key.add_theme_font_override("font", Style.mono_bold)
+	_key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.add_child(_key)
+	_act = ReachStyle.label("", 19, ReachStyle.BONE)
+	_shadow(_act)
+	_prompt_box.add_child(_act)
+	_prompt_box.visible = false
+	# Notices (the ship's log, a signal named): a card from the right.
+	_card = PanelContainer.new()
+	var cs := ReachStyle.panel(6)
+	cs.border_width_top = 0
+	cs.border_width_left = 3
+	cs.border_color = ReachStyle.EMBER
+	_card.add_theme_stylebox_override("panel", cs)
+	_card.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_card.offset_top = 214
+	_card.offset_right = 400
+	_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_card)
+	var ch := HBoxContainer.new()
+	ch.add_theme_constant_override("separation", 12)
+	_card.add_child(ch)
+	var mark := ReachStyle.label("◆", 16, ReachStyle.EMBER)
+	ch.add_child(mark)
+	_card_text = ReachStyle.label("", 16, ReachStyle.BONE)
+	_card_text.add_theme_font_override("font", ReachStyle.serif)
+	ch.add_child(_card_text)
+	# Arriving somewhere: its name, large, at the top.
+	_place = VBoxContainer.new()
+	_place.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_place.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_place.offset_top = 70
+	_place.alignment = BoxContainer.ALIGNMENT_CENTER
+	_place.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place.modulate.a = 0.0
+	root.add_child(_place)
+	_place_sub = ReachStyle.label("", 12, ReachStyle.EMBER, true)
+	_place_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_place.add_child(_place_sub)
+	_place_title = ReachStyle.title("", 54, ReachStyle.BONE)
+	_place_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shadow(_place_title)
+	_place.add_child(_place_title)
 	_caption = ReachStyle.label("", 22, ReachStyle.BONE)
 	_caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -73,8 +137,8 @@ func _ready() -> void:
 	_hint = ReachStyle.label("", 13, ReachStyle.BONE, true)
 	_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_hint.offset_left = 40
-	_hint.offset_bottom = -84
+	_hint.offset_left = 156
+	_hint.offset_bottom = -52
 	_hint.modulate.a = 0.0
 	_shadow(_hint)
 	root.add_child(_hint)
@@ -93,10 +157,16 @@ func _shadow(l: Label) -> void:
 	l.add_theme_constant_override("outline_size", 6)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 
-## A line at the top for a few seconds ("Ship log updated").
+## A notice for a few seconds ("Ship log updated"): a card from the right.
 func toast(text: String, seconds := 3.0) -> void:
-	_toast.text = text
-	_toast_t = seconds
+	_card_text.text = text.capitalize() if text == text.to_upper() and text.length() > 3 else text
+	_card_t = seconds
+
+## Arriving somewhere: its name, large, and what it is above it.
+func place(title: String, what := "") -> void:
+	_place_title.text = title
+	_place_sub.text = what.to_upper()
+	_place_t = 4.0
 
 ## A line low in the middle (what someone says, what the loop did).
 func caption(text: String, seconds := 4.0) -> void:
@@ -126,8 +196,13 @@ func fade_to(c: Color, seconds: float) -> void:
 	await t.finished
 
 func _process(dt: float) -> void:
-	_toast_t -= dt
-	_toast.modulate.a = clampf(_toast_t, 0.0, 1.0)
+	_card_t -= dt
+	var show := clampf(_card_t * 2.0, 0.0, 1.0)
+	_card.modulate.a = show
+	_card.offset_right = lerpf(_card.offset_right, -28.0 if _card_t > 0.0 else 420.0, minf(1.0, dt * 9.0))
+	_card.offset_left = _card.offset_right - _card.size.x
+	_place_t -= dt
+	_place.modulate.a = clampf(minf(_place_t, 4.0 - _place_t) * 1.2, 0.0, 1.0)
 	_caption_t -= dt
 	_caption.modulate.a = clampf(_caption_t, 0.0, 1.0)
 	_hint_t -= dt
@@ -136,10 +211,18 @@ func _process(dt: float) -> void:
 	var s: ReachShip = reach.ship
 	var text := ""
 	if p and p.enabled and p.focus:
-		text = "[E]  " + p.focus.prompt
+		text = p.focus.prompt
 	elif s and s.piloted and s.landed:
-		text = "[E]  Leave the seat"
-	_prompt.text = text
+		text = "Leave the seat"
+	_act.text = text
+	_prompt_box.visible = text != ""
+	# The helmet's glass while walking about (not in the seat, not by a
+	# fire, not waking).
+	var on_foot: bool = p != null and p.enabled and not (s and s.piloted)
+	_visor.visible = on_foot
+	if on_foot:
+		var vp := _visor.get_viewport_rect().size
+		_visor_mat.set_shader_parameter("aspect", Vector2(vp.x / maxf(vp.y, 1.0), 1.0))
 	_draw.queue_redraw()
 
 func _paint() -> void:
@@ -150,34 +233,66 @@ func _paint() -> void:
 	if s and s.piloted:
 		_ship(vp, c, s)
 	elif p and p.enabled:
-		_draw.draw_circle(c, 2.4, Color(ReachStyle.BONE, 0.75))
+		# A dot; a ring round it when what you look at can be used.
+		if p.focus:
+			_draw.draw_arc(c, 9.0, 0.0, TAU, 28, Color(ReachStyle.EMBER, 0.9), 1.8, true)
+			_draw.draw_circle(c, 2.2, ReachStyle.EMBER)
+		else:
+			_draw.draw_circle(c, 2.4, Color(ReachStyle.BONE, 0.75))
 		_suit(vp, p)
 
 func _suit(vp: Vector2, p: Explorer) -> void:
 	var gauges := [
-		["O2", p.oxygen / Explorer.OXY_MAX, ReachStyle.PINE],
+		["O2", p.oxygen / Explorer.OXY_MAX, Color(0.55, 0.82, 0.95)],
 		["FUEL", p.fuel / Explorer.FUEL_MAX, ReachStyle.EMBER],
-		["SUIT", p.health / 100.0, ReachStyle.BONE],
+		["SUIT", p.health / 100.0, ReachStyle.PINE],
 	]
-	var show := not p.breathing
+	# Bright while anything is short or the jetpack is burning; faint when
+	# all is well.
+	var dt := get_process_delta_time()
+	var busy := not p.breathing or p.fuel < _last_fuel - 0.01
 	for g in gauges:
-		if float(g[1]) < 0.995:
-			show = true
-	if not show:
-		return
-	var at := Vector2(40, vp.y - 50)
+		if float(g[1]) < 0.98:
+			busy = true
+	_last_fuel = p.fuel
+	_gauge_t = clampf(_gauge_t + (dt * 3.0 if busy else -dt * 0.8), 0.0, 1.0)
+	var alpha := 0.32 + 0.68 * _gauge_t
+	var h := 92.0
+	var w := 12.0
+	var base := Vector2(52, vp.y - 58)
 	for i in gauges.size():
 		var g: Array = gauges[i]
-		var x := at.x + i * 96
+		var x := base.x + i * 36.0
 		var f := clampf(float(g[1]), 0.0, 1.0)
 		var col: Color = g[2]
 		if f < 0.25:
-			col = Color(ReachStyle.EMBER, 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.012))
-		_draw.draw_rect(Rect2(Vector2(x, at.y), Vector2(80, 5)), Color(ReachStyle.BONE, 0.14))
-		_draw.draw_rect(Rect2(Vector2(x, at.y), Vector2(80 * f, 5)), col)
-		_draw.draw_string(Style.mono, Vector2(x, at.y - 8), g[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ReachStyle.MUTE)
+			col = ReachStyle.EMBER.lerp(Color(1, 0.3, 0.2), 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012))
+		var top := Vector2(x, base.y - h)
+		# The capsule: rounded ends, a dark well, the fill from below.
+		_capsule(top, w, h, Color(0.04, 0.04, 0.05, 0.55 * alpha))
+		var fh := maxf(h * f, 0.0)
+		if fh > 1.0:
+			_capsule(Vector2(x, base.y - fh), w, fh, Color(col, 0.9 * alpha))
+		_capsule_outline(top, w, h, Color(ReachStyle.BONE, 0.35 * alpha))
+		_draw.draw_string(Style.mono_bold, Vector2(x - 8, base.y + 18), g[0], HORIZONTAL_ALIGNMENT_CENTER, w + 16, 10, Color(ReachStyle.BONE, 0.7 * alpha))
 	if not p.breathing:
-		_draw.draw_string(Style.mono_bold, Vector2(at.x, at.y - 30), "NO AIR  ·  %d s" % int(maxf(p.oxygen, 0.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ReachStyle.EMBER)
+		_draw.draw_string(Style.mono_bold, Vector2(base.x - 4, base.y - h - 22), "NO AIR  ·  %d s" % int(maxf(p.oxygen, 0.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ReachStyle.EMBER)
+
+func _capsule(top: Vector2, w: float, h: float, c: Color) -> void:
+	var r := w / 2.0
+	if h <= w:
+		_draw.draw_circle(top + Vector2(r, h / 2.0), h / 2.0, c)
+		return
+	_draw.draw_rect(Rect2(top + Vector2(0, r), Vector2(w, h - w)), c)
+	_draw.draw_circle(top + Vector2(r, r), r, c)
+	_draw.draw_circle(top + Vector2(r, h - r), r, c)
+
+func _capsule_outline(top: Vector2, w: float, h: float, c: Color) -> void:
+	var r := w / 2.0
+	_draw.draw_line(top + Vector2(0, r), top + Vector2(0, h - r), c, 1.2, true)
+	_draw.draw_line(top + Vector2(w, r), top + Vector2(w, h - r), c, 1.2, true)
+	_draw.draw_arc(top + Vector2(r, r), r, PI, TAU, 12, c, 1.2, true)
+	_draw.draw_arc(top + Vector2(r, h - r), r, 0.0, PI, 12, c, 1.2, true)
 
 func _ship(vp: Vector2, c: Vector2, s: ReachShip) -> void:
 	var sys: ReachSystem = reach.system

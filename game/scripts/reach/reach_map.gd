@@ -236,6 +236,12 @@ func _paint() -> void:
 	for k in 4:
 		_canvas.draw_circle(lc, lr * (1.0 + k * 0.6), Color(1.0, 0.6 - heat * 0.2, 0.25, 0.16 - k * 0.035))
 	_canvas.draw_circle(lc, lr, Color(1.0, 0.82 - heat * 0.3, 0.5))
+	# The Fold, a soft cloud at the edge of things.
+	var fc := _to_screen(Fold.AT)
+	var fr := Fold.RADIUS * s
+	for k in 5:
+		_canvas.draw_circle(fc + Vector2(sin(k * 2.1), cos(k * 1.3)) * fr * 0.25, fr * (1.0 - k * 0.15), Color(0.45 + k * 0.08, 0.6 - k * 0.05, 0.75, 0.06))
+	_canvas.draw_string(ReachStyle.serif_italic, fc + Vector2(-fr * 0.5, fr + 18.0), "The Fold", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.85, 0.95, 0.85))
 	# Orbits, each with its periapsis marked; the mark pulses as the body
 	# nears it. The orbit of the sphere you are in glows with it.
 	for key in _orbits:

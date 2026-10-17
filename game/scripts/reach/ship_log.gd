@@ -17,10 +17,21 @@ static func open(parent: Node) -> ShipLog:
 	return s
 
 var _tints := {}
+var _pics := {}
+var _stars := PackedVector3Array()
+const CARD := Vector2(252, 196)
 
 func _ready() -> void:
 	for b: ReachBody in ReachSystem.define():
 		_tints[b.key] = b.tint
+	for place in Lore.PLACES:
+		var path := "res://art/log/%s.jpg" % place
+		if ResourceLoader.exists(path):
+			_pics[place] = load(path)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	for i in 160:
+		_stars.append(Vector3(rng.randf(), rng.randf(), rng.randf()))
 	layer = 14
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	var root := Control.new()
@@ -28,16 +39,20 @@ func _ready() -> void:
 	root.theme = ReachStyle.theme()
 	add_child(root)
 	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.06, 0.05, 0.94)
+	bg.color = Color(0.045, 0.04, 0.045, 0.97)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
-	var title := ReachStyle.label("SHIP LOG  ·  THE REACH", 15, ReachStyle.EMBER, true)
-	title.position = Vector2(48, 32)
+	var title := ReachStyle.title("Ship Log", 34, ReachStyle.BONE)
+	title.position = Vector2(48, 20)
 	root.add_child(title)
+	var sub := ReachStyle.label("THE KESTREL  ·  RUMOURS AND WHAT YOU FOUND", 12, ReachStyle.EMBER, true)
+	sub.position = Vector2(50, 66)
+	root.add_child(sub)
 	var hint := ReachStyle.label("Loop %d    Click a place to read it    L or Esc to close" % int(Flow.progress("reach_loops", 1)), 13, ReachStyle.MUTE, true)
 	hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	hint.position = Vector2(-48, 34)
+	hint.offset_right = -48
+	hint.offset_top = 34
 	root.add_child(hint)
 	_canvas = Control.new()
 	_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -77,6 +92,10 @@ func _card_pos(place: String) -> Vector2:
 	return size / 2.0 + Vector2(p.x * size.x * 0.34, p.y * size.y * 0.62)
 
 func _paint() -> void:
+	# A night behind the cards: faint stars.
+	var sz := _canvas.size
+	for st in _stars:
+		_canvas.draw_circle(Vector2(st.x * sz.x, st.y * sz.y), 0.6 + st.z, Color(ReachStyle.BONE, 0.05 + st.z * 0.12))
 	# Threads: rumour facts from where they were learned to where they lead.
 	for id in Lore.FACTS:
 		if not Lore.known(id):
@@ -94,18 +113,29 @@ func _paint() -> void:
 			continue
 		var c := _card_pos(place)
 		var known := Lore.place_known(place)
-		var r := Rect2(c - Vector2(110, 46), Vector2(220, 92))
-		_canvas.draw_rect(r, Color(0.16, 0.14, 0.12, 0.96) if known else Color(0.12, 0.11, 0.1, 0.9))
-		_canvas.draw_rect(r, Color(ReachStyle.EMBER if place == _selected else ReachStyle.BONE, 0.7 if place == _selected else 0.22), false, 2.0)
+		var r := Rect2(c - CARD / 2.0, CARD)
+		var sel: bool = place == _selected
+		# The card: a picture of the place (dark, behind a question, while
+		# only rumoured), its name, how much is known.
+		_canvas.draw_rect(r.grow(3.0 if sel else 1.0), Color(ReachStyle.EMBER, 0.85) if sel else Color(0.0, 0.0, 0.0, 0.35))
+		_canvas.draw_rect(r, Color(0.13, 0.115, 0.1, 0.98))
+		var pic := Rect2(r.position + Vector2(6, 6), Vector2(CARD.x - 12, 134))
+		if _pics.has(place):
+			_canvas.draw_texture_rect(_pics[place], pic, false, Color(1, 1, 1, 1) if known else Color(0.16, 0.15, 0.17, 1))
+		else:
+			_canvas.draw_rect(pic, Color(0.06, 0.06, 0.07))
+		if not known:
+			var q := ReachStyle.serif_bold.get_string_size("?", HORIZONTAL_ALIGNMENT_LEFT, -1, 72)
+			_canvas.draw_string(ReachStyle.serif_bold, pic.get_center() + Vector2(-q.x / 2.0, 24), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 72, Color(ReachStyle.BONE, 0.6))
 		var tint: Color = _tints.get(Lore.PLACES[place].body, ReachStyle.BONE)
-		_canvas.draw_circle(r.position + Vector2(24, 46), 11.0, tint if known else Color(tint, 0.3))
-		var title: String = Lore.PLACES[place].title if known else "?"
-		_canvas.draw_string(Style.sans_bold, r.position + Vector2(44, 42), title, HORIZONTAL_ALIGNMENT_LEFT, 170, 17, ReachStyle.BONE if known else ReachStyle.MUTE)
+		_canvas.draw_circle(r.position + Vector2(18, 164), 6.0, tint if known else Color(tint, 0.35))
+		var name: String = Lore.PLACES[place].title
+		_canvas.draw_string(ReachStyle.serif_bold, r.position + Vector2(32, 170), name, HORIZONTAL_ALIGNMENT_LEFT, CARD.x - 40, 18, ReachStyle.BONE if known else ReachStyle.MUTE)
 		var n := 0
 		for id in Lore.FACTS:
 			if Lore.known(id) and Lore.FACTS[id][0] == place:
 				n += 1
-		_canvas.draw_string(Style.mono, r.position + Vector2(44, 64), ("%d entries" % n) if known else "rumoured", HORIZONTAL_ALIGNMENT_LEFT, 170, 12, ReachStyle.MUTE)
+		_canvas.draw_string(Style.mono, r.position + Vector2(32, 187), ("%d %s" % [n, "entry" if n == 1 else "entries"]) if known else "rumoured", HORIZONTAL_ALIGNMENT_LEFT, CARD.x - 40, 11, ReachStyle.MUTE)
 
 ## A line drawn like ink: slightly wavering, with a soft glow under it.
 func _ink(a: Vector2, b: Vector2, c: Color) -> void:
@@ -122,7 +152,7 @@ func _ink(a: Vector2, b: Vector2, c: Color) -> void:
 func _click(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 		for place in Lore.PLACES:
-			if _visible(place) and Rect2(_card_pos(place) - Vector2(110, 46), Vector2(220, 92)).has_point(e.position):
+			if _visible(place) and Rect2(_card_pos(place) - CARD / 2.0, CARD).has_point(e.position):
 				_selected = place
 				_show(place)
 				Sfx.play("click", -10.0)
@@ -131,7 +161,12 @@ func _show(place: String) -> void:
 	for c in _detail.get_children():
 		c.queue_free()
 	var known := Lore.place_known(place)
-	_detail.add_child(ReachStyle.label(Lore.PLACES[place].title.to_upper() if known else "UNKNOWN", 15, ReachStyle.EMBER, true))
+	if not known and not Lore.place_rumoured(place):
+		# Nothing written yet.
+		_detail.add_child(ReachStyle.title("Nothing yet", 26, ReachStyle.EMBER))
+		_entry("The log fills as you go: what people tell you, what the Choir left written, what you see for yourself. Rumours point the way to places you have not been.", false)
+		return
+	_detail.add_child(ReachStyle.title(Lore.PLACES[place].title, 26, ReachStyle.EMBER if known else ReachStyle.MUTE))
 	if not known:
 		for id in Lore.FACTS:
 			if Lore.known(id) and Lore.FACTS[id][2] == place:

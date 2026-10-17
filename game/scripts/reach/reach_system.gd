@@ -100,9 +100,13 @@ func world(key: String) -> Vector3:
 func world_vel(key: String) -> Vector3:
 	return helio_vel(key) - helio_vel(ref)
 
+## How fast the loop's clock runs (sleeping by a fire runs it fast; the
+## worlds ride their rails, nothing else hurries).
+var warp := 1.0
+
 func _physics_process(dt: float) -> void:
 	if running:
-		t += dt
+		t += dt * warp
 	place()
 	_check_frame()
 

@@ -15,3 +15,13 @@ NASA, public domain (see public/textures/README.md).
 ## Detail maps
 
 CC0 from Poly Haven, by Rob Tuytel (see public/game/detail/CREDITS.txt).
+
+## Fonts
+
+All under the SIL Open Font License (texts in game/fonts): Bricolage
+Grotesque, Space Mono, and Fraunces (by Undercase Type, Phaedra Charles
+and Flavia Zimbardi), the Reach's storybook serif.
+
+## Music
+
+Made in code for the game (art/audio/reach_music.py).

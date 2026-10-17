@@ -1,109 +1,86 @@
 extends Node3D
-## The title: a slow drift over Earth at sunrise, and the way in.
+## The title: Hearth at midnight under the nebulae (the Reach itself, in its
+## backdrop mode), the fire and the band, and the way in.
 
-const SUN := Vector3(0.18, -0.02, -1.0)
-
-var _cam: Camera3D
-var _t := 0.0
 var _menu: VBoxContainer
 var _settings: PanelContainer
-var _ship: Node3D
-var _fill: OmniLight3D
+var _items: Array[Button] = []
 
 func _ready() -> void:
-	Space.environment(self, SUN, 1.1)
-	add_child(Earth.below(520_000.0, SUN))
-	_cam = Camera3D.new()
-	# Driven per rendered frame in _process; no auto-interpolation on top.
-	_cam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	_cam.fov = 50.0
-	_cam.near = 0.1
-	_cam.far = 120_000.0
-	add_child(_cam)
-	# The Kestrel, gliding across the view on a slow pass.
-	_ship = Hull.model("kestrel")
-	# Moved per rendered frame (its slow pass below); an interpolated node
-	# would hold still between ticks and then jump.
-	_ship.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	add_child(_ship)
-	# Earthshine and a rim from below so the ship reads against the Sun.
-	var fill := OmniLight3D.new()
-	fill.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	fill.light_color = Color(0.55, 0.7, 1.0)
-	fill.light_energy = 16.0
-	fill.omni_range = 60.0
-	add_child(fill)
-	_fill = fill
+	var reach: Node = load("res://scenes/reach.tscn").instantiate()
+	reach.set_meta("backdrop", true)
+	add_child(reach)
 	if not "--noui" in OS.get_cmdline_user_args():
 		_ui()
-	Flow.music(true)
+	Flow.music(false)
 
-func _process(dt: float) -> void:
-	_t += dt
+func _process(_dt: float) -> void:
 	_update_progress()
-	# Looking along the orbit at the horizon, the Sun just above it, drifting.
-	var yaw := sin(_t * 0.03) * 0.12
-	_cam.rotation = Vector3(deg_to_rad(-15.0) + sin(_t * 0.05) * 0.01, yaw, sin(_t * 0.04) * 0.02)
-	# A 70-second pass from right to left, then round again.
-	var k := fmod(_t + 22.0, 70.0) / 70.0
-	_ship.position = _cam.global_basis * Vector3(lerpf(26.0, -30.0, k), -3.5 + sin(_t * 0.3) * 0.3, -46.0)
-	_fill.global_position = _ship.global_position + _cam.global_basis * Vector3(0, -6, 12)
-	_ship.global_basis = Basis.looking_at(-_cam.global_basis.x, _cam.global_basis.y).rotated(_cam.global_basis.z.normalized(), 0.0) * Basis(Vector3.FORWARD, sin(_t * 0.25) * 0.08 + 0.12)
 
 func _ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.theme = Style.theme()
+	root.theme = ReachStyle.theme()
 	layer.add_child(root)
-	# A soft dark wash on the left so the words sit on something.
-	var wash := TextureRect.new()
-	var g := Gradient.new()
-	g.set_color(0, Color(Style.VOID, 0.85))
-	g.set_color(1, Color(Style.VOID, 0.0))
-	var gt := GradientTexture2D.new()
-	gt.gradient = g
-	gt.fill_to = Vector2(1, 0)
-	wash.texture = gt
-	wash.stretch_mode = TextureRect.STRETCH_SCALE
-	wash.set_anchors_preset(Control.PRESET_LEFT_WIDE)
-	wash.custom_minimum_size = Vector2(900, 0)
-	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(wash)
+	# Dusk on the left so the words sit on something, and a low shade.
+	for spec in [[Vector2(1, 0), Control.PRESET_LEFT_WIDE, Vector2(980, 0), 0.92], [Vector2(0, -1), Control.PRESET_BOTTOM_WIDE, Vector2(0, 260), 0.7]]:
+		var g := Gradient.new()
+		g.set_color(0, Color(0.03, 0.025, 0.035, spec[3]))
+		g.set_color(1, Color(0.03, 0.025, 0.035, 0.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill_from = Vector2(0, 1) if spec[0] == Vector2(0, -1) else Vector2(0, 0)
+		gt.fill_to = Vector2(0, 0) if spec[0] == Vector2(0, -1) else Vector2(1, 0)
+		var wash := TextureRect.new()
+		wash.texture = gt
+		wash.stretch_mode = TextureRect.STRETCH_SCALE
+		wash.set_anchors_preset(spec[1])
+		wash.custom_minimum_size = spec[2]
+		if spec[1] == Control.PRESET_BOTTOM_WIDE:
+			wash.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(wash)
 
 	_menu = VBoxContainer.new()
 	_menu.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 	_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_menu.offset_left = 96
-	_menu.add_theme_constant_override("separation", 10)
+	_menu.offset_left = 110
+	_menu.add_theme_constant_override("separation", 6)
 	root.add_child(_menu)
-	_menu.add_child(Style.label("A MYSTERY IN THE REACH · 3091", 16, Style.EMBER, Style.mono_bold))
-	var title := Style.label("Periapsis\nZero", 112, Style.BONE, Style.sans_bold)
-	title.add_theme_constant_override("line_spacing", -28)
+	_menu.add_child(ReachStyle.label("A MYSTERY IN THE REACH  ·  3091", 14, ReachStyle.EMBER, true))
+	var title := ReachStyle.title("Periapsis\nZero", 124, ReachStyle.BONE)
+	title.add_theme_constant_override("line_spacing", -34)
+	title.add_theme_constant_override("outline_size", 18)
+	title.add_theme_color_override("font_outline_color", Color(0.02, 0.015, 0.02, 0.35))
 	_menu.add_child(title)
-	_menu.add_child(Style.label("Twenty-two minutes. Then the star goes out.", 26, Style.MUTE))
-	if Flow.progress("reach_finished", false):
-		_menu.add_child(Style.label("You heard the whole song.", 16, ReachStyle.PINE, Style.mono))
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 28)
-	_menu.add_child(gap)
-	# First time: one button, the journey from the start (the opening film
-	# plays). After that the menu offers to carry on from where it stopped.
-	# The game is the Reach. The chapters that lead to it (the prologue,
-	# Act One) are there too, as the road here.
+	var tag := ReachStyle.label("Twenty-two minutes. Then the star goes out.", 26, ReachStyle.MUTE)
+	tag.add_theme_font_override("font", ReachStyle.serif_italic)
+	_menu.add_child(tag)
 	var loops := int(Flow.progress("reach_loops", 0))
+	var facts: Array = Flow.progress("reach_facts", [])
+	if loops > 0:
+		var note := "Loop %d    ·    %d %s in your ship log" % [loops, facts.size(), "entry" if facts.size() == 1 else "entries"]
+		if Flow.progress("reach_finished", false):
+			note += "    ·    you heard the whole song"
+		_menu.add_child(ReachStyle.label(note, 13, ReachStyle.PINE, true))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 30)
+	_menu.add_child(gap)
 	_button("Return to the Reach" if loops > 0 else "Enter the Reach", func(): Flow.go("reach"), true).grab_focus()
+	# The road here: the prologue and Act One, the story of how the Kestrel
+	# came to the Reach.
 	var done: bool = Flow.progress("prologue_done", false)
 	var seen: bool = Flow.progress("intro_seen", false)
 	if done:
 		var chapter: String = Flow.progress("chapter", "hearth")
 		if not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end"]:
 			chapter = "hearth"
-		_button("The road here: continue Act One", func(): Flow.go(chapter))
+		_button("The road here: Act One", func(): Flow.go(chapter))
 	elif seen:
 		var chapter: String = Flow.progress("chapter", "corridor")
-		_button("The road here: continue the prologue", func(): Flow.go(chapter))
+		_button("The road here: the prologue", func(): Flow.go(chapter))
 	else:
 		_button("The road here: the prologue", func(): Flow.go("intro"))
 	_button("Settings", _toggle_settings)
@@ -113,46 +90,51 @@ func _ui() -> void:
 		Hud.prompt("Performance graphics are on, chosen for %s. You can change it in Settings, under Graphics." % GRAPHICS_WHY.get(told, "this PC"), 9.0)
 	if not Flow.on_web():
 		_button("Quit", get_tree().quit)
-	var foot := Style.label("The Reach · early build · periapsiszero.dev", 14, Style.MUTE, Style.mono)
+	var foot := ReachStyle.label("The Reach  ·  early build  ·  periapsiszero.dev", 13, ReachStyle.FAINT, true)
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	foot.offset_left = 96
-	foot.offset_top = -56
+	foot.offset_left = 110
+	foot.offset_top = -52
 	root.add_child(foot)
 	_settings = _settings_panel()
 	_settings.visible = false
 	root.add_child(_settings)
 
+## A menu line: words, not boxes. Ember and a marker when it has the focus.
 func _button(text: String, action: Callable, primary := false) -> Button:
 	var b := Button.new()
 	b.text = text
-	if primary:
-		# The way in: ember, larger, an arrow.
-		b.text = text + "   →"
-		var st := StyleBoxFlat.new()
-		st.bg_color = Style.EMBER
-		st.set_corner_radius_all(8)
-		st.content_margin_left = 30
-		st.content_margin_right = 30
-		st.content_margin_top = 18
-		st.content_margin_bottom = 18
-		var hv := st.duplicate()
-		hv.bg_color = Style.EMBER.lightened(0.12)
-		b.add_theme_stylebox_override("normal", st)
-		b.add_theme_stylebox_override("hover", hv)
-		b.add_theme_stylebox_override("focus", hv)
-		b.add_theme_stylebox_override("pressed", st)
-		b.add_theme_color_override("font_color", Style.VOID)
-		b.add_theme_color_override("font_focus_color", Style.VOID)
-		b.add_theme_color_override("font_hover_color", Style.VOID)
-		b.add_theme_font_size_override("font_size", 26)
+	b.flat = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.custom_minimum_size = Vector2(340, 0)
+	var none := StyleBoxEmpty.new()
+	none.content_margin_left = 26
+	none.content_margin_top = 4
+	none.content_margin_bottom = 4
+	for st in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, none)
+	b.add_theme_font_override("font", ReachStyle.serif if not primary else ReachStyle.serif_bold)
+	b.add_theme_font_size_override("font_size", 38 if primary else 27)
+	b.add_theme_color_override("font_color", ReachStyle.BONE if primary else Color(ReachStyle.BONE, 0.78))
+	for st in ["font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(st, ReachStyle.EMBER)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.mouse_entered.connect(func(): Sfx.play("click", -18.0, 1.6))
+	var mark := ReachStyle.label("›", 38 if primary else 28, ReachStyle.EMBER)
+	mark.add_theme_font_override("font", ReachStyle.serif_bold)
+	mark.position = Vector2(-4, -2 if primary else -1)
+	mark.visible = false
+	b.add_child(mark)
+	var lit := func(on: bool):
+		mark.visible = on
+		if on:
+			Sfx.play("click", -20.0, 1.6)
+	b.focus_entered.connect(lit.bind(true))
+	b.focus_exited.connect(func(): mark.visible = b.is_hovered())
+	b.mouse_entered.connect(func():
+		b.grab_focus())
 	b.pressed.connect(func():
 		Sfx.play("click", -8.0)
 		action.call())
 	_menu.add_child(b)
+	_items.append(b)
 	return b
 
 func _toggle_settings() -> void:
@@ -160,7 +142,7 @@ func _toggle_settings() -> void:
 
 func _settings_panel() -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", Style.panel(14))
+	p.add_theme_stylebox_override("panel", ReachStyle.panel(12))
 	p.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
 	p.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	p.grow_vertical = Control.GROW_DIRECTION_BOTH

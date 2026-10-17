@@ -1,25 +1,21 @@
 shader_type sky;
-// Deep space over the Reach, drawn rather than painted: three layers of
-// stars, a faint band of the galaxy with dust lanes, and the slow colour of
-// distant nebulae. No textures (the panorama images rendered in the wrong
-// colours on some browsers).
+// The sky over the Reach: the nebulae the Kestrel flew through to get here
+// (the original game's painted panorama, art/sky/space-hearth.jpg) turned
+// so their brightest clouds stand over Hearth at night, under stars drawn
+// live so they stay sharp: three layers, the brightest with a soft glow.
+// (No TIME here: a sky that uses it is relit every frame.) The air of a world covers it by day (atmosphere.gdshader).
 
+uniform sampler2D panorama : source_color, hint_default_black, filter_linear_mipmap;
+uniform float panorama_gain = 0.9;
+uniform float star_gain = 1.0;
+uniform float yaw = 3.1415927;
+uniform float tilt = 0.25;
 uniform float brightness = 1.0;
 
 vec3 hash33(vec3 p) {
 	p = fract(p * vec3(0.1031, 0.1030, 0.0973));
 	p += dot(p, p.yxz + 33.33);
 	return fract((p.xxy + p.yxx) * p.zyx);
-}
-
-float hash13(vec3 p) { return hash33(p).x; }
-
-float noise(vec3 p) {
-	vec3 i = floor(p);
-	vec3 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(hash13(i), hash13(i + vec3(1, 0, 0)), f.x), mix(hash13(i + vec3(0, 1, 0)), hash13(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(hash13(i + vec3(0, 0, 1)), hash13(i + vec3(1, 0, 1)), f.x), mix(hash13(i + vec3(0, 1, 1)), hash13(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
 vec3 stars(vec3 d, float scale, float density, float size, float gain) {
@@ -31,24 +27,29 @@ vec3 stars(vec3 d, float scale, float density, float size, float gain) {
 	float r = length(p - c);
 	float s = size * mix(0.6, 1.3, h.y);
 	float core = smoothstep(s, 0.0, r);
-	vec3 tint = mix(vec3(1.0, 0.72, 0.5), vec3(0.75, 0.85, 1.0), h.z);
-	return tint * core * gain * mix(0.5, 2.6, pow(h.y, 4.0));
+	float glow = exp(-r * r / (s * s * 2.5)) * 0.3 * h.y * h.y * smoothstep(0.24, 0.1, r);
+	vec3 tint = mix(vec3(1.0, 0.7, 0.48), vec3(0.72, 0.84, 1.0), h.z);
+	return tint * (core + glow) * gain * mix(0.6, 3.0, pow(h.y, 4.0));
 }
 
 void sky() {
+	// Turn the painting: its brightest clouds over the village by night.
 	vec3 d = EYEDIR;
-	// The galaxy: a band round a tilted great circle, with dark lanes.
-	vec3 axis = normalize(vec3(0.3, 0.9, 0.25));
-	float band = exp(-pow(dot(d, axis) * 3.2, 2.0));
-	float dust = noise(d * 7.0) * 0.6 + noise(d * 19.0) * 0.4;
-	vec3 milky = vec3(0.55, 0.5, 0.62) * band * (0.25 + 0.75 * smoothstep(0.35, 0.75, dust)) * 0.09;
-	float neb = noise(d * 2.4 + 4.0) * noise(d * 5.1);
-	vec3 nebula = mix(vec3(0.22, 0.12, 0.3), vec3(0.08, 0.2, 0.26), noise(d * 1.7)) * smoothstep(0.2, 0.6, neb) * 0.18;
-	vec3 col = milky + nebula;
-	if (!AT_CUBEMAP_PASS) {
-		col += stars(d, 170.0, 0.3, 0.12, 0.9);
-		col += stars(d, 420.0, 0.36 + band * 0.4, 0.16, 0.4);
-		col += stars(d, 64.0, 0.1, 0.05, 3.0);
+	float cy = cos(yaw);
+	float sy = sin(yaw);
+	d = vec3(cy * d.x - sy * d.z, d.y, sy * d.x + cy * d.z);
+	float ct = cos(tilt);
+	float st = sin(tilt);
+	d = vec3(d.x, ct * d.y - st * d.z, st * d.y + ct * d.z);
+	float u = atan(d.x, -d.z) / 6.2831853 + 0.5;
+	float v = acos(clamp(d.y, -1.0, 1.0)) / 3.1415927;
+	vec3 col = texture(panorama, vec2(u, v)).rgb * panorama_gain;
+	if (AT_CUBEMAP_PASS) {
+		COLOR = col * 1.5 * brightness;
+	} else {
+		col += stars(EYEDIR, 160.0, 0.32, 0.12, 1.0) * star_gain;
+		col += stars(EYEDIR, 380.0, 0.38, 0.16, 0.45) * star_gain;
+		col += stars(EYEDIR, 60.0, 0.12, 0.05, 4.0) * star_gain;
+		COLOR = col * brightness;
 	}
-	COLOR = col * brightness;
 }

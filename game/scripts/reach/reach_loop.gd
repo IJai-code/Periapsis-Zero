@@ -65,7 +65,9 @@ func _process(_dt: float) -> void:
 	if t >= ReachSystem.LOOP:
 		_collapse()
 
-## The end of the loop: the Lantern falls in on itself and takes you with it.
+## The end of the loop: the Lantern falls in on itself, and then goes: a
+## shell of light races out through the Reach. When it reaches you, white;
+## the loop's memories rush past backwards; you wake.
 func _collapse() -> void:
 	ending = true
 	var sys: ReachSystem = reach.system
@@ -75,11 +77,28 @@ func _collapse() -> void:
 	var t := create_tween()
 	t.tween_property(lan, "collapse", 1.0, 3.2).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	t.parallel().tween_property(sys, "pull", 600.0, 3.6).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-	await get_tree().create_timer(3.0).timeout
-	await hud.fade_to(Color(0.85, 0.93, 1.0, 1.0), 0.9)
+	await get_tree().create_timer(3.2).timeout
+	# Periapsis Zero: a flash, and the shell.
+	lan.nova()
+	Sfx.play("warp", 0.0, 0.5)
+	Sfx.play("big", 2.0, 0.35)
+	hud.fade_to(Color(0.85, 0.93, 1.0, 0.55), 0.12)
+	await get_tree().create_timer(0.15).timeout
+	hud.fade_to(Color(0.85, 0.93, 1.0, 0.0), 0.8)
+	# Until it is on you (or long enough: from far out, it still comes).
+	var waited := 0.0
+	while waited < 9.0:
+		var cam := get_viewport().get_camera_3d()
+		var d := cam.global_position.distance_to(sys.world("lantern")) if cam else 0.0
+		if lan.nova_r >= d - 150.0:
+			break
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+	await hud.fade_to(Color(0.85, 0.93, 1.0, 1.0), 0.35)
+	await _remember()
 	wake("collapse")
 
-## Death: the light goes white and you wake.
+## Death: the light goes white, the memories, and you wake.
 func die(cause: String) -> void:
 	if ending:
 		return
@@ -91,8 +110,17 @@ func die(cause: String) -> void:
 	Sfx.play("big", -6.0, 0.8)
 	await hud.fade_to(Color(1.0, 1.0, 1.0, 1.0), 1.4)
 	hud.caption(words.get(cause, ""), 2.5)
-	await get_tree().create_timer(1.8).timeout
+	await get_tree().create_timer(1.6).timeout
+	await _remember()
 	wake(cause)
+
+## The loop's pictures, backwards, into the light (skipped by checks).
+func _remember() -> void:
+	var mem: Memories = reach.memories
+	if not mem or Reach._testing(OS.get_cmdline_user_args()):
+		return
+	await mem.play()
+	mem.clear()
 
 ## Wake at the campfire: the loop begins again. Dying fades out first; a
 ## collapse has already gone white. Then the morning itself (Wake): lying

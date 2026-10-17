@@ -135,6 +135,16 @@ const checks = [
     const line = (out.match(/TALKTEST [^\n]*/) ?? ['no result'])[0]
     return [facts.every(f => line.includes(`"${f}"`)) && /player enabled true/.test(line), line]
   }]),
+  ['the Reach: sit by the fire, roast, eat, sleep, wake, stand', async () => {
+    const out = await run('reach', ['--firetest'], /FIRETEST/)
+    const m = out.match(/FIRETEST toast ([\d.]+) eaten (\d+) slept (\d+) s warp after (\d+) stood (\w+) talking (\w+)/)
+    const ok = Boolean(m) && Number(m[1]) > 0.3 && m[2] === '1' && Number(m[3]) > 20 && m[4] === '1' && m[5] === 'true' && m[6] === 'false'
+    return [ok, m ? m[0] : (out.match(/FIRETEST[^\n]*/) ?? ['no result'])[0]]
+  }],
+  ['the Reach: L opens the ship log', async () => {
+    const out = await run('reach', ['--logtest'], /LOGTEST/)
+    return [/LOGTEST open true/.test(out), (out.match(/LOGTEST[^\n]*/) ?? ['no result'])[0]]
+  }],
   ['the Reach: the story by teleport, mine to Engine to the end', async () => {
     const out = await run('reach', ['--storytest', '--talkauto'], /ENDING done|STORY finished false/, 180000)
     const want = ['STORY songlines placed 6 of 6 []', 'STORY songline mine read true, learned true', 'STORY recorder learned true', 'STORY vault open true',

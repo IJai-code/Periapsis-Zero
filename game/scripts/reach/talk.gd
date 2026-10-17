@@ -47,13 +47,14 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	_box.add_child(v)
-	_name = ReachStyle.label("", 15, ReachStyle.EMBER, true)
+	_name = ReachStyle.title("", 21, ReachStyle.EMBER)
 	v.add_child(_name)
 	_text = RichTextLabel.new()
 	_text.fit_content = true
 	_text.bbcode_enabled = false
 	_text.custom_minimum_size = Vector2(716, 0)
-	_text.add_theme_font_size_override("normal_font_size", 20)
+	_text.add_theme_font_size_override("normal_font_size", 21)
+	_text.add_theme_constant_override("line_separation", 4)
 	_text.add_theme_color_override("default_color", ReachStyle.BONE)
 	_text.add_theme_font_override("normal_font", Style.sans)
 	v.add_child(_text)
@@ -92,7 +93,7 @@ func _run() -> void:
 	_close()
 
 func _say(speaker: String, text: String) -> void:
-	_name.text = speaker.to_upper()
+	_name.text = speaker
 	_text.text = text
 	_text.visible_characters = 0
 	_full = text.length()
@@ -143,9 +144,8 @@ func _choose(choices: Array) -> String:
 			continue
 		shown += 1
 		var b := Button.new()
-		b.text = "%d   %s" % [shown, c[0]]
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.add_theme_font_size_override("font_size", 17)
+		b.text = "%d    %s" % [shown, c[0]]
+		ReachStyle.choice(b, 18)
 		var target: String = c[1]
 		b.pressed.connect(func(): picked.node = target)
 		_choices.add_child(b)

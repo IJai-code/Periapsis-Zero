@@ -10,6 +10,72 @@ const BONE := Color("#efe3c9")
 const MUTE := Color(0.937, 0.89, 0.788, 0.62)
 const FAINT := Color(0.937, 0.89, 0.788, 0.28)
 
+## A storybook serif for titles, place names, the Choir's words (Fraunces,
+## OFL, game/fonts), soft and a little wonky, as a hand-lettered log would be.
+static var serif: FontVariation
+static var serif_bold: FontVariation
+static var serif_italic: FontVariation
+
+static func _static_init() -> void:
+	var roman: FontFile = load("res://fonts/Fraunces.ttf")
+	var italic: FontFile = load("res://fonts/Fraunces-Italic.ttf")
+	serif = FontVariation.new()
+	serif.base_font = roman
+	serif.variation_opentype = {"wght": 420, "SOFT": 100, "WONK": 1, "opsz": 36}
+	serif_bold = FontVariation.new()
+	serif_bold.base_font = roman
+	serif_bold.variation_opentype = {"wght": 700, "SOFT": 100, "WONK": 1, "opsz": 72}
+	serif_italic = FontVariation.new()
+	serif_italic.base_font = italic
+	serif_italic.variation_opentype = {"wght": 400, "SOFT": 100, "WONK": 1, "opsz": 24}
+
+## A label in the serif (titles, names, the Choir).
+static func title(text: String, size: int, color := BONE, bold := true) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_font_override("font", serif_bold if bold else serif)
+	return l
+
+## A key on the keyboard, for prompts: bone, rounded, a darker lip below.
+static func keycap() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = BONE
+	s.set_corner_radius_all(5)
+	s.border_color = Color(0.55, 0.5, 0.42)
+	s.border_width_bottom = 3
+	s.content_margin_left = 9
+	s.content_margin_right = 9
+	s.content_margin_top = 2
+	s.content_margin_bottom = 1
+	return s
+
+## A choice in a list (a conversation, a menu): words, not boxes; ember
+## with a marker while it has the focus or the mouse.
+static func choice(b: Button, size := 19) -> void:
+	b.flat = true
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var none := StyleBoxEmpty.new()
+	none.content_margin_left = 22
+	none.content_margin_top = 3
+	none.content_margin_bottom = 3
+	for st in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, none)
+	b.add_theme_font_override("font", Style.sans)
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", Color(BONE, 0.82))
+	for st in ["font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(st, EMBER)
+	var mark := label("›", size + 4, EMBER)
+	mark.add_theme_font_override("font", serif_bold)
+	mark.position = Vector2(2, -3)
+	mark.visible = false
+	b.add_child(mark)
+	b.focus_entered.connect(func(): mark.visible = true)
+	b.focus_exited.connect(func(): mark.visible = false)
+	b.mouse_entered.connect(func(): b.grab_focus())
+
 static func panel(radius := 8) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = PANEL

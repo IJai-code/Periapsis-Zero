@@ -56,7 +56,13 @@ for (const file of textures) {
   const name = file.split('/').pop()
   const big = /earth_(day|night|clouds_hd)/.test(name)
   const normal = /normal/i.test(name)
-  const want = target === 'web'
+  // Sky panoramas stay plain RGBA everywhere: never block-compressed (a GPU
+  // that misreads the format, or a guess that it is a normal map, shows a
+  // green sky), never picked up for VRAM by the "used in 3D" detector.
+  const sky = file.includes('/art/sky/')
+  const want = sky
+    ? { 'compress/mode': target === 'web' ? 1 : 0, 'compress/lossy_quality': 0.85, 'mipmaps/generate': 'true', 'process/size_limit': 2048, 'compress/normal_map': 2, 'detect_3d/compress_to': 0 }
+    : target === 'web'
     ? { 'compress/mode': 1, 'compress/lossy_quality': 0.78, 'mipmaps/generate': 'true', 'process/size_limit': big ? 2048 : 1024, 'compress/normal_map': 0 }
     : { 'compress/mode': 2, 'mipmaps/generate': 'true', 'process/size_limit': big || /skin|male_diffuse|female_diffuse/i.test(name) ? 4096 : 1024, 'compress/normal_map': normal ? 1 : 0 }
   let text = readFileSync(file, 'utf8')

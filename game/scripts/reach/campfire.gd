@@ -61,6 +61,12 @@ func _ready() -> void:
 	crackle.position = Vector3(0, 0.4, 0)
 	add_child(crackle)
 	crackle.play()
+	# Sit by it (FireRest): roast a marshmallow, or sleep.
+	var use := Usable.sphere("Sit by the fire", 1.3)
+	use.reach = 3.6
+	use.position = Vector3(0, 0.5, 0)
+	add_child(use)
+	use.used.connect(func(by: Node): FireRest.sit(self, by as Explorer))
 
 func _flames() -> void:
 	Fx._materials()

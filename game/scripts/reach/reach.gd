@@ -23,6 +23,8 @@ var scope: Signalscope
 var _log: ShipLog
 var _music: AudioStreamPlayer
 var quantum: QuantumMoon
+var memories: Memories
+var fold: Fold
 ## The Choir core, carried this loop (from Ashfall's vault).
 var carrying_core := false
 var _core_vis: Node3D
@@ -38,6 +40,8 @@ func _ready() -> void:
 		if key == "lantern":
 			lantern = Lantern.new()
 			b.node.add_child(lantern)
+			fold = Fold.new()
+			b.node.add_child(fold)
 			continue
 		var p := Planet.make(b)
 		b.node.add_child(p)
@@ -46,6 +50,9 @@ func _ready() -> void:
 	_build_sites()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
+	if has_meta("backdrop"):
+		_backdrop()
+		return
 	var i := args.find("--view")
 	if i >= 0 and i + 1 < args.size():
 		_view(args[i + 1])
@@ -58,6 +65,10 @@ func _ready() -> void:
 	_start_player()
 	if "--maptest" in args:
 		_map_test()
+	if "--logtest" in args:
+		_log_test()
+	if "--firetest" in args:
+		_fire_test()
 	if "--reachwalk" in args:
 		_walk_test()
 	if "--reachfly" in args:
@@ -72,7 +83,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--reachat"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest"]:
 			return true
 	return false
 
@@ -104,6 +115,7 @@ func _environment() -> void:
 	var sky := Sky.new()
 	var sm := ShaderMaterial.new()
 	sm.shader = load("res://shaders/reach/sky.gdshader")
+	sm.set_shader_parameter("panorama", load("res://art/sky/space-hearth.jpg"))
 	sky.sky_material = sm
 	sky.process_mode = Sky.PROCESS_MODE_QUALITY if Flow.high_quality() else Sky.PROCESS_MODE_INCREMENTAL
 	sky.radiance_size = Sky.RADIANCE_SIZE_64
@@ -146,6 +158,8 @@ func _environment() -> void:
 	add_child(sun)
 
 var _arrived := {}
+const PLACE_WORDS := {"verdance": "the jungle world", "ashfall": "where the Aster fell", "phantom": "the moon that moves",
+	"wanderer": "the comet", "hearthstone": "home"}
 
 func _on_frame(from: String, to: String) -> void:
 	if planets.has(from):
@@ -155,7 +169,9 @@ func _on_frame(from: String, to: String) -> void:
 		# A world's name, the first time you reach it in a loop.
 		if hud and not _arrived.has(to) and loop and not loop.ending:
 			_arrived[to] = true
-			hud.toast((system.bodies[to] as ReachBody).title.to_upper(), 2.5)
+			hud.place((system.bodies[to] as ReachBody).title, PLACE_WORDS.get(to, ""))
+			if memories:
+				memories.later(3.0)
 
 func _process(_dt: float) -> void:
 	var star := system.world("lantern")
@@ -167,11 +183,21 @@ func _process(_dt: float) -> void:
 	if dir.length() > 0.5:
 		sun.global_basis = Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
 	var power := lantern.power if lantern else 1.0
-	sun.light_energy = 1.6 * power
+	# Below the horizon where you stand, the Lantern lights nothing near you
+	# (else it would shine up through the world onto cabins and faces).
+	var lit := 1.0
+	if cam and system.ref != "lantern":
+		var up := (cam.global_position - system.ruling().node.position).normalized()
+		lit = smoothstep(-0.1, 0.06, up.dot(-dir))
+	sun.light_energy = 1.6 * power * lit
+	sun.visible = lit > 0.001
 	for key in planets:
 		(planets[key] as Planet).light(star, power)
 	_air(cam)
 	_carry()
+	if _drift:
+		_drift_t += _dt
+		_place_drift()
 
 ## Inside a body's air: haze for distance, the sky's light for ambient.
 func _air(cam: Camera3D) -> void:
@@ -184,6 +210,21 @@ func _air(cam: Camera3D) -> void:
 		env.fog_enabled = false
 		env.ambient_light_color = Color(0.42, 0.47, 0.62)
 		env.ambient_light_energy = 0.24
+		# Inside the Fold: its light all round, thickening toward its heart.
+		var deep := fold.depth(cam.global_position) if fold else 0.0
+		if deep > 0.0:
+			env.fog_enabled = true
+			env.fog_light_color = Color(0.32, 0.5, 0.6).lerp(Color(0.6, 0.35, 0.55), 0.5 + 0.5 * sin(cam.global_position.x * 0.0011))
+			env.fog_light_energy = 1.0
+			env.fog_density = 0.00035 * deep
+			env.fog_sky_affect = 0.6 * deep
+			env.ambient_light_color = Color(0.45, 0.6, 0.7)
+			env.ambient_light_energy = 0.24 + 0.4 * deep
+			if hud and deep > 0.15 and not _arrived.has("fold") and loop and not loop.ending:
+				_arrived["fold"] = true
+				hud.place("The Fold", "where the Reach opens")
+				if memories:
+					memories.later(2.0)
 		return
 	var up := cam.global_position.normalized()
 	var alt := cam.global_position.length() - b.radius
@@ -229,6 +270,9 @@ func _start_player() -> void:
 	quantum = QuantumMoon.new()
 	quantum.reach = self
 	add_child(quantum)
+	memories = Memories.new()
+	memories.reach = self
+	add_child(memories)
 	Flow.music(false)
 	var args := OS.get_cmdline_user_args()
 	loop.woke.connect(_on_woke)
@@ -245,9 +289,23 @@ func _start_player() -> void:
 		await loop.woke
 		if beat.begins_with("at:"):
 			system.t = float(beat.trim_prefix("at:"))
+		elif beat.begins_with("log:"):
+			# The first n facts known, and the log open (for looking at it).
+			var n := int(beat.trim_prefix("log:"))
+			for id in Lore.FACTS.keys().slice(0, n):
+				Lore.learn(id)
+			_log = ShipLog.open(self)
+			_log.closed.connect(func(): _log = null)
 		elif beat == "map":
 			_map = ReachMap.open(self)
 			_map.closed.connect(func(): _map = null)
+		elif beat.begins_with("talk:") and Lore.TALK.has(beat.trim_prefix("talk:")):
+			talking = true
+			player.enabled = false
+			var tk := Talk.open(self, beat.trim_prefix("talk:"), null, hud)
+			await tk.finished
+			talking = false
+			player.enabled = true
 		elif beat.begins_with("songline:") and Lore.SONGLINES.has(beat.trim_prefix("songline:")):
 			talking = true
 			player.enabled = false
@@ -315,7 +373,10 @@ func _photo() -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.resize(int(img.get_width() * 180.0 / img.get_height()), 180, Image.INTERPOLATE_BILINEAR)
-	hud.show_photo(ImageTexture.create_from_image(img), holds)
+	var tex := ImageTexture.create_from_image(img)
+	hud.show_photo(tex, holds)
+	if memories:
+		memories.add(tex)
 	quantum.locked = holds
 
 ## The core taken from the vault: carried, glowing at the edge of the view,
@@ -376,6 +437,11 @@ func finish(site: WandererSite) -> void:
 func reset_loop() -> void:
 	var was := system.ref
 	_arrived = {"hearthstone": true}
+	for r in get_tree().get_nodes_in_group("fire_rest"):
+		(r as FireRest).leave(false)
+	system.warp = 1.0
+	if lantern:
+		lantern.reset()
 	system.reset("hearthstone")
 	Talk.this_loop.clear()
 	if scope:
@@ -552,6 +618,67 @@ func _talk_test(key: String) -> void:
 	Report.line("TALKTEST %s learned %s, player enabled %s" % [key, Lore._facts(), player.enabled])
 	Report.finish(get_tree())
 
+## Sit at Hearth's fire, roast a marshmallow, eat it, sleep a while, wake,
+## stand, and report each.
+func _fire_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var key := func(code: Key, down: bool):
+		var k := InputEventKey.new()
+		k.keycode = code
+		k.physical_keycode = code
+		k.pressed = down
+		Input.parse_input_event(k)
+	FireRest.sit(campfire, player)
+	await get_tree().process_frame
+	var rest: FireRest = get_tree().get_first_node_in_group("fire_rest")
+	if not rest:
+		Report.line("FIRETEST no seat")
+		Report.finish(get_tree())
+		return
+	await get_tree().create_timer(0.8).timeout
+	key.call(KEY_E, true)
+	await get_tree().create_timer(3.4).timeout
+	key.call(KEY_E, false)
+	await get_tree().create_timer(1.0).timeout
+	var toast := rest._toast
+	key.call(KEY_F, true)
+	await get_tree().process_frame
+	key.call(KEY_F, false)
+	await get_tree().create_timer(0.3).timeout
+	var eaten := rest._eaten
+	var t0 := system.t
+	key.call(KEY_Q, true)
+	await get_tree().process_frame
+	key.call(KEY_Q, false)
+	await get_tree().create_timer(3.0).timeout
+	var slept := system.t - t0
+	key.call(KEY_W, true)
+	await get_tree().process_frame
+	key.call(KEY_W, false)
+	await get_tree().create_timer(2.0).timeout
+	var warp := system.warp
+	key.call(KEY_SPACE, true)
+	await get_tree().process_frame
+	key.call(KEY_SPACE, false)
+	await get_tree().create_timer(0.5).timeout
+	Report.line("FIRETEST toast %.2f eaten %d slept %.0f s warp after %.0f stood %s talking %s" % [toast, eaten, slept, warp, player.enabled, talking])
+	Report.finish(get_tree())
+
+## Press L once awake and report whether the ship's log opened.
+func _log_test() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var k := InputEventKey.new()
+	k.keycode = KEY_L
+	k.physical_keycode = KEY_L
+	k.pressed = true
+	Input.parse_input_event(k)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	Report.line("LOGTEST open %s talking %s player %s" % [_log != null, talking, player != null])
+	if _log:
+		get_tree().paused = false
+	Report.finish(get_tree())
+
 ## Open the map mid-air and report: how long the predicted fall is, how many
 ## sphere-of-influence crossings it marks, and which sphere holds the player.
 func _map_test() -> void:
@@ -606,6 +733,47 @@ func _walk_test() -> void:
 
 # --- For checks --------------------------------------------------------------
 
+# --- The title's backdrop ---------------------------------------------------
+
+var _drift: Camera3D
+var _drift_t := 0.0
+
+## Behind the title (title.gd): Hearth at midnight under the nebulae, the
+## fire and the village's lamps, Mara's banjo and Okafor's flute, and a
+## camera drifting slowly round the fire.
+func _backdrop() -> void:
+	system.t = 560.0
+	system.running = false
+	system.switch("hearthstone")
+	system.place()
+	_drift = Camera3D.new()
+	_drift.fov = 56.0
+	_drift.near = 0.1
+	_drift.far = 60000.0
+	_drift.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	add_child(_drift)
+	_drift.make_current()
+	system.focus = _drift
+	for part in ["banjo", "flute"]:
+		var p := AudioStreamPlayer.new()
+		p.stream = load("res://audio/reach/%s.wav" % part)
+		p.volume_db = -60.0
+		add_child(p)
+		p.play()
+		create_tween().tween_property(p, "volume_db", -7.0 + Flow.music_db(), 4.0)
+	_place_drift()
+
+func _place_drift() -> void:
+	var home: ReachBody = system.bodies["hearthstone"]
+	var fire := Worlds.place(home, "village")
+	var up := fire.basis.y
+	var a := 2.3 + _drift_t * 0.012
+	var at := fire.origin + (fire.basis.x * cos(a) + fire.basis.z * sin(a)) * 8.5 + up * (1.9 + sin(_drift_t * 0.07) * 0.25)
+	_drift.global_position = at
+	_drift.look_at(fire.origin + up * 4.2, up)
+	# Turned a little left, so the fire sits right of the words.
+	_drift.rotate(up, 0.3)
+
 func _view(what: String) -> void:
 	var parts := what.split("/")
 	var key := parts[0]
@@ -622,6 +790,15 @@ func _view(what: String) -> void:
 func _place_view() -> void:
 	var parts: PackedStringArray = get_meta("view")
 	var key := parts[0]
+	if key == "fold":
+		# view:fold (inside it, looking in) or view:fold:out (from afar).
+		system.switch("lantern")
+		system.place()
+		var c := fold.global_position
+		var from := c + Vector3(-0.35, 0.05, 0.3).normalized() * (Fold.RADIUS * (3.2 if parts.size() > 1 and parts[1] == "out" else 0.55))
+		_view_cam.global_position = from
+		_view_cam.look_at(c, Vector3.UP)
+		return
 	var b: ReachBody = system.bodies[key]
 	# view:<body>:<landmark>:<metres>:<degrees>:<loop seconds>
 	if parts.size() > 4:

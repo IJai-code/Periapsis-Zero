@@ -12,8 +12,9 @@ static func landmarks(key: String) -> Dictionary:
 	match key:
 		"hearthstone":
 			# The village is on the equator, where at waking (t = 0) the
-			# Lantern stands 25 degrees up and rising: morning.
-			var f := _frame(Vector3(-0.423, 0.0, 0.906))
+			# Lantern is 12 degrees below the horizon and rising: the last of
+			# the night, the nebulae overhead, dawn in half a minute.
+			var f := _frame(Vector3(0.208, 0.0, 0.978))
 			return {
 				"village": [f.y, 58.0, 6.0],
 				"pad": [f * _dir(14.0, 0.0), 16.0, 6.0],
