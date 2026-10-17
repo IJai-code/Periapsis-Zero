@@ -24,6 +24,7 @@ const SCENES := {
 	"act1_end": "res://scenes/act1_end.tscn",
 	"lowdeck": "res://scenes/act2_lowdeck.tscn",
 	"rim": "res://scenes/act2_rim.tscn",
+	"reach": "res://scenes/reach.tscn",
 }
 
 var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1}
