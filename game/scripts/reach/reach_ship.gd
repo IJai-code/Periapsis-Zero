@@ -39,6 +39,8 @@ var _view_chase := false
 var _board: Usable
 var _moving := false
 var _dead := false
+## Controls let go (the map is open).
+var hold := false
 
 func _ready() -> void:
 	add_to_group("reach_dynamic")
@@ -200,7 +202,7 @@ func _cockpit() -> void:
 	cockpit.visible = false
 
 func _unhandled_input(e: InputEvent) -> void:
-	if not piloted or _moving or _dead:
+	if not piloted or _moving or _dead or hold:
 		return
 	if e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_mouse += e.relative * Vector2(1.0, -1.0 if Flow.settings.invert else 1.0)
@@ -225,7 +227,7 @@ func _physics_process(dt: float) -> void:
 	var g := system.gravity(global_position)
 	var force := g * mass
 	_thrust = Vector3.ZERO
-	if piloted and not _moving:
+	if piloted and not _moving and not hold:
 		var t := Vector3(
 			float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
 			float(Input.is_key_pressed(KEY_SPACE)) - float(Input.is_key_pressed(KEY_SHIFT)),
@@ -269,8 +271,9 @@ func _impacts() -> void:
 	if dv > 8.0:
 		integrity -= (dv - 8.0) * 4.5
 		Sfx.play("hit", -2.0, 0.6)
-		if explorer:
-			Hud.prompt("Hull %d%%" % int(maxf(integrity, 0.0)), 1.5)
+		var r := get_tree().get_first_node_in_group("reach_root")
+		if r and r.hud and piloted:
+			r.hud.caption("Hull %d%%" % int(maxf(integrity, 0.0)), 1.5)
 		if dv > 26.0 or integrity <= 0.0:
 			_crash()
 
@@ -436,7 +439,14 @@ func frame_shift(dp: Vector3, dv: Vector3) -> void:
 		return
 	global_position += dp
 	linear_velocity += dv
+	# The frame's velocity changed, not hers: no impact in that.
+	_last_v += dv
 	reset_physics_interpolation()
+
+## The frame is about to leave `from`: parked there, she stays with it.
+func frame_leaving(from: String) -> void:
+	if not piloted and landed and _anchor == "":
+		_anchor_body = from
 
 ## Parked on a body the explorer flies away from (jetpack, or riding
 ## something): held on that body until the frame comes back to it.
@@ -444,8 +454,6 @@ func anchor_check() -> void:
 	if piloted:
 		return
 	var here := system.ref
-	if _anchor == "" and landed:
-		_anchor_body = system.ref
 	if _anchor == "" and _anchor_body != "" and here != _anchor_body:
 		_anchor = _anchor_body
 		freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
@@ -455,6 +463,8 @@ func anchor_check() -> void:
 		reparent(system.get_parent())
 		freeze = false
 		_anchor = ""
+		_anchor_body = ""
+		_last_v = Vector3.ZERO
 		reset_physics_interpolation()
 
 var _anchor_body := ""

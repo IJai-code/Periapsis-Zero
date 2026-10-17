@@ -124,6 +124,14 @@ const checks = [
     const line = (out.match(/TALKTEST [^\n]*/) ?? ['no result'])[0]
     return [facts.every(f => line.includes(`"${f}"`)) && /player enabled true/.test(line), line]
   }]),
+  ['the Reach: the story by teleport, mine to Engine to the end', async () => {
+    const out = await run('reach', ['--storytest', '--talkauto'], /ENDING done|STORY finished false/, 180000)
+    const want = ['STORY songline mine read true, learned true', 'STORY recorder learned true', 'STORY vault open true',
+      'STORY core carried true, learned true', 'STORY engine door open true', 'STORY finished true', 'ENDING done']
+    const missing = want.filter((w) => !out.includes(w))
+    const died = out.match(/LOOP ended: [^\n]*/)
+    return [missing.length === 0 && !died, died ? died[0] : missing.length ? `missing: ${missing.join('; ')}` : 'mine, recorder, vault, core, Engine, ending']
+  }],
   ['HUD text survives cutscenes and clears', async () => {
     const out = await run('ship_preview', ['--hudtest'], /HUDTEST \d+ failed/)
     const m = out.match(/HUDTEST (\d+) failed/)

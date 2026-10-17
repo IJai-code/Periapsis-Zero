@@ -22,6 +22,12 @@ var talking := false
 var scope: Signalscope
 var _log: ShipLog
 var _music: AudioStreamPlayer
+var quantum: QuantumMoon
+## The Choir core, carried this loop (from Ashfall's vault).
+var carrying_core := false
+var _core_vis: Node3D
+var _map: ReachMap
+var finished := false
 
 func _ready() -> void:
 	add_to_group("reach_root")
@@ -37,6 +43,7 @@ func _ready() -> void:
 		b.node.add_child(p)
 		planets[key] = p
 	_environment()
+	_build_sites()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
 	var i := args.find("--view")
@@ -53,9 +60,23 @@ func _ready() -> void:
 		_walk_test()
 	if "--reachfly" in args:
 		_fly_test()
+	if "--storytest" in args:
+		_story_test()
 	var tt := args.find("--talktest")
 	if tt >= 0 and tt + 1 < args.size():
 		_talk_test(args[tt + 1])
+
+## The places on each world (Site), the campfire.
+func _build_sites() -> void:
+	var home: ReachBody = system.bodies["hearthstone"]
+	campfire = Campfire.new()
+	home.node.add_child(campfire)
+	campfire.transform = Worlds.place(home, "village")
+	(planets["hearthstone"] as Planet).add_site(Village.make(home))
+	(planets["verdance"] as Planet).add_site(VerdanceSite.make(system.bodies["verdance"]))
+	(planets["ashfall"] as Planet).add_site(AshfallSite.make(system.bodies["ashfall"]))
+	(planets["phantom"] as Planet).add_site(PhantomSite.make(system.bodies["phantom"]))
+	(planets["wanderer"] as Planet).add_site(WandererSite.make(system.bodies["wanderer"]))
 
 ## Static caches hold resources; let them go with the scene, or the
 ## engine reports them as leaked at exit.
@@ -115,6 +136,7 @@ func _process(_dt: float) -> void:
 	for key in planets:
 		(planets[key] as Planet).light(star, power)
 	_air(cam)
+	_carry()
 
 ## Inside a body's air: haze for distance, the sky's light for ambient.
 func _air(cam: Camera3D) -> void:
@@ -122,9 +144,11 @@ func _air(cam: Camera3D) -> void:
 		return
 	var b := system.ruling()
 	if b.atmo <= 0.0:
+		# No air: starlight and the Lantern's glow off the dust, just
+		# enough to find your feet on the night side.
 		env.fog_enabled = false
-		env.ambient_light_color = Color(0.4, 0.45, 0.6)
-		env.ambient_light_energy = 0.12
+		env.ambient_light_color = Color(0.42, 0.47, 0.62)
+		env.ambient_light_energy = 0.24
 		return
 	var up := cam.global_position.normalized()
 	var alt := cam.global_position.length() - b.radius
@@ -155,12 +179,8 @@ func _start_player() -> void:
 	ship.explorer = player
 	add_child(ship)
 	ship.destroyed.connect(loop.die)
+	system.frame_will_change.connect(func(from, _to): ship.frame_leaving(from))
 	system.frame_changed.connect(func(_a, _b): ship.anchor_check())
-	var home: ReachBody = system.bodies["hearthstone"]
-	campfire = Campfire.new()
-	home.node.add_child(campfire)
-	campfire.transform = Worlds.place(home, "village")
-	home.node.add_child(Village.make(home))
 	scope = Signalscope.new()
 	scope.reach = self
 	add_child(scope)
@@ -169,14 +189,33 @@ func _start_player() -> void:
 	add_child(_music)
 	loop.collapsing.connect(func():
 		_music.stream = load("res://audio/reach/end.wav")
-		_music.volume_db = -4.0
+		_music.volume_db = -4.0 + Flow.music_db()
 		_music.play())
+	quantum = QuantumMoon.new()
+	quantum.reach = self
+	add_child(quantum)
 	Flow.music(false)
 	var args := OS.get_cmdline_user_args()
 	loop.woke.connect(_on_woke)
 	reset_loop()
 	if not ("--reachwalk" in args or "--reachfly" in args):
 		loop.wake("")
+	# For looking at the tools from a browser link: #reach/map or
+	# #reach/songline:<id>, once awake.
+	if Flow.beat != "":
+		var beat := Flow.beat
+		Flow.beat = ""
+		await loop.woke
+		if beat == "map":
+			_map = ReachMap.open(self)
+			_map.closed.connect(func(): _map = null)
+		elif beat.begins_with("songline:") and Lore.SONGLINES.has(beat.trim_prefix("songline:")):
+			talking = true
+			player.enabled = false
+			var t := Translator.open(self, beat.trim_prefix("songline:"), hud)
+			await t.finished
+			talking = false
+			player.enabled = true
 
 ## Every signal in the Reach (see Signalscope).
 func _signals() -> void:
@@ -193,7 +232,8 @@ func _signals() -> void:
 	scope.add_source(vd.node, "choir_pillars", "Songline: the pillar city", 2, load("res://audio/reach/choir.wav"), Worlds.place(vd, "pillars").origin, 14.0)
 	var ash: ReachBody = B["ashfall"]
 	scope.add_source(ash.node, "vex", "Hand drums", 0, load("res://audio/reach/drums.wav"), Worlds.place(ash, "vex").origin, 14.0)
-	scope.add_source(ash.node, "hale", "The Aster's bridge recorder", 1, ReachSounds.beacon(1.6), Worlds.place(ash, "wreck").origin, 14.0)
+	var rec: Vector3 = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
+	scope.add_source(ash.node, "hale", "The Aster's bridge recorder", 1, ReachSounds.beacon(1.6), rec, 14.0)
 	scope.add_source(ash.node, "drones", "Hollow drones", 3, ReachSounds.chatter(), Worlds.place(ash, "vault").origin, 16.0)
 	var ph: ReachBody = B["phantom"]
 	scope.add_source(ph.node, "phantom", "A wavering tone", 4, ReachSounds.quantum(), Vector3.ZERO, 30.0)
@@ -206,10 +246,89 @@ func _on_woke(n: int, _first: bool) -> void:
 		hud.toast("SHIP LOG UPDATED")
 
 func _unhandled_input(e: InputEvent) -> void:
-	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_L and not talking and not _log and player:
-		_log = ShipLog.open(self)
-		_log.closed.connect(func(): _log = null)
-		get_viewport().set_input_as_handled()
+	if not (e is InputEventKey and e.pressed and not e.echo) or talking or _log or not player or finished:
+		return
+	match (e as InputEventKey).keycode:
+		KEY_L:
+			_log = ShipLog.open(self)
+			_log.closed.connect(func(): _log = null)
+		KEY_M:
+			if _map:
+				_map.close()
+			else:
+				_map = ReachMap.open(self)
+				_map.closed.connect(func(): _map = null)
+		KEY_P:
+			_photo()
+		_:
+			return
+	get_viewport().set_input_as_handled()
+
+## A photograph (P): the view as it is, kept in the corner of the visor.
+## With the Phantom in it, the Phantom holds still (QuantumMoon).
+func _photo() -> void:
+	if loop.ending:
+		return
+	var holds := quantum.observed() and get_viewport().get_camera_3d().global_position.distance_to(quantum.body.node.global_position) < 9000.0
+	Sfx.play("shutter", -4.0)
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	img.resize(int(img.get_width() * 180.0 / img.get_height()), 180, Image.INTERPOLATE_BILINEAR)
+	hud.show_photo(ImageTexture.create_from_image(img), holds)
+	quantum.locked = holds
+
+## The core taken from the vault: carried, glowing at the edge of the view,
+## for the rest of this loop.
+func take_core() -> void:
+	carrying_core = true
+	if not _core_vis:
+		_core_vis = load("res://art/site-core.glb").instantiate()
+		Surfaces.apply(_core_vis)
+		_core_vis.scale = Vector3.ONE * 0.6
+		var l := OmniLight3D.new()
+		l.light_color = Color(0.6, 0.85, 1.0)
+		l.light_energy = 0.6
+		l.omni_range = 2.5
+		_core_vis.add_child(l)
+		for mi: MeshInstance3D in _core_vis.find_children("*", "MeshInstance3D", true, false):
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_core_vis.visible = true
+
+func _carry() -> void:
+	if not carrying_core or not _core_vis:
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam and _core_vis.get_parent() != cam:
+		if _core_vis.get_parent():
+			_core_vis.get_parent().remove_child(_core_vis)
+		cam.add_child(_core_vis)
+		_core_vis.position = Vector3(0.3, -0.24, -0.62)
+	_core_vis.rotation.y += get_process_delta_time() * 0.8
+
+## The Engine has the core: the end (ReachEnding).
+func finish(site: WandererSite) -> void:
+	if finished:
+		return
+	finished = true
+	loop.ending = true
+	carrying_core = false
+	player.enabled = false
+	Flow.set_progress("reach_finished", true)
+	# The core leaves your hands for the socket.
+	if _core_vis:
+		var at := _core_vis.global_transform
+		_core_vis.get_parent().remove_child(_core_vis)
+		site.add_child(_core_vis)
+		_core_vis.global_transform = at
+		var t := create_tween()
+		t.tween_property(_core_vis, "transform", Transform3D(site.socket_at.basis, site.socket_at.origin), 2.0).set_trans(Tween.TRANS_SINE)
+	Sfx.play("warp", -4.0, 0.6)
+	if Lore.learn("wan_end"):
+		hud.toast("SHIP LOG UPDATED")
+	await get_tree().create_timer(1.5).timeout
+	if _music:
+		_music.stop()
+	add_child(ReachEnding.new())
 
 ## Everything back to the morning: the clock, the frame, the Kestrel on her
 ## pad, the player by the fire.
@@ -222,8 +341,19 @@ func reset_loop() -> void:
 		scope.resync.call_deferred()
 	if _music:
 		_music.stream = load("res://audio/reach/wake.wav")
-		_music.volume_db = -6.0
+		_music.volume_db = -6.0 + Flow.music_db()
 		_music.play()
+	# The places put back, the core in its vault, the Phantom loose.
+	carrying_core = false
+	if _core_vis:
+		_core_vis.visible = false
+	for key in planets:
+		for site: Site in (planets[key] as Planet).sites:
+			site.reset_loop()
+	if quantum:
+		quantum.reset()
+	if hud:
+		hud.show_photo(null)
 	for key in planets:
 		(planets[key] as Planet).set_ref(key == "hearthstone")
 	var home: ReachBody = system.bodies["hearthstone"]
@@ -282,6 +412,76 @@ func _fly_test() -> void:
 	Input.action_release("jump")
 	Report.line("REACHFLY rested on the pad %s, left Hearthstone %s after %.0f s, frame now %s, jump at switch %.4f m %.4f m/s, hull %d" % [rested, st.switched, t, system.ref, st.jump, st.vjump, int(ship.integrity)])
 	Report.finish(get_tree())
+
+## The whole chain, by teleport: the mine's songline, Hale's recorder, the
+## vault (its code), the core, the Engine at 20:00, the end.
+func _story_test() -> void:
+	Lore.forget_all()
+	await get_tree().create_timer(1.5).timeout
+	var log := func(what: String): Report.line("STORY " + what)
+	# The mine's songline, read through.
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var mine: Songline = village.find_children("Songline_mine", "Songline", true, false)[0]
+	_stand_before(mine.usable)
+	await _use(mine.usable)
+	log.call("songline mine read %s, learned %s" % [Lore.all_read("mine"), Lore.known("hearth_songline")])
+	# To Ashfall: Hale's recorder.
+	await _go("ashfall")
+	var ash: AshfallSite = (planets["ashfall"] as Planet).sites[0]
+	var rec: Usable = null
+	for u: Usable in ash.find_children("*", "Usable", true, false):
+		if u.prompt == "Play Hale's recorder":
+			rec = u
+	_stand_before(rec)
+	await _use(rec)
+	log.call("recorder learned %s" % Lore.known("ash_hale"))
+	# The vault: the code, the door, the core.
+	_stand_before(ash._keypad)
+	await _use(ash._keypad)
+	await get_tree().create_timer(2.6).timeout
+	log.call("vault open %s" % (ash._door.position.x > 1.5))
+	_stand_before(ash._core_use)
+	await _use(ash._core_use)
+	log.call("core carried %s, learned %s" % [carrying_core, Lore.known("ash_core")])
+	# The Engine at 20:00, the door down, the socket.
+	system.t = WandererSite.OPEN_FROM + 2.0
+	await _go("wanderer")
+	var wan: WandererSite = (planets["wanderer"] as Planet).sites[0]
+	await get_tree().create_timer(3.5).timeout
+	log.call("engine door open %s (t %.0f, open %.2f, door y %.2f, mode %d, ref %s)" % [wan._door.position.y < -3.5, system.t, wan._open, wan._door.position.y, wan.process_mode, system.ref])
+	_stand_before(wan._socket)
+	await _use(wan._socket)
+	log.call("finished %s" % finished)
+	if finished:
+		await get_tree().create_timer(2.0).timeout
+		var end: ReachEnding = find_children("*", "ReachEnding", false, false)[0]
+		while not end._done:
+			await get_tree().process_frame
+	Report.finish(get_tree())
+
+## Into a body's frame, standing at its first landmark.
+func _go(key: String) -> void:
+	system.switch(key)
+	var b: ReachBody = system.bodies[key]
+	var mark := Worlds.place(b, Worlds.landmarks(key).keys()[0])
+	player.place(Transform3D(mark.basis, mark.origin + mark.basis.y * 30.0 + mark.basis.z * 18.0))
+	await get_tree().physics_frame
+
+## Stand the explorer a metre and a half in front of a usable thing, looking
+## at it, on the ground there.
+func _stand_before(u: Usable) -> void:
+	var at := u.global_position
+	var up := system.up_at(at)
+	var out := (u.global_basis.z - up * u.global_basis.z.dot(up)).normalized()
+	player.place(Transform3D(Site.upright(up, -out), at + out * 1.4 - up * 1.3), -out)
+
+## Use a thing as the explorer would, and wait for what it opens to close.
+func _use(u: Usable) -> void:
+	u.use(player)
+	await get_tree().process_frame
+	while talking:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
 
 ## Talk to someone in the village, every line and the first choice each
 ## time, and report what was learned.
@@ -346,15 +546,28 @@ func _place_view() -> void:
 	var parts: PackedStringArray = get_meta("view")
 	var key := parts[0]
 	var b: ReachBody = system.bodies[key]
+	# view:<body>:<landmark>:<metres>:<degrees>:<loop seconds>
+	if parts.size() > 4:
+		system.t = float(parts[4])
+		system.running = false
 	system.switch(key)
 	system.place()
-	if parts.size() > 1 and parts[1] == "surface":
+	if parts.size() > 1:
+		# view:<body>:surface (its first landmark) or view:<body>:<landmark>,
+		# then :top (from overhead), :<metres> away along the ground, and
+		# :<degrees> round it.
 		var marks := Worlds.landmarks(key)
-		var name: String = marks.keys()[0]
+		var name: String = marks.keys()[0] if parts[1] == "surface" else parts[1]
 		var xf := Worlds.place(b, name)
-		var at := xf.origin + xf.basis.y * 1.7 + xf.basis.z * 30.0
-		_view_cam.global_position = at
-		_view_cam.look_at(xf.origin + xf.basis.y * 6.0, xf.basis.y)
+		if parts.size() > 2 and parts[2] == "top":
+			_view_cam.global_position = xf.origin + xf.basis.y * 75.0 + xf.basis.z * 20.0
+			_view_cam.look_at(xf.origin, -xf.basis.z)
+		else:
+			var dist := float(parts[2]) if parts.size() > 2 else 30.0
+			var turn := deg_to_rad(float(parts[3])) if parts.size() > 3 else 0.0
+			var off := xf.basis.z.rotated(xf.basis.y, turn) * dist
+			_view_cam.global_position = xf.origin + xf.basis.y * 1.7 + off
+			_view_cam.look_at(xf.origin + xf.basis.y * 4.0, xf.basis.y)
 	else:
 		var star := system.world("lantern")
 		var away := (Vector3.ZERO - star).normalized()

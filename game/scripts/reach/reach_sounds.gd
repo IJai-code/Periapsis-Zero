@@ -58,3 +58,31 @@ static func quantum() -> AudioStreamWAV:
 		var v := (sin(ph) * 0.4 + sin(ph * 2.01) * 0.15) * (0.6 + 0.4 * sin(TAU * 0.5 * t))
 		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 24000.0))
 	return _wav(data, n)
+
+## Falling water: two bands of filtered noise, a slow swell.
+static func falls() -> AudioStreamWAV:
+	var n := int(3.0 * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var lo := 0.0
+	var hi := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var x := randf() * 2.0 - 1.0
+		lo += (x - lo) * 0.04
+		hi += (x - hi) * 0.4
+		var v := lo * 2.8 + (x - hi) * 0.18
+		v *= 0.85 + 0.15 * sin(TAU * t / 3.0)
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 24000.0))
+	return _wav(data, n)
+
+## A drone's hum: a buzzing fundamental and a whine, beating slowly.
+static func drone_hum() -> AudioStreamWAV:
+	var n := int(2.0 * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in n:
+		var t := float(i) / RATE
+		var v := signf(sin(TAU * 110.0 * t)) * 0.12 + sin(TAU * 220.5 * t) * 0.16 + sin(TAU * 880.0 * t) * 0.05 * (0.6 + 0.4 * sin(TAU * 1.5 * t))
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 26000.0))
+	return _wav(data, n)

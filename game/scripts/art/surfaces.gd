@@ -142,6 +142,10 @@ static func _make(name: String) -> Material:
 		"stone": return _obj(_pbr("Rock030", 0.5, Color(0.78, 0.76, 0.72)))
 		"bark": return _obj(_pbr("Bark012", 0.8, Color(0.7, 0.6, 0.5)))
 		"lantern": return _glow(Color(1.0, 0.72, 0.38), 4.0)
+		# The Choir's stonework, their glowing writing, a core (art/godot/reach_sites.py).
+		"choir_stone": return _obj(_pbr("Rock030", 0.35, Color(0.92, 0.86, 0.78)))
+		"choir_glyph": return _glow(Color(0.5, 0.78, 1.0), 1.4)
+		"core_glow": return _glow(Color(0.7, 0.9, 1.0), 9.0)
 		"neon_ion": return _glow(ION, 6.0)
 	return null
 

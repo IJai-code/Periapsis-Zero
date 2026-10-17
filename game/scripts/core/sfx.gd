@@ -31,6 +31,7 @@ func _ready() -> void:
 	_streams.warp = _make(3.4, func(t, n): return (_lp(n, 0.04 + t * 0.03) * 0.9 + sin(TAU * (60.0 + t * t * 40.0) * t) * 0.35) * minf(1.0, t * 0.8) * (1.0 - smoothstep(3.0, 3.4, t)))
 	_streams.warp_out = _make(1.6, func(t, n): return (_lp(n, 0.12) * 0.8 + sin(TAU * (300.0 - t * 160.0) * t) * 0.2) * exp(-t * 2.4))
 	_streams.ping = _make(0.7, func(t, n): return sin(TAU * 1480.0 * t) * exp(-t * 7.0) * 0.3 + sin(TAU * 2960.0 * t) * exp(-t * 12.0) * 0.08)
+	_streams.shutter = _make(0.22, func(t, n): return n * (exp(-t * 90.0) + exp(-maxf(t - 0.09, 0.0) * 70.0) * (1.0 if t > 0.09 else 0.0)) * 0.45 + sin(TAU * 3200.0 * t) * exp(-t * 120.0) * 0.2)
 	_streams.roll = _make(0.6, func(t, n): return _lp(n, 0.2) * sin(PI * t / 0.6) * 0.5)
 
 var _lp_state := 0.0

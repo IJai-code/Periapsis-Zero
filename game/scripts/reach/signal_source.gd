@@ -16,7 +16,7 @@ func _ready() -> void:
 	_here.stream = stream
 	_here.unit_size = near * 0.35
 	_here.max_distance = near * 5.0
-	_here.volume_db = -6.0
+	_here.volume_db = -6.0 + Flow.music_db()
 	_here.attenuation_filter_cutoff_hz = 9000.0
 	add_child(_here)
 	_scope = AudioStreamPlayer.new()
@@ -34,7 +34,7 @@ func sync_to(t: float) -> void:
 	_scope.play(at)
 
 func scope_level(k: float) -> void:
-	_scope.volume_db = linear_to_db(maxf(k, 0.0001)) - 2.0 if k > 0.002 else -80.0
+	_scope.volume_db = linear_to_db(maxf(k, 0.0001)) - 2.0 + Flow.music_db() if k > 0.002 else -80.0
 
 static var _known: Array = []
 static var _loaded := false

@@ -421,6 +421,10 @@ func music(on: bool) -> void:
 func sfx_db() -> float:
 	return _db(settings.sfx)
 
+## The music setting as a level (the Reach's songs and signals use it).
+func music_db() -> float:
+	return _db(settings.music)
+
 func apply_settings() -> void:
 	if _music.playing:
 		_music.volume_db = _db(settings.music)

@@ -12,6 +12,9 @@ var _toast_t := 0.0
 var _caption: Label
 var _caption_t := 0.0
 var _fade: ColorRect
+var _photo: TextureRect
+var _photo_note: Label
+var _flash: ColorRect
 
 func _ready() -> void:
 	layer = 6
@@ -46,6 +49,30 @@ func _ready() -> void:
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shadow(_caption)
 	root.add_child(_caption)
+	# The last photograph, top right (P).
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", ReachStyle.panel(4))
+	frame.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	frame.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	frame.offset_right = -24
+	frame.offset_top = 24
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.visible = false
+	root.add_child(frame)
+	var v := VBoxContainer.new()
+	frame.add_child(v)
+	_photo = TextureRect.new()
+	_photo.custom_minimum_size = Vector2(224, 126)
+	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	v.add_child(_photo)
+	_photo_note = ReachStyle.label("", 11, ReachStyle.MUTE, true)
+	v.add_child(_photo_note)
+	_flash = ColorRect.new()
+	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash.color = Color(1, 1, 1, 0)
+	root.add_child(_flash)
 	_fade = ColorRect.new()
 	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -65,6 +92,17 @@ func toast(text: String, seconds := 3.0) -> void:
 func caption(text: String, seconds := 4.0) -> void:
 	_caption.text = text
 	_caption_t = seconds
+
+## The last photograph (null to clear it). `holds` notes the Phantom in it.
+func show_photo(tex: Texture2D, holds := false) -> void:
+	var frame := _photo.get_parent().get_parent() as Control
+	frame.visible = tex != null
+	_photo.texture = tex
+	if tex:
+		var t: float = reach.system.t
+		_photo_note.text = "PHOTO  %02d:%02d%s" % [int(t) / 60, int(t) % 60, "   THE PHANTOM" if holds else ""]
+		_flash.color = Color(1, 1, 1, 0.7)
+		create_tween().tween_property(_flash, "color", Color(1, 1, 1, 0), 0.35)
 
 ## The whole screen to a colour and back; awaitable.
 func fade_to(c: Color, seconds: float) -> void:

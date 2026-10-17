@@ -33,11 +33,77 @@ const FACTS := {
 	"ash_core": ["ashfall", "You took the Choir core from the Aster's vault. It hums like the songlines.", ""],
 	"ash_rook": ["ashfall", "Rook, on the drones' channel: \"Let the pilot dig. They'll carry it where I can't.\"", ""],
 	"ph_moves": ["phantom", "The Phantom was not where it had been when you looked away.", ""],
-	"ph_photo": ["phantom", "Photographed (F2), the Phantom stays put for as long as you keep it in view.", ""],
+	"ph_photo": ["phantom", "Fen thinks a photograph (P) holds the Phantom still: it stays put while the picture is kept.", ""],
 	"ph_shrine": ["phantom", "The Phantom's shrine: \"Board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.\"", "wanderer"],
 	"wan_door": ["wanderer", "The Engine's door on the Wanderer is sealed. It opens only at Periapsis Zero, the Wanderer's closest pass to the Lantern, at about 20:30.", ""],
 	"wan_end": ["wanderer", "You gave the Engine the core.", ""],
 }
+
+# --- The Choir's songlines --------------------------------------------------
+#
+# A songline is a conversation carved as branching spirals: each verse is
+# [speaker, text, the verse it answers (-1 for the first), fact learned
+# when read ("" none)]. The translator reads them (Translator).
+
+const SONGLINES := {
+	"mine": {"title": "Songline: the old mine", "verses": [
+		["Ilu", "The Lantern is tired. We have measured its breathing for a hundred years, and every year it breathes more slowly.", -1, ""],
+		["Sae", "Then we have less time than we thought. Is the Engine ready?", 0, ""],
+		["Ilu", "Nearly. We have set it aboard the Wanderer. At the Wanderer's nearest pass to the Lantern, its door opens to us.", 1, "hearth_songline"],
+		["Oro", "Who dug this tunnel? Ilu, your small digging has come up through my garden.", 0, ""],
+	]},
+	"pillars": {"title": "Songline: the pillar city", "verses": [
+		["Tamsa", "Today we woke the Engine for the first time. It sang the last twenty-two minutes back to us, and we lived them again.", -1, ""],
+		["Pell", "I lived them three times. I burned my bread three times. I would like to stop now.", 0, ""],
+		["Tamsa", "The Engine sings back the last twenty-two minutes, over and over, until it is given a core. Without one it can only repeat. With one, it can carry.", 0, "verd_engine"],
+		["Venn", "Carry what?", 2, ""],
+		["Tamsa", "Us. Out through the Fold, before the Lantern falls.", 3, ""],
+	]},
+	"pillar_top": {"title": "Songline: the high pillar", "verses": [
+		["Oro", "I climbed up here to be alone, and found Venn already here, being alone.", -1, ""],
+		["Venn", "The Engine does not wake everyone. Those who carry its song in them remember each turning. The rest begin again, and never know.", 0, "verd_why"],
+		["Oro", "Then whoever remembers must be the one to finish it.", 1, ""],
+	]},
+	"shrine": {"title": "Songline: the Phantom's shrine", "verses": [
+		["Sae", "The little moon will not hold still for us. Pell says it is shy. I say it is only quantum.", -1, ""],
+		["Pell", "It holds still while it is seen. So we keep a picture of it, and fly.", 0, ""],
+		["Sae", "For whoever comes after us: board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.", 0, "ph_shrine"],
+		["Pell", "And if no one comes?", 2, ""],
+		["Sae", "Then the Lantern falls, the morning comes back, and the song goes on without us.", 3, ""],
+	]},
+	"engine_door": {"title": "Songline: the Engine's door", "verses": [
+		["Ilu", "The door stays sealed while the Wanderer is far from the Lantern, so the Engine keeps its warmth.", -1, ""],
+		["Ilu", "It opens at Periapsis Zero, the Wanderer's closest pass, about twenty and a half minutes into the song, and closes soon after. Do not be late. We were, once.", 0, "wan_door"],
+	]},
+	"engine": {"title": "Songline: the Engine", "verses": [
+		["Tamsa", "We never found a core of our own. We made one, long ago, and lost it on a journey far beyond the Fold.", -1, ""],
+		["Sae", "Perhaps someone will bring it back.", 0, ""],
+		["Tamsa", "Then this is for them. Set the core in the Engine's heart. It will stop repeating the morning and sing the whole song once, all the way through.", 1, ""],
+	]},
+}
+
+## Verses read ("id:n"), kept like facts.
+static var _read: Array = []
+static var _read_loaded := false
+
+static func read(id: String, n: int) -> bool:
+	if not _read_loaded:
+		var r = Flow.progress("reach_read", [])
+		_read = r if r is Array else []
+		_read_loaded = true
+	return ("%s:%d" % [id, n]) in _read
+
+static func mark_read(id: String, n: int) -> void:
+	if read(id, n):
+		return
+	_read.append("%s:%d" % [id, n])
+	Flow.set_progress("reach_read", _read)
+
+static func all_read(id: String) -> bool:
+	for n in (SONGLINES[id].verses as Array).size():
+		if not read(id, n):
+			return false
+	return true
 
 static func known(id: String) -> bool:
 	return id in _facts()
@@ -78,6 +144,9 @@ static func forget_all() -> void:
 	_cache = []
 	_loaded = true
 	Flow.set_progress("reach_facts", [])
+	_read = []
+	_read_loaded = true
+	Flow.set_progress("reach_read", [])
 
 # --- Who says what ----------------------------------------------------------
 #
@@ -158,7 +227,7 @@ const TALK := {
 			["Fen", "Have you seen the little moon? The purple one, close to the Lantern. It moves. I looked away and it was somewhere else."],
 		], "learn": ["hearth_phantom"], "choices": [["Maybe you blinked.", "blink", "", ""], ["How do you catch it?", "catch", "", ""]]},
 		"blink": {"lines": [["Fen", "Okafor said that too. So I took a picture of it and it STAYED. Because it was being looked at. That's what I think."]], "learn": ["ph_photo"], "choices": [["Smart.", "bye", "", ""]]},
-		"catch": {"lines": [["Fen", "Take a picture! Your suit has a camera, F2. Then keep looking at it while you fly there. That's my theory. Nobody's tested it. You should test it."]], "learn": ["ph_photo"], "choices": [["I will.", "bye", "", ""]]},
+		"catch": {"lines": [["Fen", "Take a picture! Your suit has a camera, press P. Then keep looking at it while you fly there. That's my theory. Nobody's tested it. You should test it."]], "learn": ["ph_photo"], "choices": [["I will.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Fen", "Bye! Don't crash again!"]]},
 	},
 	"miner": {
@@ -189,6 +258,14 @@ const TALK := {
 			["Renn Ayers", "And the spirals in the pillars here hum the same note. Go and look."],
 		], "learn": ["verd_cargo"], "choices": [["I'll find it.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Renn Ayers", "I'm not going anywhere. I don't think any of us are."]]},
+	},
+	"hale": {
+		"start": {"lines": [
+			["Hale's recorder", "...recording. This is Elias Hale, master of the Aster. We are coming down on Ashfall. The Hollow were waiting at the Fold. Somebody sold our route."],
+			["Hale's recorder", "For whoever finds this: the vaccine crates are a cover. There is one crate that matters. It holds a Choir core, dug out of the Moon's south pole, and Rook wants it more than he wants any of us."],
+			["Hale's recorder", "I have locked it in the cargo vault. The code is zero four one two. Mara will know why."],
+			["Hale's recorder", "Mara, if this reaches you: I'm sorry about the wing. Keep the fire lit. ...End recording."],
+		], "learn": ["ash_hale"], "end": true},
 	},
 	"vex": {
 		"start": {"lines": [

@@ -19,14 +19,16 @@ static func landmarks(key: String) -> Dictionary:
 				"pad": [f * _dir(14.0, 0.0), 16.0, 6.0],
 				"observatory": [f * _dir(22.0, 130.0), 14.0, 16.0],
 				"lookout": [f * _dir(62.0, 205.0), 10.0, 34.0],
-				"cave": [f * _dir(48.0, 300.0), 8.0, 2.0],
+				"cave": [f * _dir(48.0, 300.0), 17.0, 2.0],
 				"lake": [f * _dir(40.0, 60.0), 0.0, -14.0],
 			}
 		"verdance":
 			return {
-				"renn": [_dir(70.0, 20.0), 18.0, 2.5],
-				"pillars": [_dir(35.0, 140.0), 70.0, 9.0],
-				"pod": [_dir(78.0, 48.0), 9.0, 3.0],
+				# Where the Lantern is up for most of the loop (it stands
+				# over azimuth -121 at waking and -316 at the end).
+				"renn": [_dir(68.0, 150.0), 24.0, 2.5],
+				"pillars": [_dir(55.0, 128.0), 70.0, 9.0],
+				"pod": [_dir(80.0, 168.0), 9.0, 3.0],
 			}
 		"ashfall":
 			return {

@@ -255,7 +255,17 @@ func _process(_dt: float) -> void:
 func frame_shift(dp: Vector3, dv: Vector3) -> void:
 	global_position += dp
 	velocity += dv
+	_last_vel += dv
 	reset_physics_interpolation()
+
+## Hurt by something (a drone's shot): dies of `cause` at nothing left.
+func hurt(amount: float, cause: String) -> void:
+	if _dead:
+		return
+	health -= amount
+	Sfx.play("hit", -6.0, 0.9)
+	if health <= 0.0:
+		die(cause)
 
 func set_ladder(l: Node3D) -> void:
 	_ladder = l

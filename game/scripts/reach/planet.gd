@@ -16,6 +16,7 @@ var _near_mat: ShaderMaterial
 var _far_mat: ShaderMaterial
 var _air_mat: ShaderMaterial
 var _deco: Array[GeometryInstance3D] = []
+var sites: Array[Site] = []
 var is_ref := false
 
 static func make(b: ReachBody) -> Planet:
@@ -89,6 +90,13 @@ func _ready() -> void:
 	_decorate(mesh_hi.get_meta("deco", {}))
 	set_ref(false)
 
+## A place on this body (Site): solid only while this is the frame's body.
+func add_site(s: Site) -> Site:
+	add_child(s)
+	sites.append(s)
+	set_ref(is_ref)
+	return s
+
 ## Whether this is the frame's body: detail, collision and plants on.
 func set_ref(on: bool) -> void:
 	is_ref = on
@@ -103,9 +111,20 @@ func set_ref(on: bool) -> void:
 		water.visible = on
 	for d in _deco:
 		d.visible = on
+	_wake_sites()
+
+## Sites are drawn while this is the frame's body or the camera is within
+## a few radii of it, and run only while it is the frame's.
+func _wake_sites() -> void:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var near := cam != null and cam.global_position.distance_to(global_position) < body.radius * 4.0 + 300.0
+	for s in sites:
+		s.awake(is_ref, near)
 
 ## Each frame: where the Lantern is, for the hand-lit far surface and the air.
 func light(star_world: Vector3, star_power: float) -> void:
+	if not is_ref and not sites.is_empty():
+		_wake_sites()
 	_far_mat.set_shader_parameter("star_pos", star_world)
 	_far_mat.set_shader_parameter("star_power", star_power)
 	if _air_mat:
