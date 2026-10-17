@@ -5,6 +5,47 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The Reach, night and fire: the start made worth waking for, 17 October 2026
+
+- **The nebulae are back.** The sky over the Reach is the original game's
+  nebula panorama (the teal and gold one), turned so it fills Hearth's
+  night, under sharp live stars. The Fold, a nebula at the edge of the
+  Reach where ships come in, can be flown into: it parts round the Kestrel
+  in sheets of teal, rose and gold and fills the space with its light. It
+  is on the map.
+- **Waking, as in Outer Wilds.** Hearth now wakes before dawn: eyes
+  opening (Codebuff's lids) on the nebulae, sitting up to the fire as
+  dawn breaks over the cabins, then standing. Meadow grass and
+  wildflowers sway round the village and Renn's camp; chimneys smoke; the
+  Lantern no longer lights cabins and faces through the ground at night.
+- **Every fire can be sat by.** Roast a marshmallow (hold E: golden,
+  brown, then on fire), eat it (F), or sleep (Q) while the night races
+  past; any key wakes you, and so does the end of the loop.
+- **The end of a loop.** The Lantern collapses, then a shell of
+  blue-white light tears out through the Reach and through worlds; when
+  it reaches you, white, and the loop's memories (pictures of the places
+  you went, the people you talked to, your photographs) rush past
+  backwards into a point of light that opens into a ring. Dying ends the
+  same way. Fixed: the Lantern stayed collapsed after the first natural
+  end of a loop.
+- **A new face.** The title is Hearth at midnight under the nebulae, the
+  fire and the band, in a storybook serif (Fraunces, OFL) with a quiet
+  text menu. In play: the helmet's visor, keycap prompts, a ring when
+  something can be used, capsule gauges for air, fuel and suit, notices
+  that slide in, a world's name as you reach it; conversations, the
+  translator (the Choir's words in italic) and the ending in the serif;
+  the ship log as picture cards joined by ink threads; the signalscope as
+  a frequency dial, an oscilloscope and pips pointing to every source.
+- **Reviewed:** Codebuff's commit of 16 October (the waking cinematic,
+  people who watch and greet you, ambience, the map's crossings) is kept
+  and built on.
+- **Green sky:** sky panoramas are now imported as plain RGBA on every
+  target, never block-compressed or guessed to be normal maps, the likely
+  cause of the green sky one Windows GPU showed in Black Box.
+- **Checks:** the fire (roast, eat, sleep, wake, stand) and the log key
+  join the Reach's checks.
+
+
 ### The Reach: Periapsis Zero as a time-loop mystery, 16 October 2026
 
 The game is now the Reach (docs/reach.md): Periapsis Zero's people, ships

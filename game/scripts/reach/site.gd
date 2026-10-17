@@ -82,6 +82,21 @@ func person(key: String, model: String, at: Vector2, look: Vector2, sit := false
 	n.transform = Transform3D(upright(xf.basis.y, ground(look).origin - xf.origin), xf.origin)
 	return n
 
+## Where grass must not grow on this site: under every piece and person,
+## as [body-space point, radius].
+func footprints() -> Array:
+	var out := []
+	for n in get_children():
+		if not n is Node3D:
+			continue
+		var r := 0.8
+		for mi: MeshInstance3D in (n as Node3D).find_children("*", "MeshInstance3D", true, false):
+			if mi.mesh:
+				var box := mi.mesh.get_aabb()
+				r = maxf(r, Vector2(box.size.x, box.size.z).length() * 0.5 * (n as Node3D).scale.x + 0.6)
+		out.append([(n as Node3D).position, minf(r, 14.0)])
+	return out
+
 ## A light on a piece, in its own space.
 static func lamp(on: Node3D, at: Vector3, color := Color(1.0, 0.68, 0.36), energy := 1.2, reach := 7.0) -> OmniLight3D:
 	var l := OmniLight3D.new()

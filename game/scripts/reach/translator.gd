@@ -53,7 +53,7 @@ func _ready() -> void:
 	_canvas.draw.connect(_paint)
 	_canvas.gui_input.connect(_click)
 	root.add_child(_canvas)
-	var title := ReachStyle.label(String(Lore.SONGLINES[id].title).to_upper(), 14, Color(0.6, 0.85, 1.0), true)
+	var title := ReachStyle.title(String(Lore.SONGLINES[id].title), 26, Color(0.62, 0.86, 1.0))
 	title.position = Vector2(48, 34)
 	root.add_child(title)
 	var side := PanelContainer.new()
@@ -67,9 +67,10 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
 	side.add_child(v)
-	_name = ReachStyle.label("", 14, Color(0.6, 0.85, 1.0), true)
+	_name = ReachStyle.title("", 22, Color(0.62, 0.86, 1.0))
 	v.add_child(_name)
-	_text = ReachStyle.label("", 19, ReachStyle.BONE)
+	_text = ReachStyle.label("", 21, ReachStyle.BONE)
+	_text.add_theme_font_override("font", ReachStyle.serif_italic)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.custom_minimum_size = Vector2(360, 120)
 	v.add_child(_text)
@@ -230,7 +231,7 @@ func _next_unread() -> int:
 func _select(n: int) -> void:
 	_sel = n
 	_reveal = 1.0 if Lore.read(id, n) else 0.0
-	_name.text = String(_verses[n][0]).to_upper()
+	_name.text = String(_verses[n][0])
 	if _reveal >= 1.0:
 		_text.text = _verses[n][1]
 	else:

@@ -111,6 +111,21 @@ Bodies don't spin, so where the Lantern stands over a place depends on its
 longitude: Verdance's places sit where it is up for most of the loop;
 Hearth has two days a loop; Ashfall one.
 
+## Night, fire and the end
+
+- Hearth wakes before dawn (the village is where the Lantern is 12
+  degrees below the horizon at t = 0). `Wake` plays the eyes opening.
+- `FireRest`: sit at any `Campfire`; marshmallows; sleep runs
+  `ReachSystem.warp` at 30 until a key or 20:50.
+- `ReachLoop._collapse`: `Lantern.nova()` (a shell, nova.gdshader, drawn
+  through worlds), white when it reaches the camera, then `Memories.play`
+  (pictures from `Memories.capture`: every 40 s, on arrival, after
+  conversations, photos), then `wake`.
+- `Fold` (off the Lantern's node, fixed): billboard clouds (fold.gdshader);
+  `Reach._air` tints the space inside it.
+- The sky is art/sky/space-hearth.jpg in shaders/reach/sky.gdshader
+  (no TIME: a sky using it is relit every frame).
+
 ## The tools
 
 - `Signalscope` and `SignalSource`: the song's parts, the beacons, the

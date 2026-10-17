@@ -15,7 +15,8 @@
  *
  * PZ_WEBSHOT_KEYS="10:click 12:KeyW:down 14:KeyW:up" clicks the middle of
  * the page and presses keys at given times.
- * PZ_WEBSHOT_SIZE=1280x720 sets the window.
+ * PZ_WEBSHOT_SIZE=1280x720 sets the window. PZ_WEBSHOT_LOGS=1 prints the
+ * whole browser console.
  */
 import { createServer } from 'node:http'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -69,6 +70,8 @@ try {
     }
   }
   const logs = await page.logs()
+  // PZ_WEBSHOT_LOGS=1 prints the whole console (the game's Report lines too).
+  if (process.env.PZ_WEBSHOT_LOGS) for (const l of logs) console.log(`log: ${(l.text ?? '').slice(0, 240)}`)
   const errors = logs.filter((l) => /error/i.test(l.level ?? '') || /error/i.test(l.text ?? ''))
   for (const l of errors.slice(0, 12)) console.log(`console: ${(l.text ?? '').slice(0, 240)}`)
 } finally {

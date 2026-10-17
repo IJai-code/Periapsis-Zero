@@ -49,6 +49,29 @@ func _ready() -> void:
 	var at := door * Vector3(0, 0, 5.5)
 	var d := at.normalized()
 	o.transform = Transform3D(Site.upright(d, center.origin - at), d * (body.radius + Worlds.height(body.key, d, body.radius)))
+	# Smoke from the chimneys of the big cabins.
+	for n in get_children():
+		if n is Node3D and String(n.scene_file_path).ends_with("village-cabin_a.glb"):
+			_chimney(n as Node3D)
+	# Grass and wildflowers everywhere people do not walk.
+	var clear := footprints()
+	clear.append([center.origin, 4.2])
+	clear.append([pad.origin, 9.0])
+	Grass.field(self, center, 64.0, 15000, clear, 11)
+
+func _chimney(cabin: Node3D) -> void:
+	var p := VerdanceSite._mist(Vector3(-2.6, 6.2, -1.9))
+	p.amount = 14
+	p.lifetime = 7.0
+	p.emission_box_extents = Vector3(0.15, 0.1, 0.15)
+	p.spread = 12.0
+	p.gravity = Vector3(0.12, 0.35, 0.0)
+	p.initial_velocity_min = 0.3
+	p.initial_velocity_max = 0.6
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 2.2
+	((p.mesh as QuadMesh).material as StandardMaterial3D).albedo_color = Color(0.7, 0.7, 0.72, 0.2)
+	cabin.add_child(p)
 
 ## The old mine past the lake: its mouth toward the village, the tunnel
 ## running back under its mound, a songline at the far end.

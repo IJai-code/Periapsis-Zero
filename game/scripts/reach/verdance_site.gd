@@ -70,6 +70,10 @@ func _camp() -> void:
 	put("village-bench", Vector2(1.0, 1.2), Vector2(1.0, -1.5), false)
 	lamp(put("village-lamp", Vector2(-1.6, -4.0), Vector2(1.0, -1.5)), Vector3(0, 1.9, 0.55))
 	person("renn", "renn", Vector2(3.2, -0.6), Vector2(1.0, -1.5))
+	var clear := footprints()
+	clear.append([ground(Vector2(1.0, -1.5)).origin, 3.0])
+	clear.append([center.origin - center.basis.z * 15.0, 10.0])
+	Grass.field(self, center, 34.0, 5000, clear, 23)
 
 ## Spray at the foot of the falls.
 static func _mist(at: Vector3) -> CPUParticles3D:

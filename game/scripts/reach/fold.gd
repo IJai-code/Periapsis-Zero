@@ -35,10 +35,13 @@ func _ready() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
 	mm.mesh = q
-	mm.instance_count = CLOUDS
+	# Inside, every cloud in view is drawn over the whole screen: fewer for
+	# the light renderer.
+	var count := CLOUDS if not Flow.lite() else 20
+	mm.instance_count = count
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1702
-	for i in CLOUDS:
+	for i in count:
 		# Crowded toward the middle, flattened a little: a lens of cloud.
 		var d := Vector3(rng.randfn(), rng.randfn() * 0.55, rng.randfn()).normalized()
 		var r := RADIUS * pow(rng.randf(), 0.7)

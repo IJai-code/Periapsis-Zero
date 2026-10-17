@@ -106,6 +106,7 @@ func _build_sites() -> void:
 ## Static caches hold resources; let them go with the scene, or the
 ## engine reports them as leaked at exit.
 func _exit_tree() -> void:
+	Grass.clear_cache()
 	Props._cache.clear()
 	Worlds._noise.clear()
 
@@ -283,6 +284,9 @@ func _start_player() -> void:
 		loop.wake("")
 	# For looking at things from a browser link, once awake: #reach/map,
 	# #reach/songline:<id>, or #reach/at:<loop seconds>.
+	var bi := args.find("--beat")
+	if bi >= 0 and bi + 1 < args.size():
+		Flow.beat = args[bi + 1]
 	if Flow.beat != "":
 		var beat := Flow.beat
 		Flow.beat = ""

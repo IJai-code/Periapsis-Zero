@@ -32,7 +32,8 @@ func _ready() -> void:
 	_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_veil.color = Color(0.75, 0.88, 1.0, 0.0)
 	root.add_child(_veil)
-	_line = ReachStyle.label("", 26, ReachStyle.BONE)
+	_line = ReachStyle.label("", 28, ReachStyle.BONE)
+	_line.add_theme_font_override("font", ReachStyle.serif_italic)
 	_line.set_anchors_preset(Control.PRESET_CENTER)
 	_line.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_line.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -41,7 +42,7 @@ func _ready() -> void:
 	_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_line.modulate.a = 0.0
 	root.add_child(_line)
-	_title = ReachStyle.label("PERIAPSIS ZERO", 44, ReachStyle.EMBER, true)
+	_title = ReachStyle.title("Periapsis Zero", 64, ReachStyle.EMBER)
 	_title.set_anchors_preset(Control.PRESET_CENTER)
 	_title.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
