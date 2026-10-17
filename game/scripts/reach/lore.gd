@@ -184,9 +184,15 @@ const TALK := {
 			["Mara Voss", "You look like you've seen a ghost, pilot. Sit by the fire a minute. Codes are in your ship, same as they were."],
 		], "choices": [
 			["Mara, I've lived this morning before.", "loop", "hearth_loop", ""],
+			["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""],
 			["What do you know about the Choir?", "choir", "", ""],
 			["Thanks. I'll go.", "bye", "", ""],
 		]},
+		"hale": {"lines": [
+			["Mara Voss", "Zero four one two. April the twelfth."],
+			["Mara Voss", "The day Elias and I flew our first wing together. And the day, eleven years on, I told him I was done flying it."],
+			["Mara Voss", "He kept that. Of course he did. Then whatever he locked away, pilot, it was worth more to him than his ship. Go and finish what he couldn't."],
+		], "choices": [["I will.", "bye", "", ""]]},
 		"loop": {"lines": [
 			["Mara Voss", "...You mean that? Every morning the same, and you the only one who knows it."],
 			["Mara Voss", "Okafor would say it's the Choir. He says that about everything. Ask him anyway. And whatever you're doing out there, do it faster."],
@@ -195,7 +201,7 @@ const TALK := {
 			["Mara Voss", "The ones who were here first. Spirals carved in every rock in the Reach. There's one down the old mine, past the lake."],
 			["Mara Voss", "Okafor reads them. I just mine round them."],
 		], "choices": [["Thanks.", "bye", "", ""]]},
-		"short": {"lines": [["Mara Voss", "Codes are in, pilot. Okafor's up at the observatory if you want him. The sky won't wait."]], "choices": [["The Choir?", "choir", "", ""], ["On my way.", "bye", "", ""]]},
+		"short": {"lines": [["Mara Voss", "Codes are in, pilot. Okafor's up at the observatory if you want him. The sky won't wait."]], "choices": [["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""], ["The Choir?", "choir", "", ""], ["On my way.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Mara Voss", "Go on. The fire's here when you get back."]]},
 	},
 	"okafor": {

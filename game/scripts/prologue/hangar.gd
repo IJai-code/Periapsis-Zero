@@ -23,7 +23,8 @@ func _ready() -> void:
 	add_child(_board)
 	Flow.music(false)
 	_script()
-	if "--launch" in OS.get_cmdline_user_args():
+	if "--launch" in OS.get_cmdline_user_args() or Flow.beat == "launch":
+		Flow.beat = ""
 		_launch()
 
 func _process(_dt: float) -> void:

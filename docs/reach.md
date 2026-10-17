@@ -87,11 +87,47 @@ follow a different thread.
 - **The Wanderer.** Carry the core there within one loop and be aboard at
   20:30, when it passes Periapsis Zero. Give the Engine the core. The end.
 
+## The places (game/scripts/reach)
+
+Each place is a `Site` under its body's `Planet`: solid only while that body
+is the frame's, drawn only near it, processed only on it, put back each
+morning (`reset_loop`). Pieces come from Blender scripts (art/godot/
+hearth_village.py, reach_sites.py) and are stood on the sphere along its
+up.
+
+- `Village` (Hearthstone): the campfire, cabins, tower, observatory,
+  lookout, the mine and its songline; Mara, Fen, Tull, Isa, Okafor.
+- `VerdanceSite`: Renn's camp, the falls and pool, the pod, the pillar
+  city and its climb.
+- `AshfallSite`: the hull, the bridge (`aster_bridge.glb` in its hull) and
+  Hale's recorder, the vault, its door and keypad, the core, Vex, the fires,
+  two `HollowDrone`s.
+- `PhantomSite`: the shrine. `QuantumMoon` moves the Phantom round its
+  orbit whenever it goes from seen to unseen, unless a photo holds it.
+- `WandererSite`: the Engine, its door (open 20:00 to 21:15), the socket.
+  `Reach.finish` plays `ReachEnding`.
+
+Bodies don't spin, so where the Lantern stands over a place depends on its
+longitude: Verdance's places sit where it is up for most of the loop;
+Hearth has two days a loop; Ashfall one.
+
+## The tools
+
+- `Signalscope` and `SignalSource`: the song's parts, the beacons, the
+  drones' chatter, the Phantom's tone.
+- `Translator` reads `Lore.SONGLINES` (verses that answer verses); verses
+  read are kept (`reach_read`).
+- `ShipLog` (L), `ReachMap` (M), the photo (P), all in `Reach`.
+
+For screenshots (`scripts/godot-webshot.mjs`): `#reach/view:<body>:<landmark>
+[:metres[:degrees[:loop seconds]]]` or `:top`; `#reach/map`;
+`#reach/songline:<id>`; `#reach/at:<loop seconds>`.
+
 ## Controls
 
 On foot: WASD, mouse, Space jump and jetpack, Shift sprint (jetpack down in
 free fall), E interact, F flashlight, X signalscope (wheel or Z/C to change
-frequency), M map, L ship log, P photo snapshot, Esc pause.
+frequency), M map, L ship log, P photograph, Esc pause (every key).
 
 In the ship: WASD and Space/Shift thrust, mouse to turn, Q/E roll, T lock a
 target, hold F to match its velocity, M map, L log, X signalscope, E leave

@@ -15,12 +15,44 @@ var reach: Node
 var loops := 0
 var ending := false
 var _song_started := false
+var _warp: ColorRect
+var _warp_mat: ShaderMaterial
 
 func _ready() -> void:
 	loops = int(Flow.progress("reach_loops", 0))
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	add_child(layer)
+	_warp = ColorRect.new()
+	_warp.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_warp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_warp_mat = ShaderMaterial.new()
+	_warp_mat.shader = load("res://shaders/reach/warp.gdshader")
+	_warp.material = _warp_mat
+	_warp.visible = false
+	layer.add_child(_warp)
+
+## The last minute and a half: the view bends toward the Lantern.
+func _bend(t: float) -> void:
+	var k := smoothstep(SONG_AT - 30.0, ReachSystem.LOOP, t) * 0.85
+	if reach.finished:
+		k = 0.0
+	_warp.visible = k > 0.01
+	if not _warp.visible:
+		return
+	_warp_mat.set_shader_parameter("amount", k + (reach.lantern.collapse as float) * 0.6)
+	var cam := get_viewport().get_camera_3d()
+	var star: Vector3 = reach.system.world("lantern")
+	var c := Vector2(0.5, 0.5)
+	if cam and not cam.is_position_behind(star):
+		c = cam.unproject_position(star) / get_viewport().get_visible_rect().size
+	_warp_mat.set_shader_parameter("center", c.clamp(Vector2(-0.5, -0.5), Vector2(1.5, 1.5)))
 
 func _process(_dt: float) -> void:
-	if ending or not reach:
+	if not reach:
+		return
+	_bend((reach.system as ReachSystem).t)
+	if ending:
 		return
 	var sys: ReachSystem = reach.system
 	var t := sys.t

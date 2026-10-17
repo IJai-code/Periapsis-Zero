@@ -364,7 +364,7 @@ const DONE_FLAG := {"test_flight": "act1_test_flight", "blackbox": "act1_blackbo
 ## The chapter after this one, or "" when there is none.
 func next_scene() -> String:
 	var here := scene_key()
-	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "lowdeck"]
+	var order := ["intro", "corridor", "bridge", "hangar", "flight", "arrival", "hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "reach"]
 	for i in order.size() - 1:
 		if order[i] == here:
 			return order[i + 1]

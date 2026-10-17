@@ -3,7 +3,18 @@
 An Earth-Moon space game, Squadron battle mode, and historical solar-system
 simulator. React 19, React Three Fiber, Three.js and Vite.
 
-## The game
+## The Reach (the game, in Godot)
+
+`game/` is a Godot 4.7 project, played in the browser at `/play/`
+(`/play/index.html#reach` goes straight in) or downloaded for desktop. It
+is the Reach: a twenty-two-minute time loop in a tiny solar system on real
+orbits, where the Kestrel's pilot wakes by Hearth's campfire every time the
+star collapses, and what they learn is all they keep. Design and code map:
+docs/reach.md. The prologue and Act One that lead there are on its title
+screen. Build with `node scripts/godot-build.mjs web|desktop`; check with
+`npm run godot:check`.
+
+## The flight game (web)
 
 3091. Humanity lives on Earth, the Moon, and in orbital cities, dependent on
 recycled air, lunar water, and paid passage. You survived the Aster convoy attack. Rook paid for your rescue and

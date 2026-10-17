@@ -15,6 +15,8 @@ var _fade: ColorRect
 var _photo: TextureRect
 var _photo_note: Label
 var _flash: ColorRect
+var _hint: Label
+var _hint_t := 0.0
 
 func _ready() -> void:
 	layer = 6
@@ -68,6 +70,14 @@ func _ready() -> void:
 	v.add_child(_photo)
 	_photo_note = ReachStyle.label("", 11, ReachStyle.MUTE, true)
 	v.add_child(_photo_note)
+	_hint = ReachStyle.label("", 13, ReachStyle.BONE, true)
+	_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hint.offset_left = 40
+	_hint.offset_bottom = -84
+	_hint.modulate.a = 0.0
+	_shadow(_hint)
+	root.add_child(_hint)
 	_flash = ColorRect.new()
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -93,6 +103,11 @@ func caption(text: String, seconds := 4.0) -> void:
 	_caption.text = text
 	_caption_t = seconds
 
+## Keys worth knowing, low on the left for a while (the first mornings).
+func hint(text: String, seconds := 16.0) -> void:
+	_hint.text = text
+	_hint_t = seconds
+
 ## The last photograph (null to clear it). `holds` notes the Phantom in it.
 func show_photo(tex: Texture2D, holds := false) -> void:
 	var frame := _photo.get_parent().get_parent() as Control
@@ -115,6 +130,8 @@ func _process(dt: float) -> void:
 	_toast.modulate.a = clampf(_toast_t, 0.0, 1.0)
 	_caption_t -= dt
 	_caption.modulate.a = clampf(_caption_t, 0.0, 1.0)
+	_hint_t -= dt
+	_hint.modulate.a = clampf(_hint_t, 0.0, 0.85)
 	var p: Explorer = reach.player
 	var s: ReachShip = reach.ship
 	var text := ""

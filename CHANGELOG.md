@@ -5,6 +5,89 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The Reach: Periapsis Zero as a time-loop mystery, 16 October 2026
+
+The game is now the Reach (docs/reach.md): Periapsis Zero's people, ships
+and crime story inside a 22-minute loop in a tiny solar system, made in the
+spirit of Outer Wilds. The title's way in is "Enter the Reach"; the
+prologue and Act One stay on the title as "the road here", and Act One's
+end now leads into the Reach. Lowdeck and the Rim are out of the path: a
+neon city did not belong in this story.
+
+- **A system on real orbits:**
+  - Five bodies on Kepler rails round a dying star, the Lantern; each
+    pulls only inside its sphere of influence (patched conics).
+  - The world is drawn in the frame of the body you are on; switching
+    frames moves nothing that matters (a check measures the jump at the
+    switch: 0.0000 m, 0.0000 m/s).
+  - Planets are baked cube-spheres, detailed only for the body you stand
+    on; skies, air and sea are shaders.
+- **The loop:** wake at Hearth's campfire, eyes opening. The Lantern
+  reddens, stutters from 20:00; in the last ninety seconds the view
+  bends toward it, colours splitting; at 22:00 it collapses, pulls
+  everything in, and you wake again. Dying ends the loop too. Only what
+  you learn is kept.
+- **The worlds, every one with somewhere to go:**
+  - **Hearthstone:** Hearth village round its campfire (cabins, the
+    launch tower, observatory, lookout); Mara, Okafor, Fen, Tull and Isa
+    to talk to; the old mine past the lake, a songline at its far end.
+  - **Verdance:** Renn's camp under a waterfall, her escape pod in a
+    clearing, and the Choir's pillar city: sandstone pillars, a gateway,
+    columns, a songline wall, and stepping stones floating up the
+    tallest pillar to a second songline.
+  - **Ashfall:** the Aster's wreck burning in its crater, her torn-off
+    bridge with Hale's recorder still running, the cargo vault (its code
+    is in his log) and the Choir core inside it, Vex's camp, and two of
+    Rook's drones sweeping the ground with searchlights: stay out of the
+    light.
+  - **The Phantom:** a little moon that is somewhere else every time you
+    look away, unless a photograph (P) holds it. Its shrine is on its
+    pole.
+  - **The Wanderer:** a comet that dives past the Lantern at 20:30. The
+    Engine is on it; its door opens only then.
+- **Tools:**
+  - The signalscope (X): five frequencies; every traveller plays a part
+    of one song in step with the loop, so parts heard together
+    harmonise.
+  - The translator: a songline's verses drawn as branching spirals, each
+    lighting along its strand as its words resolve.
+  - The ship log (L): places as cards, rumours drawn as ink threads.
+  - The map (M): orbits in ink, each periapsis pulsing as its body nears
+    it, your fall for the next ten minutes, the loop's clock.
+  - The Kestrel: Newtonian, with a target lock, velocity matching and a
+    chase view; Mara has her launch codes.
+- **The end:** give the Engine the core, and the song is heard whole,
+  every instrument at once, for the only time.
+- **Music made in code** (art/audio/reach_music.py): the song in five
+  parts, the end of a loop, the waking chime; godot-sync makes them.
+- **Models built in Blender from code:** art/godot/hearth_village.py and
+  art/godot/reach_sites.py (the Choir's stonework and Engine, the pod, the
+  cliff, the vault, the drones, the bridge's hull, the mine).
+- **Fixed:**
+  - Boarding the Kestrel in the prologue and Act One: the pilot climbed
+    beside the ladder with his hands in the air, then went through the
+    closed canopy. He now leans with the ladder, hands and feet on it;
+    the canopy slides back, he steps over the sill, sits, and it closes.
+  - A Kestrel parked on a world "crashed" when the frame moved away from
+    it.
+  - Procedural sounds were reported as leaked whenever a test quit.
+  - The pause menu in the Reach shows the Reach's keys.
+- **Checks:** godot-check runs the Reach: walking round Hearthstone
+  without falling through, a lift-off and frame switch, three
+  conversations, and the whole story by teleport (songline, recorder,
+  vault, core, the Engine at 20:00, the end).
+- **Frame rate:** 60 fps in the browser on this Mac's GPU in the village,
+  in the end-of-loop warp, and at every site viewed.
+
+#### Known limitations
+
+- Not yet measured on a Windows PC; the adaptive quality tiers and the
+  light-renderer fallback apply to the Reach as to the other scenes.
+- The green haze reported in Black Box on one Windows GPU has not been
+  reproduced.
+- The Wanderer's night side is dark; bring the flashlight (F).
+
+
 ### Act Two, Lowdeck, the Rim, walk-in doors and a real walk, 15 October 2026
 
 - **Act Two, the governor** (docs/story.md):

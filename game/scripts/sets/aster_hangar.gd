@@ -47,8 +47,10 @@ func add_ladder(foot: Vector3) -> void:
 		rung.rotation_degrees = Vector3(90, 0, 0)
 
 ## The pilot climbs aboard by themselves: up to the foot of the ladder,
-## hand over hand up it, over the sill and down into the seat. Awaitable;
-## the pilot is hidden in the cockpit at the end.
+## hand over hand up it (the body leaning with the ladder, feet on its
+## rungs, so the hands meet them), the canopy sliding back, over the sill
+## and down into the seat, and the canopy closing. Awaitable; the pilot is
+## hidden in the cockpit at the end.
 func climb_aboard(player: Player) -> void:
 	player.enabled = false
 	player.set_physics_process(false)
@@ -56,34 +58,70 @@ func climb_aboard(player: Player) -> void:
 	player.velocity = Vector3.ZERO
 	var axis := (ladder_top - ladder_foot).normalized()
 	var face := Vector3(axis.x, 0.0, axis.z).normalized()
+	# Out of the ladder's plane, on the climber's side.
+	var out := axis.cross(face.cross(Vector3.UP)).normalized()
+	if out.dot(face) > 0.0:
+		out = -out
+	var lean := acos(clampf(axis.dot(Vector3.UP), -1.0, 1.0))
 	# Stand at the foot, facing the ship.
-	var start := ladder_foot - face * 0.3
+	var start := ladder_foot - face * 0.35
 	var t := create_tween()
 	t.tween_property(player, "global_position", start, maxf(0.25, player.global_position.distance_to(start) / 1.4))
-	player.body.rotation.y = atan2(face.x, face.z)
+	player.body.rotation = Vector3(0.0, atan2(face.x, face.z), 0.0)
 	player.body.locomote(1.4)
 	await t.finished
 	player.body.climb(true)
 	Sfx.play("step", -12.0, 0.7)
-	# Up the rungs: the feet ride the ladder's lean.
-	var top := ladder_top - face * 0.3 - axis * 0.9
+	# Onto the first rung, leaning in with the ladder.
+	var on_rung := ladder_foot.lerp(ladder_top, 0.1) + out * 0.2
+	t = create_tween().set_parallel()
+	t.tween_property(player, "global_position", on_rung, 0.4).set_trans(Tween.TRANS_SINE)
+	t.tween_property(player.body, "rotation:x", lean, 0.4).set_trans(Tween.TRANS_SINE)
+	await t.finished
+	# Up the rungs: the feet ride the ladder.
+	var top := ladder_foot.lerp(ladder_top, 0.62) + out * 0.2
 	t = create_tween()
-	t.tween_property(player, "global_position", top, 3.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t.tween_property(player, "global_position", top, 3.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	var clank := func():
 		for i in 6:
-			await get_tree().create_timer(0.55).timeout
+			await get_tree().create_timer(0.5).timeout
 			Sfx.play("step", -14.0, 1.25)
 	clank.call()
+	# The canopy slides back as the pilot nears the top.
+	_canopy_open(true, 2.0)
 	await t.finished
-	# Over the sill and down into the seat.
-	player.body.climb(false)
+	# Over the sill (upright again) and down into the seat.
 	var seat := ladder_top + face * 1.25 + Vector3(0, 0.15, 0)
+	t = create_tween().set_parallel()
+	t.tween_property(player.body, "rotation:x", 0.0, 0.6).set_trans(Tween.TRANS_SINE)
+	t.tween_property(player, "global_position", ladder_top + face * 0.4 + Vector3(0, 0.45, 0), 0.7).set_trans(Tween.TRANS_SINE)
+	await t.finished
+	player.body.climb(false)
+	player.body.locomote(0.0, false, false, true)
 	t = create_tween()
-	t.tween_property(player, "global_position", seat + Vector3(0, 0.55, 0), 0.7).set_trans(Tween.TRANS_SINE)
-	t.tween_property(player, "global_position", seat - Vector3(0, 0.5, 0), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	t.tween_property(player, "global_position", seat - Vector3(0, 0.5, 0), 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await t.finished
 	player.body.visible = false
+	await _canopy_open(false, 1.2)
 	Sfx.play("door", -10.0, 0.6)
+
+## The Kestrel's canopy (its mesh named "canopy") slid back and up off the
+## cockpit, or home again. Awaitable.
+func _canopy_open(on: bool, seconds: float) -> void:
+	var canopy: Node3D = null
+	for mi: MeshInstance3D in kestrel.find_children("*", "MeshInstance3D", true, false):
+		if mi.name == "canopy":
+			canopy = mi
+	if not canopy:
+		return
+	if not canopy.has_meta("home"):
+		canopy.set_meta("home", canopy.position)
+	var home: Vector3 = canopy.get_meta("home")
+	var t := create_tween()
+	t.tween_property(canopy, "position", home + (Vector3(0.0, 0.3, 2.3) if on else Vector3.ZERO), seconds).set_trans(Tween.TRANS_SINE)
+	if on:
+		Sfx.play("door", -12.0, 1.3)
+	await t.finished
 
 ## Before lift-off the ladder slides up into the hull and stays with her.
 func retract_ladder() -> void:

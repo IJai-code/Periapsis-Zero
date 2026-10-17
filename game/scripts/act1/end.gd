@@ -51,13 +51,13 @@ func _ready() -> void:
 	if done:
 		v.add_child(Style.label("And the governor's seal is on his permits.", 28, Style.BONE, Style.sans))
 	v.add_child(Style.label("₡ %s in hand  ·  ₡ %s still owed to Rook" % [Hud._thousands(Flow.credits()), Hud._thousands(Flow.debt())], 22, Style.MUTE, Style.mono))
-	var note := Style.label("Act Two: bring Renn home through Lowdeck, find someone the governor doesn't own, and work the Rim for anyone who pays.", 20, Style.MUTE)
+	var note := Style.label("The Aster's route ran through the Reach, a pocket system round a dying star. So does yours. Twenty-two minutes at a time.", 20, Style.MUTE)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(620, 0)
 	v.add_child(note)
 	var go := Button.new()
-	go.text = "Begin Act Two" if Act2.stage() == 0 else "Continue Act Two"
-	go.pressed.connect(func(): Flow.go("lowdeck"))
+	go.text = "Into the Reach"
+	go.pressed.connect(func(): Flow.go("reach"))
 	v.add_child(go)
 	var well := Button.new()
 	well.text = "Fly Down the Well again"

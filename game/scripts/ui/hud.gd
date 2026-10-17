@@ -12,6 +12,23 @@ extends CanvasLayer
 
 signal line_done
 
+## In the Reach (scenes/reach.tscn), its own keys.
+const REACH_CONTROLS := """ON FOOT
+  W A S D   walk          Shift   run
+  Space     jump; hold for the jetpack
+  E         use, talk, read     F   flashlight
+  In space: Shift down, Q / E roll
+
+THE KESTREL
+  W / S     thrust          A / D   slide
+  Space / Shift  up, down   Q / E   roll
+  Mouse     turn            T   lock a body
+  F (held)  match its speed V   chase view
+
+ANYWHERE
+  X  signalscope (Z / C or wheel to tune)
+  M  map      L  ship log      P  photograph"""
+
 const CONTROLS := """ON FOOT
   W A S D   walk          Shift   run
   Mouse     look          Arrows  look
@@ -666,6 +683,8 @@ func _unhandled_input(e: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 var _pause: PanelContainer
+var _pause_keys: Label
+var _pause_skip: Button
 var _was_captured := false
 
 ## The pause menu: resume, skip this part, or leave for the title.
@@ -686,8 +705,8 @@ func pause(on: bool) -> void:
 			v.custom_minimum_size = Vector2(520, 0)
 			_pause.add_child(v)
 			v.add_child(Style.label("PAUSED", 16, Style.EMBER, Style.mono_bold))
-			var keys := Style.label(CONTROLS, 16, Style.MUTE, Style.mono)
-			v.add_child(keys)
+			_pause_keys = Style.label(CONTROLS, 16, Style.MUTE, Style.mono)
+			v.add_child(_pause_keys)
 			for b in [["Resume", func(): pause(false)], ["Skip this part", func():
 					pause(false)
 					Flow.skip()], ["Back to the title", func():
@@ -697,8 +716,14 @@ func pause(on: bool) -> void:
 				btn.text = b[0]
 				btn.pressed.connect(b[1])
 				v.add_child(btn)
+				if b[0] == "Skip this part":
+					_pause_skip = btn
 			root.add_child(_pause)
 			root.move_child(_pause, root.get_child_count() - 2)
+		# The Reach has its own keys, and nothing to skip.
+		var reach := Flow.scene_key() == "reach"
+		_pause_keys.text = REACH_CONTROLS if reach else CONTROLS
+		_pause_skip.visible = not reach
 		_pause.visible = true
 		for c in _pause.get_child(0).get_children():
 			if c is Button:
@@ -758,6 +783,8 @@ func click_hint(on: bool) -> void:
 		_outline(_click, 6, 0.7)
 		_click.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(_click)
+	if on and not _click.visible:
+		_click.text = "Click to look around with the mouse" if Flow.scene_key() == "reach" else "Click to steer with the mouse  ·  or use the arrow keys"
 	_click.visible = on
 
 ## Waking up: the view blurred, clearing over `seconds`.

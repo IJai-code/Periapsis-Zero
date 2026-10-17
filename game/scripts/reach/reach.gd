@@ -116,11 +116,17 @@ func _environment() -> void:
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	add_child(sun)
 
+var _arrived := {}
+
 func _on_frame(from: String, to: String) -> void:
 	if planets.has(from):
 		(planets[from] as Planet).set_ref(false)
 	if planets.has(to):
 		(planets[to] as Planet).set_ref(true)
+		# A world's name, the first time you reach it in a loop.
+		if hud and not _arrived.has(to) and loop and not loop.ending:
+			_arrived[to] = true
+			hud.toast((system.bodies[to] as ReachBody).title.to_upper(), 2.5)
 
 func _process(_dt: float) -> void:
 	var star := system.world("lantern")
@@ -200,13 +206,15 @@ func _start_player() -> void:
 	reset_loop()
 	if not ("--reachwalk" in args or "--reachfly" in args):
 		loop.wake("")
-	# For looking at the tools from a browser link: #reach/map or
-	# #reach/songline:<id>, once awake.
+	# For looking at things from a browser link, once awake: #reach/map,
+	# #reach/songline:<id>, or #reach/at:<loop seconds>.
 	if Flow.beat != "":
 		var beat := Flow.beat
 		Flow.beat = ""
 		await loop.woke
-		if beat == "map":
+		if beat.begins_with("at:"):
+			system.t = float(beat.trim_prefix("at:"))
+		elif beat == "map":
 			_map = ReachMap.open(self)
 			_map.closed.connect(func(): _map = null)
 		elif beat.begins_with("songline:") and Lore.SONGLINES.has(beat.trim_prefix("songline:")):
@@ -244,6 +252,8 @@ func _signals() -> void:
 func _on_woke(n: int, _first: bool) -> void:
 	if n > 1 and Lore.learn("hearth_loop"):
 		hud.toast("SHIP LOG UPDATED")
+	if n <= 2:
+		hud.hint("E  talk, use, read        X  signalscope        M  map\nL  ship log        P  photograph        Esc  every key", 20.0)
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not (e is InputEventKey and e.pressed and not e.echo) or talking or _log or not player or finished:
@@ -334,6 +344,7 @@ func finish(site: WandererSite) -> void:
 ## pad, the player by the fire.
 func reset_loop() -> void:
 	var was := system.ref
+	_arrived = {"hearthstone": true}
 	system.reset("hearthstone")
 	Talk.this_loop.clear()
 	if scope:
@@ -419,6 +430,12 @@ func _story_test() -> void:
 	Lore.forget_all()
 	await get_tree().create_timer(1.5).timeout
 	var log := func(what: String): Report.line("STORY " + what)
+	# Every songline written is somewhere in the Reach.
+	var placed := {}
+	for sl: Songline in find_children("*", "Songline", true, false):
+		placed[sl.id] = true
+	var missing := Lore.SONGLINES.keys().filter(func(k): return not placed.has(k))
+	log.call("songlines placed %d of %d %s" % [placed.size(), Lore.SONGLINES.size(), missing])
 	# The mine's songline, read through.
 	var village: Village = (planets["hearthstone"] as Planet).sites[0]
 	var mine: Songline = village.find_children("Songline_mine", "Songline", true, false)[0]

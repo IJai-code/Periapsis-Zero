@@ -78,31 +78,34 @@ func _ui() -> void:
 	_menu.offset_left = 96
 	_menu.add_theme_constant_override("separation", 10)
 	root.add_child(_menu)
-	_menu.add_child(Style.label("A STORY IN CISLUNAR SPACE · 3091", 16, Style.EMBER, Style.mono_bold))
+	_menu.add_child(Style.label("A MYSTERY IN THE REACH · 3091", 16, Style.EMBER, Style.mono_bold))
 	var title := Style.label("Periapsis\nZero", 112, Style.BONE, Style.sans_bold)
 	title.add_theme_constant_override("line_spacing", -28)
 	_menu.add_child(title)
-	_menu.add_child(Style.label("Dogfights where the orbits are real.", 26, Style.MUTE))
+	_menu.add_child(Style.label("Twenty-two minutes. Then the star goes out.", 26, Style.MUTE))
+	if Flow.progress("reach_finished", false):
+		_menu.add_child(Style.label("You heard the whole song.", 16, ReachStyle.PINE, Style.mono))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 28)
 	_menu.add_child(gap)
 	# First time: one button, the journey from the start (the opening film
 	# plays). After that the menu offers to carry on from where it stopped.
+	# The game is the Reach. The chapters that lead to it (the prologue,
+	# Act One) are there too, as the road here.
+	var loops := int(Flow.progress("reach_loops", 0))
+	_button("Return to the Reach" if loops > 0 else "Enter the Reach", func(): Flow.go("reach"), true).grab_focus()
 	var done: bool = Flow.progress("prologue_done", false)
 	var seen: bool = Flow.progress("intro_seen", false)
 	if done:
 		var chapter: String = Flow.progress("chapter", "hearth")
-		if not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end", "lowdeck", "rim"]:
+		if not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end"]:
 			chapter = "hearth"
-		var act2 := chapter in ["lowdeck", "rim"]
-		_button("Continue Act Two" if act2 else "Continue Act One", func(): Flow.go(chapter), true).grab_focus()
-		_button("Replay the prologue", func(): Flow.go("intro"))
+		_button("The road here: continue Act One", func(): Flow.go(chapter))
 	elif seen:
 		var chapter: String = Flow.progress("chapter", "corridor")
-		_button("Continue the journey", func(): Flow.go(chapter), true).grab_focus()
-		_button("Watch the opening again", func(): Flow.go("intro"))
+		_button("The road here: continue the prologue", func(): Flow.go(chapter))
 	else:
-		_button("Begin your journey", func(): Flow.go("intro"), true).grab_focus()
+		_button("The road here: the prologue", func(): Flow.go("intro"))
 	_button("Settings", _toggle_settings)
 	_check_update()
 	var told := Graphics.take_notice()
@@ -110,7 +113,7 @@ func _ui() -> void:
 		Hud.prompt("Performance graphics are on, chosen for %s. You can change it in Settings, under Graphics." % GRAPHICS_WHY.get(told, "this PC"), 9.0)
 	if not Flow.on_web():
 		_button("Quit", get_tree().quit)
-	var foot := Style.label("Prologue · early build · periapsiszero.dev", 14, Style.MUTE, Style.mono)
+	var foot := Style.label("The Reach · early build · periapsiszero.dev", 14, Style.MUTE, Style.mono)
 	foot.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	foot.offset_left = 96
 	foot.offset_top = -56
