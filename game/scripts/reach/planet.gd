@@ -95,6 +95,10 @@ func set_ref(on: bool) -> void:
 	hi.visible = on
 	lo.visible = not on
 	_shape.disabled = not on
+	# Everything solid on this body (buildings, wrecks) only while stood on.
+	for cs: CollisionShape3D in find_children("*", "CollisionShape3D", true, false):
+		if cs != _shape:
+			cs.disabled = not on
 	if water:
 		water.visible = on
 	for d in _deco:

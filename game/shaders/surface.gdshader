@@ -14,6 +14,9 @@ uniform float tint_gain = 1.0;
 uniform float paint = 0.0;
 uniform float scale = 1.0;
 uniform float metal = 0.0;
+// Map in the object's own space (things standing on a small world, whose
+// up is not the world's), not the world's.
+uniform float object_space = 0.0;
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -21,6 +24,10 @@ varying vec3 wnrm;
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	if (object_space > 0.5) {
+		wpos = VERTEX;
+		wnrm = NORMAL;
+	}
 }
 
 vec4 tri(sampler2D t, vec3 p, vec3 w) {
@@ -59,5 +66,8 @@ void fragment() {
 	vec3 ny = vec3(ty.xy + n.xz, abs(ty.z) * n.y);
 	vec3 nz = vec3(tz.xy + n.xy, abs(tz.z) * n.z);
 	vec3 wn = normalize(nx.zyx * w.x + ny.xzy * w.y + nz.xyz * w.z);
+	if (object_space > 0.5) {
+		wn = normalize((MODEL_MATRIX * vec4(wn, 0.0)).xyz);
+	}
 	NORMAL = normalize((VIEW_MATRIX * vec4(wn, 0.0)).xyz);
 }

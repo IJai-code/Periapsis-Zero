@@ -134,8 +134,21 @@ static func _make(name: String) -> Material:
 		"ringwindows": return _two_sided(_glow(Color(0.7, 0.85, 1.0), 1.6))
 		"axis_light": return _glow(Color(0.55, 0.62, 0.95), 1.6)
 		"neon_ember": return _glow(EMBER, 6.0)
+		# Hearth village, in the Reach (art/godot/hearth_village.py).
+		"wood_siding": return _obj(_pbr("WoodSiding008", 0.5, Color(0.86, 0.72, 0.58)))
+		"roof_tiles": return _obj(_pbr("RoofingTiles006", 0.45, Color(0.85, 0.62, 0.55)))
+		"planks": return _obj(_pbr("Planks037A", 0.6, Color(0.95, 0.85, 0.72)))
+		"beam": return _obj(_pbr("Wood067", 0.8, Color(0.62, 0.5, 0.4)))
+		"stone": return _obj(_pbr("Rock030", 0.5, Color(0.78, 0.76, 0.72)))
+		"bark": return _obj(_pbr("Bark012", 0.8, Color(0.7, 0.6, 0.5)))
+		"lantern": return _glow(Color(1.0, 0.72, 0.38), 4.0)
 		"neon_ion": return _glow(ION, 6.0)
 	return null
+
+## Mapped in the object's own space (for things on a small world).
+static func _obj(m: ShaderMaterial) -> ShaderMaterial:
+	m.set_shader_parameter("object_space", 1.0)
+	return m
 
 ## The street at night, wet: puddles reflect the neon above (shaders/
 ## wet_street.gdshader).

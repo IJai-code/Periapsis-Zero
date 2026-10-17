@@ -15,8 +15,14 @@ var env: Environment
 var _view_cam: Camera3D
 var player: Explorer
 var ship: ReachShip
+var hud: ReachHud
+var loop: ReachLoop
+var campfire: Campfire
+var talking := false
+var _log: ShipLog
 
 func _ready() -> void:
+	add_to_group("reach_root")
 	system = ReachSystem.new()
 	add_child(system)
 	for key in system.order:
@@ -45,6 +51,9 @@ func _ready() -> void:
 		_walk_test()
 	if "--reachfly" in args:
 		_fly_test()
+	var tt := args.find("--talktest")
+	if tt >= 0 and tt + 1 < args.size():
+		_talk_test(args[tt + 1])
 
 func _environment() -> void:
 	env = Environment.new()
@@ -123,23 +132,69 @@ func _air(cam: Camera3D) -> void:
 	env.ambient_light_energy = lerpf(0.1, 0.45, day) * lerpf(0.4, 1.0, thick)
 
 func _start_player() -> void:
+	hud = ReachHud.new()
+	hud.reach = self
+	add_child(hud)
+	loop = ReachLoop.new()
+	loop.reach = self
+	add_child(loop)
 	player = Explorer.new()
 	player.system = system
 	add_child(player)
-	system.focus = player
-	system.switch("hearthstone")
-	var home: ReachBody = system.bodies["hearthstone"]
-	var xf := Worlds.place(home, "village")
-	player.place(Transform3D(xf.basis, xf.origin + xf.basis.y * 0.6), xf.basis.z)
-	player.camera.make_current()
+	player.died.connect(loop.die)
 	ship = ReachShip.new()
 	ship.system = system
 	ship.explorer = player
 	add_child(ship)
-	var pad := Worlds.place(home, "pad")
-	ship.global_transform = Transform3D(pad.basis, pad.origin + pad.basis.y * 1.95)
-	ship.reset_physics_interpolation()
+	ship.destroyed.connect(loop.die)
 	system.frame_changed.connect(func(_a, _b): ship.anchor_check())
+	var home: ReachBody = system.bodies["hearthstone"]
+	campfire = Campfire.new()
+	home.node.add_child(campfire)
+	campfire.transform = Worlds.place(home, "village")
+	home.node.add_child(Village.make(home))
+	var args := OS.get_cmdline_user_args()
+	loop.woke.connect(_on_woke)
+	reset_loop()
+	if not ("--reachwalk" in args or "--reachfly" in args):
+		loop.wake("")
+
+func _on_woke(n: int, _first: bool) -> void:
+	if n > 1 and Lore.learn("hearth_loop"):
+		hud.toast("SHIP LOG UPDATED")
+
+func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_L and not talking and not _log and player:
+		_log = ShipLog.open(self)
+		_log.closed.connect(func(): _log = null)
+		get_viewport().set_input_as_handled()
+
+## Everything back to the morning: the clock, the frame, the Kestrel on her
+## pad, the player by the fire.
+func reset_loop() -> void:
+	var was := system.ref
+	system.reset("hearthstone")
+	Talk.this_loop.clear()
+	for key in planets:
+		(planets[key] as Planet).set_ref(key == "hearthstone")
+	var home: ReachBody = system.bodies["hearthstone"]
+	var pad := Worlds.place(home, "pad")
+	ship.reset_to(Transform3D(pad.basis, pad.origin + pad.basis.y * 1.95))
+	var fire := Worlds.place(home, "village")
+	var at := fire.origin + fire.basis.x * 2.4 + fire.basis.y * 0.3
+	player.place(Transform3D(fire.basis, at), -fire.basis.x)
+	system.focus = player
+	player.camera.make_current()
+	if was != "hearthstone":
+		for key in system.order:
+			(system.bodies[key] as ReachBody).node.reset_physics_interpolation()
+
+func _physics_process(_dt: float) -> void:
+	if not loop or loop.ending or not system.focus:
+		return
+	# Too close to the Lantern: nothing survives that.
+	if system.focus.global_position.distance_to(system.world("lantern")) < ReachSystem.STAR_RADIUS * 1.04:
+		loop.die("lantern")
 
 # --- For checks --------------------------------------------------------------
 
@@ -176,6 +231,27 @@ func _fly_test() -> void:
 		ship.apply_central_force((up * 12.0 if t < 3.0 else fwd * ReachShip.MAIN) * ship.mass)
 	Input.action_release("jump")
 	Report.line("REACHFLY rested on the pad %s, left Hearthstone %s after %.0f s, frame now %s, jump at switch %.4f m %.4f m/s, hull %d" % [rested, st.switched, t, system.ref, st.jump, st.vjump, int(ship.integrity)])
+	Report.finish(get_tree())
+
+## Talk to someone in the village, every line and the first choice each
+## time, and report what was learned.
+func _talk_test(key: String) -> void:
+	Lore.forget_all()
+	await get_tree().create_timer(1.5).timeout
+	player.enabled = true
+	var npc: Npc = null
+	for n in get_tree().get_nodes_in_group("reach_root")[0].find_children("Npc_" + key, "Npc", true, false):
+		npc = n
+	if not npc:
+		Report.line("TALKTEST no one called %s" % key)
+		Report.finish(get_tree())
+		return
+	npc.usable.use(player)
+	while not talking:
+		await get_tree().process_frame
+	while talking:
+		await get_tree().process_frame
+	Report.line("TALKTEST %s learned %s, player enabled %s" % [key, Lore._facts(), player.enabled])
 	Report.finish(get_tree())
 
 ## Walk the player in a straight line round Hearthstone and report: how far,

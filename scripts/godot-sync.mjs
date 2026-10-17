@@ -32,7 +32,9 @@ copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
 // game/assets/materials/<id>/.
 const MATERIALS = ['MetalPlates006', 'MetalPlates013', 'PaintedMetal004', 'Metal027', 'DiamondPlate008C', 'Rubber004', 'Plastic013A', 'MetalWalkway014', 'CorrugatedSteel005', 'Rock030', 'Ground037', 'Rock044', 'Bark012',
   // Lowdeck, the city on Hearth's lower ring.
-  'Asphalt025C', 'Concrete034', 'Facade006', 'Tiles074', 'PaintedPlaster017', 'Bricks076C']
+  'Asphalt025C', 'Concrete034', 'Facade006', 'Tiles074', 'PaintedPlaster017', 'Bricks076C',
+  // Hearth village, in the Reach.
+  'WoodSiding008', 'RoofingTiles006', 'Planks037A', 'Wood067']
 const cache = join(root, 'art/sources/ambientcg')
 mkdirSync(cache, { recursive: true })
 for (const id of MATERIALS) {

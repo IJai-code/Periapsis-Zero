@@ -210,7 +210,9 @@ func _unhandled_input(e: InputEvent) -> void:
 				if landed:
 					leave()
 				else:
-					Hud.prompt("Land to leave the seat", 2.0)
+					var r := get_tree().get_first_node_in_group("reach_root")
+					if r:
+						r.hud.caption("Land first to leave the seat.", 2.0)
 			KEY_V:
 				_view_chase = not _view_chase
 				_cameras()
@@ -320,6 +322,12 @@ func _cameras() -> void:
 func board() -> void:
 	if piloted or _moving or not explorer:
 		return
+	if not Lore.known("hearth_codes"):
+		var r := get_tree().get_first_node_in_group("reach_root")
+		if r:
+			r.hud.caption("The canopy is locked. Mara has the launch codes.", 3.5)
+		Sfx.play("beep", -8.0, 0.7)
+		return
 	_moving = true
 	explorer.enabled = false
 	var from := explorer.camera.global_transform
@@ -373,6 +381,31 @@ func leave() -> void:
 	system.focus = explorer
 	_moving = false
 	left_ship.emit()
+
+## Back on her pad at the start of a loop, whole and empty.
+func reset_to(xf: Transform3D) -> void:
+	if _anchor != "":
+		reparent(system.get_parent())
+		_anchor = ""
+	_anchor_body = ""
+	freeze = false
+	piloted = false
+	_moving = false
+	_dead = false
+	integrity = 100.0
+	target = ""
+	_view_chase = false
+	cockpit.visible = false
+	if _canopy:
+		_canopy.visible = true
+	if explorer and explorer.process_mode == Node.PROCESS_MODE_DISABLED:
+		explorer.process_mode = Node.PROCESS_MODE_INHERIT
+		explorer.visible = true
+		explorer.add_to_group("reach_dynamic")
+	global_transform = xf
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	reset_physics_interpolation()
 
 static func _upright(up: Vector3) -> Basis:
 	var f := up.cross(Vector3.RIGHT if absf(up.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD).normalized()
