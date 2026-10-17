@@ -98,6 +98,10 @@ static func _mist(at: Vector3) -> CPUParticles3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	# A soft round puff, not a square: an untextured alpha quad reads as
+	# a pane of glass rather than mist.
+	Fx._materials()
+	m.albedo_texture = Fx._puff
 	m.albedo_color = Color(0.9, 0.95, 1.0, 0.16)
 	m.vertex_color_use_as_albedo = true
 	q.material = m

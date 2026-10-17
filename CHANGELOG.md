@@ -5,6 +5,45 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The lift-off, and the price of a frame, 17 October 2026
+
+- **Taking off is a ride.** Space on the tower deck no longer just pushes:
+  she is clamped while the engines come up, then lifts 19 m in 2.5 s with
+  her nose easing back 11°. The first two thirds are watched from the
+  tower — the ship, the plume under her, the grit going up, the deck and
+  the valley falling away — and the last second from the cockpit, at
+  18 m/s, with the controls already yours. The first lift of each morning
+  is the full ride; later ones are short, so flying is never a cutscene.
+- **What it looks like**: ember-orange plumes instead of the ice-blue they
+  were; a blast of grit and a column of smoke that hangs where she stood;
+  sparks; a scorched deck; the gear folding into the hull; a warm flash at
+  ignition.
+- **Buttery.** The climb is a scripted kinematic pose, not forces, so it
+  cannot jitter; the camera rattle is three slow sines, not noise. A ride
+  measures 3.4 s with a worst frame of 99 ms, and that one lands while she
+  is still clamped to the deck under the ignition flash, where nothing on
+  screen is supposed to be moving; every other frame is 16 ms.
+- **No compile storm.** Everything a lift-off can draw — the cockpit from
+  outside, the plume at full power, the dust and its scorch, the valley
+  from the tower and from 150 m up — is drawn once behind the morning's
+  black, from the launch camera's own place. A browser compiles a material
+  the first time it is drawn; the first draw used to be ignition and cost
+  half a second.
+- **Draw calls**, which a browser pays for in WebGL on the CPU: trees and
+  props are chunked 2×2 on a cube face instead of 3×3 (Hearthstone's
+  multimeshes 360 → 169) and the light renderer draws one shadow cascade
+  out to 145 m instead of two to 220 m. The village from the fire:
+  **594 → 471 draw calls**, process time **15 → 5 ms**.
+- **Cheaper air**: the atmosphere shell is ray-marched in 4 samples in the
+  browser instead of 6.
+- **The fire** is 22 small tongues with a hotter core rather than 16 large
+  ones, dimmer in the middle so it stops clipping to white, with a soft
+  glow laid on the ground; chimney and waterfall mist are round puffs now,
+  not square panes.
+- **Gates**: `--launchtest` (dust, the ride, the hands back, airborne) and
+  `-- --count` (what the scene asks the renderer for, by world);
+  `godot-webshot.mjs` prints what a frame cost.
+
 ### A new title, a lake and a pier, space in the sky by day, 17 October 2026
 
 - **The title**, framed like a cozy game's front page: the logo top left

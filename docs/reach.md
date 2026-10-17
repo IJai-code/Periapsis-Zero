@@ -139,6 +139,24 @@ The Kestrel rests on the tower (Village.ship_rest); Okafor gives the codes.
 - The sky is art/sky/space-hearth.jpg in shaders/reach/sky.gdshader
   (no TIME: a sky using it is relit every frame).
 
+## Taking off
+
+Space on the deck is not a push: it lights her. The first lift of each
+morning is the full ride (ReachShip.launch, LaunchFx): held on the tower
+for a moment while the engines come up, then 19 m in 2.5 s with the nose
+easing back 11°, watched from the tower for the first two thirds (the
+deck and the valley falling away under her, the plume and the dust) and
+from the seat for the last second, at 18 m/s, with the gear folding into
+the hull. Any lift after it is short (half a second, no cut), so flying is
+never a cutscene. The climb is a scripted kinematic pose rather than
+forces, so it cannot jitter.
+
+Everything a lift-off draws — the dust, the smoke, the scorched deck, the
+cockpit seen from outside, the valley from the tower and from high above —
+is drawn once behind the morning's black (Reach._prewarm): a browser
+compiles a material the first time it is drawn, and the first draw must
+not be ignition.
+
 ## The tools
 
 - `Signalscope` and `SignalSource`: the song's parts, the beacons, the
@@ -149,7 +167,13 @@ The Kestrel rests on the tower (Village.ship_rest); Okafor gives the codes.
 
 For screenshots (`scripts/godot-webshot.mjs`): `#reach/view:<body>:<landmark>
 [:metres[:degrees[:loop seconds]]]` or `:top`; `#reach/map`;
-`#reach/songline:<id>`; `#reach/at:<loop seconds>`.
+`#reach/songline:<id>`; `#reach/at:<loop seconds>`; `#reach/launch` (boards
+and lifts off) and `#reach/cockpit`.
+
+The page reports `window.pzPerf` (draws, primitives, process time, worst
+frame, hitches) and, once a lift-off has run, `window.pzLaunch` (when it
+started, how long the ride took, its worst frame and where in the ride).
+`--launchtest` checks the ride without a browser.
 
 ## Controls
 
@@ -175,3 +199,10 @@ Built for the browser's Compatibility renderer first: one sun light, the
 flashlight and the ship's lamp; planets as cube-spheres (high detail only
 for the body you are on); plants as multimeshes; no screen-space effects
 in the browser. 60 fps on a Chromebook-class GPU is the target.
+
+A browser submits every draw call through WebGL on the CPU, so the budget
+is draw calls rather than triangles: trees and props are chunked 2×2 on a
+cube face (not 3×3), the light renderer draws one shadow cascade at 145 m
+instead of two at 220 m, and the air is ray-marched in 4 samples instead
+of 6. `Reach._count_draws` (`-- --count`) prints what the scene asks for
+by world; `scripts/godot-webshot.mjs` prints what a frame actually used.

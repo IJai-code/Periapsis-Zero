@@ -245,6 +245,12 @@ func show_photo(tex: Texture2D, holds := false) -> void:
 		_flash.color = Color(1, 1, 1, 0.7)
 		create_tween().tween_property(_flash, "color", Color(1, 1, 1, 0), 0.35)
 
+## A flash of light over everything (the engines lighting, a photograph),
+## gone in a moment.
+func flash(c: Color, alpha := 0.5, in_s := 0.05, out_s := 0.45) -> void:
+	_flash.color = Color(c.r, c.g, c.b, alpha)
+	create_tween().tween_property(_flash, "color:a", 0.0, out_s).set_delay(in_s)
+
 ## The whole screen to a colour and back; awaitable.
 func fade_to(c: Color, seconds: float) -> void:
 	var t := create_tween()
@@ -293,7 +299,7 @@ func _paint() -> void:
 	var c := vp / 2.0
 	var p: Explorer = reach.player
 	var s: ReachShip = reach.ship
-	if s and s.piloted:
+	if s and s.piloted and not s.launching:
 		_ship(vp, c, s)
 	elif p and p.enabled:
 		# A dot; a ring round it when what you look at can be used.

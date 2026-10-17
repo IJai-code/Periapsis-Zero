@@ -48,6 +48,8 @@ func _ready() -> void:
 		planets[key] = p
 	_environment()
 	_build_sites()
+	if "--count" in OS.get_cmdline_user_args():
+		_count_draws()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
 	# The title's scene alone, for pictures: #reach/backdrop.
@@ -79,6 +81,8 @@ func _ready() -> void:
 		_lift_test()
 	if "--jumptest" in args:
 		_jump_test()
+	if "--launchtest" in args:
+		_launch_test()
 	if "--reachwalk" in args:
 		_walk_test()
 	if "--reachfly" in args:
@@ -93,7 +97,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest"]:
 			return true
 	return false
 
@@ -116,6 +120,72 @@ func _next_goal() -> String:
 	if village.lift.at_top():
 		return "Board the Kestrel"
 	return "Ride the lift up the launch tower to the Kestrel"
+
+## A few frames from the tower, behind the black of the morning, so every
+## material the lift-off will show (the valley, the sky, the air of the
+## other worlds, the dust on the deck) is compiled before it matters.
+func _prewarm() -> void:
+	var v: Village = (planets["hearthstone"] as Planet).sites[0]
+	var xf := v.ship_rest
+	var up := xf.basis.y.normalized()
+	var fwd := xf.basis.z.normalized()
+	var side := xf.basis.x.normalized()
+	var fx := LaunchFx.make(self, xf.origin - up * 1.85, up, 0.3)
+	var cam := Camera3D.new()
+	cam.fov = 45.0
+	cam.near = 0.1
+	cam.far = 60000.0
+	add_child(cam)
+	cam.make_current()
+	ship.rehearse(true)
+	# The launch camera's own place, then the valley from the tower, then the
+	# whole crater: what a lift-off can see, seen once, behind the black.
+	var views := [
+		[xf.origin + side * 30.0 + fwd * 3.0 + up * 10.0, xf.origin + up * 0.5, up],
+		[xf.origin + up * 55.0 + side * 6.0, xf.origin + side * 160.0, up],
+		[xf.origin + up * 150.0 - side * 80.0, xf.origin, fwd],
+	]
+	for view in views:
+		cam.global_transform = Transform3D(Basis.looking_at((view[1] as Vector3) - (view[0] as Vector3), view[2] as Vector3), view[0] as Vector3)
+		for i in 2:
+			await get_tree().process_frame
+	ship.rehearse(false)
+	fx.queue_free()
+	cam.queue_free()
+
+## What the scene asks the renderer for, by world: for judging a draw-call
+## budget (a browser submits each one through WebGL, which is not free).
+func _count_draws() -> void:
+	var total := 0
+	var shadowed := 0
+	var mms := 0
+	for mi: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		total += 1
+		if mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			shadowed += 1
+	for mm: MultiMeshInstance3D in find_children("*", "MultiMeshInstance3D", true, false):
+		mms += 1
+		if mm.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			shadowed += 1
+	print("DRAW meshes=%d multimesh=%d shadow_casters=%d" % [total, mms, shadowed])
+	for key in planets:
+		var p: Planet = planets[key]
+		var c := 0
+		var sh := 0
+		for mi: MeshInstance3D in p.find_children("*", "MeshInstance3D", true, false):
+			c += 1
+			if mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				sh += 1
+		var mc: int = p.find_children("*", "MultiMeshInstance3D", true, false).size()
+		print("  %-11s meshes=%d multimesh=%d shadow=%d" % [key, c, mc, sh])
+		var kinds := {}
+		for mm: MultiMeshInstance3D in p.find_children("*", "MultiMeshInstance3D", true, false):
+			var path := mm.multimesh.mesh.resource_path if mm.multimesh and mm.multimesh.mesh else "?"
+			kinds[path.get_file()] = int(kinds.get(path.get_file(), 0)) + 1
+		for k in kinds:
+			print("      mm %-22s x%d" % [k, kinds[k]])
+		for s in p.sites:
+			print("    site %-12s meshes=%d" % [s.name, s.find_children("*", "MeshInstance3D", true, false).size()])
 
 ## The places on each world (Site), the campfire.
 func _build_sites() -> void:
@@ -183,9 +253,15 @@ func _environment() -> void:
 	sun.light_color = Color(1.0, 0.93, 0.82)
 	sun.light_energy = 1.6
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 220.0
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_blend_splits = true
+	if Flow.lite():
+		# A browser submits every shadow draw through WebGL, twice over with
+		# two splits: one map, out to the village's own trees, is the trade.
+		sun.directional_shadow_max_distance = 145.0
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	else:
+		sun.directional_shadow_max_distance = 220.0
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		sun.directional_shadow_blend_splits = true
 	sun.shadow_normal_bias = 1.4
 	add_child(sun)
 
@@ -316,6 +392,13 @@ func _start_player() -> void:
 	var args := OS.get_cmdline_user_args()
 	loop.woke.connect(_on_woke)
 	reset_loop()
+	# Compile what a lift-off needs while the morning is still dark: the
+	# ship on the tower (her plume, her cockpit), the wide view from it (the
+	# valley, the sky, the air of the other worlds) and the dust at the
+	# deck. A browser compiles a material the first time it is drawn, and
+	# the first draw should not be ignition.
+	if not _testing(args):
+		await _prewarm()
 	# The morning plays for a player. A check places the camera itself and
 	# needs the world answering at once, so it starts already awake.
 	if not _testing(args):
@@ -341,6 +424,13 @@ func _start_player() -> void:
 		elif beat == "cockpit":
 			Lore.learn("hearth_codes")
 			ship.board()
+		elif beat == "launch":
+			# Straight to the ride, for looking at it.
+			Lore.learn("hearth_codes")
+			ship.board()
+			await ship.boarded
+			await get_tree().create_timer(1.2).timeout
+			ship.launch()
 		elif beat == "map":
 			_map = ReachMap.open(self)
 			_map.closed.connect(func(): _map = null)
@@ -790,6 +880,26 @@ func _jump_test() -> void:
 		best = maxf(best, player.global_position.length() - base)
 	key.call(KEY_SPACE, false)
 	Report.line("JUMPTEST tap %.2f m charged %.2f m jetpack %.2f m fuel used %.0f" % [results[0], results[1], best, fuel0 - player.fuel])
+	Report.finish(get_tree())
+
+## Space on the tower's deck: the dust, the climb, and control handed back
+## at the top of it with the speed she had.
+func _launch_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	await get_tree().create_timer(0.5).timeout
+	var y0 := ship.global_position.length()
+	ship.launch()
+	var fx := get_tree().get_nodes_in_group("launch_fx").size()
+	var t := 0.0
+	var peak := 0.0
+	while t < 6.0 and ship.launching:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		peak = maxf(peak, ship.global_position.length() - y0)
+	Report.line("LAUNCHTEST dust %d, ride %.1f s, rose %.1f m, speed %.1f m/s, hands back %s, airborne %s" % [fx, t, peak, ship.linear_velocity.length(), not ship.launching, not ship.landed])
 	Report.finish(get_tree())
 
 ## Codes known: ride the lift up the tower, walk to the Kestrel, board her;

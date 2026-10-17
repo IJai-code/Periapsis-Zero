@@ -146,6 +146,13 @@ const checks = [
     const m = out.match(/WALLTEST tried (\d+) inside (\d+) (\[[^\]]*\]) control (\w+)/)
     return [Boolean(m) && Number(m[1]) > 30 && m[2] === '0' && m[4] === 'true', m ? m[0] : 'no result']
   }],
+  ['the Reach: the lift-off, the ride, the hands back', async () => {
+    const out = await run('reach', ['--launchtest'], /LAUNCHTEST/)
+    const m = out.match(/LAUNCHTEST dust (\d+), ride ([\d.]+) s, rose ([\d.]+) m, speed ([\d.]+) m\/s, hands back (\w+), airborne (\w+)/)
+    if (!m) return [false, (out.match(/LAUNCHTEST[^\n]*/) ?? ['no result'])[0]]
+    const ok = Number(m[1]) > 0 && Number(m[2]) > 2.5 && Number(m[3]) > 12 && Number(m[4]) > 8 && m[5] === 'true' && m[6] === 'true'
+    return [ok, m[0]]
+  }],
   ['the Reach: ride the lift up the launch tower and board the Kestrel', async () => {
     const out = await run('reach', ['--lifttest'], /LIFTTEST/)
     const m = out.match(/LIFTTEST risen ([\d.]+) m, on deck (\w+), piloted (\w+)/)

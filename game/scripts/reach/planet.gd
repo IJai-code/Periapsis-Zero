@@ -95,6 +95,7 @@ func _ready() -> void:
 		_air_mat.set_shader_parameter("dusk", body.sky_dusk)
 		# Thin air: the nebulae and the stars stay in the sky by day.
 		_air_mat.set_shader_parameter("veil", 0.24)
+		_air_mat.set_shader_parameter("steps", 6 if hq else 4)
 		_air_mat.render_priority = 1
 		a.material = _air_mat
 		air_shell.mesh = a
@@ -255,6 +256,9 @@ func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: flo
 	add_child(mi)
 	_deco.append(mi)
 
+## Which chunk of a face a direction falls in. Two by two, not three by
+## three: the browser submits every chunk as its own draw call, and the
+## trees that matter are all within a couple of hundred metres anyway.
 func _chunk(d: Vector3) -> String:
 	var a := d.abs()
 	var face := 0
@@ -272,7 +276,7 @@ func _chunk(d: Vector3) -> String:
 		face = 4 if d.z > 0.0 else 5
 		u = d.x / a.z
 		v = d.y / a.z
-	return "%d_%d_%d" % [face, clampi(int((u + 1.0) * 1.5), 0, 2), clampi(int((v + 1.0) * 1.5), 0, 2)]
+	return "%d_%d_%d" % [face, clampi(int((u + 1.0) * 0.999), 0, 1), clampi(int((v + 1.0) * 0.999), 0, 1)]
 
 func _range(kind: String) -> float:
 	match kind:

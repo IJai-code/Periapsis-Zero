@@ -18,6 +18,9 @@ uniform float star_power = 1.0;
 // day; less: space and its nebulae show through by day, the air a haze that
 // thickens toward the horizon).
 uniform float veil = 1.0;
+// Samples along the ray. Six on a desktop, fewer where every fragment of a
+// full-screen shell costs a browser its frame (Flow sets it).
+uniform int steps = 6;
 
 varying vec3 wpos;
 
@@ -47,8 +50,8 @@ void fragment() {
 	float scale_h = (air_r - planet_r) * 0.28;
 	vec3 sum = vec3(0.0);
 	float depth = 0.0;
-	for (int i = 0; i < 6; i++) {
-		vec3 p = cam + dir * (t0 + len * (float(i) + 0.5) / 6.0);
+	for (int i = 0; i < steps; i++) {
+		vec3 p = cam + dir * (t0 + len * (float(i) + 0.5) / float(steps));
 		float hgt = max(length(p) - planet_r, 0.0);
 		float rho = exp(-hgt / scale_h);
 		float elev = dot(normalize(p), sun);
@@ -59,8 +62,8 @@ void fragment() {
 	}
 	// Thick enough that a clear day is blue overhead, not just at the rim.
 	float k = len / (air_r - planet_r) * 2.2;
-	sum *= k / 6.0;
-	depth *= k / 6.0;
+	sum *= k / float(steps);
+	depth *= k / float(steps);
 	// The glow round the Lantern itself, through the air.
 	float mie = pow(max(dot(dir, normalize(star_pos - CAMERA_POSITION_WORLD)), 0.0), 24.0);
 	vec3 col = sum * 1.3 + vec3(1.0, 0.85, 0.65) * mie * depth * 0.8;

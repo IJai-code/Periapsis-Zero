@@ -142,6 +142,11 @@ var _gi_off := false
 var _strain := 0
 var _fps_t := 0.0
 var _fps_n := 0
+## The worst frame since the last report, and how many have been long enough
+## to be felt (the browser's own shader compiles, a scene built): for
+## judging smoothness rather than an average.
+var _worst_ms := 0.0
+var _hitches := 0
 
 func _web_quality() -> void:
 	var vp := get_viewport()
@@ -285,15 +290,29 @@ func _adapt(dt: float) -> void:
 		return
 	_fps_t += dt
 	_fps_n += 1
+	_worst_ms = maxf(_worst_ms, dt * 1000.0)
+	if dt > 0.05:
+		_hitches += 1
 	if _fps_t < 0.5:
 		return
 	var fps := _fps_n / _fps_t
 	var span := _fps_t
 	_fps_t = 0.0
 	_fps_n = 0
-	# The page can read the frame rate and tier (scripts/godot-webshot.mjs).
+	# The page can read the frame rate and what it costs (scripts/godot-webshot.mjs).
+	# Draw calls and primitives say whether a stutter is the scene's geometry;
+	# the two times say whether it is the scripts.
 	if on_web():
-		JavaScriptBridge.eval("window.pzFps=%d;window.pzTier=%d" % [roundi(fps), tier], true)
+		JavaScriptBridge.eval("window.pzFps=%d;window.pzTier=%d;window.pzPerf={dc:%d,pr:%d,ob:%d,tp:%d,tq:%d,vm:%d,worst:%d,hitches:%d}" % [roundi(fps), tier,
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)),
+			int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+			int(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0),
+			int(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0),
+			int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0),
+			int(_worst_ms), _hitches], true)
+		_worst_ms = 0.0
+		_hitches = 0
 	_cool -= span
 	var floor_fps := 30.0 if lite() else 40.0
 	_low_t = _low_t + span if fps < floor_fps else 0.0

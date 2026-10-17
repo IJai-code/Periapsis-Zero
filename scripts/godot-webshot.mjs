@@ -58,8 +58,11 @@ try {
     if (e.shot) {
       const out = `${prefix}-${e.t}s.png`
       writeFileSync(out, await page.shot())
-      const perf = await page.evaluate('[window.pzFps, window.pzTier]').catch(() => [])
-      console.log(`shot ${out}  fps ${perf[0] ?? '?'}  tier ${perf[1] ?? '?'}`)
+      const perf = await page.evaluate('[window.pzFps, window.pzTier, window.pzPerf]').catch(() => [])
+      const p = perf[2] ?? {}
+      const lift = await page.evaluate('window.pzLaunch').catch(() => null)
+      const ride = lift?.end ? `  [ride at ${(lift.start / 1000).toFixed(1)}s for ${((lift.end - lift.start) / 1000).toFixed(2)}s worst ${lift.worst}ms @${lift.worst_at}ms hitches ${lift.hitches} marks ${JSON.stringify(lift.marks)}]` : lift ? `  [ride in progress since ${(lift.start / 1000).toFixed(1)}s]` : ''
+      console.log(`shot ${out}  fps ${perf[0] ?? '?'}  tier ${perf[1] ?? '?'}  draws ${p.dc ?? '?'}  prims ${p.pr ?? '?'}  proc ${p.tp ?? '?'}ms  worst ${p.worst ?? '?'}ms  hitches ${p.hitches ?? '?'}  vram ${p.vm ?? '?'}MB${ride}`)
     } else if (e.code === 'click') {
       for (const type of ['mousePressed', 'mouseReleased']) await page.send('Input.dispatchMouseEvent', { type, x: w / 2, y: h / 2, button: 'left', clickCount: 1 })
     } else {

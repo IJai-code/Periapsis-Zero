@@ -68,15 +68,40 @@ func _ready() -> void:
 	add_child(use)
 	use.used.connect(func(by: Node): FireRest.sit(self, by as Explorer))
 
+## The fire: a body of flame (many short-lived tongues, dimmer than the
+## tonemapper's clipping point, so it reads as fire and not a white blob)
+## and a hotter heart inside it.
 func _flames() -> void:
 	Fx._materials()
+	var outer := _flame_emitter(22, 0.9, Vector2(0.42, 0.62))
+	outer.color_ramp = Fx._ramp([Color(0.95, 0.44, 0.13, 0.85), Color(0.8, 0.26, 0.05, 0.7),
+		Color(0.42, 0.1, 0.02, 0.36), Color(0.06, 0.02, 0.0, 0.0)])
+	var core := _flame_emitter(7, 0.45, Vector2(0.24, 0.34))
+	core.color_ramp = Fx._ramp([Color(1.5, 0.78, 0.3, 0.8), Color(1.15, 0.45, 0.1, 0.6), Color(0.2, 0.05, 0.0, 0.0)])
+	core.position = Vector3(0, 0.18, 0)
+	# The light it throws on the ground, as a soft disc: fire is a lamp.
+	var glow := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(4.2, 4.2)
+	var m := LaunchFx.dust_material().duplicate() as StandardMaterial3D
+	m.albedo_color = Color(1.0, 0.5, 0.18, 0.22)
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+	q.material = m
+	glow.mesh = q
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glow.rotation = Vector3(-PI / 2.0, 0, 0)
+	glow.position = Vector3(0, 0.06, 0)
+	add_child(glow)
+
+func _flame_emitter(amount: int, life: float, size: Vector2) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2(0.55, 0.75)
+	q.size = size
 	q.material = Fx._fire
 	p.mesh = q
-	p.amount = 16
-	p.lifetime = 0.9
+	p.amount = amount
+	p.lifetime = life
 	p.local_coords = true
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	p.emission_sphere_radius = 0.18
@@ -88,13 +113,13 @@ func _flames() -> void:
 	p.scale_amount_min = 0.7
 	p.scale_amount_max = 1.2
 	var c := Curve.new()
-	c.add_point(Vector2(0, 0.6))
+	c.add_point(Vector2(0, 0.55))
 	c.add_point(Vector2(0.3, 1.0))
-	c.add_point(Vector2(1, 0.2))
+	c.add_point(Vector2(1, 0.15))
 	p.scale_amount_curve = c
-	p.color_ramp = Fx._ramp([Color(1.3, 0.75, 0.3, 0.9), Color(1.1, 0.42, 0.1, 0.75), Color(0.6, 0.14, 0.03, 0.4), Color(0.1, 0.03, 0.0, 0.0)])
 	p.position = Vector3(0, 0.25, 0)
 	add_child(p)
+	return p
 	var sparks := CPUParticles3D.new()
 	var sq := QuadMesh.new()
 	sq.size = Vector2(0.04, 0.04)
