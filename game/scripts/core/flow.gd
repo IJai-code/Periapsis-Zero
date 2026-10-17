@@ -472,6 +472,14 @@ func spend(amount: int) -> bool:
 	set_progress("credits", credits() - amount)
 	return true
 
+## The simulator: the real solar system to explore (the site's #sim). In
+## the browser it opens in place; from the desktop app, in a browser.
+func open_sim() -> void:
+	if on_web():
+		JavaScriptBridge.eval("location.href = '/#sim'", true)
+	else:
+		OS.shell_open("https://periapsiszero.dev/#sim")
+
 func open_act_one() -> void:
 	set_progress("prologue_done", true)
 	if on_web():

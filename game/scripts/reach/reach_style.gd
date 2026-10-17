@@ -16,7 +16,21 @@ static var serif: FontVariation
 static var serif_bold: FontVariation
 static var serif_italic: FontVariation
 
+## The title's display faces: a chunky friendly one for the logo (Lilita
+## One) and a rounded one for menus (Fredoka); both OFL, game/fonts.
+static var chunky: FontFile
+static var round: FontVariation
+static var round_bold: FontVariation
+
 static func _static_init() -> void:
+	chunky = load("res://fonts/LilitaOne-Regular.ttf")
+	var fred: FontFile = load("res://fonts/Fredoka.ttf")
+	round = FontVariation.new()
+	round.base_font = fred
+	round.variation_opentype = {"wght": 500, "wdth": 100}
+	round_bold = FontVariation.new()
+	round_bold.base_font = fred
+	round_bold.variation_opentype = {"wght": 640, "wdth": 100}
 	var roman: FontFile = load("res://fonts/Fraunces.ttf")
 	var italic: FontFile = load("res://fonts/Fraunces-Italic.ttf")
 	serif = FontVariation.new()

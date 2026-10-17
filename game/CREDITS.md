@@ -20,7 +20,8 @@ CC0 from Poly Haven, by Rob Tuytel (see public/game/detail/CREDITS.txt).
 
 All under the SIL Open Font License (texts in game/fonts): Bricolage
 Grotesque, Space Mono, and Fraunces (by Undercase Type, Phaedra Charles
-and Flavia Zimbardi), the Reach's storybook serif.
+and Flavia Zimbardi), the Reach's storybook serif; Lilita One (by Juan
+Montoreano) for the title's logo and Fredoka for its menus.
 
 ## Music
 

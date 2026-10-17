@@ -943,41 +943,89 @@ func _walk_test() -> void:
 var _drift: Camera3D
 var _drift_t := 0.0
 
-## Behind the title (title.gd): Hearth at midnight under the nebulae, the
-## fire and the village's lamps, Mara's banjo and Okafor's flute, and a
-## camera drifting slowly round the fire.
+## Behind the title (title.gd): Hearth's lake in the Lantern's low light,
+## from out by the end of the pier looking back along it to the shore, the
+## village and the crater wall beyond under the nebulae, Mara's banjo and
+## Okafor's flute; the camera breathing a little.
+var _drift_base: Transform3D
+
 func _backdrop() -> void:
-	system.t = 560.0
 	system.running = false
 	system.switch("hearthstone")
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var up := village.pier_xf.basis.y
+	var out := -village.pier_xf.basis.z
+	var side := village.pier_xf.basis.x
+	# Behind Isa's left shoulder at the pier's end, looking back along it
+	# toward the shore, she and the water to the right.
+	var eye := village.pier_xf.origin + out * 26.0 + side * 2.2 + up * 2.6
+	var look := village.pier_xf.origin + out * 4.0 - side * 2.6 + up * 5.5
+	var fwd := (look - eye).normalized()
+	# The hour: the Lantern low (8 to 16 degrees up), off to the side of the
+	# view, a little behind.
+	var home: ReachBody = system.bodies["hearthstone"]
+	var best_t := 0.0
+	var best := -INF
+	var t := 0.0
+	while t < ReachSystem.LOOP:
+		var sun := (-(home.orbit.position(t))).normalized()
+		var el := rad_to_deg(asin(clampf(sun.dot(up), -1.0, 1.0)))
+		var flat := (sun - up * sun.dot(up)).normalized()
+		# High enough to clear the crater's rim; from the side and behind.
+		var score := -absf(el - 34.0) * 1.5 - absf(flat.dot(fwd) - 0.35) * 25.0 + flat.dot(side) * 4.0
+		if el > 20.0 and score > best:
+			best = score
+			best_t = t
+		t += 4.0
+	system.t = best_t
 	system.place()
 	_drift = Camera3D.new()
-	_drift.fov = 56.0
+	_drift.fov = 52.0
 	_drift.near = 0.1
 	_drift.far = 60000.0
 	_drift.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_drift)
 	_drift.make_current()
 	system.focus = _drift
+	_drift_base = Transform3D(Basis.looking_at(fwd, up), eye)
+	# Turn the nebulae so their brightest clouds stand behind the scene,
+	# a little above the view's middle.
+	var sky_dir := (fwd + up * 0.45).normalized()
+	var sm := env.sky.sky_material as ShaderMaterial
+	# (The sky shader's own tilt; unset on the material, so its default.)
+	var tilt := 0.25
+	var best_yaw := 0.0
+	var best_d := INF
+	for k in 126:
+		var yaw := k * 0.05
+		var cy := cos(yaw)
+		var sy := sin(yaw)
+		var d := Vector3(cy * sky_dir.x - sy * sky_dir.z, sky_dir.y, sy * sky_dir.x + cy * sky_dir.z)
+		d = Vector3(d.x, cos(tilt) * d.y - sin(tilt) * d.z, sin(tilt) * d.y + cos(tilt) * d.z)
+		var u := atan2(d.x, -d.z) / TAU + 0.5
+		var off := absf(u - 0.42)
+		if off < best_d:
+			best_d = off
+			best_yaw = yaw
+	sm.set_shader_parameter("yaw", best_yaw)
+	_drift.fov = 60.0
+	# A warmer, richer light for the picture.
+	sun.light_color = Color(1.0, 0.84, 0.64)
+	env.adjustment_saturation = 1.18
+	env.adjustment_contrast = 1.08
 	for part in ["banjo", "flute"]:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/reach/%s.wav" % part)
 		p.volume_db = -60.0
 		add_child(p)
 		p.play()
-		create_tween().tween_property(p, "volume_db", -7.0 + Flow.music_db(), 4.0)
+		create_tween().tween_property(p, "volume_db", -9.0 + Flow.music_db(), 4.0)
 	_place_drift()
 
 func _place_drift() -> void:
-	var home: ReachBody = system.bodies["hearthstone"]
-	var fire := Worlds.place(home, "village")
-	var up := fire.basis.y
-	var a := 2.3 + _drift_t * 0.012
-	var at := fire.origin + (fire.basis.x * cos(a) + fire.basis.z * sin(a)) * 8.5 + up * (1.9 + sin(_drift_t * 0.07) * 0.25)
-	_drift.global_position = at
-	_drift.look_at(fire.origin + up * 4.2, up)
-	# Turned a little left, so the fire sits right of the words.
-	_drift.rotate(up, 0.3)
+	var b := _drift_base.basis
+	var sway := Vector3(sin(_drift_t * 0.11) * 0.25, sin(_drift_t * 0.17) * 0.12, 0.0)
+	_drift.global_transform = Transform3D(b.rotated(b.y, sin(_drift_t * 0.07) * 0.025), _drift_base.origin + b * sway)
 
 func _view(what: String) -> void:
 	var parts := what.split("/")

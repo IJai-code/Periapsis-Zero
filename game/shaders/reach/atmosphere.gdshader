@@ -14,6 +14,10 @@ uniform vec3 day : source_color = vec3(0.36, 0.58, 1.0);
 uniform vec3 dusk : source_color = vec3(1.0, 0.45, 0.2);
 uniform float strength = 1.0;
 uniform float star_power = 1.0;
+// How much of the sky overhead the air hides, from inside it (1: a blue
+// day; less: space and its nebulae show through by day, the air a haze that
+// thickens toward the horizon).
+uniform float veil = 1.0;
 
 varying vec3 wpos;
 
@@ -64,5 +68,7 @@ void fragment() {
 	float inside = 1.0 - smoothstep(air_r * 0.98, air_r * 1.02, length(cam));
 	col *= strength * star_power * mix(0.5, 1.0, inside);
 	ALBEDO = col;
-	ALPHA = clamp(max(col.r, max(col.g, col.b)) * 1.6, 0.0, 1.0) * clamp(depth * 2.5, 0.0, 1.0);
+	float up_view = dot(dir, normalize(cam));
+	float thin = mix(1.0, mix(veil, 1.0, smoothstep(0.3, -0.02, up_view)), inside);
+	ALPHA = clamp(max(col.r, max(col.g, col.b)) * 1.6, 0.0, 1.0) * clamp(depth * 2.5, 0.0, 1.0) * thin;
 }

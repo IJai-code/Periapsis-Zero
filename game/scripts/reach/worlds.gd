@@ -24,7 +24,7 @@ static func landmarks(key: String) -> Dictionary:
 				"lookout": [f * _dir(29.1, 205.0), 9.0, 46.0],
 				"cave": [f * _dir(23.7, 300.0), 12.0, 2.0],
 				"falls": [f * _dir(21.3, 40.0), 0.0, -5.5],
-				"pond": [f * _dir(10.6, 110.0), 0.0, -5.0],
+				"pond": [f * _dir(12.8, 112.0), 0.0, -5.0],
 				"lake": [f * _dir(40.0, 60.0), 0.0, -14.0],
 			}
 		"verdance":
@@ -123,7 +123,8 @@ static func raw_height(key: String, d: Vector3, radius: float) -> float:
 			var off := (at - (falls + seg * u)).length()
 			h = lerpf(h, -4.6, smoothstep(4.2, 1.4, off) * (1.0 - smoothstep(110.0, 118.0, dist)))
 			h = lerpf(h, -5.5, smoothstep(10.0, 4.0, at.distance_to(falls)))
-			h = lerpf(h, -5.0, smoothstep(11.0, 5.0, at.distance_to(pond)))
+			# The lake: 37 m across, its shores sloping gently in.
+			h = lerpf(h, -5.0, smoothstep(30.0, 12.0, at.distance_to(pond)))
 			return h
 		"verdance":
 			var cont := _n(key, 1, 0.0028, 4).get_noise_3dv(p) * 46.0 + 6.0

@@ -147,6 +147,13 @@ static func _make(name: String) -> Material:
 		"cliff": return _obj(_pbr("Rock030", 0.22, Color(0.62, 0.66, 0.72)))
 		"path_dirt": return _path_dirt()
 		"dome_glass": return _dome_glass()
+		"bobber": return _plain(Color(0.86, 0.12, 0.08), 0.35)
+		"rope": return _obj(_pbr("Bark012", 2.4, Color(0.86, 0.74, 0.52)))
+		"cork": return _plain(Color(0.66, 0.5, 0.34), 0.9)
+		"cane": return _plain(Color(0.78, 0.62, 0.36), 0.5)
+		"fish": return _plain(Color(0.62, 0.68, 0.72), 0.25)
+		"canvas": return _cloth(Color(0.5, 0.38, 0.22))
+		"boat_paint": return _obj(_pbr("Planks037A", 0.7, Color(0.62, 0.42, 0.3)))
 		"cliff_warm": return _obj(_pbr("Rock030", 0.22, Color(0.82, 0.72, 0.6)))
 		# The Choir's stonework, their glowing writing, a core (art/godot/reach_sites.py).
 		"choir_stone": return _obj(_pbr("Rock030", 0.35, Color(0.92, 0.86, 0.78)))

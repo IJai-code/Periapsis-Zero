@@ -209,57 +209,84 @@ def boulder(bm, centre, size, seed, rough=0.3):
 
 
 def cliff(name, seed):
-    """Strata of blocky rock along an arc of a 120 m circle (its centre 120 m
-    toward -Y), stepping back as they rise."""
+    """A 54 m stretch of the crater's wall (an arc of a 120 m circle whose
+    centre is 120 m toward -Y), 48 m tall: one carved face of rock. Its
+    surface steps back in strata (flat-topped ledges, sheer faces, some
+    overhanging), split by vertical joints and worn by noise; flat-shaded so
+    it reads as big angular facets. Bands alternate blue-grey and warm.
+    Boulders at its foot."""
     kit.reset()
     rng = random.Random(seed)
     R = 120.0
-    span = math.radians(26.0)
-    mats = {}
-
-    def bm(m):
-        if m not in mats:
-            mats[m] = bmesh.new()
-        return mats[m]
-
+    span = math.radians(27.0)
+    NU, NV = 54, 40
+    H = 48.0
+    off = V((seed * 13.1, seed * 7.7, 0))
+    # Strata: heights where the face steps back, and how far.
+    steps = []
     z = 0.0
-    k = 0
     back = 0.0
-    while z < 48.0:
-        h = rng.uniform(3.2, 6.4)
-        mat = 'cliff_warm' if k % 3 == 1 else 'cliff'
-        phi = -span / 2
-        while phi < span / 2:
-            w = rng.uniform(2.6, 5.4)
-            dphi = w / R
-            mid = phi + dphi / 2
-            # Where on the arc, and how far in or out this block stands.
-            depth = rng.uniform(7.0, 11.0)
-            recess = back + rng.uniform(-0.7, 1.1) + 1.4 * noise.noise(V((mid * 9.0, k * 0.7, seed)))
-            radial = V((math.sin(mid), math.cos(mid) - 1.0, 0))
-            centre = V((R * math.sin(mid), -R + R * math.cos(mid), 0))
-            out = V((math.sin(mid), math.cos(mid), 0)).normalized()
-            c = centre + out * (recess + depth / 2) + V((0, 0, z + h / 2))
-            rot = Matrix.Rotation(-mid, 3, 'Z')
-            kit.box(bm(mat), c, (w * 1.04, depth, h + rng.uniform(-0.3, 0.5)), rot)
-            phi += dphi
+    while z < H:
+        h = rng.uniform(3.5, 7.5)
+        steps.append((z, z + h, back, rng.random() < 0.25))
         z += h
-        back += rng.uniform(0.3, 1.6)
-        k += 1
-    # Talus at the foot.
-    for i in range(16):
+        back += rng.uniform(0.6, 2.4)
+
+    def recess(u, v):
+        z = v * H
+        for z0, z1, b, over in steps:
+            if z <= z1:
+                k = (z - z0) / max(z1 - z0, 0.01)
+                # Sheer face, then a bevel back to the next ledge; some
+                # strata lean out a little (overhang).
+                lean = (-0.8 * k if over else 0.4 * k)
+                return b + lean
+        return steps[-1][2]
+
+    def pos(u, v):
+        phi = -span / 2 + span * u
+        out = V((math.sin(phi), math.cos(phi), 0))
+        centre = V((R * math.sin(phi), -R + R * math.cos(phi), 0))
+        z = v * H
+        joint = noise.noise(V((u * 18.0, 0.3, seed))) * 1.6
+        crack = max(0.0, noise.noise(V((u * 40.0, v * 3.0, seed + 3))) - 0.25) * 3.0
+        wear = noise.noise(V((u * 9.0, v * 7.0, seed + 1)) + off) * 1.4 + noise.noise(V((u * 30.0, v * 22.0, seed + 2))) * 0.5
+        d = recess(u, v) + joint + wear + crack
+        return centre + out * d + V((0, 0, z + noise.noise(V((u * 5.0, v * 4.0, seed + 5))) * 0.8))
+
+    grid = [[pos(i / NU, j / NV) for i in range(NU + 1)] for j in range(NV + 1)]
+    bands = {}
+    for j in range(NV):
+        z = (j + 0.5) / NV * H
+        k = 0
+        for n, (z0, z1, _b, _o) in enumerate(steps):
+            if z <= z1:
+                k = n
+                break
+        mat = 'cliff_warm' if k % 3 == 1 else 'cliff'
+        if mat not in bands:
+            bands[mat] = bmesh.new()
+        bm = bands[mat]
+        for i in range(NU):
+            a, b, c, d = grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]
+            vs = [bm.verts.new(p) for p in (a, b, c, d)]
+            # Facing the crater (toward -Y).
+            bm.faces.new((vs[0], vs[1], vs[2], vs[3]))
+    # Boulders at the foot.
+    rocks = bmesh.new()
+    for i in range(18):
         mid = rng.uniform(-span / 2, span / 2)
         out = V((math.sin(mid), math.cos(mid), 0))
         centre = V((R * math.sin(mid), -R + R * math.cos(mid), 0))
-        boulder(bm('cliff'), centre - out * rng.uniform(0.5, 4.0) + V((0, 0, 0.3)), (rng.uniform(1.0, 2.6), rng.uniform(1.0, 2.4), rng.uniform(0.7, 1.6)), seed * 100 + i)
-    for m, b in mats.items():
-        o = kit.part(f'{name}_{m}', b, m)
+        boulder(rocks, centre - out * rng.uniform(0.5, 5.0) + V((0, 0, 0.3)), (rng.uniform(1.2, 3.0), rng.uniform(1.0, 2.6), rng.uniform(0.8, 1.8)), seed * 100 + i)
+    bands['cliff'] = bands.get('cliff', bmesh.new())
+    for mat, bm in list(bands.items()) + [('cliff', rocks)]:
+        o = kit.part(f'{name}_{mat}_{id(bm)}', bm, mat)
         for mod in list(o.modifiers):
             o.modifiers.remove(mod)
-        for poly in o.data.polygons:
-            poly.use_smooth = False
+        for p in o.data.polygons:
+            p.use_smooth = False
     export(os.path.join(OUT, f'valley-{name}.glb'))
-
 
 
 # --- Buildings -----------------------------------------------------------------
@@ -725,6 +752,103 @@ def chair():
     m.done('chair')
 
 
+def pier():
+    """A pier 18 m long from the shore (y = 0) out over the water (+Y), its
+    deck 1.1 m up, a T-shaped head at the far end; posts every 2.4 m with
+    rope wrapped round their tops, cross-braced below; a ladder down into
+    the water; a lantern on a hooked post at the head's corner; a net
+    hanging over the rail. The deck's height is its origin (z = 0); the
+    posts reach 3 m down."""
+    kit.reset()
+    m = Mats()
+    rng = random.Random(8)
+    W = 2.6
+    L = 18.0
+    deck(m, -W / 2, W / 2, 0.0, L, 0.0, along='x', board=0.24, thick=0.09)
+    deck(m, -4.0, 4.0, L, L + 4.2, 0.0, along='x', board=0.24, thick=0.09)
+    posts = []
+    y = 0.6
+    while y < L:
+        posts += [(-W / 2 - 0.05, y), (W / 2 + 0.05, y)]
+        y += 2.4
+    for x in (-4.0, -1.4, 1.4, 4.0):
+        posts += [(x, L + 0.1), (x, L + 4.1)]
+    for x, y in posts:
+        h = 0.55 + rng.uniform(-0.05, 0.15)
+        log(m('bark'), (x, y, -3.2), (x, y, h), 0.13, 8)
+        kit.cylinder(m('beam'), (x, y, h), (x, y, h + 0.05), 0.15, 8)
+        for k in range(3):
+            kit.cylinder(m('rope'), (x, y, h - 0.12 - k * 0.07), (x, y, h - 0.07 - k * 0.07), 0.155, 10)
+    # Cross-bracing under the deck, between each pair of posts.
+    y = 0.6
+    while y < L - 2.4:
+        for sx in (-1, 1):
+            beam(m('beam'), (sx * (W / 2 + 0.05), y, -0.25), (sx * (W / 2 + 0.05), y + 2.4, -1.6), 0.08)
+        beam(m('beam'), (-W / 2, y, -0.3), (W / 2, y, -1.5), 0.08)
+        y += 2.4
+    # A rail down the head's left side; the ladder; the lantern post at the
+    # right; the net over the rail.
+    railing(m, [(4.0, L + 0.1), (4.0, L + 4.2)], 0.0, h=0.9)
+    for k in range(5):
+        kit.box(m('beam'), (2.6, L + 4.25, -0.4 - k * 0.32), (0.6, 0.06, 0.05))
+    for x in (2.33, 2.87):
+        beam(m('beam'), (x, L + 4.25, 0.9), (x, L + 4.25, -2.2), 0.06)
+    beam(m('beam'), (-3.9, L + 0.3, 0.0), (-3.9, L + 0.3, 3.4), 0.18)
+    beam(m('beam'), (-3.9, L + 0.3, 3.3), (-3.9, L + 1.2, 3.3), 0.12)
+    beam(m('beam'), (-3.9, L + 0.3, 2.8), (-3.9, L + 0.8, 3.3), 0.07)
+    lantern_hang(m, (-3.9, L + 1.1, 3.24))
+    # The net: a sagging mesh over the left rail.
+    for i in range(13):
+        a = V((4.02, L + 0.6 + i * 0.25, 0.9))
+        b = a + V((0.25, 0.0, -0.8 + 0.15 * math.sin(i * 0.9)))
+        beam(m('rope'), a, b, 0.012)
+    for k in range(5):
+        pts = [V((4.02 + 0.05 * k, L + 0.6 + i * 0.25, 0.9 - 0.16 * k + 0.04 * math.sin(i * 0.9 + k))) for i in range(13)]
+        for a, b in zip(pts, pts[1:]):
+            beam(m('rope'), a, b, 0.012)
+    m.done('pier')
+
+
+def rowboat():
+    """A wooden rowboat, 4 m, two thwarts, oars shipped."""
+    kit.reset()
+    m = Mats()
+    prof = []
+    for i in range(9):
+        t = i / 8
+        y = -2.0 + 4.0 * t
+        w = 0.72 * math.sin(math.pi * (0.06 + 0.88 * t)) ** 0.6
+        prof.append((y, w))
+    rings_out, rings_in = [], []
+    for y, w in prof:
+        rings_out.append([V((-w, y, 0.55)), V((-w * 0.8, y, 0.12)), V((0, y, 0.0)), V((w * 0.8, y, 0.12)), V((w, y, 0.55))])
+        rings_in.append([V((w - 0.05, y, 0.55)), V((w * 0.75, y, 0.17)), V((0, y, 0.07)), V((-w * 0.75, y, 0.17)), V((-w + 0.05, y, 0.55))])
+    bm = m('boat_paint')
+    for ring_set in (rings_out, rings_in):
+        vs = [[bm.verts.new(p) for p in r] for r in ring_set]
+        for a, b in zip(vs, vs[1:]):
+            for i in range(4):
+                bm.faces.new((a[i], a[i + 1], b[i + 1], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for y, w in prof:
+        kit.box(m('planks'), (0, y, 0.56), (w * 2 + 0.08, 0.1, 0.05))
+    for y in (-0.6, 0.6):
+        kit.box(m('planks'), (0, y, 0.38), (1.2, 0.26, 0.05))
+    for sx in (-1, 1):
+        beam(m('beam'), (sx * 0.4, -0.2, 0.42), (sx * 0.2, 1.6, 0.48), 0.04)
+        kit.box(m('beam'), (sx * 0.2, 1.75, 0.48), (0.12, 0.35, 0.02))
+    kit.box(m('rope'), (0, 1.9, 0.6), (0.08, 0.08, 0.08))
+    m.done('rowboat')
+
+
+def ropecoil():
+    kit.reset()
+    m = Mats()
+    for k in range(5):
+        kit.lathe(m('rope'), [(0.3 - k * 0.02, 0.0 + k * 0.045), (0.3 - k * 0.02, 0.045 + k * 0.045), (0.2 - k * 0.02, 0.045 + k * 0.045), (0.2 - k * 0.02, k * 0.045)], segments=16, axis='Z')
+    m.done('ropecoil')
+
+
 def export_named(name):
     export(os.path.join(OUT, f'valley-{name}.glb'))
 
@@ -747,6 +871,9 @@ jobs = {
     'dock': lambda: (dock(), export_named('dock')),
     'woodpile': lambda: (woodpile(), export_named('woodpile')),
     'chair': lambda: (chair(), export_named('chair')),
+    'pier': lambda: (pier(), export_named('pier')),
+    'rowboat': lambda: (rowboat(), export_named('rowboat')),
+    'ropecoil': lambda: (ropecoil(), export_named('ropecoil')),
 }
 for name, fn in jobs.items():
     if ONLY and name not in ONLY:

@@ -46,7 +46,8 @@ func _ready() -> void:
 			["barrel", Vector2(13.0, 12.0)], ["table", Vector2(-6.0, 9.0)], ["mast", Vector2(-24.0, -26.0)]]:
 		put("village-" + spec[0], spec[1])
 	# Paths from the fire, lanterns along them, a signpost where they part.
-	var routes := {"tower": pad * 0.86, "observatory": obs * 0.88, "pond": pond * 0.8, "mine": cave * 0.9}
+	_find_pier()
+	var routes := {"tower": pad * 0.86, "observatory": obs * 0.88, "pond": pier_shore_flat, "mine": cave * 0.9}
 	var clear := []
 	for key in routes:
 		var to: Vector2 = routes[key]
@@ -67,7 +68,7 @@ func _ready() -> void:
 	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond})
 	_tower()
 	_observatory()
-	put("valley-dock", pond + (Vector2.ZERO - pond).normalized() * 7.5, pond)
+	_lake()
 	put_near("village-lookout", Worlds.place(body, "lookout"), Vector3.ZERO, center.origin)
 	_mine()
 	_crater()
@@ -77,6 +78,7 @@ func _ready() -> void:
 	person("fen", "crowd2", Vector2(7.0, 12.5), Vector2.ZERO)
 	person("miner", "crowd3", cave * 0.55 + Vector2(2.0, 1.0), Vector2.ZERO)
 	person("hauler", "crowd1", pad * 0.8 + pad.orthogonal().normalized() * 3.0, pad)
+
 	# Smoke from the chimneys.
 	for n in get_children():
 		if n is Node3D and String(n.scene_file_path).contains("valley-house"):
@@ -85,6 +87,51 @@ func _ready() -> void:
 	clear.append_array(footprints())
 	clear.append([center.origin, 4.4])
 	Grass.field(self, center, 64.0, 15000, clear, 11)
+
+var pier_xf: Transform3D
+var pier_shore_flat := Vector2.ZERO
+var _boat: Node3D
+
+## Where the pier stands: on the lake's bank opposite the waterfall, its
+## deck (1.1 m over the water) meeting the ground there, running out toward
+## the middle.
+func _find_pier() -> void:
+	var lake := Worlds.place(body, "pond").origin.normalized()
+	var falls := Worlds.place(body, "falls").origin.normalized()
+	var away := lake - falls
+	away = (away - lake * away.dot(lake)).normalized()
+	var deck_h := body.sea + 1.1
+	var shore := lake
+	for k in 80:
+		var d := lake.rotated(lake.cross(away).normalized(), float(k) * 0.4 / body.radius)
+		if Worlds.height(body.key, d, body.radius) >= deck_h:
+			shore = d
+			break
+	var out := (lake - shore)
+	out = (out - shore * out.dot(shore)).normalized()
+	# Its +Z (Blender -Y) toward the shore, its length out over the water.
+	pier_xf = Transform3D(Site.upright(shore, -out), shore * (body.radius + deck_h))
+	var local := center.basis.inverse() * (pier_xf.origin - center.origin)
+	pier_shore_flat = Vector2(local.x, -local.z) - Vector2(local.x, -local.z).normalized() * 1.5
+
+## The lake: the pier, its lantern, a coil of rope and a crate on it, the
+## boat tied alongside.
+func _lake() -> void:
+	var pier := piece("valley-pier", pier_xf, true, 1.0, 0.0)
+	var lamp_at := pier.transform * Vector3(-3.9, 2.66, -19.1)
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.68, 0.38)
+	l.light_energy = 1.6
+	l.omni_range = 9.0
+	add_child(l)
+	l.position = lamp_at
+	var up := pier_xf.basis.y
+	var at := func(x: float, y: float, z: float) -> Vector3:
+		return pier.transform * Vector3(x, z, -y)
+	var facing := -pier_xf.basis.x
+	piece("valley-ropecoil", Transform3D(Site.upright(up, facing), at.call(-0.6, 8.0, 0.0)), false)
+	piece("village-crate", Transform3D(Site.upright(up, facing), at.call(3.0, 21.4, 0.0)), true)
+	_boat = piece("valley-rowboat", Transform3D(Site.upright(up, facing.rotated(up, 0.12)), at.call(2.6, 11.0, -1.12)), true)
 
 ## A signpost with a board toward each place, its name on it.
 func _signpost(at: Vector2, places: Dictionary) -> void:

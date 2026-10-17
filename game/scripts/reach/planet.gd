@@ -75,6 +75,7 @@ func _ready() -> void:
 		s.rings = 48 if hq else 32
 		var wm := ShaderMaterial.new()
 		wm.shader = load("res://shaders/reach/sea.gdshader")
+		wm.set_shader_parameter("sky_tint", body.sky_day)
 		s.material = wm
 		water.mesh = s
 		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -92,6 +93,8 @@ func _ready() -> void:
 		_air_mat.set_shader_parameter("air_r", body.atmo)
 		_air_mat.set_shader_parameter("day", body.sky_day)
 		_air_mat.set_shader_parameter("dusk", body.sky_dusk)
+		# Thin air: the nebulae and the stars stay in the sky by day.
+		_air_mat.set_shader_parameter("veil", 0.24)
 		_air_mat.render_priority = 1
 		a.material = _air_mat
 		air_shell.mesh = a

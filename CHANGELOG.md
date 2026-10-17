@@ -5,6 +5,31 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A new title, a lake and a pier, space in the sky by day, 17 October 2026
+
+- **The title**, framed like a cozy game's front page: the logo top left
+  ("Periapsis" over a chunky "ZER" and a ringed planet for the O, a ship
+  going round it, in Lilita One), the menu under it in big rounded
+  outlined words (Fredoka) with a little planet bobbing by the chosen
+  line; links bottom left and the version bottom right. Behind it, Hearth's
+  lake from the end of its pier, the village, the glass-domed observatory
+  and the crater wall under the nebulae.
+- **Explore the Cosmos**, in the menu, opens the simulator (the site's
+  solar system).
+- **New Game** starts over, after asking (it wipes the ship's log);
+  Continue carries on.
+- **Space by day:** the air is thin, so the stars and the nebulae stay in
+  the sky by day, with a haze toward the horizon.
+- **The lake:** 37 m across, its shores sloping gently in; a pier 18 m out
+  with rope-wrapped posts, cross-bracing, a T-shaped head, a ladder into
+  the water, a lantern on a hooked post, a net over the rail, a coil of
+  rope and a rowboat tied alongside.
+- **Water** coloured by its depth: clear over the shallows, deep teal
+  further out, foam where it meets a shore or a post, the sky in it.
+- **The crater wall** is carved rock now: stepped strata, ledges, some
+  overhangs, cracks and joints, instead of stacked blocks.
+
+
 ### Hearth's valley, rebuilt the Outer Wilds way, 17 October 2026
 
 From waking to reaching space, the Reach now follows Outer Wilds closely.

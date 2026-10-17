@@ -1,10 +1,19 @@
 extends Node3D
-## The title: Hearth at midnight under the nebulae (the Reach itself, in its
-## backdrop mode), the fire and the band, and the way in.
+## The title: Hearth's lake from its pier, under the nebulae (the Reach
+## itself, in its backdrop mode); the logo top left, the menu under it in
+## big friendly words, a little planet bobbing by the one chosen (Explore
+## the Cosmos opens the simulator); links bottom left, the version bottom
+## right.
+
+const CREAM := Color("#fbf1dc")
+const INK := Color("#3a2618")
 
 var _menu: VBoxContainer
 var _settings: PanelContainer
 var _items: Array[Button] = []
+var _marker: Control
+var _t := 0.0
+var _confirm := false
 
 func _ready() -> void:
 	var reach: Node = load("res://scenes/reach.tscn").instantiate()
@@ -14,8 +23,11 @@ func _ready() -> void:
 		_ui()
 	Flow.music(false)
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
+	_t += dt
 	_update_progress()
+	if _marker:
+		_marker.queue_redraw()
 
 func _ui() -> void:
 	var layer := CanvasLayer.new()
@@ -24,112 +36,133 @@ func _ui() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.theme = ReachStyle.theme()
 	layer.add_child(root)
-	# Dusk on the left so the words sit on something, and a low shade.
-	for spec in [[Vector2(1, 0), Control.PRESET_LEFT_WIDE, Vector2(980, 0), 0.92], [Vector2(0, -1), Control.PRESET_BOTTOM_WIDE, Vector2(0, 260), 0.7]]:
-		var g := Gradient.new()
-		g.set_color(0, Color(0.03, 0.025, 0.035, spec[3]))
-		g.set_color(1, Color(0.03, 0.025, 0.035, 0.0))
-		var gt := GradientTexture2D.new()
-		gt.gradient = g
-		gt.fill_from = Vector2(0, 1) if spec[0] == Vector2(0, -1) else Vector2(0, 0)
-		gt.fill_to = Vector2(0, 0) if spec[0] == Vector2(0, -1) else Vector2(1, 0)
-		var wash := TextureRect.new()
-		wash.texture = gt
-		wash.stretch_mode = TextureRect.STRETCH_SCALE
-		wash.set_anchors_preset(spec[1])
-		wash.custom_minimum_size = spec[2]
-		if spec[1] == Control.PRESET_BOTTOM_WIDE:
-			wash.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(wash)
-
+	# A soft shade on the left, enough for the words to read.
+	var g := Gradient.new()
+	g.set_color(0, Color(0.06, 0.04, 0.03, 0.55))
+	g.set_color(1, Color(0.06, 0.04, 0.03, 0.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_to = Vector2(1, 0)
+	var wash := TextureRect.new()
+	wash.texture = gt
+	wash.stretch_mode = TextureRect.STRETCH_SCALE
+	wash.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	wash.custom_minimum_size = Vector2(760, 0)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(wash)
+	# The logo.
+	var logo := _Logo.new()
+	logo.position = Vector2(70, 36)
+	logo.size = Vector2(760, 300)
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(logo)
+	# The menu.
 	_menu = VBoxContainer.new()
-	_menu.set_anchors_preset(Control.PRESET_CENTER_LEFT)
-	_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_menu.offset_left = 110
-	_menu.add_theme_constant_override("separation", 6)
+	_menu.position = Vector2(150, 360)
+	_menu.add_theme_constant_override("separation", 4)
 	root.add_child(_menu)
-	_menu.add_child(ReachStyle.label("A MYSTERY IN THE REACH  ·  3091", 14, ReachStyle.EMBER, true))
-	var title := ReachStyle.title("Periapsis\nZero", 124, ReachStyle.BONE)
-	title.add_theme_constant_override("line_spacing", -34)
-	title.add_theme_constant_override("outline_size", 18)
-	title.add_theme_color_override("font_outline_color", Color(0.02, 0.015, 0.02, 0.35))
-	_menu.add_child(title)
-	var tag := ReachStyle.label("Twenty-two minutes. Then the star goes out.", 26, ReachStyle.MUTE)
-	tag.add_theme_font_override("font", ReachStyle.serif_italic)
-	_menu.add_child(tag)
-	var loops := int(Flow.progress("reach_loops", 0))
-	var facts: Array = Flow.progress("reach_facts", [])
-	if loops > 0:
-		var note := "Loop %d    ·    %d %s in your ship log" % [loops, facts.size(), "entry" if facts.size() == 1 else "entries"]
-		if Flow.progress("reach_finished", false):
-			note += "    ·    you heard the whole song"
-		_menu.add_child(ReachStyle.label(note, 13, ReachStyle.PINE, true))
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 30)
-	_menu.add_child(gap)
-	_button("Return to the Reach" if loops > 0 else "Enter the Reach", func(): Flow.go("reach"), true).grab_focus()
-	# The road here: the prologue and Act One, the story of how the Kestrel
-	# came to the Reach.
-	var done: bool = Flow.progress("prologue_done", false)
-	var seen: bool = Flow.progress("intro_seen", false)
-	if done:
-		var chapter: String = Flow.progress("chapter", "hearth")
-		if not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end"]:
-			chapter = "hearth"
-		_button("The road here: Act One", func(): Flow.go(chapter))
-	elif seen:
-		var chapter: String = Flow.progress("chapter", "corridor")
-		_button("The road here: the prologue", func(): Flow.go(chapter))
-	else:
-		_button("The road here: the prologue", func(): Flow.go("intro"))
-	_button("Settings", _toggle_settings)
+	_marker = Control.new()
+	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marker.size = Vector2(60, 60)
+	_marker.draw.connect(_paint_marker)
+	root.add_child(_marker)
+	_fill_menu()
+	# Links, bottom left; the version, bottom right.
+	var links := VBoxContainer.new()
+	links.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	links.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	links.offset_left = 150
+	links.offset_bottom = -34
+	links.add_theme_constant_override("separation", 6)
+	root.add_child(links)
+	for text in ["Free in your browser  ·  periapsiszero.dev", "Download for Mac, Windows and Linux"]:
+		links.add_child(_small(text, 20))
+	var ver := _small("Periapsis Zero  ·  The Reach  ·  early build %s" % Time.get_date_string_from_unix_time(Build.STAMP), 17)
+	ver.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	ver.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	ver.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	ver.offset_right = -30
+	ver.offset_bottom = -22
+	root.add_child(ver)
 	_check_update()
 	var told := Graphics.take_notice()
 	if told != "":
 		Hud.prompt("Performance graphics are on, chosen for %s. You can change it in Settings, under Graphics." % GRAPHICS_WHY.get(told, "this PC"), 9.0)
-	if not Flow.on_web():
-		_button("Quit", get_tree().quit)
-	var foot := ReachStyle.label("The Reach  ·  early build  ·  periapsiszero.dev", 13, ReachStyle.FAINT, true)
-	foot.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	foot.offset_left = 110
-	foot.offset_top = -52
-	root.add_child(foot)
 	_settings = _settings_panel()
 	_settings.visible = false
 	root.add_child(_settings)
 
-## A menu line: words, not boxes. Ember and a marker when it has the focus.
-func _button(text: String, action: Callable, primary := false) -> Button:
+func _small(text: String, size: int) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", ReachStyle.round)
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", CREAM)
+	l.add_theme_constant_override("outline_size", 7)
+	l.add_theme_color_override("font_outline_color", Color(INK, 0.85))
+	return l
+
+## The menu's lines, for now: the game, a new start, the road here, settings.
+func _fill_menu() -> void:
+	for c in _menu.get_children():
+		c.queue_free()
+	_items.clear()
+	if _confirm:
+		_button("Yes, start over", func():
+			for key in ["reach_facts", "reach_read", "reach_loops", "reach_finished", "reach_signals"]:
+				Flow.set_progress(key, null)
+			Flow.go("reach"))
+		_button("Keep my ship's log", func():
+			_confirm = false
+			_fill_menu())
+		var note := _small("A new start forgets everything your ship's log has learned.", 19)
+		_menu.add_child(note)
+	else:
+		var loops := int(Flow.progress("reach_loops", 0))
+		if loops > 0:
+			_button("Continue", func(): Flow.go("reach"))
+			_button("New Game", func():
+				_confirm = true
+				_fill_menu())
+		else:
+			_button("New Game", func(): Flow.go("reach"))
+		var done: bool = Flow.progress("prologue_done", false)
+		var seen: bool = Flow.progress("intro_seen", false)
+		var chapter: String = Flow.progress("chapter", "hearth" if done else ("corridor" if seen else "intro"))
+		if done and not chapter in ["hearth", "hearth_bay", "test_flight", "blackbox", "descent", "act1_end"]:
+			chapter = "hearth"
+		_button("The Road Here", func(): Flow.go(chapter if done or seen else "intro"))
+		_button("Explore the Cosmos", Flow.open_sim)
+		_button("Settings", _toggle_settings)
+		if not Flow.on_web():
+			_button("Quit", get_tree().quit)
+	await get_tree().process_frame
+	if not _items.is_empty():
+		_items[0].grab_focus()
+
+## A menu line: big rounded words, cream on a dark outline; the chosen one
+## warmer, with the little planet beside it.
+func _button(text: String, action: Callable, _primary := false) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.flat = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	var none := StyleBoxEmpty.new()
-	none.content_margin_left = 26
-	none.content_margin_top = 4
-	none.content_margin_bottom = 4
+	none.content_margin_left = 6
+	none.content_margin_top = 0
+	none.content_margin_bottom = 0
 	for st in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(st, none)
-	b.add_theme_font_override("font", ReachStyle.serif if not primary else ReachStyle.serif_bold)
-	b.add_theme_font_size_override("font_size", 38 if primary else 27)
-	b.add_theme_color_override("font_color", ReachStyle.BONE if primary else Color(ReachStyle.BONE, 0.78))
+	b.add_theme_font_override("font", ReachStyle.round_bold)
+	b.add_theme_font_size_override("font_size", 50)
+	b.add_theme_constant_override("outline_size", 16)
+	b.add_theme_color_override("font_outline_color", Color(INK, 0.9))
+	b.add_theme_color_override("font_color", CREAM)
 	for st in ["font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
-		b.add_theme_color_override(st, ReachStyle.EMBER)
+		b.add_theme_color_override(st, Color("#ffd9a0"))
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var mark := ReachStyle.label("›", 38 if primary else 28, ReachStyle.EMBER)
-	mark.add_theme_font_override("font", ReachStyle.serif_bold)
-	mark.position = Vector2(-4, -2 if primary else -1)
-	mark.visible = false
-	b.add_child(mark)
-	var lit := func(on: bool):
-		mark.visible = on
-		if on:
-			Sfx.play("click", -20.0, 1.6)
-	b.focus_entered.connect(lit.bind(true))
-	b.focus_exited.connect(func(): mark.visible = b.is_hovered())
-	b.mouse_entered.connect(func():
-		b.grab_focus())
+	b.focus_entered.connect(func(): Sfx.play("click", -20.0, 1.6))
+	b.mouse_entered.connect(func(): b.grab_focus())
 	b.pressed.connect(func():
 		Sfx.play("click", -8.0)
 		action.call())
@@ -137,6 +170,70 @@ func _button(text: String, action: Callable, primary := false) -> Button:
 	_items.append(b)
 	return b
 
+## The marker: a little ringed planet, bobbing, by the chosen line.
+func _paint_marker() -> void:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if not focused or not focused in _items:
+		return
+	var r := focused.get_global_rect()
+	_marker.global_position = Vector2(r.position.x - 64, r.position.y + r.size.y * 0.5 - 30 + sin(_t * 3.0) * 3.0)
+	var c := Vector2(30, 30)
+	# The ring behind, the planet, the ring in front.
+	_marker.draw_arc(c, 22.0, PI, TAU, 24, INK, 7.0, true)
+	_marker.draw_set_transform(c, -0.35, Vector2(1.0, 0.36))
+	_marker.draw_arc(Vector2.ZERO, 24.0, PI, TAU, 28, INK, 8.0, true)
+	_marker.draw_arc(Vector2.ZERO, 24.0, PI, TAU, 28, Color("#ffb36b"), 4.0, true)
+	_marker.draw_set_transform(Vector2.ZERO)
+	_marker.draw_circle(c, 13.0, INK)
+	_marker.draw_circle(c, 10.5, Color("#7fae74"))
+	_marker.draw_circle(c + Vector2(-3, -3), 4.5, Color("#a9d39a"))
+	_marker.draw_set_transform(c, -0.35, Vector2(1.0, 0.36))
+	_marker.draw_arc(Vector2.ZERO, 24.0, 0.0, PI, 28, INK, 8.0, true)
+	_marker.draw_arc(Vector2.ZERO, 24.0, 0.0, PI, 28, Color("#ffb36b"), 4.0, true)
+	_marker.draw_set_transform(Vector2.ZERO)
+
+
+## The logo: "Periapsis" over a huge "ZER" and a planet for the O, a little
+## ship on its ring; cream letters, a thick dark outline, a drop shadow.
+class _Logo extends Control:
+	var _t := 0.0
+
+	func _process(dt: float) -> void:
+		_t += dt
+		queue_redraw()
+
+	func _word(text: String, at: Vector2, size: int) -> float:
+		var f: Font = ReachStyle.chunky
+		for o in [[Vector2(5, 7), Color(0, 0, 0, 0.35), 0], [Vector2.ZERO, INK, 18], [Vector2.ZERO, CREAM, 0]]:
+			if int(o[2]) > 0:
+				draw_string_outline(f, at + o[0], text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, int(o[2]), o[1])
+			else:
+				draw_string(f, at + o[0], text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, o[1])
+		return f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+
+	func _draw() -> void:
+		_word("Periapsis", Vector2(30, 84), 84)
+		var w := _word("ZER", Vector2(6, 238), 170)
+		# The O: a planet with a ring, the Kestrel going round it.
+		var c := Vector2(6 + w + 70, 178)
+		var ring := func(from: float, to: float):
+			draw_set_transform(c, -0.32, Vector2(1.0, 0.34))
+			draw_arc(Vector2.ZERO, 98.0, from, to, 48, INK, 20.0, true)
+			draw_arc(Vector2.ZERO, 98.0, from, to, 48, Color("#ffb36b"), 9.0, true)
+			draw_set_transform(Vector2.ZERO)
+		ring.call(PI, TAU)
+		draw_circle(c + Vector2(5, 7), 62.0, Color(0, 0, 0, 0.35))
+		draw_circle(c, 64.0, INK)
+		draw_circle(c, 55.0, Color("#6fa86a"))
+		draw_circle(c + Vector2(14, 12), 40.0, Color("#5b9459"))
+		draw_circle(c + Vector2(-18, -18), 20.0, Color("#9fd08e"))
+		draw_circle(c + Vector2(20, -24), 8.0, Color("#fbf1dc", 0.8))
+		ring.call(0.0, PI)
+		# The ship on the ring.
+		var a := _t * 0.6
+		var p := c + Vector2(cos(a) * 98.0, sin(a) * 98.0 * 0.34).rotated(-0.32)
+		draw_circle(p, 9.0, INK)
+		draw_circle(p, 6.0, Color("#e8853d"))
 func _toggle_settings() -> void:
 	_settings.visible = not _settings.visible
 
@@ -151,7 +248,7 @@ func _settings_panel() -> PanelContainer:
 	v.add_theme_constant_override("separation", 12)
 	v.custom_minimum_size = Vector2(380, 0)
 	p.add_child(v)
-	v.add_child(Style.label("SETTINGS", 16, Style.EMBER, Style.mono_bold))
+	v.add_child(ReachStyle.title("Settings", 30, ReachStyle.EMBER))
 	for row in [["Music", "music", 0.0, 1.0], ["Effects", "sfx", 0.0, 1.0], ["Mouse speed", "mouse", 0.3, 2.5]]:
 		v.add_child(Style.label(row[0], 20))
 		var s := HSlider.new()
