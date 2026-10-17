@@ -25,6 +25,12 @@ var _path := PackedVector3Array()
 var _hit := ""
 var _path_t := 0.0
 var _orbits := {}
+## Where the predicted path crosses a sphere of influence: [path index, label, tint].
+var _crossings: Array = []
+## Closest approaches along the predicted path: [body key, path index, metres, loop seconds].
+var _approaches: Array = []
+## The body whose sphere you are in now ("" for the open Reach).
+var _inside_now := ""
 
 static func open(r: Node) -> ReachMap:
 	var m := ReachMap.new()
@@ -107,38 +113,87 @@ func _you_vel() -> Vector3:
 
 ## Your fall from here: the Lantern's pull, and inside a world's sphere of
 ## influence that world's (as the game moves you), stepped ahead in time.
+## Which sphere of influence holds `p` at time `t` ("" for the open Reach).
+func _inside(p: Vector3, t: float) -> String:
+	var sys: ReachSystem = reach.system
+	for key in sys.order:
+		if key == "lantern":
+			continue
+		var b: ReachBody = sys.bodies[key]
+		if (p - b.orbit.position(t)).length() < b.soi:
+			return key
+	return ""
+
+## The closest the predicted path comes to each body: anything inside a
+## sphere of influence matters, and the locked target always does, however
+## far (that is the intercept you are planning).
+func _record_approaches(best: Dictionary) -> void:
+	_approaches.clear()
+	var sys: ReachSystem = reach.system
+	var want := String(reach.ship.target) if reach.ship else ""
+	for key in best:
+		var b: ReachBody = sys.bodies[key]
+		var e: Array = best[key]
+		if float(e[0]) < b.soi or key == want:
+			_approaches.append([key, int(e[1]), float(e[0]), float(e[2])])
+	_approaches.sort_custom(func(a, b): return float(a[3]) < float(b[3]))
+
 func _predict() -> void:
 	_path.clear()
+	_crossings.clear()
+	_approaches.clear()
 	_hit = ""
 	var sys: ReachSystem = reach.system
+	var p := _you_helio()
+	var t: float = sys.t
+	_inside_now = _inside(p, t)
 	var n := _you()
 	if (n is ReachShip and (n as ReachShip).landed) or (n is Explorer and (n as Explorer).is_on_floor()):
 		return
-	var p := _you_helio()
 	var v := _you_vel()
-	var t: float = sys.t
+	var was := _inside_now
+	var best := {}
 	var steps := int(PREDICT / STEP)
 	for i in steps:
 		_path.append(p)
+		var now := _inside(p, t)
+		if now != was:
+			if now != "":
+				var b: ReachBody = sys.bodies[now]
+				_crossings.append([_path.size() - 1, b.title, b.tint])
+			else:
+				var left: ReachBody = sys.bodies[was]
+				_crossings.append([_path.size() - 1, "leaving " + left.title, left.tint])
+			was = now
+		for key in sys.order:
+			if key == "lantern":
+				continue
+			var bd: ReachBody = sys.bodies[key]
+			var dd := (p - bd.orbit.position(t)).length()
+			if not best.has(key) or dd < float((best[key] as Array)[0]):
+				best[key] = [dd, _path.size() - 1, t]
 		var g := -p.normalized() * ReachSystem.STAR_GM / maxf(p.length_squared(), 1.0)
 		for key in sys.order:
 			if key == "lantern":
 				continue
-			var b: ReachBody = sys.bodies[key]
-			var r := p - b.orbit.position(t)
+			var b2: ReachBody = sys.bodies[key]
+			var r := p - b2.orbit.position(t)
 			var d := r.length()
-			if d < b.radius:
-				_hit = b.title
+			if d < b2.radius:
+				_hit = b2.title
+				_record_approaches(best)
 				return
-			if d < b.soi:
-				g += -r / d * b.gm / (d * d)
+			if d < b2.soi:
+				g += -r / d * b2.gm / (d * d)
 				break
 		if p.length() < ReachSystem.STAR_RADIUS:
 			_hit = "the Lantern"
+			_record_approaches(best)
 			return
 		v += g * STEP
 		p += v * STEP
 		t += STEP
+	_record_approaches(best)
 
 # --- Drawing ----------------------------------------------------------------------
 
@@ -182,7 +237,7 @@ func _paint() -> void:
 		_canvas.draw_circle(lc, lr * (1.0 + k * 0.6), Color(1.0, 0.6 - heat * 0.2, 0.25, 0.16 - k * 0.035))
 	_canvas.draw_circle(lc, lr, Color(1.0, 0.82 - heat * 0.3, 0.5))
 	# Orbits, each with its periapsis marked; the mark pulses as the body
-	# nears it.
+	# nears it. The orbit of the sphere you are in glows with it.
 	for key in _orbits:
 		var b: ReachBody = sys.bodies[key]
 		var pts := PackedVector2Array()
@@ -191,8 +246,10 @@ func _paint() -> void:
 		var to_peri := b.orbit.periapsis_time(sys.t) - sys.t
 		var period := b.orbit.period()
 		var near := 1.0 - clampf(absf(to_peri) / (period * 0.08), 0.0, 1.0)
-		var line := Color(b.tint, 0.38 + 0.4 * near * (0.5 + 0.5 * sin(_t * 6.0)))
-		_ink(pts, line, 1.6 + near * 1.4)
+		var held := 1.0 if key == _inside_now else 0.0
+		var breathe := 0.5 + 0.5 * sin(_t * 6.0)
+		var line := Color(b.tint, 0.38 + 0.4 * maxf(near, held * (0.4 + 0.6 * breathe)))
+		_ink(pts, line, 1.6 + near * 1.4 + held * 1.2)
 		if b.orbit.e > 0.015:
 			var pp := _to_screen(b.orbit.position(b.orbit.periapsis_time(sys.t)))
 			var pulse := 0.5 + 0.5 * sin(_t * 3.0)
@@ -218,6 +275,30 @@ func _paint() -> void:
 		for i in _path.size():
 			seg.append(_to_screen(_path[i]))
 		_ink(seg, Color(ReachStyle.EMBER, 0.85), 1.6)
+		# Where the fall crosses a sphere of influence: a pulsing ring, named.
+		for c in _crossings:
+			var idx: int = c[0]
+			if idx < 0 or idx >= seg.size():
+				continue
+			var tint: Color = c[2]
+			var pulse := 0.5 + 0.5 * sin(_t * 4.0)
+			_canvas.draw_arc(seg[idx], 6.0 + pulse * 4.0, 0.0, TAU, 24, Color(tint, 0.65 + 0.35 * pulse), 2.0, true)
+			_canvas.draw_string(Style.mono, seg[idx] + Vector2(12, -10), String(c[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(tint, 0.95))
+		# Closest approaches: a diamond where the fall comes nearest, named
+		# with how near and when on the loop's clock.
+		for a in _approaches:
+			var akey: String = a[0]
+			var ab: ReachBody = sys.bodies[akey]
+			var aidx: int = a[1]
+			if aidx < 0 or aidx >= seg.size():
+				continue
+			var glow := 0.5 + 0.5 * sin(_t * 4.0 + 1.0)
+			var where := seg[aidx]
+			var half := 7.0 + glow * 3.0
+			_canvas.draw_colored_polygon(PackedVector2Array([where + Vector2(0, -half), where + Vector2(half, 0), where + Vector2(0, half), where + Vector2(-half, 0)]), Color(ab.tint, 0.9))
+			var metres := float(a[2])
+			var how := ("%.1f km" % (metres / 1000.0)) if metres >= 1000.0 else ("%d m" % int(metres))
+			_canvas.draw_string(Style.mono, where + Vector2(12, 14), "%s  %s  @ %s" % [ab.title.to_upper(), how, _clock(float(a[3]))], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(ab.tint, 0.95))
 		if _hit != "":
 			var e := seg[seg.size() - 1]
 			_canvas.draw_line(e + Vector2(-6, -6), e + Vector2(6, 6), ReachStyle.EMBER, 2.5)

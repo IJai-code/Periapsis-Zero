@@ -94,7 +94,9 @@ func die(cause: String) -> void:
 	await get_tree().create_timer(1.8).timeout
 	wake(cause)
 
-## Wake at the campfire: the loop begins again.
+## Wake at the campfire: the loop begins again. Dying fades out first; a
+## collapse has already gone white. Then the morning itself (Wake): lying
+## with your eyes shut, the lids opening on the sky, sitting up, standing.
 func wake(cause := "") -> void:
 	loops += 1
 	Flow.set_progress("reach_loops", loops)
@@ -104,16 +106,9 @@ func wake(cause := "") -> void:
 	var hud: ReachHud = reach.hud
 	await hud.fade_to(Color(0, 0, 0, 1), 0.4 if cause != "" else 0.0)
 	reach.reset_loop()
-	await get_tree().create_timer(0.8).timeout
-	# Eyes opening: open, a slow blink, open.
-	var p: Explorer = reach.player
-	p.enabled = false
-	p.set_pitch(1.05)
-	await hud.fade_to(Color(0, 0, 0, 0.35), 1.2)
-	await hud.fade_to(Color(0, 0, 0, 0.95), 0.25)
-	await hud.fade_to(Color(0, 0, 0, 0.0), 1.0)
-	var tw := create_tween()
-	tw.tween_method(func(k: float): p.set_pitch(k), 1.05, 0.05, 2.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await tw.finished
-	p.enabled = true
+	await get_tree().create_timer(0.5).timeout
+	var w := Wake.new()
+	w.reach = reach
+	reach.add_child(w)
+	await w.morning(first)
 	woke.emit(loops, first)

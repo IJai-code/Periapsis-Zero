@@ -56,6 +56,8 @@ func _ready() -> void:
 		Flow.beat = ""
 		return
 	_start_player()
+	if "--maptest" in args:
+		_map_test()
 	if "--reachwalk" in args:
 		_walk_test()
 	if "--reachfly" in args:
@@ -65,6 +67,14 @@ func _ready() -> void:
 	var tt := args.find("--talktest")
 	if tt >= 0 and tt + 1 < args.size():
 		_talk_test(args[tt + 1])
+
+## Whether this run is a check rather than a playthrough. Checks drive the
+## camera and the player themselves, so the morning cinematic is skipped.
+static func _testing(args: PackedStringArray) -> bool:
+	for a in args:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--reachat"]:
+			return true
+	return false
 
 ## The places on each world (Site), the campfire.
 func _build_sites() -> void:
@@ -77,6 +87,10 @@ func _build_sites() -> void:
 	(planets["ashfall"] as Planet).add_site(AshfallSite.make(system.bodies["ashfall"]))
 	(planets["phantom"] as Planet).add_site(PhantomSite.make(system.bodies["phantom"]))
 	(planets["wanderer"] as Planet).add_site(WandererSite.make(system.bodies["wanderer"]))
+	# Small life on every world: fireflies over Hearth, ash on Ashfall, pollen
+	# on Verdance, dust out on the cold ones.
+	for key in planets:
+		Ambience.attach(planets[key] as Planet, key)
 
 ## Static caches hold resources; let them go with the scene, or the
 ## engine reports them as leaked at exit.
@@ -100,9 +114,22 @@ func _environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.0 if Flow.high_quality() else 0.85
 	env.glow_enabled = true
-	env.glow_intensity = 0.8
-	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 1.1
+	env.glow_intensity = 0.85
+	env.glow_bloom = 0.06
+	env.glow_hdr_threshold = 1.05
+	# Contact shadow where a cabin meets the grass, a rock meets the ground:
+	# what the flat ambient light could not say before.
+	if Flow.high_quality():
+		env.ssao_enabled = true
+		env.ssao_radius = 1.6
+		env.ssao_intensity = 2.1
+		env.ssao_power = 1.6
+		env.ssao_detail = 0.6
+	# A touch of grade: a warmer, slightly deeper picture than the raw tonemap.
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 1.02
+	env.adjustment_contrast = 1.06
+	env.adjustment_saturation = 1.06
 	env.fog_enabled = false
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
@@ -114,6 +141,8 @@ func _environment() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 220.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_blend_splits = true
+	sun.shadow_normal_bias = 1.4
 	add_child(sun)
 
 var _arrived := {}
@@ -204,7 +233,9 @@ func _start_player() -> void:
 	var args := OS.get_cmdline_user_args()
 	loop.woke.connect(_on_woke)
 	reset_loop()
-	if not ("--reachwalk" in args or "--reachfly" in args):
+	# The morning plays for a player. A check places the camera itself and
+	# needs the world answering at once, so it starts already awake.
+	if not _testing(args):
 		loop.wake("")
 	# For looking at things from a browser link, once awake: #reach/map,
 	# #reach/songline:<id>, or #reach/at:<loop seconds>.
@@ -519,6 +550,35 @@ func _talk_test(key: String) -> void:
 	while talking:
 		await get_tree().process_frame
 	Report.line("TALKTEST %s learned %s, player enabled %s" % [key, Lore._facts(), player.enabled])
+	Report.finish(get_tree())
+
+## Open the map mid-air and report: how long the predicted fall is, how many
+## sphere-of-influence crossings it marks, and which sphere holds the player.
+func _map_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var hb: ReachBody = system.bodies["hearthstone"]
+	var mark := Worlds.place(hb, Worlds.landmarks("hearthstone").keys()[0])
+	player.place(Transform3D(mark.basis, mark.origin + mark.basis.y * 500.0))
+	await get_tree().physics_frame
+	var m := ReachMap.open(self)
+	ship.target = "wanderer"
+	await get_tree().create_timer(1.5).timeout
+	Report.line("MAPTEST path %d crossings %d inside '%s'" % [m._path.size(), m._crossings.size(), m._inside_now])
+	# Outside Hearthstone's sphere, falling toward it: the fall must cross
+	# the sphere and say so.
+	player.place(Transform3D(mark.basis, mark.origin + mark.basis.y * 1450.0))
+	await get_tree().physics_frame
+	var hp: Vector3 = system.world("hearthstone")
+	var inward: Vector3 = (hp - player.global_position).normalized()
+	player.velocity = system.world_vel("hearthstone") + inward * 10.0
+	await get_tree().create_timer(1.5).timeout
+	var first := String(m._crossings[0][1]) if m._crossings.size() > 0 else "none"
+	Report.line("MAPTEST far path %d crossings %d first '%s' inside '%s'" % [m._path.size(), m._crossings.size(), first, m._inside_now])
+	var keys := []
+	for a in m._approaches:
+		keys.append(String(a[0]))
+	Report.line("MAPTEST approaches %d [%s]" % [m._approaches.size(), ", ".join(keys)])
+	m.close()
 	Report.finish(get_tree())
 
 ## Walk the player in a straight line round Hearthstone and report: how far,

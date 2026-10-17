@@ -110,6 +110,17 @@ const checks = [
     const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
     return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
   }],
+  ['the Reach: the map marks sphere-of-influence crossings', async () => {
+    const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
+    const near = out.match(/MAPTEST path (\d+) crossings (\d+) inside '(\w*)'/)
+    const far = out.match(/MAPTEST far path (\d+) crossings (\d+) first '([^']*)' inside '(\w*)'/)
+    const appr = out.match(/MAPTEST approaches (\d+) \[([^\]]*)\]/)
+    const names = appr ? appr[2].split(', ') : []
+    const ok = Boolean(near) && Number(near[1]) > 0 && near[3] === 'hearthstone'
+      && Boolean(far) && Number(far[2]) >= 1 && far[3] === 'Hearthstone' && far[4] === ''
+      && Boolean(appr) && names.includes('hearthstone') && names.includes('wanderer')
+    return [ok, near && far && appr ? `${near[0]}; ${far[0]}; ${appr[0]}` : 'no result']
+  }],
   ['the Reach: lift off, leave Hearthstone, the frame switch is seamless', async () => {
     const out = await run('reach', ['--reachfly'], /REACHFLY/)
     const m = out.match(/REACHFLY rested on the pad (\w+), left Hearthstone (\w+) after (\d+) s, frame now (\w+), jump at switch ([\d.-]+) m ([\d.-]+) m\/s, hull (\d+)/)

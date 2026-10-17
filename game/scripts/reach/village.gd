@@ -38,7 +38,8 @@ func _ready() -> void:
 	_mine()
 	# The people: Mara by the fire, Fen on a cabin porch, a miner and a
 	# hauler about the village, Okafor at the observatory's door.
-	person("mara", "mara", Vector2(-2.6, 1.4), Vector2.ZERO)
+	# Mara sits by her own fire with the banjo, the first thing you see.
+	person("mara", "mara", Vector2(-2.6, 1.4), Vector2.ZERO, true)
 	person("fen", "crowd2", Vector2(-13.0, 6.0), Vector2.ZERO)
 	person("miner", "crowd3", Vector2(10.5, -11.0), Vector2(9.5, -12.0))
 	person("hauler", "crowd1", Vector2(18.0, 7.0), Vector2(14.5, 8.8))
