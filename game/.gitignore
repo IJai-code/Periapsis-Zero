@@ -13,3 +13,6 @@ art/*.jpg
 art/person-*_hd.glb
 art/person-*_hd.glb.import
 build.json
+# Made by art/audio/reach_music.py (scripts/godot-sync.mjs); the import
+# settings beside them are kept.
+audio/reach/*.wav

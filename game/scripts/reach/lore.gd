@@ -42,17 +42,23 @@ const FACTS := {
 static func known(id: String) -> bool:
 	return id in _facts()
 
+## Read from the save once, then kept (the log asks every frame).
+static var _cache: Array = []
+static var _loaded := false
+
 static func _facts() -> Array:
-	var f = Flow.progress("reach_facts", [])
-	return f if f is Array else []
+	if not _loaded:
+		var f = Flow.progress("reach_facts", [])
+		_cache = f if f is Array else []
+		_loaded = true
+	return _cache
 
 ## Learn a fact (once). Returns true when it is new.
 static func learn(id: String) -> bool:
 	if not FACTS.has(id) or known(id):
 		return false
-	var f := _facts()
-	f.append(id)
-	Flow.set_progress("reach_facts", f)
+	_facts().append(id)
+	Flow.set_progress("reach_facts", _cache)
 	return true
 
 static func place_known(place: String) -> bool:
@@ -69,6 +75,8 @@ static func place_rumoured(place: String) -> bool:
 	return false
 
 static func forget_all() -> void:
+	_cache = []
+	_loaded = true
 	Flow.set_progress("reach_facts", [])
 
 # --- Who says what ----------------------------------------------------------

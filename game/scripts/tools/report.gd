@@ -25,5 +25,11 @@ static func finish(tree: SceneTree, code := 0) -> void:
 		flow._music.stop()
 		flow._music.stream = null
 		flow._music.queue_free()
+	# Every other player too (procedural loops, 3D sources), or their
+	# streams and playbacks are reported as leaked.
+	for n in tree.root.find_children("*", "", true, false):
+		if n is AudioStreamPlayer or n is AudioStreamPlayer3D or n is AudioStreamPlayer2D:
+			n.stop()
+			n.stream = null
 	await tree.create_timer(0.5, true, false, true).timeout
 	tree.quit(code)

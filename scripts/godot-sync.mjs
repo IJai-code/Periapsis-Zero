@@ -6,7 +6,7 @@
  * game/assets is gitignored and made again by this script before Godot
  * imports or exports.
  */
-import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 
@@ -25,6 +25,18 @@ const copy = (from, to, keep) => {
 copy('public/textures', 'textures', (f) => /\.(jpg|png)$/.test(f))
 copy('public/game/detail', 'detail', (f) => f.endsWith('.webp'))
 copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
+
+// The Reach's music is made by a script (art/audio/reach_music.py, about
+// 15 s); the WAVs are gitignored and their import settings kept, so make
+// them again only when missing or older than the script.
+{
+  const script = join(root, 'art/audio/reach_music.py')
+  const dir = join(root, 'game/audio/reach')
+  const parts = ['banjo', 'flute', 'harmonica', 'drums', 'choir', 'end', 'wake'].map((p) => join(dir, `${p}.wav`))
+  const stale = parts.some((f) => !existsSync(f) || statSync(f).mtimeMs < statSync(script).mtimeMs)
+  if (stale) execFileSync('python3', [script, dir], { stdio: 'inherit' })
+  else console.log('game/audio/reach: up to date')
+}
 
 // Surface materials: CC0 from ambientCG (no account, no credit required;
 // credited in game/CREDITS.md). Downloaded once into art/sources (gitignored),

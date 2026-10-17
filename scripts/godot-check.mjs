@@ -68,7 +68,7 @@ function run(scene, args, until, ms = 120000) {
 
 const SCENES = ['title', 'prologue_intro', 'prologue_corridor', 'prologue_bridge', 'prologue_hangar', 'prologue_flight',
   'prologue_arrival', 'act1_hearth', 'act1_bay', 'act1_test_flight', 'act1_blackbox', 'act1_descent', 'act1_end',
-  'act2_lowdeck', 'act2_rim']
+  'act2_lowdeck', 'act2_rim', 'reach']
 
 const checks = [
   // Every scene loads and runs ten seconds without a script error.
@@ -105,6 +105,25 @@ const checks = [
     const m = out.match(/MOVEMENTTEST (\d+) failed/)
     return [m && m[1] === '0', (out.match(/MOVEMENTTEST FAIL[^\n]*/g) ?? []).join('; ') || (m ? 'all ok' : 'no result')]
   }],
+  ['the Reach: walk round Hearthstone and never fall through', async () => {
+    const out = await run('reach', ['--reachwalk'], /REACHWALK/)
+    const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
+    return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
+  }],
+  ['the Reach: lift off, leave Hearthstone, the frame switch is seamless', async () => {
+    const out = await run('reach', ['--reachfly'], /REACHFLY/)
+    const m = out.match(/REACHFLY rested on the pad (\w+), left Hearthstone (\w+) after (\d+) s, frame now (\w+), jump at switch ([\d.-]+) m ([\d.-]+) m\/s, hull (\d+)/)
+    return [Boolean(m) && m[1] === 'true' && m[2] === 'true' && Number(m[5]) >= 0 && Number(m[5]) < 0.01 && Number(m[6]) < 0.01 && m[7] === '100', m ? m[0] : 'no result']
+  }],
+  ...[
+    ['mara', ['hearth_crash', 'hearth_codes']],
+    ['okafor', ['hearth_lantern', 'hearth_choir']],
+    ['fen', ['hearth_phantom', 'ph_photo']],
+  ].map(([who, facts]) => [`the Reach: talk to ${who} and learn ${facts.join(', ')}`, async () => {
+    const out = await run('reach', ['--talktest', who, '--talkauto'], /TALKTEST/)
+    const line = (out.match(/TALKTEST [^\n]*/) ?? ['no result'])[0]
+    return [facts.every(f => line.includes(`"${f}"`)) && /player enabled true/.test(line), line]
+  }]),
   ['HUD text survives cutscenes and clears', async () => {
     const out = await run('ship_preview', ['--hudtest'], /HUDTEST \d+ failed/)
     const m = out.match(/HUDTEST (\d+) failed/)

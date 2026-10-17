@@ -19,7 +19,9 @@ var hud: ReachHud
 var loop: ReachLoop
 var campfire: Campfire
 var talking := false
+var scope: Signalscope
 var _log: ShipLog
+var _music: AudioStreamPlayer
 
 func _ready() -> void:
 	add_to_group("reach_root")
@@ -54,6 +56,12 @@ func _ready() -> void:
 	var tt := args.find("--talktest")
 	if tt >= 0 and tt + 1 < args.size():
 		_talk_test(args[tt + 1])
+
+## Static caches hold resources; let them go with the scene, or the
+## engine reports them as leaked at exit.
+func _exit_tree() -> void:
+	Props._cache.clear()
+	Worlds._noise.clear()
 
 func _environment() -> void:
 	env = Environment.new()
@@ -153,11 +161,45 @@ func _start_player() -> void:
 	home.node.add_child(campfire)
 	campfire.transform = Worlds.place(home, "village")
 	home.node.add_child(Village.make(home))
+	scope = Signalscope.new()
+	scope.reach = self
+	add_child(scope)
+	_signals()
+	_music = AudioStreamPlayer.new()
+	add_child(_music)
+	loop.collapsing.connect(func():
+		_music.stream = load("res://audio/reach/end.wav")
+		_music.volume_db = -4.0
+		_music.play())
+	Flow.music(false)
 	var args := OS.get_cmdline_user_args()
 	loop.woke.connect(_on_woke)
 	reset_loop()
 	if not ("--reachwalk" in args or "--reachfly" in args):
 		loop.wake("")
+
+## Every signal in the Reach (see Signalscope).
+func _signals() -> void:
+	var B := system.bodies
+	var hs: ReachBody = B["hearthstone"]
+	var fire := Worlds.place(hs, "village")
+	scope.add_source(hs.node, "mara", "Mara's banjo", 0, load("res://audio/reach/banjo.wav"), fire.origin + fire.basis.y * 1.2, 14.0)
+	var obs := Worlds.place(hs, "observatory")
+	scope.add_source(hs.node, "okafor", "Okafor's flute", 0, load("res://audio/reach/flute.wav"), obs.origin + obs.basis.y * 2.0, 14.0)
+	scope.add_source(hs.node, "choir_mine", "Songline: the old mine", 2, load("res://audio/reach/choir.wav"), Worlds.place(hs, "cave").origin, 10.0)
+	var vd: ReachBody = B["verdance"]
+	scope.add_source(vd.node, "renn", "A harmonica", 0, load("res://audio/reach/harmonica.wav"), Worlds.place(vd, "renn").origin + Worlds.place(vd, "renn").basis.y, 16.0)
+	scope.add_source(vd.node, "pod", "Escape pod beacon", 1, ReachSounds.beacon(0.9), Worlds.place(vd, "pod").origin, 12.0)
+	scope.add_source(vd.node, "choir_pillars", "Songline: the pillar city", 2, load("res://audio/reach/choir.wav"), Worlds.place(vd, "pillars").origin, 14.0)
+	var ash: ReachBody = B["ashfall"]
+	scope.add_source(ash.node, "vex", "Hand drums", 0, load("res://audio/reach/drums.wav"), Worlds.place(ash, "vex").origin, 14.0)
+	scope.add_source(ash.node, "hale", "The Aster's bridge recorder", 1, ReachSounds.beacon(1.6), Worlds.place(ash, "wreck").origin, 14.0)
+	scope.add_source(ash.node, "drones", "Hollow drones", 3, ReachSounds.chatter(), Worlds.place(ash, "vault").origin, 16.0)
+	var ph: ReachBody = B["phantom"]
+	scope.add_source(ph.node, "phantom", "A wavering tone", 4, ReachSounds.quantum(), Vector3.ZERO, 30.0)
+	scope.add_source(ph.node, "choir_shrine", "Songline: the Phantom's shrine", 2, load("res://audio/reach/choir.wav"), Worlds.place(ph, "shrine").origin, 10.0)
+	var wa: ReachBody = B["wanderer"]
+	scope.add_source(wa.node, "engine", "The Engine", 2, load("res://audio/reach/choir.wav"), Worlds.place(wa, "engine").origin, 20.0)
 
 func _on_woke(n: int, _first: bool) -> void:
 	if n > 1 and Lore.learn("hearth_loop"):
@@ -175,6 +217,13 @@ func reset_loop() -> void:
 	var was := system.ref
 	system.reset("hearthstone")
 	Talk.this_loop.clear()
+	if scope:
+		scope.active = false
+		scope.resync.call_deferred()
+	if _music:
+		_music.stream = load("res://audio/reach/wake.wav")
+		_music.volume_db = -6.0
+		_music.play()
 	for key in planets:
 		(planets[key] as Planet).set_ref(key == "hearthstone")
 	var home: ReachBody = system.bodies["hearthstone"]
@@ -204,6 +253,7 @@ func _physics_process(_dt: float) -> void:
 func _fly_test() -> void:
 	await get_tree().create_timer(2.0).timeout
 	var rested := ship.landed
+	Lore.learn("hearth_codes")
 	ship.board()
 	await get_tree().create_timer(2.0).timeout
 	# (A dictionary: lambdas capture locals by value.)

@@ -16,7 +16,11 @@ static func open(parent: Node) -> ShipLog:
 	parent.add_child(s)
 	return s
 
+var _tints := {}
+
 func _ready() -> void:
+	for b: ReachBody in ReachSystem.define():
+		_tints[b.key] = b.tint
 	layer = 14
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	var root := Control.new()
@@ -93,7 +97,7 @@ func _paint() -> void:
 		var r := Rect2(c - Vector2(110, 46), Vector2(220, 92))
 		_canvas.draw_rect(r, Color(0.16, 0.14, 0.12, 0.96) if known else Color(0.12, 0.11, 0.1, 0.9))
 		_canvas.draw_rect(r, Color(ReachStyle.EMBER if place == _selected else ReachStyle.BONE, 0.7 if place == _selected else 0.22), false, 2.0)
-		var tint: Color = (ReachSystem.define().filter(func(b): return b.key == Lore.PLACES[place].body)[0] as ReachBody).tint
+		var tint: Color = _tints.get(Lore.PLACES[place].body, ReachStyle.BONE)
 		_canvas.draw_circle(r.position + Vector2(24, 46), 11.0, tint if known else Color(tint, 0.3))
 		var title: String = Lore.PLACES[place].title if known else "?"
 		_canvas.draw_string(Style.sans_bold, r.position + Vector2(44, 42), title, HORIZONTAL_ALIGNMENT_LEFT, 170, 17, ReachStyle.BONE if known else ReachStyle.MUTE)
