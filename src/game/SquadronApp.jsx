@@ -17,6 +17,7 @@ import { sound } from './GameApp.jsx'
 import './ui/game.css'
 
 const GameScene = lazy(() => import('./scene/GameScene.jsx'))
+const LobbyBackdrop = lazy(() => import('./scene/LobbyBackdrop.jsx'))
 const PREFS = 'pz-squadron-v1'
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const newCode = () => Array.from({ length: 5 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('')
@@ -108,7 +109,8 @@ export default function SquadronApp({ joinCode = null, onExit }) {
   const hosting = phase === 'room' && [...roster.values()].find((m) => m.id === me)?.host
   const best = bestRuns()
   return <div className="sq-root">
-    <div className="np-art" />
+    {/* The Earth before a nebula, the nebula the battlefield's own. */}
+    <Suspense fallback={<div className="np-art" />}><LobbyBackdrop arena={arena} /></Suspense>
     <section className="sq-card">
       <header className="sq-head">
         <span className="st-eyebrow">Squadron</span>

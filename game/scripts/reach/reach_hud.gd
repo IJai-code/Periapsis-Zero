@@ -305,6 +305,10 @@ func flash(c: Color, alpha := 0.5, in_s := 0.05, out_s := 0.45) -> void:
 	create_tween().tween_property(_flash, "color:a", 0.0, out_s).set_delay(in_s)
 
 ## The whole screen to a colour and back; awaitable.
+## Opaque black at once (the start, before the morning's eyelids).
+func blackout() -> void:
+	_fade.color = Color(0, 0, 0, 1)
+
 func fade_to(c: Color, seconds: float) -> void:
 	var t := create_tween()
 	t.tween_property(_fade, "color", c, seconds)

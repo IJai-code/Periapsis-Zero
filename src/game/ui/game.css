@@ -334,6 +334,9 @@
 
 /* New pilot */
 .np-root { position: fixed; inset: 0; display: grid; place-items: center; color: #f4e8cf; font-family: var(--font-sans); background: #05030b; }
+.sq-backdrop { position: absolute; inset: 0; }
+.sq-backdrop::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, #05030bcc, #05030b33 55%, transparent); }
+.sq-root > .sq-card { z-index: 1; }
 .np-art { position: absolute; inset: 0; background: url('/game/keyart.webp') center / cover no-repeat; opacity: .55; }
 .np-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #05030bee, #05030b66); }
 .np-card, .np-crawl { position: relative; width: min(520px, 90vw); padding: 28px; background: #120b22e6; border: 1px solid #f4e8cf26; border-radius: 8px; }
@@ -459,7 +462,7 @@
 
 /* Squadron: lobby, room, battle panel, results. */
 .sq-root { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; overflow-y: auto; color: #f4e8cf; font-family: var(--font-sans); background: #05030b; }
-.sq-card { position: relative; width: min(880px, 100%); padding: 26px 28px; background: #120b22eb; border: 1px solid #f4e8cf26; border-radius: 10px; animation: settle .45s cubic-bezier(.2,.8,.2,1) both; }
+.sq-card { position: relative; width: min(880px, 100%); padding: 26px 28px; background: #120b22d9; backdrop-filter: blur(6px); border: 1px solid #f4e8cf26; border-radius: 10px; animation: settle .45s cubic-bezier(.2,.8,.2,1) both; }
 .sq-head h1 { margin: 6px 0 8px; font: 400 clamp(30px, 5vw, 46px)/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
 .sq-head p { margin: 0 0 18px; max-width: 620px; color: #f4e8cfb3; font-size: 15px; line-height: 1.55; }
 .sq-error { padding: 10px 12px; border: 1px solid #ff6b2c88; border-radius: 6px; background: #ff6b2c14; color: #ffb08a; font-size: 14px; }

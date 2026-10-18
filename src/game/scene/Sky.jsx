@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { decodeStars, equatorialToScene } from '../../gfx/stars.js'
 import { tierOf } from '../core/quality.js'
 import { BODIES, EARTH, SUN_DIR } from '../core/world.js'
+import { nebulaMaterial } from './nebula.js'
 
 /**
  * Everything that is not near you: the stars, the Milky Way, the Sun, the
@@ -47,6 +48,9 @@ export function Sky({ game, quality }) {
   const sphere = useMemo(() => new THREE.SphereGeometry(1, cfg.segments[0], cfg.segments[1]), [cfg])
 
   const stars = useStars(cfg.stars)
+  // Squadron's battlefields each have a coloured nebula behind the stars.
+  const arena = game.current?.skirmish?.arena
+  const nebMat = useMemo(() => (arena ? nebulaMaterial(arena, Math.min(5, octaves + 1)) : null), [arena, octaves])
   const milky = useMemo(() => milkyWay(), [])
   const sunTex = useMemo(() => glowTexture(), [])
   const streakTex = useMemo(() => streakTexture(), [])
@@ -93,6 +97,7 @@ export function Sky({ game, quality }) {
   return <group ref={group}>
     {stars && <points geometry={stars.geometry} material={stars.material} renderOrder={-20} frustumCulled={false} />}
     <mesh geometry={milky.geometry} material={milky.material} renderOrder={-30} frustumCulled={false} />
+    {nebMat && <mesh material={nebMat} scale={2.6e6} renderOrder={-25} frustumCulled={false}><sphereGeometry args={[1, 64, 32]} /></mesh>}
     <sprite ref={sun} scale={[SUN_R * 0.045, SUN_R * 0.045, 1]} renderOrder={-15}><spriteMaterial map={sunTex} color="#fff6e8" blending={THREE.AdditiveBlending} depthWrite={false} transparent toneMapped={false} /></sprite>
     {/* A lens streak across the Sun, as a camera sees it: always level on screen. */}
     <sprite ref={streak} scale={[SUN_R * 0.42, SUN_R * 0.011, 1]} renderOrder={-14}><spriteMaterial map={streakTex} color="#ffe2bf" opacity={0.55} blending={THREE.AdditiveBlending} depthWrite={false} transparent toneMapped={false} /></sprite>
@@ -242,7 +247,7 @@ const NOISE = `
     }
     return sum / (1.0 - pow(0.5, float(OCTAVES)));
   }`
-function earthMaterial(day, night, spec, octaves) {
+export function earthMaterial(day, night, spec, octaves) {
   return new THREE.ShaderMaterial({
     defines: { OCTAVES: octaves },
     uniforms: { uDay: { value: day }, uNight: { value: night }, uSpec: { value: spec }, uSun: { value: new THREE.Vector3() } },
@@ -278,7 +283,7 @@ function earthMaterial(day, night, spec, octaves) {
       }`,
   })
 }
-function cloudMaterial(tex, octaves) {
+export function cloudMaterial(tex, octaves) {
   return new THREE.ShaderMaterial({
     defines: { OCTAVES: octaves },
     uniforms: { uClouds: { value: tex }, uSun: { value: new THREE.Vector3() } },
@@ -314,7 +319,7 @@ function cloudMaterial(tex, octaves) {
     transparent: true, depthWrite: false,
   })
 }
-function atmosphereMaterial() {
+export function atmosphereMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: { uSun: { value: new THREE.Vector3() } },
     vertexShader: `varying vec3 vN; varying vec3 vW; ${LOG_V}

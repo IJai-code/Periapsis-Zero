@@ -5,6 +5,19 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A clean black before waking; Squadron's Earth and nebulae, 18 October 2026 (late)
+
+- **Nothing shows before the eyes open.** The shaders are warmed behind the
+  morning by drawing the ship lit on the deck and a grid of every material;
+  in the browser that grid and the fire's "E" prompt could be seen for a
+  moment. The screen is now black from the first frame until the eyelids
+  open, and nothing can be used until then.
+- **Squadron's lobby has the Earth again**: the flight game's Earth (its day
+  and night maps, its clouds and air) turning slowly in front of the chosen
+  battlefield's nebula.
+- **Each battlefield has its own nebula**: red and ember over the Drift,
+  teal over Gateway, violet and rose over Harbor, drawn behind the stars.
+
 ### Landing that just works, a lift-off you fly, and worlds you can tell apart, 18 October 2026 (night)
 
 - **No more circling a world.** Anywhere inside a world's pull she now flies

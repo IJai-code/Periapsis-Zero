@@ -628,6 +628,11 @@ func _start_player() -> void:
 	# deck. A browser compiles a material the first time it is drawn, and
 	# the first draw should not be ignition.
 	if not _testing(args):
+		# Black from the first frame until the eyes open: what is drawn to
+		# warm the shaders (the ship lit on the deck, a grid of every
+		# material) is drawn behind it, and nothing can be used yet.
+		hud.blackout()
+		player.enabled = false
 		await _prewarm()
 	# The morning plays for a player. A check places the camera itself and
 	# needs the world answering at once, so it starts already awake.
