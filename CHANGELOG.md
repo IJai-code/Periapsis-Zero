@@ -5,6 +5,52 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Smooth hands on the controls, no flying into mountains, and a lighter frame, 18 October 2026 (evening)
+
+- **Turning is smooth.** The mouse used to be read once a frame and applied
+  once a physics tick, so whenever the two fell out of step (a 120 Hz
+  screen, any dropped frame) a tick turned double or not at all. Now the
+  mouse sets a turn rate, eased over 60 ms per frame, and her attitude
+  thrusters reach it (and bring her to rest) at a fixed angular
+  acceleration: she has weight, the way the ship in Outer Wilds does.
+  The engines spool up and down over a tenth of a second instead of
+  switching.
+- **She will not fly you into a mountain.** Her own shape is swept along
+  her path a few seconds ahead; when the ground is closer than she can stop
+  in, the edges of the view go red ("TERRAIN"), a warning sounds, and the
+  assist brakes against her path and lifts her away, overruling W. Flown at
+  the crater's wall at 45 m/s with W held she touches it at **1.6 m/s**;
+  with the assist off the same run hits at 65 m/s and is a crash (the
+  control, `--walltestfly`). A paced Shift descent is left alone.
+- **No bouncing.** She no longer ricochets off what she hits: no
+  restitution, full friction, and a knock damps her spin.
+- **Flying explains itself.** The green marker is where she is actually
+  going, relative to the world that matters (on the dot: going where she
+  points; off it: sliding; a crossed ring: going backwards). A locked world
+  off the screen gets an arrow at its edge with its name, and out in the
+  open with nothing locked a line says how to lock and use the autopilot.
+- **Lighter frames.** Small pieces (crates, buckets, fences, props under
+  five metres) are drawn only within 70 or 170 m, and those under a metre
+  and a half cast no shadow; pines have a middle shape at a sixth of the
+  triangles from 70 m, and cast their shadows from it even up close;
+  jungle trees switch to a clump-crowned far shape at 210 m (was 300), in
+  patches a quarter the size so the switch happens near you, not across a
+  continent; people far off animate ten times a second, and past 120 m not
+  at all; the signalscope stops working every frame while it is put away.
+  At the fire **390 draw calls became 287**; on Verdance's ground the
+  uncapped frame rate went from **98 to 158 fps**.
+- **Quality steps down sooner.** The automatic quality used to wait for the
+  frame rate to fall under 30 (in the browser) or 40 before lowering the
+  resolution; it now steps down below 48, since a flight game at 35 fps
+  reads as lag.
+- **Every world's ground in more detail.** Rock faces carry wavering beds
+  of warmer and cooler stone and dark water streaks, grass breaks into
+  lusher hollows and drier rises (a little less cartoon-green), and up close
+  the scans become relief. Verdance has twice the ferns, bushes for the
+  first time, and three times the rocks.
+- `PZ_UNCAPPED=1` on `godot-webshot` turns off vsync and the frame cap, so
+  the frame rate shows the headroom rather than stopping at 60.
+
 ### Flying that goes where you point, a cockpit you climb into, water, and Hearth carved properly, 18 October 2026
 
 - **The Kestrel goes where her nose points.** Flight assist (on by default,

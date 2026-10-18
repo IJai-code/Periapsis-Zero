@@ -222,7 +222,9 @@ func _decorate(deco: Dictionary) -> void:
 		for i in range(0, data.size(), 8):
 			var p := Vector3(data[i], data[i + 1], data[i + 2])
 			var up := Vector3(data[i + 3], data[i + 4], data[i + 5])
-			var key := _chunk(up)
+			# The pines in smaller patches (4 x 4 a face), so the trees near
+			# you switch to their close-up shape and those beyond do not.
+			var key := _chunk(up, 4 if kind in ["pine", "giant", "tree", "palm"] else 2)
 			if not chunks.has(key):
 				chunks[key] = []
 			var fwd := up.cross(Vector3.RIGHT if absf(up.y) > 0.9 else Vector3.UP).normalized()
@@ -241,28 +243,37 @@ func _decorate(deco: Dictionary) -> void:
 				centre += xf.origin
 			centre /= xfs.size()
 			if kind == "pine":
-				# The valley's tall pines: three shapes up close, one simple
-				# far off.
+				# The valley's tall pines: three shapes, each whole up close
+				# and a sixth of its triangles from 90 m; one simple shape far
+				# off. (Ranges are to the patch's middle, about 50 m from its
+				# edge.)
 				for v in 3:
 					var some: Array = []
 					for k in xfs.size():
 						if k % 3 == v:
 							some.append(xfs[k])
 					if not some.is_empty():
-						_deco_mm(Valley.mesh(["pine_a", "pine_b", "pine_c"][v]), some, centre, Valley.pine_material(), 0.0, 240.0, true)
-				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 220.0, range_end, true)
+						var shape: String = ["pine_a", "pine_b", "pine_c"][v]
+						# Close: the whole tree drawn, its shadow cast by the
+						# simple one (the shadow pass cannot tell).
+						var near := _deco_mm(Valley.mesh(shape), some, centre, Valley.pine_material(), 0.0, 70.0, false)
+						var shade := _deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 0.0, 70.0, true)
+						shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+						near.visibility_range_end_margin = 20.0
+						_deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 60.0, 260.0, true)
+				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 245.0, range_end, true)
 				continue
 			if kind in ["giant", "tree", "palm"]:
 				# The jungle's trees: their whole selves within a few hundred
 				# metres, a trunk and a lumpy crown beyond (Flora.far_mesh).
-				_deco_mm(Flora.mesh(kind), xfs, centre, null, 0.0, 300.0, true)
-				_deco_mm(Flora.far_mesh(kind), xfs, centre, null, 280.0, range_end, false)
+				_deco_mm(Flora.mesh(kind), xfs, centre, null, 0.0, 210.0, true)
+				_deco_mm(Flora.far_mesh(kind), xfs, centre, null, 195.0, range_end, false)
 				continue
 			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] else null
 			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])
 
 ## One drawing of many plants (a chunk's worth), seen between two distances.
-func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: float, end: float, shadow: bool) -> void:
+func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: float, end: float, shadow: bool) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = mesh
@@ -282,11 +293,12 @@ func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: flo
 	mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	add_child(mi)
 	_deco.append(mi)
+	return mi
 
 ## Which chunk of a face a direction falls in. Two by two, not three by
 ## three: the browser submits every chunk as its own draw call, and the
 ## trees that matter are all within a couple of hundred metres anyway.
-func _chunk(d: Vector3) -> String:
+func _chunk(d: Vector3, n := 2) -> String:
 	var a := d.abs()
 	var face := 0
 	var u := 0.0
@@ -303,7 +315,8 @@ func _chunk(d: Vector3) -> String:
 		face = 4 if d.z > 0.0 else 5
 		u = d.x / a.z
 		v = d.y / a.z
-	return "%d_%d_%d" % [face, clampi(int((u + 1.0) * 0.999), 0, 1), clampi(int((v + 1.0) * 0.999), 0, 1)]
+	var h := n * 0.5
+	return "%d_%d_%d" % [face, clampi(int((u + 1.0) * h * 0.999), 0, n - 1), clampi(int((v + 1.0) * h * 0.999), 0, n - 1)]
 
 func _range(kind: String) -> float:
 	match kind:

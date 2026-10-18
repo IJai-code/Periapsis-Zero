@@ -64,51 +64,62 @@ static func far_mesh(species: String) -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(species)
-	var leaf := Color(0.2, 0.36, 0.15) if species != "palm" else Color(0.3, 0.42, 0.17)
-	# The crown: an icosahedron, subdivided once, pushed in and out a little,
-	# darker underneath.
+	var leaf := Color(0.3, 0.48, 0.22) if species != "palm" else Color(0.38, 0.52, 0.22)
+	# The crown: four or five lumpy clumps (each an icosahedron subdivided
+	# once), bunched round the top of the trunk, lit from above and dark
+	# underneath, so from a few hundred metres it reads as foliage, not a
+	# ball on a stick.
 	if have_c:
-		var c := crown.get_center()
-		var r := crown.size * 0.5 * Vector3(0.92, 0.85, 0.92)
-		var t := (1.0 + sqrt(5.0)) / 2.0
-		var ico := [Vector3(-1, t, 0), Vector3(1, t, 0), Vector3(-1, -t, 0), Vector3(1, -t, 0), Vector3(0, -1, t), Vector3(0, 1, t),
-			Vector3(0, -1, -t), Vector3(0, 1, -t), Vector3(t, 0, -1), Vector3(t, 0, 1), Vector3(-t, 0, -1), Vector3(-t, 0, 1)]
-		var faces := [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
-			[3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]]
-		var bump := {}
-		var pt := func(d: Vector3) -> Vector3:
-			var n := d.normalized()
-			var key := "%.3f,%.3f,%.3f" % [n.x, n.y, n.z]
-			if not bump.has(key):
-				bump[key] = rng.randf_range(0.82, 1.08)
-			return c + n * r * float(bump[key])
-		for f in faces:
-			var a: Vector3 = ico[f[0]]
-			var b: Vector3 = ico[f[1]]
-			var d: Vector3 = ico[f[2]]
-			var ab := (a + b) * 0.5
-			var bd := (b + d) * 0.5
-			var da := (d + a) * 0.5
-			for tri in [[a, ab, da], [ab, b, bd], [da, bd, d], [ab, bd, da]]:
-				var p0: Vector3 = pt.call(tri[0])
-				var p1: Vector3 = pt.call(tri[1])
-				var p2: Vector3 = pt.call(tri[2])
-				var n := (p1 - p0).cross(p2 - p0).normalized()
-				if n.dot((p0 + p1 + p2) / 3.0 - c) < 0.0:
-					var sw := p1
-					p1 = p2
-					p2 = sw
-					n = -n
-				for v in [p0, p1, p2]:
-					var k := clampf(((v as Vector3).y - crown.position.y) / maxf(crown.size.y, 0.01), 0.0, 1.0)
-					st.set_color(leaf * lerpf(0.55, 1.15, k))
-					st.set_normal(((v as Vector3) - c).normalized().lerp(n, 0.4).normalized())
-					st.add_vertex(v)
+		var c0 := crown.get_center()
+		var half := crown.size * 0.5
+		var clumps := [[Vector3(0, 0.15, 0), 0.62]]
+		for k in 4:
+			var a := TAU * k / 4.0 + rng.randf_range(-0.4, 0.4)
+			clumps.append([Vector3(cos(a) * 0.5, rng.randf_range(-0.45, 0.15), sin(a) * 0.5), rng.randf_range(0.45, 0.6)])
+		for cl in clumps:
+			var off: Vector3 = cl[0]
+			var c := c0 + off * half
+			var r := half * float(cl[1]) * Vector3(1.0, 1.05, 1.0)
+			var t := (1.0 + sqrt(5.0)) / 2.0
+			var ico := [Vector3(-1, t, 0), Vector3(1, t, 0), Vector3(-1, -t, 0), Vector3(1, -t, 0), Vector3(0, -1, t), Vector3(0, 1, t),
+				Vector3(0, -1, -t), Vector3(0, 1, -t), Vector3(t, 0, -1), Vector3(t, 0, 1), Vector3(-t, 0, -1), Vector3(-t, 0, 1)]
+			var faces := [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+				[3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]]
+			var bump := {}
+			var shade := rng.randf_range(0.85, 1.12)
+			var pt := func(d: Vector3) -> Vector3:
+				var n := d.normalized()
+				var key := "%.3f,%.3f,%.3f" % [n.x, n.y, n.z]
+				if not bump.has(key):
+					bump[key] = rng.randf_range(0.78, 1.12)
+				return c + n * r * float(bump[key])
+			for f in faces:
+				var a: Vector3 = ico[f[0]]
+				var b: Vector3 = ico[f[1]]
+				var d: Vector3 = ico[f[2]]
+				var ab := (a + b) * 0.5
+				var bd := (b + d) * 0.5
+				var da := (d + a) * 0.5
+				for tri in [[a, ab, da], [ab, b, bd], [da, bd, d], [ab, bd, da]]:
+					var p0: Vector3 = pt.call(tri[0])
+					var p1: Vector3 = pt.call(tri[1])
+					var p2: Vector3 = pt.call(tri[2])
+					var n := (p1 - p0).cross(p2 - p0).normalized()
+					if n.dot((p0 + p1 + p2) / 3.0 - c) < 0.0:
+						var sw := p1
+						p1 = p2
+						p2 = sw
+						n = -n
+					for v in [p0, p1, p2]:
+						var up := clampf(((v as Vector3) - c).normalized().y * 0.5 + 0.5, 0.0, 1.0)
+						st.set_color(leaf * shade * lerpf(0.45, 1.2, up))
+						st.set_normal(((v as Vector3) - c).normalized().lerp(n, 0.35).normalized())
+						st.add_vertex(v)
 	# The trunk: a six-sided post from the ground into the crown.
 	if have_t:
 		var base := Vector3(trunk.get_center().x, trunk.position.y, trunk.get_center().z)
 		var top_y := crown.get_center().y if have_c else trunk.end.y
-		var rad := maxf(minf(trunk.size.x, trunk.size.z) * 0.18, 0.12)
+		var rad := clampf(minf(trunk.size.x, trunk.size.z) * 0.07, 0.12, 0.9)
 		var bark := Color(0.32, 0.24, 0.17)
 		for i in 6:
 			var a0 := TAU * i / 6.0

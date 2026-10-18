@@ -113,6 +113,18 @@ var _hatch_open := 0.0
 ## A knock felt in the seat (a landing, a hit): decays.
 var _knock := 0.0
 var _sway_t := 0.0
+## The mouse as a turn rate (rad/s, x yaw y pitch), smoothed per frame.
+var _stick := Vector2.ZERO
+const TURN_ACCEL := 7.5
+const TURN_MAX := 2.4
+## Thrust as the engines are giving it (spooling toward what is asked).
+var _acc := Vector3.ZERO
+## Ground ahead: 0 clear, up to 1 when she cannot stop in time; where.
+var _danger := 0.0
+var _danger_dir := Vector3.ZERO
+var _terrain_t := 0
+var _warn_t := 0.0
+var _cast: PhysicsShapeQueryParameters3D
 var _in_water := false
 ## Free look in the seat (right mouse held): the head turns, not the ship.
 var _look := Vector2.ZERO
@@ -131,8 +143,10 @@ func _ready() -> void:
 	angular_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
 	angular_damp = 2.5
 	physics_material_override = PhysicsMaterial.new()
-	physics_material_override.friction = 0.9
-	physics_material_override.bounce = 0.05
+	# She does not bounce: what she hits, she stops against, and slides.
+	physics_material_override.friction = 1.0
+	physics_material_override.bounce = 0.0
+	physics_material_override.absorbent = true
 	model = Hull.model("kestrel")
 	add_child(model)
 	_hearth_livery()
@@ -433,10 +447,9 @@ func _physics_process(dt: float) -> void:
 			float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
 			float(Input.is_key_pressed(KEY_SPACE)) - float(Input.is_key_pressed(KEY_SHIFT)),
 			float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W)))
-		var s := 0.0016 * float(Flow.settings.mouse)
 		var roll := float(Input.is_key_pressed(KEY_Q)) - float(Input.is_key_pressed(KEY_E))
 		# Any hand on the controls takes her back from the autopilot.
-		if autopilot and (t.length() > 0.01 or _mouse.length() > 6.0 or roll != 0.0):
+		if autopilot and (t.length() > 0.01 or _stick.length() > 0.25 or roll != 0.0):
 			_autopilot_off("Autopilot off. She is yours.")
 		var acc := Vector3.ZERO
 		if autopilot:
@@ -448,12 +461,23 @@ func _physics_process(dt: float) -> void:
 			acc = Vector3(t.x * SIDE, t.y * SIDE, (MAIN if t.z < 0.0 else SIDE) * t.z)
 			if assist:
 				acc = _assist(acc, t, g, roll, dt)
-			# The mouse turns her directly; Q/E roll.
-			var want := global_basis * Vector3(-_mouse.y * s / dt, -_mouse.x * s / dt, roll * 1.3)
+			# The mouse asks for a turn rate (smoothed per frame in _process,
+			# so it does not matter how frames and physics ticks fall); her
+			# attitude thrusters reach it at a fixed angular acceleration and
+			# bring her to rest the same way: weight, not a cursor.
+			var inv := global_basis.inverse()
+			var want := Vector3(-_stick.y, -_stick.x, roll * 1.2)
 			if assist and roll == 0.0:
-				want += _level(dt)
-			angular_velocity = angular_velocity.lerp(want, minf(1.0, 18.0 * dt))
-			_mouse = Vector2.ZERO
+				want += inv * _level(dt)
+			var lav := inv * angular_velocity
+			lav = lav.move_toward(want, TURN_ACCEL * dt)
+			angular_velocity = global_basis * lav
+		# The engines spool: a tenth of a second up and down, never a switch.
+		_terrain(dt)
+		if _danger > 0.0 and assist:
+			acc = _avoid(acc, g)
+		_acc = _acc.lerp(acc, 1.0 - exp(-dt / 0.09))
+		acc = _acc
 		# What the engines are doing, for the plumes, the sound and the seat.
 		_thrust = Vector3(acc.x / SIDE, acc.y / SIDE, acc.z / (MAIN if acc.z < 0.0 else SIDE)).limit_length(1.0)
 		force += global_basis * acc * mass
@@ -491,6 +515,60 @@ func _match(_dt: float) -> Vector3:
 		return Vector3.ZERO
 	var local := global_basis.inverse() * (-rel)
 	return local.normalized() * clampf(rel.length() / 6.0, 0.2, 1.0)
+
+## The ground ahead: her own shape swept along her path for the next few
+## seconds (four ticks in five skipped). `_danger` rises from 0 as the room
+## left to stop shrinks toward what she needs, to 1 when she cannot.
+func _terrain(_dt: float) -> void:
+	var b := system.ruling()
+	_terrain_t += 1
+	if b.key == "lantern" or altitude > 2500.0:
+		_danger = 0.0
+		return
+	if _terrain_t % 3 != 0:
+		return
+	var v := linear_velocity
+	var speed := v.length()
+	# A descent the assist is already pacing (Shift, low down) is not danger.
+	var up := (global_position - b.node.position).normalized()
+	var paced := assist and altitude < HOVER_ALT and v.dot(-up) > speed * 0.8 and speed < 1.6 + altitude * 0.35 + 3.0
+	if speed < 3.0 or paced:
+		_danger = move_toward(_danger, 0.0, 0.2)
+		return
+	if _cast == null:
+		_cast = PhysicsShapeQueryParameters3D.new()
+		var sh := SphereShape3D.new()
+		sh.radius = 3.2
+		_cast.shape = sh
+		_cast.collision_mask = 1
+		_cast.exclude = [get_rid()]
+	var look := minf(speed * 4.5 + 30.0, 1400.0)
+	_cast.transform = Transform3D(Basis(), global_position)
+	_cast.motion = v.normalized() * look
+	var hit := get_world_3d().direct_space_state.cast_motion(_cast)
+	if hit.is_empty() or hit[0] >= 1.0:
+		_danger = move_toward(_danger, 0.0, 0.15)
+		return
+	var d := hit[0] * look
+	# What she needs to stop: braking against her path with her strongest
+	# engines, gravity working against her where it does.
+	var stop := speed * speed / (2.0 * 13.0) + speed * 0.35 + 12.0
+	_danger = clampf((stop * 1.6 - d) / (stop * 0.8), 0.0, 1.0)
+	_danger_dir = v.normalized()
+
+## Ground ahead too close to stop for: the assist brakes against her path
+## and lifts her away from the world, overruling a push toward it.
+func _avoid(acc: Vector3, _g: Vector3) -> Vector3:
+	var inv := global_basis.inverse()
+	var b := system.ruling()
+	var up := (global_position - b.node.position).normalized()
+	var along := inv * _danger_dir
+	var into := acc.dot(along)
+	if into > 0.0:
+		acc -= along * into
+	acc += inv * ((-_danger_dir * 0.8 + up * 0.6).normalized() * MAIN * _danger)
+	assist_doing = "TERRAIN"
+	return _clamp_acc(acc)
 
 ## Height over the ground of the world she is in (a ray when it is close,
 ## the terrain's own height when not) and how fast she is sinking to it.
@@ -718,6 +796,9 @@ func _impacts() -> void:
 		return
 	# She is built for rough fields: a bump at a walking pace is nothing,
 	# a fall at a run dents her, a dive into the ground ends her.
+	if dv > 4.0:
+		# A knock spins nothing off: the hull grinds to a stop.
+		angular_velocity *= 0.35
 	if dv > 11.0:
 		integrity -= (dv - 11.0) * 4.0
 		_knock = 1.0
@@ -880,6 +961,18 @@ func _finish_lift() -> void:
 	t.tween_property(cam, "fov", FOV, 1.1).set_trans(Tween.TRANS_SINE)
 
 func _process(dt: float) -> void:
+	# The mouse's movement this frame as a rate, eased over ~60 ms.
+	if piloted and not _moving and not hold and not launching and dt > 0.0:
+		var sens := 0.0016 * float(Flow.settings.mouse)
+		var inst := (_mouse * sens / maxf(dt, 1.0 / 240.0)).limit_length(TURN_MAX)
+		_stick = _stick.lerp(inst, 1.0 - exp(-dt / 0.06))
+	else:
+		_stick = Vector2.ZERO
+	_mouse = Vector2.ZERO
+	_warn_t -= dt
+	if _danger > 0.35 and piloted and _warn_t <= 0.0:
+		_warn_t = lerpf(0.6, 0.2, _danger)
+		Sfx.play("warn", -10.0, 1.0 + _danger * 0.3)
 	if _fuselage:
 		_fuselage.visible = not (cockpit.visible and get_viewport().get_camera_3d() == cam)
 	_instruments(dt)
@@ -1187,6 +1280,9 @@ func reset_to(xf: Transform3D) -> void:
 	_knock = 0.0
 	autopilot = false
 	assist = true
+	_acc = Vector3.ZERO
+	_stick = Vector2.ZERO
+	_danger = 0.0
 	_ride_ready = true
 	_gear_k = 1.0
 	if _legs.size() > 0:

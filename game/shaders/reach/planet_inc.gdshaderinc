@@ -26,6 +26,29 @@ vec3 surface_albedo(float dist) {
 	vec3 r = tri(rock_map, p * 0.6, w);
 	vec3 tex = mix(g, r, tint.a);
 	float lum = dot(tex, vec3(0.333));
-	// Detail as light and dark round the painted colour, fading with range.
-	return tint.rgb * mix(1.0, clamp(lum * 2.2, 0.35, 1.7), fade * 0.8);
+	vec3 c = tint.rgb;
+	// Big patches across the land (the ground scan sampled metres wide):
+	// darker, lusher hollows and drier, yellower rises, so a plain of grass
+	// is never one colour from the air.
+	float macro = dot(tri(ground_map, lpos * 0.011, w), vec3(0.333));
+	float macro2 = dot(tri(rock_map, lpos * 0.0043 + vec3(0.37), w), vec3(0.333));
+	float patch = smoothstep(0.3, 0.7, macro * 0.6 + macro2 * 0.8 - 0.1);
+	vec3 lush = c * vec3(0.58, 0.72, 0.6);
+	vec3 dry = c * vec3(1.16, 1.06, 0.7);
+	c = mix(c, mix(lush, dry, patch), (1.0 - tint.a) * 0.9);
+	// Grass that green is a cartoon: a little of its saturation out.
+	float gl = dot(c, vec3(0.3, 0.55, 0.15));
+	c = mix(c, vec3(gl), 0.18 * (1.0 - tint.a));
+	// Rock: beds in bands up the faces (wavering, not ruled), each a little
+	// warmer or cooler; dark streaks of water running down; cracks.
+	float rad = length(lpos);
+	float wob = (macro - 0.5) * 6.0;
+	float bed = sin(rad * 0.55 + wob) * 0.5 + 0.5;
+	float bed2 = sin(rad * 1.7 + wob * 2.3) * 0.5 + 0.5;
+	vec3 band = mix(vec3(0.84, 0.76, 0.66), vec3(1.08, 0.98, 0.86), bed) * mix(0.9, 1.05, bed2);
+	float streak = smoothstep(0.55, 0.85, dot(tri(rock_map, vec3(lpos.x * 0.09, rad * 0.008, lpos.z * 0.09), w), vec3(0.333)));
+	vec3 rock = c * band * (1.0 - streak * 0.28);
+	c = mix(c, rock, tint.a);
+	// Fine detail as light and dark round the colour, fading with range.
+	return c * mix(1.0, clamp(lum * 2.2, 0.35, 1.7), fade * 0.8);
 }

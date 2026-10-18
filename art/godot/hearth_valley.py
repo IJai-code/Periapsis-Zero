@@ -114,12 +114,11 @@ EDGE = (0.27, 0.45, 0.27, 0.6)
 TIP = (0.43, 0.6, 0.33, 1.0)
 
 
-def frond(p, base, a, length, droop, width, rng):
+def frond(p, base, a, length, droop, width, rng, n=6):
     """One drooping branch: a ridged strip out from the trunk, ragged at
-    its edges, lighter toward the tip."""
+    its edges, lighter toward the tip. `n` segments along it."""
     out = V((math.cos(a), math.sin(a), 0))
     side = V((-math.sin(a), math.cos(a), 0))
-    n = 6
     spine = []
     for i in range(n + 1):
         s = i / n
@@ -142,14 +141,16 @@ def frond(p, base, a, length, droop, width, rng):
             p.quad(spine[i], spine[i + 1], l1, l0, c0, c1, e1, e0)
 
 
-def pine(name, height, seed, slim=1.0):
+def pine(name, height, seed, slim=1.0, mid=False):
+    """`mid`: the same tree for 80 to 260 m: half the whorls, fewer and
+    shorter-jointed fronds, a plain trunk; a sixth of the triangles."""
     kit.reset()
     rng = random.Random(seed)
     p = Painter()
     H = height
     rb = 0.022 * H + 0.16
     # The trunk, a little bent, flaring at the root.
-    segs = 6
+    segs = 3 if mid else 6
     pts = [V((0, 0, -0.6))]
     for i in range(1, segs + 1):
         z = H * 0.98 * i / segs
@@ -157,9 +158,9 @@ def pine(name, height, seed, slim=1.0):
     for i in range(segs):
         r0 = rb * (1.0 - 0.85 * i / segs) + (0.18 if i == 0 else 0.0)
         r1 = rb * (1.0 - 0.85 * (i + 1) / segs)
-        cylinder(p, pts[i], pts[i + 1], r0, max(r1, 0.05), 9, BARK_DARK if i == 0 else BARK, BARK)
+        cylinder(p, pts[i], pts[i + 1], r0, max(r1, 0.05), 5 if mid else 9, BARK_DARK if i == 0 else BARK, BARK)
     # A few dead stubs on the bare trunk.
-    for k in range(5):
+    for k in range(0 if mid else 5):
         z = rng.uniform(0.1, 0.3) * H
         a = rng.uniform(0, 2 * math.pi)
         d = V((math.cos(a), math.sin(a), -0.2)).normalized()
@@ -167,16 +168,16 @@ def pine(name, height, seed, slim=1.0):
     # The crown.
     start = H * rng.uniform(0.28, 0.36)
     top = H * 0.97
-    whorls = int((top - start) / 1.05)
+    whorls = int((top - start) / (2.0 if mid else 1.05))
     reach = H * 0.24 * slim
     for i in range(whorls):
         t = i / max(whorls - 1, 1)
         z = start + (top - start) * t
         length = reach * (1.0 - t) ** 0.85 + 0.6
-        count = 7 if t < 0.6 else (6 if t < 0.85 else 4)
+        count = (6 if t < 0.6 else (5 if t < 0.85 else 3)) if mid else (7 if t < 0.6 else (6 if t < 0.85 else 4))
         for b in range(count):
             a = 2 * math.pi * b / count + i * 0.71 + rng.uniform(-0.25, 0.25)
-            frond(p, (0, 0, z + rng.uniform(-0.2, 0.2)), a, length * rng.uniform(0.85, 1.1), rng.uniform(0.28, 0.5), length * 0.32, rng)
+            frond(p, (0, 0, z + rng.uniform(-0.2, 0.2)), a, length * rng.uniform(0.85, 1.1), rng.uniform(0.28, 0.5), length * (0.42 if mid else 0.32), rng, 3 if mid else 6)
     # A dark core so the crown never shows daylight through it.
     cone(p, (0, 0, start + 0.5), (0, 0, top), reach * 0.38, 8, CORE, CORE)
     cone(p, (0, 0, top - 1.2), (0, 0, H * 1.04), 0.6, 6, SPINE, TIP)
@@ -1341,6 +1342,9 @@ jobs = {
     'pine_b': lambda: pine('pine_b', 30.0, 2, slim=0.8),
     'pine_c': lambda: pine('pine_c', 19.0, 3, slim=1.15),
     'pine_far': pine_far,
+    'pine_a_mid': lambda: pine('pine_a_mid', 24.0, 1, mid=True),
+    'pine_b_mid': lambda: pine('pine_b_mid', 30.0, 2, slim=0.8, mid=True),
+    'pine_c_mid': lambda: pine('pine_c_mid', 19.0, 3, slim=1.15, mid=True),
     'cliff_a': lambda: cliff('cliff_a', 5),
     'cliff_b': lambda: cliff('cliff_b', 9),
     'cliff_falls': lambda: cliff('cliff_falls', 13, groove=True),

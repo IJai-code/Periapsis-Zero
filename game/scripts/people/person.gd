@@ -198,9 +198,33 @@ func face(point: Vector3) -> void:
 func follow_route() -> void:
 	_yaw_target = 0.0
 
+## Far from the camera a person is animated less often (ten times a
+## second past 30 m, not at all past 120 m) and their face not at all:
+## skinning a body is the costliest thing a browser does for one.
+var _lod_t := 0.0
+var _far := false
+var _gone := false
+var _anim_acc := 0.0
+
 func _process(dt: float) -> void:
 	if not is_nan(_yaw_target):
 		rotation.y = lerp_angle(rotation.y, _yaw_target, minf(1.0, dt * 3.0))
+	_lod_t -= dt
+	if _lod_t <= 0.0:
+		_lod_t = 0.3 + randf() * 0.1
+		var cam := get_viewport().get_camera_3d()
+		var d := cam.global_position.distance_to(global_position) if cam else 0.0
+		_far = d > 30.0
+		_gone = d > 120.0 or not is_visible_in_tree()
+		if _anim:
+			_anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL if _far else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+	if _far:
+		if _anim and not _gone:
+			_anim_acc += dt
+			if _anim_acc >= 0.1:
+				_anim.advance(_anim_acc)
+				_anim_acc = 0.0
+		return
 	_t += dt
 	# Blinks: every two to five seconds, about a sixth of a second each.
 	_blink_in -= dt

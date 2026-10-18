@@ -213,6 +213,13 @@ autopilot flies to a point over the locked world at the speed she can still
 stop from, round the Lantern or any world in the way, and holds her there.
 `--landtest` and `--aptest <world>` check both.
 
+Turning: the mouse sets a turn rate (eased per frame, so frame and
+physics-tick timing never shows), reached at TURN_ACCEL; thrust spools
+over ~0.1 s. Terrain: a sphere swept along her velocity (`_terrain`, every
+third tick) gives `_danger`; with the assist on, `_avoid` brakes and lifts
+and the HUD edges go red. `--walltestfly` flies at the crater wall both
+ways.
+
 She boards through a hatch in her belly, behind the seat, from either side:
 it swings down into a ramp, you climb the ladder in its well past the ship
 log's terminal and sit. Parked and empty she is frozen in place, so nothing

@@ -441,19 +441,57 @@ func _ship(vp: Vector2, c: Vector2, s: ReachShip) -> void:
 	var cam := _draw.get_viewport().get_camera_3d()
 	if not cam:
 		return
-	# The reticle, and where she is heading (relative to the frame's body).
+	# The reticle: where her nose is.
 	_draw.draw_arc(c, 14.0, 0.0, TAU, 32, Color(ReachStyle.BONE, 0.5), 1.5, true)
+	_draw.draw_circle(c, 1.6, Color(ReachStyle.BONE, 0.7))
+	# Where she is actually going, relative to the world that matters (the
+	# locked one, else the one the assist is flying against): a green ring
+	# with wings. On the reticle, she goes where she points; off it, she is
+	# sliding; behind you (the hollow ring), she is going backwards.
+	var rel_key: String = s.target if s.target != "" else s.assist_body
 	var v := s.linear_velocity
-	if s.target != "":
-		v -= sys.world_vel(s.target)
+	if rel_key != "" and sys.bodies.has(rel_key):
+		v -= sys.world_vel(rel_key)
 	if v.length() > 0.5:
 		var ahead := cam.global_position + v.normalized() * 200.0
+		var back := cam.global_position - v.normalized() * 200.0
 		if not cam.is_position_behind(ahead):
 			var m := cam.unproject_position(ahead)
-			_draw.draw_circle(m, 5.0, Color(ReachStyle.PINE, 0.85))
-			_draw.draw_line(m + Vector2(-11, 0), m + Vector2(-6, 0), ReachStyle.PINE, 2.0)
-			_draw.draw_line(m + Vector2(6, 0), m + Vector2(11, 0), ReachStyle.PINE, 2.0)
-			_draw.draw_line(m + Vector2(0, -11), m + Vector2(0, -6), ReachStyle.PINE, 2.0)
+			_draw.draw_arc(m, 7.0, 0.0, TAU, 20, ReachStyle.PINE, 2.5, true)
+			_draw.draw_line(m + Vector2(-17, 0), m + Vector2(-8, 0), ReachStyle.PINE, 2.5)
+			_draw.draw_line(m + Vector2(8, 0), m + Vector2(17, 0), ReachStyle.PINE, 2.5)
+			_draw.draw_line(m + Vector2(0, -15), m + Vector2(0, -8), ReachStyle.PINE, 2.5)
+		elif not cam.is_position_behind(back):
+			var m2 := cam.unproject_position(back)
+			_draw.draw_arc(m2, 7.0, 0.0, TAU, 20, Color(ReachStyle.PINE, 0.7), 2.0, true)
+			_draw.draw_line(m2 + Vector2(-5, -5), m2 + Vector2(5, 5), Color(ReachStyle.PINE, 0.7), 2.0)
+			_draw.draw_line(m2 + Vector2(-5, 5), m2 + Vector2(5, -5), Color(ReachStyle.PINE, 0.7), 2.0)
+	# Ground ahead: the whole frame goes red at its edges and says so.
+	if s._danger > 0.3:
+		var a := clampf(s._danger, 0.0, 1.0) * (0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.018))
+		var red := Color(1.0, 0.18, 0.1, 0.35 * a)
+		for k in 4:
+			var w := 26.0 - k * 6.0
+			_draw.draw_rect(Rect2(Vector2.ZERO, vp), Color(red, red.a * (1.0 - k * 0.22)), false, w)
+		var msg := "PULL UP" if not s.assist else "TERRAIN  ·  BRAKING"
+		_draw.draw_string(ReachStyle.round_bold, Vector2(c.x - 220, c.y - 70), msg, HORIZONTAL_ALIGNMENT_CENTER, 440, 34, Color(1.0, 0.35, 0.25, 0.6 + 0.4 * a))
+	# Off the screen, the locked world: an arrow at the edge pointing to it.
+	if s.target != "" and sys.bodies.has(s.target):
+		var at := sys.world(s.target)
+		var on_screen := not cam.is_position_behind(at) and Rect2(Vector2(40, 40), vp - Vector2(80, 80)).has_point(cam.unproject_position(at))
+		if not on_screen:
+			var local := cam.global_basis.inverse() * (at - cam.global_position)
+			var dir := Vector2(local.x, -local.y).normalized()
+			if dir.length() < 0.1:
+				dir = Vector2(0, 1)
+			var edge := c + dir * minf(vp.x, vp.y) * 0.42
+			var tip := edge + dir * 16.0
+			var side := dir.orthogonal() * 10.0
+			_draw.draw_colored_polygon(PackedVector2Array([tip, edge + side, edge - side]), ReachStyle.EMBER)
+			_draw.draw_string(ReachStyle.round_bold, edge - dir * 22.0 + Vector2(-80, 5), (sys.bodies[s.target] as ReachBody).title, HORIZONTAL_ALIGNMENT_CENTER, 160, 16, ReachStyle.EMBER)
+	elif s.piloted and not s.landed and not s.autopilot and sys.ruling().key == "lantern":
+		# Out in the open with nothing locked: how not to be lost.
+		_draw.draw_string(ReachStyle.round, Vector2(c.x - 260, c.y + 56), "Put a world on the dot and press T to lock it, then G to fly there", HORIZONTAL_ALIGNMENT_CENTER, 520, 17, Color(ReachStyle.BONE, 0.75))
 	# Speed and height, low in the middle: from outside only (inside, the
 	# cockpit's own screens say it).
 	var inside := s.cockpit != null and s.cockpit.visible

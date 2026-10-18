@@ -209,6 +209,32 @@ func merge_pieces(min_instances := 2) -> int:
 		saved += xfs.size() - 1
 	return saved
 
+## Small things are only drawn near: a crate, a bucket, a fence at a
+## hundred metres is a pixel or two, and each is a draw call (and another in
+## the shadow pass). Anything under a metre and a half casts no shadow and
+## goes beyond 70 m; under five metres, beyond 170 m. Houses, cliffs, the
+## tower: always. Returns how many were limited.
+func cull_small() -> int:
+	var n := 0
+	for gi: GeometryInstance3D in find_children("*", "GeometryInstance3D", true, false):
+		if not (gi is MeshInstance3D or gi is MultiMeshInstance3D) or not gi.visible:
+			continue
+		var mesh: Mesh = (gi as MeshInstance3D).mesh if gi is MeshInstance3D else ((gi as MultiMeshInstance3D).multimesh.mesh if (gi as MultiMeshInstance3D).multimesh else null)
+		if mesh == null or gi.visibility_range_end > 0.0:
+			continue
+		var size := mesh.get_aabb().size * gi.global_basis.get_scale()
+		var big := maxf(size.x, maxf(size.y, size.z))
+		if big < 1.5:
+			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			gi.visibility_range_end = 70.0
+		elif big < 5.0:
+			gi.visibility_range_end = 170.0
+		else:
+			continue
+		gi.visibility_range_end_margin = 10.0
+		n += 1
+	return n
+
 func _collect(node: Node, site_inv: Transform3D, groups: Dictionary) -> void:
 	for c in node.get_children():
 		if c is MeshInstance3D:

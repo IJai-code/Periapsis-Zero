@@ -314,7 +314,9 @@ func _adapt(dt: float) -> void:
 		_worst_ms = 0.0
 		_hitches = 0
 	_cool -= span
-	var floor_fps := 30.0 if lite() else 40.0
+	# Smooth is the point (a flight game at 35 fps reads as lag), so the
+	# floor is high: under 48 for two seconds steps the quality down.
+	var floor_fps := 48.0
 	_low_t = _low_t + span if fps < floor_fps else 0.0
 	_high_t = _high_t + span if fps > 57.0 else 0.0
 	# Two seconds under the floor is a slideshow, not a moment: relieve it

@@ -102,8 +102,9 @@ func _ready() -> void:
 	# multimeshes rather than a hundred submissions.
 	# `-- --nomerge` draws every piece as itself, for an A/B of the merge.
 	var saved := 0 if "--nomerge" in OS.get_cmdline_user_args() else merge_pieces()
+	var culled := cull_small()
 	if "--count" in OS.get_cmdline_user_args():
-		print("MERGE village saved %d draws" % saved)
+		print("MERGE village saved %d draws, %d small things drawn only near" % [saved, culled])
 
 ## Strings of bulbs hung between the houses' porches, sagging, warm: one
 ## drawing for every bulb (a multimesh) and one for the wire.

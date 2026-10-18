@@ -90,6 +90,10 @@ func _ready() -> void:
 		_ref_test()
 	if "--swimtest" in args:
 		_swim_test()
+	if "--proftest" in args:
+		_prof_test()
+	if "--walltestfly" in args:
+		_fly_wall_test()
 	var apt := args.find("--aptest")
 	if apt >= 0 and apt + 1 < args.size():
 		_autopilot_test(args[apt + 1])
@@ -109,7 +113,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest"]:
 			return true
 	return false
 
@@ -265,6 +269,40 @@ func _count_draws() -> void:
 		if mm.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			shadowed += 1
 	print("DRAW meshes=%d multimesh=%d shadow_casters=%d" % [total, mms, shadowed])
+	# Where the triangles are (Hearthstone): instances x triangles, biggest first.
+	var tri := []
+	for gi: GeometryInstance3D in (planets["hearthstone"] as Planet).find_children("*", "GeometryInstance3D", true, false):
+		if not gi.is_visible_in_tree():
+			continue
+		var mesh: Mesh = null
+		var count := 1
+		if gi is MeshInstance3D:
+			mesh = (gi as MeshInstance3D).mesh
+		elif gi is MultiMeshInstance3D and (gi as MultiMeshInstance3D).multimesh:
+			mesh = (gi as MultiMeshInstance3D).multimesh.mesh
+			count = (gi as MultiMeshInstance3D).multimesh.instance_count
+		if mesh == null:
+			continue
+		var t := 0
+		for si in mesh.get_surface_count():
+			var arr := mesh.surface_get_arrays(si)
+			var idx = arr[Mesh.ARRAY_INDEX]
+			t += (idx.size() if idx != null else (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
+		# Only what the camera's distance lets be drawn.
+		var cam := get_viewport().get_camera_3d()
+		if cam:
+			var dd := cam.global_position.distance_to(gi.global_transform * mesh.get_aabb().get_center())
+			if dd < gi.visibility_range_begin or (gi.visibility_range_end > 0.0 and dd > gi.visibility_range_end):
+				continue
+		var label := String(gi.get_parent().name) + "/" + String(gi.name)
+		tri.append([t * count, "%s %s x%d r%.0f" % [label, mesh.resource_path.get_file(), count, gi.visibility_range_end]])
+	tri.sort_custom(func(a, b): return a[0] > b[0])
+	var sum := 0
+	for e in tri:
+		sum += int(e[0])
+	print("  TRIS total in range %d" % sum)
+	for k in mini(16, tri.size()):
+		print("  TRIS %7d %s" % tri[k])
 	for key in planets:
 		var p: Planet = planets[key]
 		var c := 0
@@ -302,6 +340,10 @@ func _build_sites() -> void:
 	(planets["ashfall"] as Planet).add_site(AshfallSite.make(system.bodies["ashfall"]))
 	(planets["phantom"] as Planet).add_site(PhantomSite.make(system.bodies["phantom"]))
 	(planets["wanderer"] as Planet).add_site(WandererSite.make(system.bodies["wanderer"]))
+	# Small things on every world drawn only near (Site.cull_small).
+	for key in planets:
+		for site in (planets[key] as Planet).sites:
+			(site as Site).cull_small()
 	# Small life on every world: fireflies over Hearth, ash on Ashfall, pollen
 	# on Verdance, dust out on the cold ones.
 	for key in planets:
@@ -1185,6 +1227,118 @@ func _land_test() -> void:
 	Input.parse_input_event(k)
 	var t := (Time.get_ticks_msec() - start) / 1000.0
 	Report.line("LANDTEST held %.2f m/s at %.0f m, landed %s after %.1f s, touched at %.1f m/s, dust %d, hull %d%%" % [held, hover_alt, ship.landed, t, touch, dust, int(maxf(ship.integrity, 0.0))])
+	Report.finish(get_tree())
+
+## Script time per frame, standing at the fire and flying low over the
+## village: what the scripts cost before anything is drawn.
+func _prof_test() -> void:
+	await get_tree().create_timer(2.0).timeout
+	var measure := func() -> float:
+		var tot := 0.0
+		var n := 0
+		var t0 := Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t0 < 1500:
+			await get_tree().process_frame
+			tot += Performance.get_monitor(Performance.TIME_PROCESS) + Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+			n += 1
+		return tot / n * 1000.0
+	var base: float = await measure.call()
+	Report.line("PROF base %.2f ms" % base)
+	var groups := {}
+	var walk := [get_tree().root]
+	while not walk.is_empty():
+		var node: Node = walk.pop_back()
+		walk.append_array(node.get_children())
+		var script: Script = node.get_script()
+		if script and (node.is_processing() or node.is_physics_processing()) and node != self:
+			var k := script.resource_path.get_file()
+			if not groups.has(k):
+				groups[k] = []
+			groups[k].append(node)
+	for k in groups:
+		if k in ["flow.gd", "updater.gd", "shot.gd", "reach_loop.gd"]:
+			continue
+		for node: Node in groups[k]:
+			node.set_process(false)
+			node.set_physics_process(false)
+		var t: float = await measure.call()
+		Report.line("PROF without %-20s %.2f ms (saves %.2f)" % [k, t, base - t])
+		for node: Node in groups[k]:
+			node.set_process(true)
+			node.set_physics_process(true)
+	# And this script's own.
+	set_process(false)
+	set_physics_process(false)
+	var t2: float = await measure.call()
+	Report.line("PROF without reach.gd %.2f ms (saves %.2f)" % [t2, base - t2])
+	set_process(true)
+	set_physics_process(true)
+	Report.finish(get_tree())
+
+## At the crater's wall at 45 m/s, W held: with the assist she stops short
+## of it; without, she hits it (the control), and either way she does not
+## bounce back off it.
+func _fly_wall_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	var out := []
+	for with_assist in [true, false]:
+		var home: ReachBody = system.bodies["hearthstone"]
+		var v := Worlds.place(home, "village")
+		var wall := Worlds.crater_dir(160.0, 112.5)
+		var start_d := v.origin.normalized().slerp(wall, 0.45)
+		var up := start_d
+		var start := start_d * (home.radius + Worlds.height("hearthstone", start_d, home.radius) + 22.0)
+		var to := wall * (home.radius + 20.0) - start
+		to = (to - up * to.dot(up)).normalized()
+		ship.freeze = true
+		ship.global_transform = Transform3D(Basis.looking_at(to, up), start)
+		ship.reset_physics_interpolation()
+		ship.freeze = false
+		ship.landed = false
+		ship.integrity = 100.0
+		ship.assist = with_assist
+		ship.linear_velocity = to * 45.0
+		ship.angular_velocity = Vector3.ZERO
+		# (Teleported: the speed is not a knock.)
+		ship._last_v = ship.linear_velocity
+		await get_tree().physics_frame
+		ship._last_v = ship.linear_velocity
+		var k := InputEventKey.new()
+		k.keycode = KEY_W
+		k.physical_keycode = KEY_W
+		k.pressed = true
+		Input.parse_input_event(k)
+		var crashed := {"v": false}
+		var on_crash := func(_c): crashed.v = true
+		ship.destroyed.connect(on_crash)
+		var hit_speed := 0.0
+		var fwd_was := 45.0
+		var back := 0.0
+		var t := 0.0
+		var warned := false
+		while t < 9.0:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			warned = warned or ship.assist_doing == "TERRAIN"
+			if ship.get_contact_count() > 0:
+				hit_speed = maxf(hit_speed, fwd_was)
+			fwd_was = ship.linear_velocity.dot(to)
+			back = maxf(back, -ship.linear_velocity.dot(to))
+		var k2 := k.duplicate() as InputEventKey
+		k2.pressed = false
+		Input.parse_input_event(k2)
+		ship.destroyed.disconnect(on_crash)
+		out.append("%s: warned %s, touched at %.1f m/s, bounced back %.1f m/s, crashed %s" % ["assist" if with_assist else "no assist", warned, hit_speed, back, crashed.v])
+		if crashed.v:
+			await loop.woke
+			ship.board()
+			await ship.boarded
+		await get_tree().create_timer(0.5).timeout
+	ship.assist = true
+	Report.line("FLYWALL " + "; ".join(out))
 	Report.finish(get_tree())
 
 ## Into the pond from a height: a splash, then floating with the head out;

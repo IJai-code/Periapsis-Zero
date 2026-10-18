@@ -73,11 +73,23 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			freq = (freq + FREQS.size() - 1) % FREQS.size()
 
+var _quiet := false
+var _idle_t := 0.0
+var _drawn := false
+
 func _process(dt: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if not cam:
 		return
+	# Put away, with every signal faded out: four looks a second are enough
+	# to notice a source come within reach.
+	if not active and _quiet:
+		_idle_t -= dt
+		if _idle_t > 0.0:
+			return
+		_idle_t = 0.25
 	var fwd := -cam.global_basis.z
+	var loud := 0.0
 	for s in sources:
 		var to := s.global_position - cam.global_position
 		var d := to.length()
@@ -88,6 +100,7 @@ func _process(dt: float) -> void:
 			var reach_k := clampf(1.0 - d / 26000.0, 0.0, 1.0)
 			strength = aim * (0.25 + 0.75 * reach_k)
 		_strengths[s] = lerpf(float(_strengths.get(s, 0.0)), strength, minf(1.0, dt * 8.0))
+		loud = maxf(loud, float(_strengths[s]))
 		s.scope_level(_strengths[s])
 		if d < s.near * 4.0 and not s.identified():
 			s.identify()
@@ -96,7 +109,10 @@ func _process(dt: float) -> void:
 	# A narrower view through the scope.
 	if reach.player and reach.player.camera:
 		reach.player.camera.fov = lerpf(reach.player.camera.fov, 42.0 if active and reach.player.enabled else 74.0, minf(1.0, dt * 6.0))
-	_ui.queue_redraw()
+	_quiet = not active and loud < 0.001 and absf(reach.player.camera.fov - 74.0) < 0.05 if reach.player and reach.player.camera else not active
+	if active or _drawn:
+		_ui.queue_redraw()
+	_drawn = active
 
 func _paint() -> void:
 	if not active:

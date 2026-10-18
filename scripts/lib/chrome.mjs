@@ -47,6 +47,9 @@ export async function launch({ width = 1280, height = 800 } = {}) {
     '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required',
     '--mute-audio',
+    // PZ_UNCAPPED=1: no vsync and no frame cap, so the frame rate says how
+    // much headroom there is rather than stopping at 60.
+    ...(process.env.PZ_UNCAPPED ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : []),
     'about:blank',
   ], { stdio: ['ignore', 'ignore', 'ignore'] })
 

@@ -177,6 +177,12 @@ const checks = [
     if (!m) return [false, (out.match(/APTEST[^\n]*/) ?? ['no result'])[0]]
     return [m[2] === 'true' && Number(m[6]) < 1 && m[7] === to && Number(m[8]) > 1300 && m[9] === '100', m[0]]
   }]),
+  ['the Reach: flown at a cliff at 45 m/s with W held, the assist stops her short; without it she crashes (the control)', async () => {
+    const out = await run('reach', ['--walltestfly'], /FLYWALL/)
+    const m = out.match(/assist: warned (\w+), touched at ([\d.]+) m\/s, bounced back ([\d.]+) m\/s, crashed (\w+); no assist: warned \w+, touched at ([\d.]+) m\/s, bounced back [\d.]+ m\/s, crashed (\w+)/)
+    if (!m) return [false, (out.match(/FLYWALL[^\n]*/) ?? ['no result'])[0]]
+    return [m[1] === 'true' && Number(m[2]) < 4 && Number(m[3]) < 2 && m[4] === 'false' && Number(m[5]) > 30 && m[6] === 'true', m[0]]
+  }],
   ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
     const out = await run('reach', ['--swimtest'], /SWIMTEST/)
     const m = out.match(/SWIMTEST floating head ([-\d.]+) m over the water, dived (\w+), fog (\w+), back up (\w+), alive (\w+)/)
