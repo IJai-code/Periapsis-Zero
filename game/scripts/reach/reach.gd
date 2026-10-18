@@ -92,6 +92,8 @@ func _ready() -> void:
 		_swim_test()
 	if "--proftest" in args:
 		_prof_test()
+	if "--arrivetest" in args:
+		_arrive_test()
 	if "--walltestfly" in args:
 		_fly_wall_test()
 	var apt := args.find("--aptest")
@@ -113,7 +115,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest"]:
 			return true
 	return false
 
@@ -735,7 +737,7 @@ var _ship_hints := 0
 func _on_boarded() -> void:
 	if _ship_hints < 2:
 		_ship_hints += 1
-		hud.hint("W S  forward, back    A D  sideways    Space Shift  up, down\nMouse  turn    Q E  roll    T  lock a world    G  autopilot\nR  flight assist    V  outside view    Right mouse  look about", 24.0)
+		hud.hint("Space  lift off, climb    Shift  sink, land    W S  forward, back    A D  sideways\nMouse  turn    Q E  roll    T  lock a world    G  autopilot    let go  hold still\nR  flight assist    V  outside view    Right mouse  look about", 24.0)
 
 ## What the log points at next, once the pilot is off the ground: the lead
 ## nearest the end of the story that is still open (its place not yet all
@@ -1173,15 +1175,20 @@ func _launch_test() -> void:
 	await ship.boarded
 	await get_tree().create_timer(0.5).timeout
 	var y0 := ship.global_position.length()
+	# Space held for three seconds, as a player lifts off.
 	ship.launch()
-	var fx := get_tree().get_nodes_in_group("launch_fx").size()
+	var fx := 0
 	var t := 0.0
 	var peak := 0.0
-	while t < 6.0 and ship.launching:
+	while t < 3.5:
 		await get_tree().physics_frame
 		t += get_physics_process_delta_time()
+		fx = maxi(fx, get_tree().get_nodes_in_group("launch_fx").size())
 		peak = maxf(peak, ship.global_position.length() - y0)
-	Report.line("LAUNCHTEST dust %d, ride %.1f s, rose %.1f m, speed %.1f m/s, hands back %s, airborne %s" % [fx, t, peak, ship.linear_velocity.length(), not ship.launching, not ship.landed])
+	var climb := ship.linear_velocity.dot(ship.global_position.normalized())
+	await get_tree().create_timer(2.0).timeout
+	var held := ship.linear_velocity.length()
+	Report.line("LAUNCHTEST dust %d, rose %.1f m in 3 s, climbing %.1f m/s, then held at %.2f m/s, gear up %s, airborne %s" % [fx, peak, climb, held, ship._gear_k < 0.5, not ship.landed])
 	Report.finish(get_tree())
 
 ## She lifts off the deck, is let go, and sets down again: the grit thrown
@@ -1227,6 +1234,52 @@ func _land_test() -> void:
 	Input.parse_input_event(k)
 	var t := (Time.get_ticks_msec() - start) / 1000.0
 	Report.line("LANDTEST held %.2f m/s at %.0f m, landed %s after %.1f s, touched at %.1f m/s, dust %d, hull %d%%" % [held, hover_alt, ship.landed, t, touch, dust, int(maxf(ship.integrity, 0.0))])
+	Report.finish(get_tree())
+
+## Arriving at Verdance as a player does: 1.5 km up, sliding across it at
+## 40 m/s. Hands off, she should stop sliding and hold; then Shift held
+## should bring her down onto her feet, whole.
+func _arrive_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	var vd: ReachBody = system.bodies["verdance"]
+	system.switch("verdance")
+	await get_tree().physics_frame
+	var d := Worlds.place(vd, "renn").origin.normalized().rotated(Vector3.UP, 0.25).normalized()
+	var start := d * (vd.radius + 1500.0)
+	var side := d.cross(Vector3.UP).normalized()
+	ship.freeze = true
+	ship.global_transform = Transform3D(Basis.looking_at(side, d), start)
+	ship.reset_physics_interpolation()
+	ship.freeze = false
+	ship.landed = false
+	ship.linear_velocity = side * 40.0
+	ship._last_v = ship.linear_velocity
+	var t := 0.0
+	var held_at := -1.0
+	while t < 40.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if held_at < 0.0 and ship.linear_velocity.length() < 1.0:
+			held_at = t
+	var drift := ship.linear_velocity.length()
+	var k := InputEventKey.new()
+	k.keycode = KEY_SHIFT
+	k.physical_keycode = KEY_SHIFT
+	k.pressed = true
+	Input.parse_input_event(k)
+	var t2 := 0.0
+	var crashed := {"v": false}
+	ship.destroyed.connect(func(_c): crashed.v = true)
+	while t2 < 240.0 and not ship.landed and not crashed.v:
+		await get_tree().physics_frame
+		t2 += get_physics_process_delta_time()
+	var k2 := k.duplicate() as InputEventKey
+	k2.pressed = false
+	Input.parse_input_event(k2)
+	Report.line("ARRIVETEST still after %.1f s (drift %.2f m/s), landed %s after %.0f s, crashed %s, hull %d" % [held_at, drift, ship.landed, t2, crashed.v, int(ship.integrity)])
 	Report.finish(get_tree())
 
 ## Script time per frame, standing at the fire and flying low over the
@@ -1779,6 +1832,22 @@ func _place_view() -> void:
 		_view_cam.global_position = eye
 		_view_cam.look_at(at, eye.normalized())
 		return
+	if parts.size() > 2 and parts[1] == "orbit":
+		# view:<body>:orbit:<loop s>: side-on to the Lantern (a comet's tail
+		# in profile), at that moment.
+		system.t = float(parts[2])
+		system.running = false
+		# A camera this far out would switch the frame under itself: hold it.
+		system.focus = null
+		system.place()
+		var star := system.world("lantern") - system.world(key)
+		var side := star.normalized().cross(Vector3.UP).normalized()
+		var cpos := system.world(key) + side * 2600.0 - star.normalized() * 900.0 + Vector3.UP * 300.0
+		_view_cam.global_position = cpos
+		_view_cam.look_at(system.world(key) - star.normalized() * 900.0, Vector3.UP)
+		for p in planets.values():
+			(p as Planet).light(system.world("lantern"), 1.0)
+		return
 	if parts.size() > 1 and parts[1] == "sky":
 		# Standing in the village, looking up: what the night does.
 		var v := Worlds.place(b, "village")
@@ -1810,8 +1879,9 @@ func _place_view() -> void:
 			_view_cam.global_position = xf.origin + xf.basis.y * 1.7 + off
 			_view_cam.look_at(xf.origin + xf.basis.y * 4.0, xf.basis.y)
 	else:
+		# From the lit side, the Lantern behind the camera's shoulder.
 		var star := system.world("lantern")
-		var away := (Vector3.ZERO - star).normalized()
-		var side := away.cross(Vector3.UP).normalized()
-		_view_cam.global_position = (away * 0.6 + side * 0.8 + Vector3.UP * 0.35).normalized() * b.radius * 4.0
+		var toward := (star - Vector3.ZERO).normalized()
+		var side := toward.cross(Vector3.UP).normalized()
+		_view_cam.global_position = (toward * 0.75 + side * 0.55 + Vector3.UP * 0.3).normalized() * b.radius * 3.6
 		_view_cam.look_at(Vector3.ZERO, Vector3.UP)

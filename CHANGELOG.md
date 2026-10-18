@@ -5,6 +5,28 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Landing that just works, a lift-off you fly, and worlds you can tell apart, 18 October 2026 (night)
+
+- **No more circling a world.** Anywhere inside a world's pull she now flies
+  like a hovering thing: let go of everything and she stops where she is
+  relative to that world (arriving at Verdance sliding across it at 40 m/s,
+  she is still in **3.2 s**); push and she goes exactly that way; hold
+  Shift and she sinks at a pace that slows as the ground comes up, and
+  settles on her gear at a walking pace. From 1.5 km up that is a minute,
+  hull 100% (`--arrivetest`). The screen says so: "Let go to hold still ·
+  Hold Shift to land", then "Landed. E to step out".
+- **Lift-off is flying, not a cutscene.** Space on the deck lights the jets
+  under her belly (grit and smoke off the boards, a warm flash, a jolt, the
+  view widening) and she climbs for as long as you hold it, the gear
+  folding up once she is clear; let go and she hangs there. The belly jets
+  are drawn, and burn whenever they hold her up low over the ground.
+- **Every world has a face.** Hearthstone and Verdance have drifting cloud
+  decks lit from the Lantern (Verdance's heavier, banded); Ashfall is black
+  basalt under rust-brown ash, split by glowing lava rifts, with columns of
+  ash rising off its vents; the Phantom is violet stone with veins of light
+  inside a breathing shimmer; the Wanderer is ice, with two tails streaming
+  away from the Lantern that grow long and bright as it falls in toward it.
+
 ### Smooth hands on the controls, no flying into mountains, and a lighter frame, 18 October 2026 (evening)
 
 - **Turning is smooth.** The mouse used to be read once a frame and applied

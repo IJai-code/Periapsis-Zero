@@ -489,6 +489,15 @@ func _ship(vp: Vector2, c: Vector2, s: ReachShip) -> void:
 			var side := dir.orthogonal() * 10.0
 			_draw.draw_colored_polygon(PackedVector2Array([tip, edge + side, edge - side]), ReachStyle.EMBER)
 			_draw.draw_string(ReachStyle.round_bold, edge - dir * 22.0 + Vector2(-80, 5), (sys.bodies[s.target] as ReachBody).title, HORIZONTAL_ALIGNMENT_CENTER, 160, 16, ReachStyle.EMBER)
+	# Near a world: how to land, until you have.
+	if s.piloted and not s.autopilot and sys.ruling().key != "lantern" and s.assist and s._danger < 0.3:
+		var msg := ""
+		if s.landed:
+			msg = "Landed.  E to step out"
+		elif s.altitude < 2500.0:
+			msg = "Let go to hold still  ·  Hold Shift to land" if s.altitude > 4.0 else "Setting down"
+		if msg != "" and not (s.landed and sys.ruling().key == "hearthstone" and _landed_home(s)):
+			_draw.draw_string(ReachStyle.round_bold, Vector2(c.x - 260, c.y + 64), msg, HORIZONTAL_ALIGNMENT_CENTER, 520, 19, Color(ReachStyle.BONE, 0.85))
 	elif s.piloted and not s.landed and not s.autopilot and sys.ruling().key == "lantern":
 		# Out in the open with nothing locked: how not to be lost.
 		_draw.draw_string(ReachStyle.round, Vector2(c.x - 260, c.y + 56), "Put a world on the dot and press T to lock it, then G to fly there", HORIZONTAL_ALIGNMENT_CENTER, 520, 17, Color(ReachStyle.BONE, 0.75))
@@ -523,6 +532,11 @@ func _ship(vp: Vector2, c: Vector2, s: ReachShip) -> void:
 			_draw.draw_string(Style.mono, Vector2(c.x - 200, 70), label + "  (behind)", HORIZONTAL_ALIGNMENT_CENTER, 400, 12, ReachStyle.EMBER)
 		if Input.is_key_pressed(KEY_F):
 			_draw.draw_string(Style.mono_bold, Vector2(c.x - 100, c.y + 60), "MATCHING VELOCITY", HORIZONTAL_ALIGNMENT_CENTER, 200, 12, ReachStyle.PINE)
+
+## Parked on the tower at home: no need to say how to land.
+func _landed_home(s: ReachShip) -> bool:
+	var v: Village = (reach.planets["hearthstone"] as Planet).sites[0]
+	return s.global_position.distance_to(v.ship_rest.origin) < 6.0
 
 static func _range(d: float) -> String:
 	return "%d m" % int(d) if d < 1000.0 else "%.1f km" % (d / 1000.0)

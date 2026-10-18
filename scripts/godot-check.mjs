@@ -156,12 +156,17 @@ const checks = [
     const m = out.match(/WALLTEST tried (\d+) inside (\d+) (\[[^\]]*\]) control (\w+)/)
     return [Boolean(m) && Number(m[1]) > 30 && m[2] === '0' && m[4] === 'true', m ? m[0] : 'no result']
   }],
-  ['the Reach: the lift-off, the ride, the hands back', async () => {
+  ['the Reach: Space on the deck lights her and she flies off it (no cutscene), then holds still when let go', async () => {
     const out = await run('reach', ['--launchtest'], /LAUNCHTEST/)
-    const m = out.match(/LAUNCHTEST dust (\d+), ride ([\d.]+) s, rose ([\d.]+) m, speed ([\d.]+) m\/s, hands back (\w+), airborne (\w+)/)
+    const m = out.match(/LAUNCHTEST dust (\d+), rose ([\d.]+) m in 3 s, climbing ([-\d.]+) m\/s, then held at ([\d.]+) m\/s, gear up (\w+), airborne (\w+)/)
     if (!m) return [false, (out.match(/LAUNCHTEST[^\n]*/) ?? ['no result'])[0]]
-    const ok = Number(m[1]) > 0 && Number(m[2]) > 2.5 && Number(m[3]) > 12 && Number(m[4]) > 8 && m[5] === 'true' && m[6] === 'true'
-    return [ok, m[0]]
+    return [Number(m[1]) > 0 && Number(m[2]) > 15 && Number(m[3]) > 5 && Number(m[4]) < 1.5 && m[5] === 'true' && m[6] === 'true', m[0]]
+  }],
+  ['the Reach: arriving at Verdance sliding at 40 m/s, she stops when let go and Shift lands her whole', async () => {
+    const out = await run('reach', ['--arrivetest'], /ARRIVETEST/, 400000)
+    const m = out.match(/ARRIVETEST still after ([-\d.]+) s \(drift ([\d.]+) m\/s\), landed (\w+) after (\d+) s, crashed (\w+), hull (\d+)/)
+    if (!m) return [false, (out.match(/ARRIVETEST[^\n]*/) ?? ['no result'])[0]]
+    return [Number(m[1]) > 0 && Number(m[1]) < 10 && Number(m[2]) < 0.5 && m[3] === 'true' && m[5] === 'false' && m[6] === '100', m[0]]
   }],
   ['the Reach: the assist catches a fall, Shift sets her down gently, the ground throws its dust', async () => {
     const out = await run('reach', ['--landtest'], /LANDTEST/)

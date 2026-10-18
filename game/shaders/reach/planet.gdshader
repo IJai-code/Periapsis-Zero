@@ -13,6 +13,7 @@ void fragment() {
 	ALBEDO = surface_albedo(length(VERTEX));
 	ROUGHNESS = mix(0.95, 0.8, tint.a);
 	SPECULAR = 0.25;
+	EMISSION = veins();
 	// Close up, the scans' light and dark as relief: the normal tipped by
 	// how their brightness changes across the pixel.
 	float near = 1.0 - smoothstep(10.0, 70.0, length(VERTEX));

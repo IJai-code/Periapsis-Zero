@@ -27,5 +27,5 @@ void fragment() {
 	vec3 col = surface_albedo(length(VERTEX)) * (max(ndl, 0.0) * 1.15 * star_power + 0.02);
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	col += air_color * rim * air * smoothstep(-0.2, 0.3, ndl) * 0.8;
-	ALBEDO = col;
+	ALBEDO = col + veins();
 }

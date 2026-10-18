@@ -7,6 +7,10 @@
 uniform sampler2D ground_map : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D rock_map : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float detail_scale = 0.12;
+// Glowing veins (Ashfall's lava, the Phantom's light): thin bright lines
+// along the ridges of a scan sampled large, more of them in the low ground.
+uniform vec3 vein_color : source_color = vec3(1.0, 0.35, 0.08);
+uniform float vein_amount = 0.0;
 
 varying vec3 lpos;
 varying vec3 lnrm;
@@ -51,4 +55,27 @@ vec3 surface_albedo(float dist) {
 	c = mix(c, rock, tint.a);
 	// Fine detail as light and dark round the colour, fading with range.
 	return c * mix(1.0, clamp(lum * 2.2, 0.35, 1.7), fade * 0.8);
+}
+
+vec3 tri_lod(sampler2D t, vec3 p, vec3 w, float lod) {
+	return textureLod(t, p.zy, lod).rgb * w.x + textureLod(t, p.xz, lod).rgb * w.y + textureLod(t, p.xy, lod).rgb * w.z;
+}
+
+vec3 veins() {
+	if (vein_amount <= 0.0) {
+		return vec3(0.0);
+	}
+	vec3 n = normalize(lnrm);
+	vec3 w = pow(abs(n), vec3(4.0));
+	w /= (w.x + w.y + w.z);
+	// Long winding rifts: where a smooth field (a scan sampled very large)
+	// crosses its own middle value, a thin line; only where a second, slower
+	// field lets it through, so they come in regions, not a net.
+	float a = dot(tri_lod(rock_map, lpos * 0.006, w, 6.0), vec3(0.333));
+	float mid = dot(textureLod(rock_map, vec2(0.5), 12.0).rgb, vec3(0.333));
+	float gate = dot(tri_lod(ground_map, lpos * 0.0025 + vec3(0.5), w, 7.0), vec3(0.333));
+	float gmid = dot(textureLod(ground_map, vec2(0.5), 12.0).rgb, vec3(0.333));
+	float line = (1.0 - smoothstep(0.0012, 0.0045, abs(a - mid))) * smoothstep(gmid - 0.01, gmid + 0.05, gate);
+	float flick = 0.8 + 0.2 * sin(TIME * 1.3 + a * 30.0);
+	return vein_color * line * vein_amount * flick * 2.2;
 }

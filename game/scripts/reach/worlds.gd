@@ -199,12 +199,16 @@ static func paint(key: String, d: Vector3, h: float, up_dot: float, sea: float, 
 			c = c.lerp(Color(0.62, 0.5, 0.38), rocky)
 			return Color(c.r, c.g, c.b, rocky)
 		"ashfall":
-			var c := Color(0.42, 0.41, 0.4).lerp(Color(0.32, 0.31, 0.31), patch)
-			return Color(c.r, c.g, c.b, 0.5 + rocky * 0.5)
+			# Basalt, near black, under drifts of rust-brown ash.
+			var ash := smoothstep(0.45, 0.7, _n(key, 4, 0.012, 2).get_noise_3dv(p) * 0.5 + 0.5)
+			var c := Color(0.2, 0.18, 0.18).lerp(Color(0.46, 0.33, 0.25), ash * (1.0 - rocky))
+			return Color(c.r, c.g, c.b, 0.55 + rocky * 0.45)
 		"phantom":
-			var c := Color(0.36, 0.33, 0.42).lerp(Color(0.45, 0.42, 0.5), patch)
+			# Violet stone, paler where it is smooth.
+			var c := Color(0.28, 0.2, 0.42).lerp(Color(0.5, 0.4, 0.66), patch)
 			return Color(c.r, c.g, c.b, 0.6 + rocky * 0.4)
 		"wanderer":
-			var c := Color(0.72, 0.82, 0.9).lerp(Color(0.25, 0.24, 0.26), smoothstep(0.4, 0.7, patch))
+			# Ice, blue in its hollows, under a crust of dark dust in patches.
+			var c := Color(0.86, 0.93, 1.0).lerp(Color(0.6, 0.78, 0.92), rocky).lerp(Color(0.24, 0.23, 0.26), smoothstep(0.55, 0.78, patch))
 			return Color(c.r, c.g, c.b, 0.3 + rocky * 0.5)
 	return Color(0.5, 0.5, 0.5, 0.5)

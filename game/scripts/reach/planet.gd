@@ -50,6 +50,11 @@ func _ready() -> void:
 	for m: ShaderMaterial in [_near_mat, _far_mat]:
 		m.set_shader_parameter("ground_map", Surfaces._tex(ground, "Color"))
 		m.set_shader_parameter("rock_map", Surfaces._tex(rock, "Color"))
+	var vein := {"ashfall": [Color(1.0, 0.36, 0.08), 1.4], "phantom": [Color(0.72, 0.48, 1.0), 0.75]}
+	if vein.has(body.key):
+		for m: ShaderMaterial in [_near_mat, _far_mat]:
+			m.set_shader_parameter("vein_color", vein[body.key][0])
+			m.set_shader_parameter("vein_amount", vein[body.key][1])
 	_far_mat.set_shader_parameter("air_color", body.sky_day)
 	_far_mat.set_shader_parameter("air", 1.0 if body.atmo > 0.0 else 0.0)
 	hi = MeshInstance3D.new()
@@ -102,6 +107,7 @@ func _ready() -> void:
 		air_shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(air_shell)
 	_decorate(mesh_hi.get_meta("deco", {}))
+	look = WorldLook.attach(self)
 	set_ref(false)
 
 ## A place on this body (Site): solid only while this is the frame's body.
@@ -201,7 +207,11 @@ func _wake_sites() -> void:
 		s.awake(is_ref, near)
 
 ## Each frame: where the Lantern is, for the hand-lit far surface and the air.
+var look: WorldLook
+
 func light(star_world: Vector3, star_power: float) -> void:
+	if look:
+		look.light(star_world)
 	if not is_ref and not sites.is_empty():
 		_wake_sites()
 	_far_mat.set_shader_parameter("star_pos", star_world)

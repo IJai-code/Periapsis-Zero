@@ -113,6 +113,13 @@ var _hatch_open := 0.0
 ## A knock felt in the seat (a landing, a hit): decays.
 var _knock := 0.0
 var _sway_t := 0.0
+## Lit on the ground this lift-off (reset when she is down again); a held
+## Space for checks and the launch beat.
+var _lit := false
+var _lit_at := 0
+var _jets: Array = []
+var _jet_k := 0.0
+var _auto_lift := 0.0
 ## The mouse as a turn rate (rad/s, x yaw y pitch), smoothed per frame.
 var _stick := Vector2.ZERO
 const TURN_ACCEL := 7.5
@@ -304,6 +311,26 @@ func _plumes_make() -> void:
 		mi.set_meta("plume", true)
 		model.add_child(mi)
 		_plumes.append(pm)
+	# The lift jets under her belly: what holds her up and what lifts her
+	# off, firing straight down.
+	for at in [Vector3(-1.6, -0.55, 2.4), Vector3(1.6, -0.55, 2.4), Vector3(0.0, -0.6, -4.6)]:
+		var c2 := CylinderMesh.new()
+		c2.top_radius = 0.34
+		c2.bottom_radius = 0.06
+		c2.height = 1.0
+		c2.radial_segments = 12
+		c2.rings = 1
+		var pm2 := ShaderMaterial.new()
+		pm2.shader = load("res://shaders/plume.gdshader")
+		pm2.set_shader_parameter("hot", Color(1.0, 0.86, 0.52))
+		pm2.set_shader_parameter("cool", Color(1.0, 0.32, 0.05))
+		c2.material = pm2
+		var jet := MeshInstance3D.new()
+		jet.mesh = c2
+		jet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		jet.position = at
+		add_child(jet)
+		_jets.append([jet, pm2, at])
 
 ## The cockpit as seen from the seat: a dashboard with lit screens, the
 ## canopy's frame, the sill. Only drawn while piloted from inside.
@@ -438,15 +465,19 @@ func _physics_process(dt: float) -> void:
 	_measure()
 	assist_doing = ""
 	if piloted and not _moving and not hold:
-		# Space on the deck does not just push: it lights her.
-		if Input.is_key_pressed(KEY_SPACE) and _can_lift():
-			autopilot = false
-			launch()
-			return
 		var t := Vector3(
 			float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
 			float(Input.is_key_pressed(KEY_SPACE)) - float(Input.is_key_pressed(KEY_SHIFT)),
 			float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W)))
+		if _auto_lift > 0.0:
+			_auto_lift -= dt
+			t.y = 1.0
+		# Lifting off is flying: Space on the ground lights the engines under
+		# her (dust, flame, a jolt through the hull) and she rises as long as
+		# it is held. No cutscene; the deck simply falls away.
+		if t.y > 0.0 and _can_lift() and not _lit:
+			autopilot = false
+			_ignite()
 		var roll := float(Input.is_key_pressed(KEY_Q)) - float(Input.is_key_pressed(KEY_E))
 		# Any hand on the controls takes her back from the autopilot.
 		if autopilot and (t.length() > 0.01 or _stick.length() > 0.25 or roll != 0.0):
@@ -598,11 +629,12 @@ var _ray: PhysicsRayQueryParameters3D
 ## The world the assist flies relative to: the locked one; the one she is
 ## low over; or the one her nose is pointed at.
 func _assist_ref() -> String:
+	# Inside a world's pull, always that world: that is what "still" means.
+	var b := system.ruling()
+	if b.key != "lantern":
+		return b.key
 	if target != "":
 		return target
-	var b := system.ruling()
-	if b.key != "lantern" and altitude < maxf(b.atmo - b.radius, b.radius):
-		return b.key
 	var fwd := -global_basis.z
 	var best := ""
 	var best_a := 0.3
@@ -636,38 +668,49 @@ func _assist(acc: Vector3, t: Vector3, g: Vector3, _roll: float, _dt: float) -> 
 	var v := inv * v_rel
 	var to := system.world(key) - global_position
 	var surf := to.length() - tb.radius
-	var low := key == system.ref and altitude < HOVER_ALT
+	var near := key == system.ref and key != "lantern"
 	var out := acc
 	var k := 1.6
-	# Across the heading: always, unless that axis is being flown.
-	if t.x == 0.0:
-		out.x = -v.x * k
-	if t.y == 0.0:
-		out.y = -v.y * k
-	if low:
-		# Low over the ground she flies like a hovering thing: Space and
-		# Shift ask for a climb or a sink (gentler the lower she is), W/A/S/D
-		# push her along the ground, and whatever is not asked for, she
-		# stops; gravity is undone throughout.
+	if near:
+		# Inside a world's pull she flies like a hovering thing, the same at
+		# any height: let go and she stops where she is (relative to the
+		# world: no drifting round it); push and she goes exactly that way,
+		# whatever she was doing across it taken out; gravity undone. Space
+		# and Shift climb and sink at a pace (gentler the lower she is), and
+		# just over the ground with nothing pressed, or Shift, she settles
+		# onto her gear at a walking pace.
 		var up := (global_position - system.ruling().node.position).normalized()
 		var aw := global_basis * acc
-		aw -= up * aw.dot(up)
 		var v_up := v_rel.dot(up)
-		var want_up := 0.0
-		if t.y > 0.0:
-			want_up = 12.0
-		elif t.y < 0.0:
-			want_up = -clampf(1.6 + altitude * 0.35, 1.6, 18.0)
-		aw += up * (want_up - v_up) * 2.5 - g
-		var v_h := v_rel - up * v_up
-		var wish := aw - up * aw.dot(up)
+		var settle := altitude < 3.0 and t.y <= 0.0 and t.x == 0.0 and t.z == 0.0
+		if t.y != 0.0 or settle:
+			aw -= up * aw.dot(up)
+			var want_up := 12.0 if t.y > 0.0 else -clampf(1.6 + maxf(altitude, 0.0) * 0.45, 1.2, 35.0)
+			if settle:
+				want_up = -1.2
+			aw += up * (want_up - v_up) * 2.5
+		aw -= g
+		var wish := aw + g
 		if wish.length() < 0.1:
-			aw -= v_h * k
+			aw -= v_rel * k if not settle else (v_rel - up * v_up) * k
 		else:
 			var wd := wish.normalized()
-			aw -= (v_h - wd * v_h.dot(wd)) * k
+			aw -= (v_rel - wd * v_rel.dot(wd)) * k
 		out = inv * aw
-		assist_doing = "HOVER" if t.length() < 0.01 else ("DESCENT" if t.y < 0.0 else "LOW")
+		if settle:
+			assist_doing = "LANDING"
+		elif t.length() < 0.01:
+			assist_doing = "HOLD"
+		elif t.y < 0.0:
+			assist_doing = "DESCENT"
+		else:
+			assist_doing = ""
+	else:
+		# Across the heading: always, unless that axis is being flown.
+		if t.x == 0.0:
+			out.x = -v.x * k
+		if t.y == 0.0:
+			out.y = -v.y * k
 	# Falling at a world faster than she can stop in the height left.
 	var dirn := to.normalized()
 	var closing := v_rel.dot(dirn)
@@ -823,6 +866,10 @@ func _landed_state() -> void:
 	var b := system.ruling()
 	var slow := (linear_velocity - Vector3.ZERO).length() < 0.6 and angular_velocity.length() < 0.15
 	landed = slow and get_contact_count() > 0 and b.key != "lantern"
+	# Down again (and not merely still on the deck in the instant after
+	# lighting up): the next lift-off lights her again.
+	if landed and Time.get_ticks_msec() - _lit_at > 2500:
+		_lit = false
 	# Parked and empty, she is set down for good: nothing a person walking
 	# into her, or climbing on her wing, can push about.
 	if landed and not piloted and not _moving and not freeze and _anchor == "":
@@ -839,51 +886,30 @@ func _can_lift() -> bool:
 ## valley falling away under her, nose easing back, the trees dropping
 ## past); every lift after it is short, so flying is never a cutscene.
 func launch() -> void:
-	if not _can_lift():
-		return
-	launching = true
-	_lift_full = _ride_ready
-	_ride_ready = false
+	# (The launch beat and the checks: Space held for her, for 3 s.)
+	_auto_lift = 3.0
+
+## The engines lighting on the ground: grit and smoke blown off the deck, a
+## warm flash, the plume's light on the boards, a jolt through the hull and
+## a widening of the view as she goes.
+func _ignite() -> void:
+	_lit = true
+	_lit_at = Time.get_ticks_msec()
 	landed = false
 	sleeping = false
-	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
-	freeze = true
-	reset_physics_interpolation()
-	_lift_t = 0.0
-	_lift_h = 0.0
-	_lift_v = 0.0
-	_lift_xf = global_transform
-	_shake = 1.0
-	_shake_t = 0.0
-	_mouse = Vector2.ZERO
-	_lift_worst = 0.0
-	_lift_worst_at = 0.0
-	_lift_hitches = 0
-	if Flow.on_web():
-		JavaScriptBridge.eval("window.pzLaunch={start:performance.now(),worst:0,worst_at:0,hitches:0}", true)
-	var up := _lift_xf.basis.y.normalized()
-	LaunchFx.make(get_parent(), _lift_xf.origin - up * 1.85, up, 1.0)
-	Sfx.play("big", -3.0, 0.72)
-	Sfx.play("door", -11.0, 0.55)
-	# The engines lighting, as light: it covers the one frame the browser
-	# still spends on the first dust and washes the cockpit warm.
+	if freeze:
+		freeze = false
+	var up := global_basis.y.normalized()
+	LaunchFx.make(get_parent(), global_position - up * 1.85, up, 1.0)
+	Sfx.play("big", -4.0, 0.75)
+	Sfx.play("door", -12.0, 0.55)
 	var root := get_tree().get_first_node_in_group("reach_root")
 	if root and root.hud:
-		root.hud.flash(Color(1.0, 0.72, 0.42), 0.38, 0.05, 0.45)
-	cam.fov = FOV + 7.0
-	# The ride is watched from the tower first: the ship, the flames under
-	# her and the dust going up, the deck falling away. Then the cockpit.
-	if _lift_full:
-		_launch_shot = true
-		var b := _lift_xf.basis
-		_launch_cam_at = _lift_xf.origin + b.x.normalized() * 30.0 + b.z.normalized() * 3.0 + up * 10.0
-		_launch_cam.global_transform = Transform3D(Basis.looking_at(_lift_xf.origin + up * 0.4 - _launch_cam_at, up), _launch_cam_at)
-		_launch_cam.make_current()
-		cockpit.visible = true
-		if _canopy:
-			_canopy.visible = true
-		if _canopy_frame:
-			_canopy_frame.visible = true
+		root.hud.flash(Color(1.0, 0.72, 0.42), 0.22, 0.04, 0.5)
+	_knock = 0.9
+	_shake = 0.75
+	cam.fov = FOV + 6.0
+	create_tween().tween_property(cam, "fov", FOV, 2.2).set_trans(Tween.TRANS_SINE)
 	launched.emit()
 
 ## One frame of ignition, without the ignition: the plume wide and hot,
@@ -993,9 +1019,24 @@ func _process(dt: float) -> void:
 	for n in model.get_children():
 		if n.has_meta("plume"):
 			(n as Node3D).scale = Vector3(1.0 + p * 0.32, 1.0 + p * 6.5, 1.0 + p * 0.32)
-	_engine_light.light_energy = p * (3.6 if launching else 1.7)
+	# The belly's jets: lifting off, climbing, or holding her against
+	# gravity low over the ground.
+	var lift := 0.0
+	if piloted and not landed:
+		lift = clampf(_thrust.y, 0.0, 1.0)
+		if system and system.ruling().key != "lantern" and altitude < 80.0:
+			lift = maxf(lift, 0.35)
+	_jet_k = lerpf(_jet_k, lift, minf(1.0, dt * 8.0))
+	for j in _jets:
+		var jet: MeshInstance3D = j[0]
+		var len := 0.3 + _jet_k * 3.2
+		jet.visible = _jet_k > 0.03
+		jet.scale = Vector3(1.0 + _jet_k * 0.4, len, 1.0 + _jet_k * 0.4)
+		jet.position = (j[2] as Vector3) - Vector3(0, len * 0.5, 0)
+		(j[1] as ShaderMaterial).set_shader_parameter("power", 0.3 + _jet_k * 1.6)
+	_engine_light.light_energy = maxf(p * (3.6 if launching else 1.7), _jet_k * 2.4)
 	# The gear: up once she is clear of the deck, down again as she settles.
-	var want_gear := 0.0 if (piloted and not landed) else 1.0
+	var want_gear := 0.0 if (piloted and not landed and altitude > 4.0) else 1.0
 	if launching and _lift_t < 0.85:
 		want_gear = 1.0
 	if not is_equal_approx(_gear_k, want_gear):
@@ -1284,6 +1325,8 @@ func reset_to(xf: Transform3D) -> void:
 	_stick = Vector2.ZERO
 	_danger = 0.0
 	_ride_ready = true
+	_lit = false
+	_auto_lift = 0.0
 	_gear_k = 1.0
 	if _legs.size() > 0:
 		_gear_pose()

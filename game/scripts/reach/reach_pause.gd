@@ -21,7 +21,7 @@ var _t := 0.0
 const KEYS := [
 	["On foot", [["W A S D", "walk"], ["Shift", "run"], ["Space", "hold to crouch, let go to jump"], ["Space (in the air)", "jetpack up"], ["E", "use, talk, read"], ["F", "torch"]]],
 	["In the water", [["W A S D", "swim"], ["Space", "up"], ["Shift", "dive"]]],
-	["The Kestrel", [["W S", "forward, back"], ["A D", "sideways"], ["Space Shift", "up, down (low: climb, sink)"], ["Mouse", "turn"], ["Q E", "roll"], ["T", "lock the world you look at"], ["G", "autopilot to it"], ["F (held)", "match its speed"], ["R", "flight assist on or off"], ["V", "view from outside"], ["Right mouse", "look about the cockpit"], ["E (landed)", "leave the seat"]]],
+	["The Kestrel", [["W S", "forward, back"], ["A D", "sideways"], ["Space", "lift off, climb"], ["Shift", "sink and land"], ["let go", "she holds still near a world"], ["Mouse", "turn"], ["Q E", "roll"], ["T", "lock the world you look at"], ["G", "autopilot to it"], ["F (held)", "match its speed"], ["R", "flight assist on or off"], ["V", "view from outside"], ["Right mouse", "look about the cockpit"], ["E (landed)", "leave the seat"]]],
 	["Anywhere", [["X", "signalscope (Z C or wheel to tune)"], ["M", "map"], ["L", "ship log"], ["P", "photograph"], ["Esc", "pause"]]],
 ]
 
