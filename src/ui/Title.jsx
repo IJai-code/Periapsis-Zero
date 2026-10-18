@@ -136,6 +136,12 @@ function Logo() {
     <span className="lp-logo-main" aria-hidden>ZER<svg className="lp-planet" viewBox="-120 -80 240 160" aria-hidden>
       <ellipse cx="0" cy="0" rx="104" ry="34" transform="rotate(-18)" fill="none" stroke="#3a2618" strokeWidth="20" />
       <ellipse cx="0" cy="0" rx="104" ry="34" transform="rotate(-18)" fill="none" stroke="#ffb36b" strokeWidth="9" />
+      <defs>
+        <clipPath id="lp-orbit-far"><rect x="-130" y="-60" width="260" height="60" /></clipPath>
+        <clipPath id="lp-orbit-near"><rect x="-130" y="0" width="260" height="60" /></clipPath>
+      </defs>
+      {/* The far half of its orbit: the ship goes behind the planet, so it is drawn first. */}
+      <g transform="rotate(-18)" clipPath="url(#lp-orbit-far)"><circle r="9" fill="#3a2618"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle><circle r="6" fill="#e8853d"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle></g>
       <circle r="66" fill="#3a2618" />
       <circle r="56" fill="#6fa86a" />
       <circle cx="14" cy="12" r="40" fill="#5b9459" />
@@ -143,7 +149,8 @@ function Logo() {
       <circle cx="20" cy="-26" r="8" fill="#fbf1dc" opacity=".8" />
       <path d="M -104 0 A 104 34 0 0 0 104 0" transform="rotate(-18)" fill="none" stroke="#3a2618" strokeWidth="20" />
       <path d="M -104 0 A 104 34 0 0 0 104 0" transform="rotate(-18)" fill="none" stroke="#ffb36b" strokeWidth="9" />
-      <g transform="rotate(-18)"><circle r="9" fill="#3a2618"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle><circle r="6" fill="#e8853d"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle></g>
+      {/* The near half of its orbit: the ship in front of the planet. */}
+      <g transform="rotate(-18)" clipPath="url(#lp-orbit-near)"><circle r="9" fill="#3a2618"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle><circle r="6" fill="#e8853d"><animateMotion dur="9s" repeatCount="indefinite" path="M 104 0 A 104 34 0 1 1 -104 0 A 104 34 0 1 1 104 0" /></circle></g>
     </svg></span>
   </h1>
 }

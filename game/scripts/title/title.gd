@@ -221,7 +221,16 @@ class _Logo extends Control:
 			draw_arc(Vector2.ZERO, 98.0, from, to, 48, INK, 20.0, true)
 			draw_arc(Vector2.ZERO, 98.0, from, to, 48, Color("#ffb36b"), 9.0, true)
 			draw_set_transform(Vector2.ZERO)
+		# The ship on the ring: on its far half (the upper, sin < 0) it goes
+		# behind the planet, so it is drawn before it; on the near half, after
+		# the front of the ring.
+		var a := _t * 0.6
+		var p := c + Vector2(cos(a) * 98.0, sin(a) * 98.0 * 0.34).rotated(-0.32)
+		var behind := sin(a) < 0.0
 		ring.call(PI, TAU)
+		if behind:
+			draw_circle(p, 9.0, INK)
+			draw_circle(p, 6.0, Color("#e8853d"))
 		draw_circle(c + Vector2(5, 7), 62.0, Color(0, 0, 0, 0.35))
 		draw_circle(c, 64.0, INK)
 		draw_circle(c, 55.0, Color("#6fa86a"))
@@ -229,11 +238,9 @@ class _Logo extends Control:
 		draw_circle(c + Vector2(-18, -18), 20.0, Color("#9fd08e"))
 		draw_circle(c + Vector2(20, -24), 8.0, Color("#fbf1dc", 0.8))
 		ring.call(0.0, PI)
-		# The ship on the ring.
-		var a := _t * 0.6
-		var p := c + Vector2(cos(a) * 98.0, sin(a) * 98.0 * 0.34).rotated(-0.32)
-		draw_circle(p, 9.0, INK)
-		draw_circle(p, 6.0, Color("#e8853d"))
+		if not behind:
+			draw_circle(p, 9.0, INK)
+			draw_circle(p, 6.0, Color("#e8853d"))
 func _toggle_settings() -> void:
 	_settings.visible = not _settings.visible
 
