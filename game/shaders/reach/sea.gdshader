@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back, depth_draw_never, specular_schlick_ggx;
+render_mode cull_disabled, depth_draw_never, specular_schlick_ggx;
 // A lake or a sea on a small world. How deep the water is at each pixel (the
 // scene's depth behind it, less the surface's) colours it: clear and warm
 // over the shallows, deep teal further out; foam where it meets a shore or a

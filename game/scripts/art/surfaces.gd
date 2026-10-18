@@ -155,6 +155,13 @@ static func _make(name: String) -> Material:
 		"canvas": return _cloth(Color(0.5, 0.38, 0.22))
 		"boat_paint": return _obj(_pbr("Planks037A", 0.7, Color(0.62, 0.42, 0.3)))
 		"cliff_warm": return _obj(_pbr("Rock030", 0.22, Color(0.82, 0.72, 0.6)))
+		# Carved rock and wood whose colour is painted at their corners in
+		# Blender (soot, moss, water stains, grain): the scan times those.
+		"rock_vc": return _vc(_obj(_pbr("Rock030", 0.3, Color(1.25, 1.2, 1.15))))
+		"bark_vc": return _vc(_obj(_pbr("Bark012", 1.4, Color(1.2, 1.1, 1.0))))
+		"wood_vc": return _vc(_obj(_pbr("Wood067", 1.2, Color(1.35, 1.25, 1.1))))
+		"leaf_vc": return _leaf_vc()
+		"soil": return _obj(_pbr("Ground037", 0.9, Color(0.62, 0.48, 0.36)))
 		# The Choir's stonework, their glowing writing, a core (art/godot/reach_sites.py).
 		"choir_stone": return _obj(_pbr("Rock030", 0.35, Color(0.92, 0.86, 0.78)))
 		"choir_glyph": return _glow(Color(0.5, 0.78, 1.0), 1.4)
@@ -194,6 +201,19 @@ void fragment() {
 }"""
 	m.shader = sh
 	m.set_shader_parameter("ground", _tex("Ground037", "Color"))
+	return m
+
+## Leaves painted in Blender: their own colours, a soft sheen.
+static func _leaf_vc() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
+	m.roughness = 0.75
+	return m
+
+## Times the mesh's own vertex colours (shaders/surface.gdshader's vcol).
+static func _vc(m: ShaderMaterial) -> ShaderMaterial:
+	m.set_shader_parameter("vcol", 1.0)
 	return m
 
 ## Mapped in the object's own space (for things on a small world).

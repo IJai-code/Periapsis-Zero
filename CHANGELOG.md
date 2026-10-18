@@ -5,6 +5,72 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Flying that goes where you point, a cockpit you climb into, water, and Hearth carved properly, 18 October 2026
+
+- **The Kestrel goes where her nose points.** Flight assist (on by default,
+  R) takes out drift across her heading relative to the world ahead of her,
+  so aiming at Verdance and holding W arrives at Verdance instead of
+  curling round it; it will not let her fall at a world faster than she can
+  stop in the height left; and under 320 m with nothing pressed she hovers,
+  levels her wings and holds still. Shift sinks her at a pace that slows to
+  1.6 m/s at the ground: the landing check sets her down at **1.8 m/s with
+  no hull lost**. Her thrusters are a third stronger, and a bump has to be
+  11 m/s (not 8) to dent her, 32 (not 26) to end her.
+- **An autopilot.** Look at a world, T to lock it, G: she flies there at the
+  speed she can still stop from, round the Lantern or any world in the way,
+  and parks over it. To Verdance in **68 s**, to Ashfall in **84 s** passing
+  **1.6 km** wide of the Lantern, hull 100 both times (`--aptest`).
+- **No more rumble.** The seat's constant 37-43 Hz shake is gone: flying is
+  steady, with a slow lean from her acceleration; the ride off the deck and
+  a hard landing still shake.
+- **A cockpit worth sitting in.** Rebuilt in Blender: a three-panel dash of
+  painted steel, brass and wood wrapped round the pilot, a big dial, gauges,
+  knobs and switch rows, side consoles with levers, a bucket seat with a
+  harness, quilted walls. Its two screens are live: a horizon against the
+  world below, speed, height and sink, the locked world and closing speed,
+  what the assist is doing, a landing screen near the ground, and the ship's
+  status with the keys. Right mouse looks about the cockpit.
+- **In through the belly hatch, from either side.** It swings down into a
+  ramp; you climb the ladder in its well, past the ship log's terminal and
+  a shelf with a mug and a carved bird, and sit. Parked and empty she is now
+  set down for good, so walking into her or onto her wing no longer shoves
+  her along the deck. Hearth repainted her: cream and rust-brown.
+- **Water.** Wade (slower), swim (WASD, Space up, Shift dive) with your head
+  out, a splash going in, rings where you move; under the surface the view
+  goes green-blue with light rippling across it and every sound is muffled.
+  The ship floats and drags in it (`--swimtest`).
+- **Hearth, carved.** The crater's walls are sandstone again: rounded
+  buttresses between gullies, jointed beds stepping back in worn ledges,
+  water stains, moss on what faces up, a grassy lip, all painted per corner
+  in Blender. The falls come down a gorge cut into the wall, as water falls:
+  three sheets arcing off the lip that turn white and fray as they drop,
+  churning foam and spray at the pool. The campfire is a ring of
+  soot-blackened fieldstones, a bed of ash and embers, and split logs burnt
+  black at their tops; the benches round it are felled logs with ridged,
+  mossy bark, sawn ends with rings and chocks. New: a stone well, Mara's
+  fenced garden, an ore cart on its rails, strings of lanterns porch to
+  porch, and on the tower a painted pad, gear plates, floodlights, a fuel
+  tank and hose reel, crates and a tool chest.
+- **Nothing round the fire can be walked through**: the fire, the log
+  benches and the chair are solid. The wall check now tries **66** things
+  (the fire and the benches among them): none can be walked into.
+- **Smoother arrivals.** Each world's collision is built behind the morning
+  black instead of the moment you reach it, every material on every world is
+  drawn once then too (so the browser is not compiling shaders at 200 m/s),
+  and Verdance's trees are a trunk and a lumpy crown beyond 300 m: the
+  approach drew **2.0 million** triangles, now **0.56 million**.
+- **Clearer story.** Mara says what you are after (anyone off the Aster
+  still alive); Okafor points you at the signalscope; the first time you
+  wake again a card says what happened and what carries over; and once you
+  are off the ground the top-left card shows the ship log's lead (the
+  nearest open thread), never a waypoint.
+- **The interface caught up with the title.** The pause screen is the
+  title's (big rounded words, the bobbing planet, every key as a keycap);
+  the HUD's words are the same rounded face; the key hints are keycaps; the
+  goal is a small card. The web loading page is the website's new look (the
+  lake under the nebulae, the logo), says when the download is done and the
+  engine is starting, and no longer claims a 30 MB download.
+
 ### Night over Hearth, and a village drawn in fewer pieces, 17 October 2026
 
 - **The sky does something after dark.** As the Lantern sets, four curtains

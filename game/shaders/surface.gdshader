@@ -22,6 +22,10 @@ uniform float rough = 0.62;
 // Map in the object's own space (things standing on a small world, whose
 // up is not the world's), not the world's.
 uniform float object_space = 0.0;
+// Times the mesh's vertex colours (carved rock and wood painted in Blender:
+// soot, moss, stains, grain), brought from linear back to how they were
+// painted.
+uniform float vcol = 0.0;
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -65,7 +69,7 @@ void fragment() {
 		c *= mix(0.72, 1.0, grime);
 		r = mix(0.3, 0.6, r) + (1.0 - grime) * 0.18;
 	}
-	ALBEDO = c * tint * tint_gain;
+	ALBEDO = c * tint * tint_gain * mix(vec3(1.0), sqrt(COLOR.rgb), vcol);
 	ROUGHNESS = r;
 	METALLIC = paint > 0.5 ? 0.3 : metal * mt;
 	// Whiteout-blended triplanar normals, world space, then to view.

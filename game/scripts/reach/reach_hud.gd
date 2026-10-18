@@ -25,15 +25,16 @@ var _plaque_title: Label
 var _plaque_text: Label
 var _plaque_at := Vector3.ZERO
 var _plaque_t := 0.0
-var _goal: HBoxContainer
+var _goal: PanelContainer
 var _goal_text: Label
+var _goal_kind: Label
 var _caption: Label
 var _caption_t := 0.0
 var _fade: ColorRect
 var _photo: TextureRect
 var _photo_note: Label
 var _flash: ColorRect
-var _hint: Label
+var _hint: VBoxContainer
 var _hint_t := 0.0
 ## The overlay's canvas is rebuilt this often, not every frame.
 var _paint_t := 0.0
@@ -75,7 +76,7 @@ func _ready() -> void:
 	_key.add_theme_font_override("font", Style.mono_bold)
 	_key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.add_child(_key)
-	_act = ReachStyle.label("", 19, ReachStyle.BONE)
+	_act = ReachStyle.label("", 22, ReachStyle.BONE)
 	_shadow(_act)
 	_prompt_box.add_child(_act)
 	_prompt_box.visible = false
@@ -120,18 +121,32 @@ func _ready() -> void:
 	_plaque_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_plaque_text.custom_minimum_size = Vector2(576, 0)
 	pv.add_child(_plaque_text)
-	# What to do next, quietly, top left.
-	_goal = HBoxContainer.new()
-	_goal.position = Vector2(34, 30)
-	_goal.add_theme_constant_override("separation", 10)
+	# What to do next (or, once flying, the lead the log points at): a
+	# small card top left, its kind in ember capitals over the words.
+	_goal = PanelContainer.new()
+	var gs := ReachStyle.panel(10)
+	gs.bg_color = Color(0.08, 0.07, 0.06, 0.55)
+	gs.border_width_top = 0
+	gs.border_width_left = 3
+	gs.border_color = ReachStyle.EMBER
+	gs.content_margin_left = 14
+	gs.content_margin_right = 16
+	gs.content_margin_top = 8
+	gs.content_margin_bottom = 9
+	_goal.add_theme_stylebox_override("panel", gs)
+	_goal.position = Vector2(26, 24)
 	_goal.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_goal)
-	var gm := ReachStyle.label("◆", 13, ReachStyle.EMBER)
-	_goal.add_child(gm)
-	_goal_text = ReachStyle.label("", 17, ReachStyle.BONE)
-	_goal_text.add_theme_font_override("font", ReachStyle.serif)
+	var gv := VBoxContainer.new()
+	gv.add_theme_constant_override("separation", 1)
+	_goal.add_child(gv)
+	_goal_kind = ReachStyle.label("NEXT", 14, ReachStyle.EMBER)
+	_goal_kind.add_theme_font_override("font", ReachStyle.round_bold)
+	gv.add_child(_goal_kind)
+	_goal_text = ReachStyle.label("", 24, ReachStyle.BONE)
+	_goal_text.add_theme_font_override("font", ReachStyle.round_bold)
 	_shadow(_goal_text)
-	_goal.add_child(_goal_text)
+	gv.add_child(_goal_text)
 	_goal.modulate.a = 0.0
 	# Arriving somewhere: its name, large, at the top.
 	_place = VBoxContainer.new()
@@ -149,7 +164,7 @@ func _ready() -> void:
 	_place_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shadow(_place_title)
 	_place.add_child(_place_title)
-	_caption = ReachStyle.label("", 22, ReachStyle.BONE)
+	_caption = ReachStyle.label("", 26, ReachStyle.BONE)
 	_caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -176,13 +191,15 @@ func _ready() -> void:
 	v.add_child(_photo)
 	_photo_note = ReachStyle.label("", 11, ReachStyle.MUTE, true)
 	v.add_child(_photo_note)
-	_hint = ReachStyle.label("", 13, ReachStyle.BONE, true)
+	# Keys worth knowing, low on the left: keycaps and words, in rows.
+	_hint = VBoxContainer.new()
 	_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_hint.offset_left = 156
-	_hint.offset_bottom = -52
+	_hint.offset_left = 120
+	_hint.offset_bottom = -34
+	_hint.add_theme_constant_override("separation", 6)
+	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint.modulate.a = 0.0
-	_shadow(_hint)
 	root.add_child(_hint)
 	_flash = ColorRect.new()
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -214,9 +231,21 @@ func plaque(title: String, text: String, at: Vector3) -> void:
 
 ## What to do next ("" for nothing).
 func goal(text: String) -> void:
+	# "Lead: ..." is the log's; anything else is the next thing to do.
+	var kind := "NEXT"
+	if text.begins_with("Lead: "):
+		kind = "LEAD  ·  SHIP LOG (L)"
+		text = text.trim_prefix("Lead: ")
 	if text == _goal_text.text:
 		return
 	_goal_text.text = text
+	_goal_kind.text = kind
+	# One line when it fits; wrapped at 440 px when it does not.
+	var wide := ReachStyle.round_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x > 560.0
+	_goal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wide else TextServer.AUTOWRAP_OFF
+	_goal_text.custom_minimum_size = Vector2(560.0 if wide else 0.0, 0.0)
+	_goal.size = Vector2.ZERO
+	_goal.reset_size()
 	if text != "":
 		_goal.modulate.a = 0.0
 
@@ -232,8 +261,30 @@ func caption(text: String, seconds := 4.0) -> void:
 	_caption_t = seconds
 
 ## Keys worth knowing, low on the left for a while (the first mornings).
+## The text is rows (lines) of "KEY  words" pairs, two or more spaces apart.
 func hint(text: String, seconds := 16.0) -> void:
-	_hint.text = text
+	for c in _hint.get_children():
+		c.queue_free()
+	for line in text.split("\n"):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 7)
+		_hint.add_child(row)
+		var parts := Array(line.split("  ", false)).map(func(x: String) -> String: return x.strip_edges()).filter(func(x: String) -> bool: return x != "")
+		var i := 0
+		while i + 1 < parts.size():
+			var cap := PanelContainer.new()
+			cap.add_theme_stylebox_override("panel", ReachStyle.keycap())
+			var k := ReachStyle.label(parts[i], 15, ReachStyle.CHARCOAL, true)
+			k.add_theme_font_override("font", Style.mono_bold)
+			cap.add_child(k)
+			row.add_child(cap)
+			var w := ReachStyle.label(parts[i + 1], 19, ReachStyle.BONE)
+			_shadow(w)
+			row.add_child(w)
+			var gap := Control.new()
+			gap.custom_minimum_size = Vector2(14, 0)
+			row.add_child(gap)
+			i += 2
 	_hint_t = seconds
 
 ## The last photograph (null to clear it). `holds` notes the Phantom in it.
@@ -258,6 +309,21 @@ func fade_to(c: Color, seconds: float) -> void:
 	var t := create_tween()
 	t.tween_property(_fade, "color", c, seconds)
 	await t.finished
+
+## Under water: the view tinted and wavering, light rippling over it.
+var _under: ColorRect
+func underwater(on: bool) -> void:
+	if on and _under == null:
+		_under = ColorRect.new()
+		_under.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/reach/underwater.gdshader")
+		_under.material = m
+		get_child(0).add_child(_under)
+		get_child(0).move_child(_under, 0)
+	if _under:
+		_under.visible = on
 
 func _process(dt: float) -> void:
 	_card_t -= dt
@@ -388,13 +454,15 @@ func _ship(vp: Vector2, c: Vector2, s: ReachShip) -> void:
 			_draw.draw_line(m + Vector2(-11, 0), m + Vector2(-6, 0), ReachStyle.PINE, 2.0)
 			_draw.draw_line(m + Vector2(6, 0), m + Vector2(11, 0), ReachStyle.PINE, 2.0)
 			_draw.draw_line(m + Vector2(0, -11), m + Vector2(0, -6), ReachStyle.PINE, 2.0)
-	# Speed and height, low in the middle.
+	# Speed and height, low in the middle: from outside only (inside, the
+	# cockpit's own screens say it).
+	var inside := s.cockpit != null and s.cockpit.visible
 	var b := sys.ruling()
-	var lines := ["%d m/s" % int(v.length())]
-	if b.key != "lantern":
+	var lines: Array = [] if inside else ["%d m/s" % int(v.length())]
+	if b.key != "lantern" and not inside:
 		var alt := s.global_position.length() - b.radius
 		lines.append("%d m  %s" % [int(alt), b.title.to_upper()])
-	if s.integrity < 99.0:
+	if s.integrity < 99.0 and not inside:
 		lines.append("HULL %d%%" % int(s.integrity))
 	for i in lines.size():
 		_draw.draw_string(Style.mono_bold if i == 0 else Style.mono, Vector2(c.x - 150, vp.y - 92 + i * 20), lines[i], HORIZONTAL_ALIGNMENT_CENTER, 300, 18 if i == 0 else 12, ReachStyle.BONE if i == 0 else ReachStyle.MUTE)

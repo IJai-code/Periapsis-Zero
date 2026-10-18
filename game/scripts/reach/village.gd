@@ -33,8 +33,8 @@ func _ready() -> void:
 	# Round the fire: benches, Mara's rocking chair, her woodpile.
 	for k in 3:
 		var a := TAU * k / 3.0 + 0.9
-		put("village-bench", Vector2(cos(a), sin(a)) * 3.2, Vector2.ZERO, false)
-	put("valley-chair", Vector2(-3.1, -1.5), Vector2.ZERO, false)
+		put("valley-logbench", Vector2(cos(a), sin(a)) * 3.3, Vector2.ZERO, true, 1.0, 0.04)
+	put("valley-chair", Vector2(-3.1, -1.5), Vector2.ZERO, true)
 	# The houses, their porches toward the fire; Mara's beside it.
 	put("valley-house_b", Vector2(-15.0, 3.0))
 	put("valley-house_a", Vector2(4.0, 18.0))
@@ -45,6 +45,14 @@ func _ready() -> void:
 	for spec in [["crate", Vector2(10.0, -8.0)], ["crate", Vector2(10.8, -8.6)], ["barrel", Vector2(-5.5, -13.0)],
 			["barrel", Vector2(13.0, 12.0)], ["table", Vector2(-6.0, 9.0)], ["mast", Vector2(-24.0, -26.0)]]:
 		put("village-" + spec[0], spec[1])
+	# The well on the square; Mara's garden behind her house, fenced; an ore
+	# cart on its rails on the way to the mine.
+	put("valley-well", Vector2(9.5, 5.5), Vector2.ZERO)
+	put("valley-garden", Vector2(-22.0, -4.0), Vector2(-15.0, 3.0))
+	for spec in [[Vector2(-22.0, -8.6), Vector2(-22.0, -20.0)], [Vector2(-22.0, 0.6), Vector2(-22.0, 20.0)],
+			[Vector2(-26.6, -2.0), Vector2(-40.0, -2.0)], [Vector2(-26.6, -6.0), Vector2(-40.0, -6.0)]]:
+		put("valley-fence", spec[0], spec[1], true, 1.0, 0.1)
+	put("valley-orecart", cave * 0.62 + cave.orthogonal().normalized() * 3.2, cave * 0.9, true, 1.0, 0.04)
 	# Paths from the fire, lanterns along them, a signpost where they part.
 	_find_pier()
 	var routes := {"tower": pad * 0.86, "observatory": obs * 0.88, "pond": pier_shore_flat, "mine": cave * 0.9}
@@ -79,6 +87,8 @@ func _ready() -> void:
 	person("miner", "crowd3", cave * 0.55 + Vector2(2.0, 1.0), Vector2.ZERO)
 	person("hauler", "crowd1", pad * 0.8 + pad.orthogonal().normalized() * 3.0, pad)
 
+	# Strings of little lanterns across the square, porch to porch.
+	_strings([Vector2(-15.0, 3.0), Vector2(4.0, 18.0), Vector2(19.0, 6.0), Vector2(14.0, -14.0), Vector2(-9.0, -18.5)])
 	# Smoke from the chimneys.
 	for n in get_children():
 		if n is Node3D and String(n.scene_file_path).contains("valley-house"):
@@ -94,6 +104,64 @@ func _ready() -> void:
 	var saved := 0 if "--nomerge" in OS.get_cmdline_user_args() else merge_pieces()
 	if "--count" in OS.get_cmdline_user_args():
 		print("MERGE village saved %d draws" % saved)
+
+## Strings of bulbs hung between the houses' porches, sagging, warm: one
+## drawing for every bulb (a multimesh) and one for the wire.
+func _strings(houses: Array) -> void:
+	var bulbs: Array[Transform3D] = []
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in houses.size():
+		var a: Vector2 = houses[i]
+		var b: Vector2 = houses[(i + 1) % houses.size()]
+		# From a little in front of each porch, toward the fire.
+		var pa: Vector2 = a - a.normalized() * 5.0
+		var pb: Vector2 = b - b.normalized() * 5.0
+		var ga := ground(pa)
+		var gb := ground(pb)
+		var h0 := ga.origin + ga.basis.y * 4.6
+		var h1 := gb.origin + gb.basis.y * 4.6
+		var n := int(h0.distance_to(h1) / 0.4)
+		var prev := h0
+		for k in range(1, n + 1):
+			var t := float(k) / n
+			var up := (h0.lerp(h1, t)).normalized()
+			var p := h0.lerp(h1, t) - up * (sin(PI * t) * 1.6)
+			# The wire: a thin ribbon facing up.
+			var side := (p - prev).cross(up).normalized() * 0.015
+			for v in [prev - side, prev + side, p + side, prev - side, p + side, p - side]:
+				st.set_normal(up)
+				st.add_vertex(v)
+			if k % 3 == 0 and k < n:
+				bulbs.append(Transform3D(Basis(), p - up * 0.12))
+			prev = p
+	var wire := MeshInstance3D.new()
+	wire.mesh = st.commit()
+	var wm := StandardMaterial3D.new()
+	wm.albedo_color = Color(0.08, 0.07, 0.06)
+	wm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	wire.material_override = wm
+	wire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(wire)
+	var bm := SphereMesh.new()
+	bm.radius = 0.09
+	bm.height = 0.2
+	bm.radial_segments = 8
+	bm.rings = 4
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = Color(1.0, 0.72, 0.36)
+	bm.material = glow
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = bm
+	mm.instance_count = bulbs.size()
+	for i in bulbs.size():
+		mm.set_instance_transform(i, bulbs[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
 
 var pier_xf: Transform3D
 var pier_shore_flat := Vector2.ZERO
@@ -151,11 +219,17 @@ func _signpost(at: Vector2, places: Dictionary) -> void:
 		label.modulate = Color(0.95, 0.9, 0.78)
 		label.outline_size = 10
 		label.outline_modulate = Color(0.2, 0.13, 0.08)
-		label.double_sided = true
+		label.double_sided = false
 		add_child(label)
 		var up := g.basis.y
-		var side := up.cross(world_dir).normalized()
-		label.global_transform = Transform3D(Basis(world_dir, up, world_dir.cross(up).normalized()), g.origin + up * (2.55 - k * 0.42) + world_dir * 0.75)
+		var b := Basis(world_dir, up, world_dir.cross(up).normalized())
+		var on := g.origin + up * (2.55 - k * 0.42) + world_dir * 0.75
+		label.global_transform = Transform3D(b, on + b.z * 0.03)
+		# The board's other face reads the right way round too.
+		var back := label.duplicate() as Label3D
+		back.text = "‹  " + title
+		add_child(back)
+		back.global_transform = Transform3D(Basis(-world_dir, up, -b.z), on - b.z * 0.03)
 		k += 1
 
 ## The launch tower over the pad, its lift, and the Kestrel's rest on top.
@@ -194,8 +268,9 @@ func _chimney(cabin: Node3D) -> void:
 	((p.mesh as QuadMesh).material as StandardMaterial3D).albedo_color = Color(0.7, 0.7, 0.72, 0.2)
 	cabin.add_child(p)
 
-## The crater's walls: segments of stratified cliff all round, but for the
-## mine's notch and the waterfall; the falls themselves, their pool's mist.
+## The crater's walls: carved cliff all round (art/godot/hearth_valley.py),
+## but for the mine's notch; at the falls, the gorge piece, the water
+## coming down it (Falls) into the pool, its mist and its roar.
 func _crater() -> void:
 	var k := 0
 	var az := 8.0
@@ -207,30 +282,37 @@ func _crater() -> void:
 			cliff.rotate_object_local(Vector3.UP, (k % 3 - 1) * 0.03)
 		k += 1
 		az += 25.0
-	# The falls: over the crest and down the wall into the pool.
-	var top_d := Worlds.crater_dir(40.0, 126.0)
-	var foot_d := Worlds.crater_dir(40.0, 106.0)
-	var top := top_d * (body.radius + Worlds.height(body.key, top_d, body.radius) + 1.0)
-	var foot := foot_d * (body.radius + Worlds.height(body.key, foot_d, body.radius) - 2.0)
-	var along := top - foot
-	var up := along.normalized()
-	var face := (center.origin - foot)
-	face = (face - up * face.dot(up)).normalized()
-	var sheet := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(8.0, along.length())
-	sheet.mesh = q
-	var wm := ShaderMaterial.new()
-	wm.shader = load("res://shaders/reach/waterfall.gdshader")
-	sheet.material_override = wm
-	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(sheet)
-	sheet.global_transform = Transform3D(Basis(up.cross(face).normalized(), up, face), foot + along * 0.5)
+	# The gap the falls used to stand in: one more stretch of wall beside
+	# them, and the gorge piece itself.
+	put_dir("valley-cliff_b", Worlds.crater_dir(19.0, 112.5), center.origin, true, 1.0, 0.6)
+	var gorge := put_dir("valley-cliff_falls", Worlds.crater_dir(40.0, 112.5), center.origin, true, 1.0, 0.6)
+	# Where the gorge's lip and foot are, read off the rock itself.
+	var lip := Vector3(0.0, 39.0, 0.0)
+	var foot_z := 0.0
+	for mi: MeshInstance3D in gorge.find_children("*", "MeshInstance3D", true, false):
+		if not String(mi.name).contains("face"):
+			continue
+		var vs: PackedVector3Array = mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+		var best := -INF
+		for v in vs:
+			var lv := mi.transform * v
+			if absf(lv.x) < 0.9 and lv.y > 38.2 and lv.y < 39.6 and lv.z > best:
+				best = lv.z
+				lip = lv
+			if absf(lv.x) < 1.5 and lv.y > -0.5 and lv.y < 1.0:
+				foot_z = maxf(foot_z, lv.z)
+	var up := gorge.global_basis.y.normalized()
+	var out := gorge.global_basis.z.normalized()
+	var lip_w := gorge.global_transform * (lip + Vector3(0.0, 0.15, 0.3))
+	var water := body.radius + body.sea
+	var drop := lip_w.length() - water
+	falls = Falls.make(self, lip_w, drop, up, out, 4.6, body.surface_gravity())
+	var foot := lip_w - up * drop + out * 8.0
 	var mist := VerdanceSite._mist(Vector3.ZERO)
 	mist.amount = 40
 	mist.emission_box_extents = Vector3(4.0, 0.3, 2.0)
 	add_child(mist)
-	mist.transform = Transform3D(Site.upright(foot_d, face), foot + foot_d * 0.6)
+	mist.global_transform = Transform3D(Site.upright(up, out), foot + up * 0.6)
 	var roar := AudioStreamPlayer3D.new()
 	roar.stream = ReachSounds.falls()
 	roar.unit_size = 10.0
@@ -238,7 +320,9 @@ func _crater() -> void:
 	roar.volume_db = -4.0
 	roar.autoplay = true
 	add_child(roar)
-	roar.position = foot + foot_d * 3.0
+	roar.global_position = foot + up * 3.0
+
+var falls: Falls
 
 ## The old mine past the lake: its mouth toward the village, the tunnel
 ## running back under its mound, a songline at the far end.

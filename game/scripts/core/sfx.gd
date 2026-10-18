@@ -33,6 +33,10 @@ func _ready() -> void:
 	_streams.ping = _make(0.7, func(t, n): return sin(TAU * 1480.0 * t) * exp(-t * 7.0) * 0.3 + sin(TAU * 2960.0 * t) * exp(-t * 12.0) * 0.08)
 	_streams.shutter = _make(0.22, func(t, n): return n * (exp(-t * 90.0) + exp(-maxf(t - 0.09, 0.0) * 70.0) * (1.0 if t > 0.09 else 0.0)) * 0.45 + sin(TAU * 3200.0 * t) * exp(-t * 120.0) * 0.2)
 	_streams.roll = _make(0.6, func(t, n): return _lp(n, 0.2) * sin(PI * t / 0.6) * 0.5)
+	# Water: a body going in, a stroke through it, a bubble rising.
+	_streams.splash = _make(1.1, func(t, n): return _lp(n, 0.35) * exp(-t * 4.2) * 1.1 + _lp(n, 0.06) * exp(-t * 2.0) * 0.5 + sin(TAU * (260.0 + sin(t * 70.0) * 90.0) * t) * exp(-t * 8.0) * 0.12)
+	_streams.swim = _make(0.6, func(t, n): return _lp(n, 0.07) * sin(PI * t / 0.6) * 0.55 + _lp(n, 0.4) * sin(PI * t / 0.6) * 0.08)
+	_streams.bubble = _make(0.16, func(t, n): return sin(TAU * (420.0 + t * 2600.0) * t) * exp(-t * 26.0) * 0.28)
 
 var _lp_state := 0.0
 func _lp(x: float, k: float) -> float:

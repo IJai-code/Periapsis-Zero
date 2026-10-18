@@ -164,6 +164,37 @@ static func land(world: Node3D, at: Vector3, up: Vector3, strength := 1.0) -> vo
 		Color(0.5, 0.45, 0.38, 0.22), Color(0.45, 0.41, 0.36, 0.0)])
 	f.get_tree().create_timer(2.4).timeout.connect(f.queue_free)
 
+## A body going into water: a crown of white thrown up and falling back,
+## and a low burst of spray along the surface.
+static func splash(world: Node3D, at: Vector3, up: Vector3, strength := 1.0) -> void:
+	var f := LaunchFx.new()
+	world.add_child(f)
+	var y := up.normalized()
+	var x := y.cross(Vector3.RIGHT if absf(y.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD).normalized()
+	f.global_transform = Transform3D(Basis(x, y, x.cross(y).normalized()), at)
+	var k := clampf(strength, 0.3, 2.0)
+	var m := dust_material().duplicate() as StandardMaterial3D
+	var crown := f._emitter(f, m, int(26 * k), 1.1, Vector3(0, -9.0, 0), 4.5 * k, 0.28, k)
+	crown.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	crown.emission_ring_axis = Vector3.UP
+	crown.emission_ring_radius = 0.45
+	crown.emission_ring_inner_radius = 0.25
+	crown.emission_ring_height = 0.05
+	crown.direction = Vector3.UP
+	crown.spread = 22.0
+	crown.initial_velocity_min = 2.5 * k
+	crown.initial_velocity_max = 5.0 * k
+	crown.damping_min = 0.2
+	crown.damping_max = 0.6
+	crown.gravity = -y * 9.0
+	crown.color_ramp = _ramp([Color(0.95, 0.98, 1.0, 0.0), Color(0.95, 0.98, 1.0, 0.85), Color(0.9, 0.95, 1.0, 0.5), Color(0.9, 0.95, 1.0, 0.0)])
+	var mist := f._emitter(f, m, int(14 * k), 1.6, Vector3(0, -0.4, 0), 1.6 * k, 0.6, k)
+	mist.direction = Vector3.UP
+	mist.spread = 80.0
+	mist.gravity = -y * 0.4
+	mist.color_ramp = _ramp([Color(0.9, 0.95, 1.0, 0.0), Color(0.9, 0.95, 1.0, 0.35), Color(0.9, 0.95, 1.0, 0.15), Color(0.9, 0.95, 1.0, 0.0)])
+	f.get_tree().create_timer(2.0).timeout.connect(f.queue_free)
+
 ## A one-shot burst: the shared shape of every puff here.
 func _emitter(parent: Node3D, mat: Material, amount: int, life: float, gravity: Vector3, speed: float, size: float, k: float) -> CPUParticles3D:
 	var p := CPUParticles3D.new()

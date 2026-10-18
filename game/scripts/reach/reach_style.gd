@@ -76,7 +76,7 @@ static func choice(b: Button, size := 19) -> void:
 	none.content_margin_bottom = 3
 	for st in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(st, none)
-	b.add_theme_font_override("font", Style.sans)
+	b.add_theme_font_override("font", round)
 	b.add_theme_font_size_override("font_size", size)
 	b.add_theme_color_override("font_color", Color(BONE, 0.82))
 	for st in ["font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
@@ -107,7 +107,9 @@ static func label(text: String, size: int, color := BONE, mono := false) -> Labe
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_font_override("font", Style.mono if mono else Style.sans)
+	# The rounded face of the title's menu (Fredoka) for words; mono for
+	# keys and readouts.
+	l.add_theme_font_override("font", Style.mono if mono else round)
 	return l
 
 static func theme() -> Theme:

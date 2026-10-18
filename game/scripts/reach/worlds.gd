@@ -123,6 +123,12 @@ static func raw_height(key: String, d: Vector3, radius: float) -> float:
 			var off := (at - (falls + seg * u)).length()
 			h = lerpf(h, -4.6, smoothstep(4.2, 1.4, off) * (1.0 - smoothstep(110.0, 118.0, dist)))
 			h = lerpf(h, -5.5, smoothstep(10.0, 4.0, at.distance_to(falls)))
+			# Behind the pool, the gorge the falls come down (its rock is the
+			# cliff piece, art/godot/hearth_valley.py's cliff_falls): the wall
+			# kept low in a channel there, so the rock shows and not the hill.
+			var across := absf(d.dot(v.cross(falls.normalized()).normalized())) * radius
+			var gorge := smoothstep(9.0, 5.0, across) * smoothstep(100.0, 106.0, dist) * (1.0 - smoothstep(126.0, 134.0, dist))
+			h = lerpf(h, minf(h, -4.0), gorge)
 			# The lake: 37 m across, its shores sloping gently in.
 			h = lerpf(h, -5.0, smoothstep(30.0, 12.0, at.distance_to(pond)))
 			return h

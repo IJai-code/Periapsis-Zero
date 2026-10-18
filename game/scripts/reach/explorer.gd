@@ -10,6 +10,11 @@ extends CharacterBody3D
 ## fuel (refills in the ship and slowly on the ground), health (a hard
 ## landing hurts). Running out of oxygen, or a landing too hard, kills.
 ## F: the flashlight. E: use what you look at (Usable, collision layer 4).
+##
+## Water: wading slows you; deeper, you swim (the suit floats you with your
+## head just out; W/A/S/D swim, Space up, Shift dives), with a splash going
+## in and rings spreading where you move. Under it, the world goes green-blue
+## and muffled (Reach._air, ReachHud.underwater) and bubbles go up.
 
 signal died(cause: String)
 signal used_thing(what: Usable)
@@ -65,6 +70,14 @@ var _q: PhysicsRayQueryParameters3D
 ## Grit at the boots, a ring of puffs on a landing or the first burn.
 var _dust: CPUParticles3D
 var _jet_was := false
+## How deep the water is at the feet (negative: dry), and whether the eyes
+## are under it.
+var wet := -1.0
+var underwater := false
+var _was_wet := -1.0
+var _ripple_t := 0.0
+var _stroke_t := 0.0
+var _bubble_t := 0.0
 
 func wants_mouse() -> bool:
 	return enabled and not _dead
@@ -157,6 +170,8 @@ func _physics_process(dt: float) -> void:
 		if space:
 			velocity += up * 3.0 - fwd * 2.0
 			_ladder = null
+	elif _water(g, gl, mv, space, shift, dt):
+		pass
 	elif free_fall:
 		var t := right * mv.x + fwd * (-mv.y) + up * (float(space) - float(shift))
 		if t.length() > 0.01 and fuel > 0.0:
@@ -175,6 +190,9 @@ func _physics_process(dt: float) -> void:
 			wish = wish.normalized()
 		if is_on_floor():
 			var target := wish * (RUN if shift and _charge < 0.0 else WALK)
+			# Wading: the water drags at the legs.
+			if wet > 0.0:
+				target *= lerpf(1.0, 0.5, clampf(wet / 0.9, 0.0, 1.0))
 			if _charge >= 0.0:
 				target *= 0.45
 			horiz = horiz.move_toward(target, (30.0 if wish.length() > 0.1 else 24.0) * dt)
@@ -221,6 +239,115 @@ func _physics_process(dt: float) -> void:
 	if _look_t <= 0.0:
 		_look_t = 0.083
 		_look()
+
+## How deep the water is here, and swimming when it is deep enough: true if
+## this tick was spent swimming.
+func _water(g: Vector3, gl: float, mv: Vector2, space: bool, shift: bool, dt: float) -> bool:
+	var b := system.ruling()
+	wet = -1.0
+	underwater = false
+	if b.sea == 0.0 or b.key == "lantern" or gl < 0.35:
+		_splash_check()
+		return false
+	var c := b.node.global_position
+	var up := global_basis.y
+	var level := b.radius + b.sea
+	wet = level - (global_position - c).length()
+	underwater = (camera.global_position - c).length() < level - 0.05
+	_splash_check()
+	# Deep enough to float: chest under.
+	var depth := level - (global_position + up * 1.2 - c).length()
+	if depth < -0.1 and is_on_floor():
+		return false
+	if wet < 1.0:
+		return false
+	var right := global_basis.x
+	var fwd := -global_basis.z
+	# The suit floats: pushed up toward chest-deep, slowed by the water.
+	# (Diving, the suit's float is let out.)
+	var buoy := clampf(depth * 7.0, -3.0, 9.0) * (0.15 if shift else 1.0)
+	velocity -= g * dt
+	velocity += up * (buoy - gl * 0.35) * dt
+	var look := -camera.global_basis.z
+	var wish := right * mv.x + (look if underwater else fwd) * (-mv.y)
+	if wish.length() > 1.0:
+		wish = wish.normalized()
+	wish += up * ((1.0 if space else 0.0) - (1.0 if shift else 0.0)) * 0.9
+	velocity += wish * 9.0 * dt
+	velocity *= exp(-2.6 * dt)
+	velocity = velocity.limit_length(4.2)
+	_charge = -1.0
+	_jet_t = 0.0
+	# A stroke's sound now and then, rings where you move on the surface,
+	# bubbles under it.
+	var moving := mv.length() > 0.1 or space or shift
+	_stroke_t -= dt
+	if moving and _stroke_t <= 0.0:
+		_stroke_t = 0.75
+		Sfx.play("swim", -12.0 if not underwater else -18.0, randf_range(0.85, 1.1))
+	_ripple_t -= dt
+	if not underwater and _ripple_t <= 0.0:
+		_ripple_t = 0.55 if moving else 1.6
+		_ripple(c + (global_position + up * 1.2 - c).normalized() * (level + 0.04), 0.7 if moving else 0.4)
+	_bubble_t -= dt
+	if underwater and _bubble_t <= 0.0:
+		_bubble_t = randf_range(0.6, 1.4)
+		Sfx.play("bubble", -16.0, randf_range(0.8, 1.3))
+	return true
+
+## Going in fast enough: a splash where the water was broken.
+func _splash_check() -> void:
+	if wet > 0.05 and _was_wet <= 0.05:
+		var into := -_last_vel.dot(global_basis.y)
+		if into > 1.5:
+			Sfx.play("splash", clampf(-14.0 + into * 1.2, -14.0, -2.0), randf_range(0.9, 1.1))
+			var b := system.ruling()
+			var c := b.node.global_position
+			var surf := c + (global_position - c).normalized() * (b.radius + b.sea + 0.05)
+			LaunchFx.splash(get_parent(), surf, (surf - c).normalized(), clampf(into / 6.0, 0.4, 1.5))
+			_ripple(surf, 1.3)
+	_was_wet = wet
+
+## A ring spreading on the water's surface and fading.
+func _ripple(at: Vector3, size: float) -> void:
+	var mi := MeshInstance3D.new()
+	var q := PlaneMesh.new()
+	q.size = Vector2(1.0, 1.0)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_texture = _ring()
+	m.albedo_color = Color(0.86, 0.93, 1.0, 0.6)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_parent().add_child(mi)
+	var up := (at - system.ruling().node.global_position).normalized()
+	mi.global_transform = Transform3D(Site.upright(up, global_basis.x), at)
+	mi.scale = Vector3.ONE * size
+	var t := mi.create_tween()
+	t.set_parallel(true)
+	t.tween_property(mi, "scale", Vector3.ONE * size * 4.5, 1.8).set_ease(Tween.EASE_OUT)
+	t.tween_property(m, "albedo_color:a", 0.0, 1.8)
+	t.chain().tween_callback(mi.queue_free)
+
+static var _ring_tex: Texture2D
+
+## A thin bright ring with a fainter one inside it, made once.
+static func _ring() -> Texture2D:
+	if _ring_tex:
+		return _ring_tex
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var r := Vector2(x - n * 0.5 + 0.5, y - n * 0.5 + 0.5).length() / (n * 0.5)
+			var a := clampf(1.0 - absf(r - 0.85) / 0.07, 0.0, 1.0) + clampf(1.0 - absf(r - 0.62) / 0.05, 0.0, 1.0) * 0.45
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(a, 0.0, 1.0)))
+	img.generate_mipmaps()
+	_ring_tex = ImageTexture.create_from_image(img)
+	return _ring_tex
 
 ## Turn so that up is `want`, smoothly (fast enough for a walk round a moon).
 func _align(want: Vector3, dt: float) -> void:

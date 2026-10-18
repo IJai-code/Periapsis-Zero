@@ -187,13 +187,40 @@ started, how long the ride took, its worst frame and where in the ride).
 
 ## Controls
 
-On foot: WASD, mouse, Space jump and jetpack, Shift sprint (jetpack down in
-free fall), E interact, F flashlight, X signalscope (wheel or Z/C to change
-frequency), M map, L ship log, P photograph, Esc pause (every key).
+On foot: WASD, mouse, Space jump (hold to charge) and jetpack, Shift sprint
+(jetpack down in the air), E interact, F flashlight, X signalscope (wheel or
+Z/C to change frequency), M map, L ship log, P photograph, Esc pause (every
+key, in the title's style: ReachPause).
 
-In the ship: WASD and Space/Shift thrust, mouse to turn, Q/E roll, T lock a
-target, hold F to match its velocity, M map, L log, X signalscope, E leave
-the seat. No Ctrl keys (browsers close tabs on Ctrl+W).
+In water (Hearth's pond, Verdance's seas): WASD swim, Space up, Shift dive.
+The suit floats you with your head out; under it the view goes green-blue
+and sound is muffled (a low-pass on the master bus), and there is a splash
+going in and rings where you move.
+
+In the ship: W/S forward and back, A/D sideways, Space/Shift up and down,
+mouse to turn, Q/E roll, T lock the world in the middle of the view, G the
+autopilot to it, hold F to match its velocity, R flight assist, V the
+outside view, right mouse to look about the cockpit, E leave the seat
+(landed). No Ctrl keys (browsers close tabs on Ctrl+W).
+
+Flight assist (on by default) works against the world ahead of her (the
+locked one, the one she is low over, or the one her nose points at): drift
+across her heading is taken out, so pointing at Verdance goes to Verdance;
+a fall at a world is held to what she can stop from in the height left; and
+under 320 m with nothing pressed she hovers, levels her wings and holds
+still, Shift sinking her at a pace that slows to 1.6 m/s at the ground. The
+autopilot flies to a point over the locked world at the speed she can still
+stop from, round the Lantern or any world in the way, and holds her there.
+`--landtest` and `--aptest <world>` check both.
+
+She boards through a hatch in her belly, behind the seat, from either side:
+it swings down into a ramp, you climb the ladder in its well past the ship
+log's terminal and sit. Parked and empty she is frozen in place, so nothing
+walking into her (or onto her wing) moves her. The cockpit's two screens
+are drawn live (KestrelScreens): a horizon against the world below, speed,
+height and sink, the lock and closing speed, what the assist is doing, and
+a landing screen low down; the status screen lists hull, gear, assist and
+the keys.
 
 ## Look and feel
 

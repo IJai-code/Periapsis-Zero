@@ -5,35 +5,37 @@ extends Node3D
 ## the body's up.
 
 var _light: OmniLight3D
+var _solid: CollisionShape3D
+
+## Solid only while its world is the frame's (it moves with the world when
+## not, and nothing could walk into it then).
+func solid(on: bool) -> void:
+	if _solid:
+		_solid.set_deferred("disabled", not on)
 var _t := 0.0
 
 func _ready() -> void:
-	var stone := Props.mesh("rock")
-	for i in 9:
-		var a := TAU * i / 9.0
-		var mi := MeshInstance3D.new()
-		mi.mesh = stone
-		mi.material_override = Props.material()
-		mi.position = Vector3(cos(a) * 0.75, 0.05, sin(a) * 0.75)
-		mi.scale = Vector3(0.24, 0.2, 0.22)
-		mi.rotation.y = a * 1.7
-		add_child(mi)
-	var bark := StandardMaterial3D.new()
-	bark.albedo_color = Color(0.28, 0.18, 0.12)
-	bark.roughness = 0.95
-	for k in 4:
-		var log := MeshInstance3D.new()
-		var c := CylinderMesh.new()
-		c.top_radius = 0.08
-		c.bottom_radius = 0.1
-		c.height = 1.0
-		c.radial_segments = 7
-		c.material = bark
-		log.mesh = c
-		var a := TAU * k / 4.0 + 0.4
-		log.position = Vector3(cos(a) * 0.18, 0.28, sin(a) * 0.18)
-		log.basis = Basis(Vector3(sin(a), 0, -cos(a)), 1.05) * Basis(Vector3.UP, a)
-		add_child(log)
+	# Stones blackened inside, a bed of ash and char, split logs leaned into
+	# a cone and burnt toward their tops (art/godot/hearth_valley.py).
+	var model: Node3D = load("res://art/valley-campfire.glb").instantiate()
+	Surfaces.apply(model)
+	add_child(model)
+	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Solid: a low drum the size of the ring, so the fire is walked round,
+	# not through.
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var cs := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 0.98
+	cyl.height = 0.9
+	cs.shape = cyl
+	cs.position = Vector3(0, 0.3, 0)
+	body.add_child(cs)
+	add_child(body)
+	_solid = cs
 	var embers := StandardMaterial3D.new()
 	embers.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	embers.albedo_color = Color(3.0, 0.9, 0.25)

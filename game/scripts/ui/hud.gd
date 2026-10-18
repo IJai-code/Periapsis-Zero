@@ -687,12 +687,29 @@ var _pause: PanelContainer
 var _pause_keys: Label
 var _pause_skip: Button
 var _was_captured := false
+var _reach_pause: ReachPause
 
 ## The pause menu: resume, skip this part, or leave for the title.
 func pause(on: bool) -> void:
 	if on == get_tree().paused:
 		return
 	get_tree().paused = on
+	# The Reach pauses in its own look (ReachPause).
+	if Flow.scene_key() == "reach":
+		if on:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			if not _reach_pause:
+				_reach_pause = ReachPause.new()
+				_reach_pause.resume.connect(func(): pause(false))
+				_reach_pause.leave.connect(func():
+					pause(false)
+					Flow.go("title"))
+				root.add_child(_reach_pause)
+				root.move_child(_reach_pause, root.get_child_count() - 2)
+			_reach_pause.open()
+		elif _reach_pause:
+			_reach_pause.visible = false
+		return
 	if on:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		if not _pause:

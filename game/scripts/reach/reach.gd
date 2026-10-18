@@ -86,6 +86,13 @@ func _ready() -> void:
 		_launch_test()
 	if "--landtest" in args:
 		_land_test()
+	if "--reftest" in args:
+		_ref_test()
+	if "--swimtest" in args:
+		_swim_test()
+	var apt := args.find("--aptest")
+	if apt >= 0 and apt + 1 < args.size():
+		_autopilot_test(args[apt + 1])
 	if "--skytest" in args:
 		_sky_test()
 	if "--reachwalk" in args:
@@ -102,7 +109,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest"]:
 			return true
 	return false
 
@@ -113,8 +120,9 @@ func _next_goal() -> String:
 		return ""
 	if system.ref != "hearthstone" or (ship.piloted and ship.global_position.length() > 420.0):
 		_launched = true
-	if _launched:
-		return ""
+	if _launched or (Lore.known("hearth_loop") and Lore.known("hearth_codes")):
+		# Off the ground, or any morning after the first: the log's lead.
+		return _lead()
 	if not Lore.known("hearth_codes"):
 		if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
 			return "Talk to Mara, by the fire"
@@ -154,9 +162,80 @@ func _prewarm() -> void:
 		cam.global_transform = Transform3D(Basis.looking_at((view[1] as Vector3) - (view[0] as Vector3), view[2] as Vector3), view[0] as Vector3)
 		for i in 2:
 			await get_tree().process_frame
+	await _material_zoo(cam)
+	for key in planets:
+		(planets[key] as Planet).prepare()
 	ship.rehearse(false)
 	fx.queue_free()
 	cam.queue_free()
+
+## Every material on every world, drawn once on a fleck in front of the
+## camera behind the black: a browser compiles a material the first time it
+## draws it, and the first time should not be the moment a world comes into
+## view at two hundred metres a second. Plain meshes and multimeshes draw
+## through different shaders, so each is drawn the way it is used.
+func _material_zoo(cam: Camera3D) -> void:
+	var seen := {}
+	var plain: Array[Material] = []
+	var multi: Array[Material] = []
+	var add := func(m: Material, many: bool) -> void:
+		if m == null:
+			return
+		var k := "%d/%s" % [m.get_instance_id(), many]
+		if seen.has(k):
+			return
+		seen[k] = true
+		(multi if many else plain).append(m)
+	for key in planets:
+		var p: Planet = planets[key]
+		for n in p.find_children("*", "GeometryInstance3D", true, false):
+			var gi := n as GeometryInstance3D
+			var many := gi is MultiMeshInstance3D
+			add.call(gi.material_override, many)
+			var mesh: Mesh = null
+			if gi is MeshInstance3D:
+				mesh = (gi as MeshInstance3D).mesh
+				for i in (gi as MeshInstance3D).get_surface_override_material_count():
+					add.call((gi as MeshInstance3D).get_surface_override_material(i), false)
+			elif many and (gi as MultiMeshInstance3D).multimesh:
+				mesh = (gi as MultiMeshInstance3D).multimesh.mesh
+			elif gi is CPUParticles3D:
+				mesh = (gi as CPUParticles3D).mesh
+			if mesh:
+				for i in mesh.get_surface_count():
+					add.call(mesh.surface_get_material(i), many)
+	var zoo := Node3D.new()
+	add_child(zoo)
+	var fleck := BoxMesh.new()
+	fleck.size = Vector3.ONE * 0.04
+	# (A dictionary: lambdas capture locals by value.)
+	var n := {"i": 0}
+	var place := func() -> Transform3D:
+		var k: int = n.i
+		n.i = k + 1
+		return cam.global_transform * Transform3D(Basis(), Vector3(-0.6 + (k % 24) * 0.05, -0.4 + (k / 24) * 0.05, -2.0))
+	for m in plain:
+		var mi := MeshInstance3D.new()
+		mi.mesh = fleck
+		mi.material_override = m
+		zoo.add_child(mi)
+		mi.global_transform = place.call()
+	for m in multi:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = fleck
+		mm.instance_count = 1
+		mm.set_instance_transform(0, Transform3D())
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = m
+		zoo.add_child(mmi)
+		mmi.global_transform = place.call()
+	for f in 2:
+		await get_tree().process_frame
+	if "--count" in OS.get_cmdline_user_args():
+		print("ZOO %d plain, %d multimesh materials" % [plain.size(), multi.size()])
+	zoo.queue_free()
 
 ## Count once the camera exists and the places near it are awake: two
 ## frames, so the count is what a frame actually draws.
@@ -306,6 +385,8 @@ const PLACE_WORDS := {"verdance": "the jungle world", "ashfall": "where the Aste
 	"wanderer": "the comet", "hearthstone": "home"}
 
 func _on_frame(from: String, to: String) -> void:
+	if campfire:
+		campfire.solid(to == "hearthstone")
 	if planets.has(from):
 		(planets[from] as Planet).set_ref(false)
 	if planets.has(to):
@@ -391,6 +472,21 @@ func _air(cam: Camera3D) -> void:
 				if memories:
 					memories.later(2.0)
 		return
+	# Under the water: green-blue, close, the light from above.
+	var under := player != null and player.underwater and cam == player.camera
+	if hud:
+		hud.underwater(under)
+	_muffle(under)
+	if under:
+		env.fog_enabled = true
+		env.fog_light_color = Color(0.06, 0.22, 0.26)
+		env.fog_light_energy = 1.0
+		env.fog_density = 0.09
+		env.fog_sky_affect = 1.0
+		env.ambient_light_color = Color(0.25, 0.5, 0.55)
+		env.ambient_light_energy = 0.5
+		return
+	env.fog_light_energy = 1.0
 	var up := cam.global_position.normalized()
 	var alt := cam.global_position.length() - b.radius
 	var sun_up := up.dot((system.world("lantern") - cam.global_position).normalized())
@@ -406,6 +502,26 @@ func _air(cam: Camera3D) -> void:
 	env.ambient_light_color = Color(tint.r, tint.g, tint.b).lerp(Color(0.30, 0.36, 0.55), 1.0 - day)
 	env.ambient_light_energy = lerpf(0.17, 0.45, day) * lerpf(0.4, 1.0, thick)
 
+## Sound under water: everything through a low-pass, as through the helmet
+## and the water both.
+var _muffled := false
+func _muffle(on: bool) -> void:
+	if on == _muffled:
+		return
+	_muffled = on
+	var bus := AudioServer.get_bus_index("Master")
+	var at := -1
+	for i in AudioServer.get_bus_effect_count(bus):
+		if AudioServer.get_bus_effect(bus, i) is AudioEffectLowPassFilter:
+			at = i
+	if at < 0:
+		var lp := AudioEffectLowPassFilter.new()
+		lp.cutoff_hz = 650.0
+		lp.resonance = 0.6
+		AudioServer.add_bus_effect(bus, lp)
+		at = AudioServer.get_bus_effect_count(bus) - 1
+	AudioServer.set_bus_effect_enabled(bus, at, on)
+
 func _start_player() -> void:
 	hud = ReachHud.new()
 	hud.reach = self
@@ -420,6 +536,7 @@ func _start_player() -> void:
 	ship = ReachShip.new()
 	ship.system = system
 	ship.explorer = player
+	ship.boarded.connect(_on_boarded)
 	add_child(ship)
 	ship.destroyed.connect(loop.die)
 	system.frame_will_change.connect(func(from, _to): ship.frame_leaving(from))
@@ -483,6 +600,43 @@ func _start_player() -> void:
 			await ship.boarded
 			await get_tree().create_timer(1.2).timeout
 			ship.launch()
+		elif beat.begins_with("cruise:"):
+			# Off the deck and on the autopilot to a world, for looking at
+			# flight (and its frame rate) from a browser.
+			Lore.learn("hearth_codes")
+			ship.board()
+			await ship.boarded
+			ship.launch()
+			while ship.launching:
+				await get_tree().physics_frame
+			ship.target = beat.trim_prefix("cruise:")
+			ship.start_autopilot()
+		elif beat.begins_with("deck"):
+			# On the tower's deck by the Kestrel (deck:<loop s> for the hour),
+			# looking at her from her left side, ahead of the wing.
+			if beat.begins_with("deck:"):
+				system.t = float(beat.trim_prefix("deck:"))
+			var v: Village = (planets["hearthstone"] as Planet).sites[0]
+			var xf := v.ship_rest
+			var up := xf.basis.y.normalized()
+			var at := xf.origin - up * 1.9 - xf.basis.x.normalized() * 8.0 - xf.basis.z.normalized() * 5.5
+			player.place(Transform3D(Site.upright(up, xf.basis.z), at), (xf.origin - at))
+			player.set_pitch(0.12)
+		elif beat == "dive" or beat == "swim":
+			# In the pond beside the pier, floating or a metre and a half under.
+			var home: ReachBody = system.bodies["hearthstone"]
+			var pond := Worlds.place(home, "pond")
+			var v: Village = (planets["hearthstone"] as Planet).sites[0]
+			var away := pond.origin - v.pier_xf.origin
+			away = (away - pond.basis.y * away.dot(pond.basis.y)).normalized()
+			var spot := (pond.origin + pond.basis.y.cross(away).normalized() * 9.0).normalized()
+			var level := home.radius + home.sea
+			player.place(Transform3D(Site.upright(spot, away), spot * (level - (3.2 if beat == "dive" else 1.0))), -away)
+			if beat == "dive":
+				# Held under, for looking at it.
+				await get_tree().physics_frame
+				player.underwater = true
+				player.process_mode = Node.PROCESS_MODE_DISABLED
 		elif beat == "map":
 			_map = ReachMap.open(self)
 			_map.closed.connect(func(): _map = null)
@@ -528,8 +682,40 @@ func _signals() -> void:
 func _on_woke(n: int, _first: bool) -> void:
 	if n > 1 and Lore.learn("hearth_loop"):
 		hud.toast("SHIP LOG UPDATED")
+		# The first time round again, said plainly: what happened and what
+		# carries over.
+		hud.plaque("The same morning", "The Lantern went out, and you woke here again, at the fire, at the start of the same day. Nobody else remembers it. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. Twenty-two minutes each time. Find out why it happens, and end it.", player.global_position)
 	if n <= 2:
-		hud.hint("E  talk, use, read        X  signalscope        M  map\nL  ship log        P  photograph        Esc  every key", 20.0)
+		hud.hint("E  talk, use, read    X  signalscope    M  map\nL  ship log    P  photograph    F  torch    Esc  every key", 20.0)
+
+## The ship's keys, the first times you sit in her.
+var _ship_hints := 0
+func _on_boarded() -> void:
+	if _ship_hints < 2:
+		_ship_hints += 1
+		hud.hint("W S  forward, back    A D  sideways    Space Shift  up, down\nMouse  turn    Q E  roll    T  lock a world    G  autopilot\nR  flight assist    V  outside view    Right mouse  look about", 24.0)
+
+## What the log points at next, once the pilot is off the ground: the lead
+## nearest the end of the story that is still open (its place not yet all
+## learned), in a few words.
+const LEADS := [
+	["ash_core", "wan_end", "Carry the core to the Wanderer's Engine. Its door opens at about 20:30."],
+	["ph_shrine", "ash_core", "The core is in the Aster's vault on Ashfall."],
+	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412."],
+	["verd_engine", "ash_core", "The Engine needs a core. Hale's cargo hummed like the songlines."],
+	["hearth_songline", "wan_door", "The Wanderer carries the Engine. Its door opens near the Lantern, at about 20:30."],
+	["verd_cargo", "ash_hale", "Hale's bridge recorder, at the Aster's wreck on Ashfall (signalscope: Distress)."],
+	["hearth_vex", "ash_vex", "Vex salvages the Aster's wreck on Ashfall. Listen for her drums (X)."],
+	["hearth_renn", "verd_renn", "A harmonica on Verdance that nobody in Hearth plays. Follow it with the signalscope (X)."],
+	["hearth_phantom", "ph_moves", "The Phantom moves when no one looks. A photograph (P) might hold it."],
+	["hearth_choir", "hearth_songline", "A Choir songline in the old mine, past the lake."],
+]
+
+func _lead() -> String:
+	for l in LEADS:
+		if Lore.known(l[0]) and not Lore.known(l[1]):
+			return "Lead: " + String(l[2])
+	return "Lead: Press M for the map and pick a world; T locks it, G flies there."
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not (e is InputEventKey and e.pressed and not e.echo) or talking or _log or not player or finished:
@@ -818,6 +1004,8 @@ func _wall_test() -> void:
 	for n in village.get_children():
 		if n is Node3D and not n is Npc and (n as Node3D).find_children("*", "CollisionShape3D", true, false).size() > 0:
 			targets.append([String(n.name), (n as Node3D).global_position, (n as Node3D).global_basis.z])
+	# The fire too: walked round, not through.
+	targets.append(["campfire", campfire.global_position, campfire.global_basis.x])
 	var pl: Planet = planets["hearthstone"]
 	var near := pl._solids.duplicate()
 	var here := village.center.origin
@@ -964,22 +1152,123 @@ func _land_test() -> void:
 	await ship.boarded
 	await get_tree().create_timer(0.5).timeout
 	var up := ship.global_basis.y.normalized()
+	# Forty metres over the deck, falling at 6 m/s, nothing pressed: the
+	# assist should catch her and hold her.
 	ship.freeze = true
-	ship.global_position += up * 5.0
+	ship.global_position += up * 40.0
 	ship.reset_physics_interpolation()
 	ship.freeze = false
-	ship.linear_velocity = -up * 3.0
+	ship.linear_velocity = -up * 6.0
 	ship.landed = false
+	await get_tree().create_timer(4.0).timeout
+	var held := absf(ship.linear_velocity.dot(up))
+	var hover_alt := ship.altitude
+	# Then Shift held: a descent that slows as she nears the deck.
+	var k := InputEventKey.new()
+	k.keycode = KEY_SHIFT
+	k.physical_keycode = KEY_SHIFT
+	k.pressed = true
+	Input.parse_input_event(k)
 	var start := Time.get_ticks_msec()
 	var dust := 0
-	while Time.get_ticks_msec() - start < 6000:
+	var touch := 0.0
+	while Time.get_ticks_msec() - start < 30000:
 		await get_tree().physics_frame
 		for n in get_tree().get_nodes_in_group("launch_fx"):
 			dust = maxi(dust, n.get_child_count())
+		if ship.get_contact_count() > 0 and touch == 0.0:
+			touch = maxf(ship.sink, 0.01)
 		if ship.landed:
 			break
+	k = k.duplicate()
+	k.pressed = false
+	Input.parse_input_event(k)
 	var t := (Time.get_ticks_msec() - start) / 1000.0
-	Report.line("LANDTEST landed %s after %.1f s, dust %d, hull %d%%" % [ship.landed, t, dust, int(maxf(ship.integrity, 0.0))])
+	Report.line("LANDTEST held %.2f m/s at %.0f m, landed %s after %.1f s, touched at %.1f m/s, dust %d, hull %d%%" % [held, hover_alt, ship.landed, t, touch, dust, int(maxf(ship.integrity, 0.0))])
+	Report.finish(get_tree())
+
+## Into the pond from a height: a splash, then floating with the head out;
+## Shift dives (the eyes go under, the view with them); let go and she
+## comes back up.
+func _swim_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var home: ReachBody = system.bodies["hearthstone"]
+	var pond := Worlds.place(home, "pond")
+	var up := pond.basis.y
+	var level := home.radius + home.sea
+	# Clear of the pier, which runs out over the middle.
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var away := pond.origin - village.pier_xf.origin
+	away = (away - up * away.dot(up)).normalized()
+	var spot := (pond.origin + up.cross(away).normalized() * 9.0).normalized()
+	up = spot
+	player.place(Transform3D(Site.upright(spot, pond.basis.z), spot * (level + 3.0)), pond.basis.z)
+	var splashed := false
+	var start := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - start < 4000:
+		await get_tree().physics_frame
+		if player.wet > 0.05:
+			splashed = splashed or player._was_wet > 0.05
+	var head := (player.camera.global_position - home.node.global_position).length() - level
+	var k := InputEventKey.new()
+	k.keycode = KEY_SHIFT
+	k.physical_keycode = KEY_SHIFT
+	k.pressed = true
+	Input.parse_input_event(k)
+	await get_tree().create_timer(2.0).timeout
+	var dived := player.underwater
+	var fogged := env.fog_density > 0.05
+	var k2 := k.duplicate() as InputEventKey
+	k2.pressed = false
+	Input.parse_input_event(k2)
+	await get_tree().create_timer(4.0).timeout
+	var back := not player.underwater
+	Report.line("SWIMTEST floating head %.2f m over the water, dived %s, fog %s, back up %s, alive %s" % [head, dived, fogged, back, not player._dead])
+	Report.finish(get_tree())
+
+## What arriving at each world costs: its collision, its sites waking.
+func _ref_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	for key in ["verdance", "ashfall", "phantom", "wanderer", "hearthstone"]:
+		var t0 := Time.get_ticks_usec()
+		system.switch(key)
+		var t1 := Time.get_ticks_usec()
+		await get_tree().physics_frame
+		var t2 := Time.get_ticks_usec()
+		await get_tree().physics_frame
+		var t3 := Time.get_ticks_usec()
+		Report.line("REFTEST %s switch %.1f ms, next tick %.1f ms, then %.1f ms" % [key, (t1 - t0) / 1000.0, (t2 - t1) / 1000.0, (t3 - t2) / 1000.0])
+		await get_tree().create_timer(0.5).timeout
+	Report.finish(get_tree())
+
+## Off the deck, lock a world, G: the autopilot flies her there, round
+## anything in the way, and holds her over it. Run at three times speed.
+func _autopilot_test(to: String) -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	await get_tree().create_timer(0.5).timeout
+	ship.launch()
+	while ship.launching:
+		await get_tree().physics_frame
+	Engine.time_scale = 3.0
+	ship.target = to
+	ship.start_autopilot()
+	var t0 := system.t
+	var closest := INF
+	var star := INF
+	while ship.autopilot and system.t - t0 < 400.0 and not ship._dead:
+		await get_tree().physics_frame
+		star = minf(star, ship.global_position.distance_to(system.world("lantern")))
+	Engine.time_scale = 1.0
+	var tb: ReachBody = system.bodies[to]
+	var alt := ship.global_position.distance_to(system.world(to)) - tb.radius
+	var rel := (ship.linear_velocity - system.world_vel(to)).length()
+	# Then hands off: the assist should hold her there.
+	await get_tree().create_timer(3.0).timeout
+	var rel2 := (ship.linear_velocity - system.world_vel(to)).length()
+	Report.line("APTEST to %s arrived %s in %.0f s, %.0f m over it, %.1f m/s, then %.1f m/s held, frame %s, nearest the Lantern %.0f m, hull %d" % [to, not ship.autopilot and not ship._dead, system.t - t0, alt, rel, rel2, system.ref, star, int(ship.integrity)])
 	Report.finish(get_tree())
 
 ## Night over Hearth: the aurora comes up as the Lantern sets, a stone falls
@@ -1293,7 +1582,7 @@ func _place_view() -> void:
 		return
 	var b: ReachBody = system.bodies[key]
 	# view:<body>:<landmark>:<metres>:<degrees>:<loop seconds>
-	if parts.size() > 4:
+	if parts.size() > 4 and not parts[1] in ["eye", "from"]:
 		system.t = float(parts[4])
 		system.running = false
 	system.switch(key)
@@ -1302,6 +1591,40 @@ func _place_view() -> void:
 	if system.ref == key and planets.has(key):
 		(planets[key] as Planet).set_ref(true)
 	system.place()
+	if parts.size() > 5 and parts[1] == "from":
+		# view:<body>:from:<landmark>:<landmark>:<height>:<look height>[:<loop s>[:<metres along>]]
+		# Standing at one landmark (or some metres along the way from it),
+		# looking at another.
+		var a := Worlds.place(b, parts[2]).origin
+		var z := Worlds.place(b, parts[3]).origin
+		if parts.size() > 6:
+			system.t = float(parts[6])
+			system.running = false
+		if parts.size() > 7:
+			var d0 := a.normalized().slerp(z.normalized(), float(parts[7]) / maxf(a.distance_to(z), 1.0))
+			a = d0 * (b.radius + Worlds.height(key, d0, b.radius))
+		var eye0 := a + a.normalized() * float(parts[4])
+		_view_cam.global_position = eye0
+		_view_cam.look_at(z + z.normalized() * float(parts[5]), eye0.normalized())
+		return
+	if parts.size() > 8 and parts[1] == "eye":
+		# view:<body>:eye:<landmark>:<east>:<north>:<height>:<look east>:<look north>:<look height>[:<loop s>]
+		# A standing eye on the ground near a landmark, looking at a point
+		# near it, each (east, north) metres along the ground from it.
+		var mark := Worlds.place(b, parts[2])
+		var gnd := func(e: float, n: float) -> Vector3:
+			var d := (mark.origin + mark.basis.x * e - mark.basis.z * n).normalized()
+			return d * (b.radius + Worlds.height(key, d, b.radius))
+		if parts.size() > 9:
+			system.t = float(parts[9])
+			system.running = false
+		var eye: Vector3 = gnd.call(float(parts[3]), float(parts[4]))
+		eye += eye.normalized() * float(parts[5])
+		var at: Vector3 = gnd.call(float(parts[6]), float(parts[7]))
+		at += at.normalized() * float(parts[8])
+		_view_cam.global_position = eye
+		_view_cam.look_at(at, eye.normalized())
+		return
 	if parts.size() > 1 and parts[1] == "sky":
 		# Standing in the village, looking up: what the night does.
 		var v := Worlds.place(b, "village")

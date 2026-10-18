@@ -160,9 +160,9 @@ static func forget_all() -> void:
 const TALK := {
 	"mara": {
 		"start": {"first": [["hearth_loop", "again"], ["@mara", "short"]], "lines": [
-			["Mara Voss", "There you are. Sleep well? You came down burning, pilot. Three days ago, half an hour after the Aster called mayday."],
-			["Mara Voss", "We pulled you out of the cockpit and patched your Kestrel. She's up on the launch tower, fuelled."],
-			["Mara Voss", "Okafor has her launch codes. He wanted a word with you before you fly. The observatory: the glass dome on the rise. Follow the lamps from the signpost."],
+			["Mara Voss", "There you are. Sleep well? You came down burning three days ago, pilot, half an hour after the Aster called mayday. We pulled you out of the cockpit."],
+			["Mara Voss", "Your Kestrel's patched and fuelled, up on the launch tower. If anyone off the Aster is still alive out there, she's how you'll find them."],
+			["Mara Voss", "Okafor has her launch codes, and he wants a word before you fly. The observatory: the glass dome on the rise. Follow the lamps from the signpost."],
 		], "learn": ["hearth_crash"], "choices": [
 			["How do I get up to the ship?", "codes", "", ""],
 			["What is this place?", "place", "", ""],
@@ -209,6 +209,7 @@ const TALK := {
 			["Okafor", "Ah, the pilot who fell out of the sky. Come in, mind the telescope. Your launch codes: there, keyed into your suit. The Kestrel will answer to you now."],
 			["Okafor", "Have a look round the stands before you go; they'll tell you more about the Reach than I can in a morning. I've been watching the Lantern."],
 			["Okafor", "Three nights ago it flickered. It's been swelling ever since. Stars don't do that, not on any clock we'd notice."],
+			["Okafor", "As for the Aster's people: if any of them lived, you'll hear them before you see them. Your suit's signalscope, X. Start there."],
 		], "learn": ["hearth_codes", "hearth_lantern"], "choices": [
 			["Can you help me find anyone else?", "scope", "", ""],
 			["What are the spirals on the rocks?", "choir", "", ""],

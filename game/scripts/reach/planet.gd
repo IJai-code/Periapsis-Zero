@@ -118,8 +118,9 @@ func set_ref(on: bool) -> void:
 	lo.visible = not on
 	_shape.disabled = not on
 	# Everything solid on this body (buildings, wrecks) only while stood on.
-	for cs: CollisionShape3D in find_children("*", "CollisionShape3D", true, false):
-		if cs != _shape:
+	prepare()
+	for cs: CollisionShape3D in _shapes:
+		if is_instance_valid(cs):
 			cs.disabled = not on
 	if water:
 		water.visible = on
@@ -130,38 +131,58 @@ func set_ref(on: bool) -> void:
 
 ## The trunks and rocks, solid while this is the frame's body (its node
 ## then sits at the world's origin and does not move).
+## Ready to be arrived at, done once and early (Reach._prewarm, behind the
+## morning's black): the list of everything solid here, and the trunks'
+## and rocks' one body with all its shapes. Built the moment a world is
+## reached, in a browser, that is a stall a pilot feels at 200 m/s.
+var _shapes: Array[CollisionShape3D] = []
+var _prepared := false
+
+func prepare() -> void:
+	if _prepared:
+		return
+	_prepared = true
+	for cs: CollisionShape3D in find_children("*", "CollisionShape3D", true, false):
+		if cs != _shape:
+			_shapes.append(cs)
+	_solid_build()
+
 func _solid_on(on: bool) -> void:
 	if _solids.is_empty() or not is_inside_tree():
 		return
-	if on and not _solid_body.is_valid():
-		_solid_body = PhysicsServer3D.body_create()
-		PhysicsServer3D.body_set_mode(_solid_body, PhysicsServer3D.BODY_MODE_STATIC)
-		PhysicsServer3D.body_set_collision_layer(_solid_body, 1)
-		PhysicsServer3D.body_set_collision_mask(_solid_body, 0)
-		# Shapes shared by size (scale quantised to a tenth).
-		var shared := {}
-		for item in _solids:
-			var kind: String = item[0]
-			var xf: Transform3D = item[1]
-			var spec: Array = SOLID[kind]
-			var sc := snappedf(xf.basis.get_scale().y, 0.1)
-			var key := "%s/%.1f" % [kind, sc]
-			if not shared.has(key):
-				var shape := RID()
-				if spec[0] == "ball":
-					shape = PhysicsServer3D.sphere_shape_create()
-					PhysicsServer3D.shape_set_data(shape, float(spec[1]) * sc)
-				else:
-					shape = PhysicsServer3D.cylinder_shape_create()
-					PhysicsServer3D.shape_set_data(shape, {"radius": float(spec[1]) * sc, "height": float(spec[2]) * sc})
-				shared[key] = shape
-				_solid_shapes.append(shape)
-			var up := xf.basis.y.normalized()
-			var at := xf.origin + (up * float(spec[2]) * sc * 0.5 if spec[0] == "cyl" else up * float(spec[1]) * sc * 0.35)
-			PhysicsServer3D.body_add_shape(_solid_body, shared[key], Transform3D(Site.upright(up, up.cross(Vector3.RIGHT) if absf(up.x) < 0.9 else up.cross(Vector3.UP)), at))
+	_solid_build()
 	if _solid_body.is_valid():
 		PhysicsServer3D.body_set_space(_solid_body, get_world_3d().space if on else RID())
 		PhysicsServer3D.body_set_state(_solid_body, PhysicsServer3D.BODY_STATE_TRANSFORM, global_transform)
+
+func _solid_build() -> void:
+	if _solids.is_empty() or _solid_body.is_valid():
+		return
+	_solid_body = PhysicsServer3D.body_create()
+	PhysicsServer3D.body_set_mode(_solid_body, PhysicsServer3D.BODY_MODE_STATIC)
+	PhysicsServer3D.body_set_collision_layer(_solid_body, 1)
+	PhysicsServer3D.body_set_collision_mask(_solid_body, 0)
+	# Shapes shared by size (scale quantised to a tenth).
+	var shared := {}
+	for item in _solids:
+		var kind: String = item[0]
+		var xf: Transform3D = item[1]
+		var spec: Array = SOLID[kind]
+		var sc := snappedf(xf.basis.get_scale().y, 0.1)
+		var key := "%s/%.1f" % [kind, sc]
+		if not shared.has(key):
+			var shape := RID()
+			if spec[0] == "ball":
+				shape = PhysicsServer3D.sphere_shape_create()
+				PhysicsServer3D.shape_set_data(shape, float(spec[1]) * sc)
+			else:
+				shape = PhysicsServer3D.cylinder_shape_create()
+				PhysicsServer3D.shape_set_data(shape, {"radius": float(spec[1]) * sc, "height": float(spec[2]) * sc})
+			shared[key] = shape
+			_solid_shapes.append(shape)
+		var up := xf.basis.y.normalized()
+		var at := xf.origin + (up * float(spec[2]) * sc * 0.5 if spec[0] == "cyl" else up * float(spec[1]) * sc * 0.35)
+		PhysicsServer3D.body_add_shape(_solid_body, shared[key], Transform3D(Site.upright(up, up.cross(Vector3.RIGHT) if absf(up.x) < 0.9 else up.cross(Vector3.UP)), at))
 
 func _exit_tree() -> void:
 	if _solid_body.is_valid():
@@ -230,6 +251,12 @@ func _decorate(deco: Dictionary) -> void:
 					if not some.is_empty():
 						_deco_mm(Valley.mesh(["pine_a", "pine_b", "pine_c"][v]), some, centre, Valley.pine_material(), 0.0, 240.0, true)
 				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 220.0, range_end, true)
+				continue
+			if kind in ["giant", "tree", "palm"]:
+				# The jungle's trees: their whole selves within a few hundred
+				# metres, a trunk and a lumpy crown beyond (Flora.far_mesh).
+				_deco_mm(Flora.mesh(kind), xfs, centre, null, 0.0, 300.0, true)
+				_deco_mm(Flora.far_mesh(kind), xfs, centre, null, 280.0, range_end, false)
 				continue
 			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] else null
 			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])

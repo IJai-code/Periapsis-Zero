@@ -29,6 +29,20 @@ or you can download it for Mac, Windows or Linux from the same page.
 - **Explore the Cosmos**: the title menu also opens the original
   solar-system simulator (below), if you'd rather fly round the real one.
 
+## Playing it
+
+Walk with WASD and the mouse, hold Space to crouch and let go to jump (keep
+holding in the air for the jetpack), and press E to talk to people or use
+things. X is the signalscope, M the map, L your ship's log, P the camera.
+You can swim too: Space up, Shift to dive.
+
+The Kestrel is on top of the launch tower; the lift at its foot takes you
+up, and you climb in through the hatch in her belly. W pushes you forward,
+the mouse turns her. You don't have to be a pilot: look at a world and press
+T to lock onto it, then G, and the autopilot flies you there and parks you
+above it. Near the ground she hovers on her own; hold Shift to sink gently
+down onto your feet. Esc lists every key.
+
 The game came out of an earlier Earth-Moon flight game. Its prologue and
 first act are still there, on the title screen under "The Road Here".
 

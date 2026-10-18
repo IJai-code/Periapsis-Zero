@@ -163,12 +163,25 @@ const checks = [
     const ok = Number(m[1]) > 0 && Number(m[2]) > 2.5 && Number(m[3]) > 12 && Number(m[4]) > 8 && m[5] === 'true' && m[6] === 'true'
     return [ok, m[0]]
   }],
-  ['the Reach: she sets down and the ground throws its dust', async () => {
+  ['the Reach: the assist catches a fall, Shift sets her down gently, the ground throws its dust', async () => {
     const out = await run('reach', ['--landtest'], /LANDTEST/)
-    const m = out.match(/LANDTEST landed (\w+) after ([\d.]+) s, dust (\d+), hull (\d+)%/)
+    const m = out.match(/LANDTEST held ([\d.]+) m\/s at (\d+) m, landed (\w+) after ([\d.]+) s, touched at ([\d.]+) m\/s, dust (\d+), hull (\d+)%/)
     if (!m) return [false, (out.match(/LANDTEST[^\n]*/) ?? ['no result'])[0]]
-    // She is down again, and the ground threw dust when she touched it.
-    return [m[1] === 'true' && Number(m[3]) > 0, m[0]]
+    // Held still in the air with nothing pressed, then down on her feet,
+    // softly (no hull lost), the ground throwing dust as she touched.
+    return [Number(m[1]) < 0.5 && m[3] === 'true' && Number(m[5]) < 4 && Number(m[6]) > 0 && m[7] === '100', m[0]]
+  }],
+  ...['verdance', 'ashfall'].map((to) => [`the Reach: the autopilot flies to ${to}, round anything in the way, and holds her there`, async () => {
+    const out = await run('reach', ['--aptest', to], /APTEST/, 400000)
+    const m = out.match(/APTEST to (\w+) arrived (\w+) in (\d+) s, (\d+) m over it, ([\d.]+) m\/s, then ([\d.]+) m\/s held, frame (\w+), nearest the Lantern (\d+) m, hull (\d+)/)
+    if (!m) return [false, (out.match(/APTEST[^\n]*/) ?? ['no result'])[0]]
+    return [m[2] === 'true' && Number(m[6]) < 1 && m[7] === to && Number(m[8]) > 1300 && m[9] === '100', m[0]]
+  }]),
+  ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
+    const out = await run('reach', ['--swimtest'], /SWIMTEST/)
+    const m = out.match(/SWIMTEST floating head ([-\d.]+) m over the water, dived (\w+), fog (\w+), back up (\w+), alive (\w+)/)
+    if (!m) return [false, (out.match(/SWIMTEST[^\n]*/) ?? ['no result'])[0]]
+    return [Number(m[1]) > 0.1 && Number(m[1]) < 1.2 && m[2] === 'true' && m[3] === 'true' && m[4] === 'true' && m[5] === 'true', m[0]]
   }],
   ['the Reach: ride the lift up the launch tower and board the Kestrel', async () => {
     const out = await run('reach', ['--lifttest'], /LIFTTEST/)
