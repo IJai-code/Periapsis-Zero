@@ -32,7 +32,7 @@ copy('public/audio', 'audio', (f) => f === 'monume-space-ambient.mp3')
 {
   const script = join(root, 'art/audio/reach_music.py')
   const dir = join(root, 'game/audio/reach')
-  const parts = ['banjo', 'flute', 'harmonica', 'drums', 'choir', 'end', 'wake'].map((p) => join(dir, `${p}.wav`))
+  const parts = ['banjo', 'flute', 'harmonica', 'drums', 'choir', 'end', 'wake', 'launch'].map((p) => join(dir, `${p}.wav`))
   const stale = parts.some((f) => !existsSync(f) || statSync(f).mtimeMs < statSync(script).mtimeMs)
   if (stale) execFileSync('python3', [script, dir], { stdio: 'inherit' })
   else console.log('game/audio/reach: up to date')

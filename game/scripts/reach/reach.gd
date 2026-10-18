@@ -192,24 +192,24 @@ func _material_zoo(cam: Camera3D) -> void:
 			return
 		seen[k] = true
 		(multi if many else plain).append(m)
-	for key in planets:
-		var p: Planet = planets[key]
-		for n in p.find_children("*", "GeometryInstance3D", true, false):
-			var gi := n as GeometryInstance3D
-			var many := gi is MultiMeshInstance3D
-			add.call(gi.material_override, many)
-			var mesh: Mesh = null
-			if gi is MeshInstance3D:
-				mesh = (gi as MeshInstance3D).mesh
-				for i in (gi as MeshInstance3D).get_surface_override_material_count():
-					add.call((gi as MeshInstance3D).get_surface_override_material(i), false)
-			elif many and (gi as MultiMeshInstance3D).multimesh:
-				mesh = (gi as MultiMeshInstance3D).multimesh.mesh
-			elif gi is CPUParticles3D:
-				mesh = (gi as CPUParticles3D).mesh
-			if mesh:
-				for i in mesh.get_surface_count():
-					add.call(mesh.surface_get_material(i), many)
+	# Everything in the Reach: the worlds, and what hangs off them outside
+	# their Planet (the campfire, the ship, the people's things).
+	for n in find_children("*", "GeometryInstance3D", true, false):
+		var gi := n as GeometryInstance3D
+		var many := gi is MultiMeshInstance3D
+		add.call(gi.material_override, many)
+		var mesh: Mesh = null
+		if gi is MeshInstance3D:
+			mesh = (gi as MeshInstance3D).mesh
+			for i in (gi as MeshInstance3D).get_surface_override_material_count():
+				add.call((gi as MeshInstance3D).get_surface_override_material(i), false)
+		elif many and (gi as MultiMeshInstance3D).multimesh:
+			mesh = (gi as MultiMeshInstance3D).multimesh.mesh
+		elif gi is CPUParticles3D:
+			mesh = (gi as CPUParticles3D).mesh
+		if mesh:
+			for i in mesh.get_surface_count():
+				add.call(mesh.surface_get_material(i), many)
 	var zoo := Node3D.new()
 	add_child(zoo)
 	var fleck := BoxMesh.new()
@@ -237,6 +237,23 @@ func _material_zoo(cam: Camera3D) -> void:
 		mmi.material_override = m
 		zoo.add_child(mmi)
 		mmi.global_transform = place.call()
+	# Lit by lamps too (a lamp's light is another version of each shader):
+	# one, then two, then none.
+	var lamps: Array[OmniLight3D] = []
+	for k in 2:
+		var l := OmniLight3D.new()
+		l.omni_range = 6.0
+		l.light_energy = 1.0
+		l.shadow_enabled = false
+		zoo.add_child(l)
+		l.global_position = cam.global_transform * Vector3(-0.3 + k * 0.6, 0.0, -1.6)
+		lamps.append(l)
+	for f in 2:
+		await get_tree().process_frame
+	lamps[1].visible = false
+	for f in 2:
+		await get_tree().process_frame
+	lamps[0].visible = false
 	for f in 2:
 		await get_tree().process_frame
 	if "--count" in OS.get_cmdline_user_args():
@@ -651,7 +668,7 @@ func _start_player() -> void:
 			ship.board()
 			await ship.boarded
 			ship.launch()
-			while ship.launching:
+			while ship._auto_lift > 0.0:
 				await get_tree().physics_frame
 			ship.target = beat.trim_prefix("cruise:")
 			ship.start_autopilot()
@@ -1457,7 +1474,7 @@ func _autopilot_test(to: String) -> void:
 	await ship.boarded
 	await get_tree().create_timer(0.5).timeout
 	ship.launch()
-	while ship.launching:
+	while ship._auto_lift > 0.0:
 		await get_tree().physics_frame
 	Engine.time_scale = 3.0
 	ship.target = to

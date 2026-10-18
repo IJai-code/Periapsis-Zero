@@ -469,6 +469,7 @@ func _physics_process(dt: float) -> void:
 			float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
 			float(Input.is_key_pressed(KEY_SPACE)) - float(Input.is_key_pressed(KEY_SHIFT)),
 			float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W)))
+		var hands := t.length() > 0.01
 		if _auto_lift > 0.0:
 			_auto_lift -= dt
 			t.y = 1.0
@@ -480,7 +481,7 @@ func _physics_process(dt: float) -> void:
 			_ignite()
 		var roll := float(Input.is_key_pressed(KEY_Q)) - float(Input.is_key_pressed(KEY_E))
 		# Any hand on the controls takes her back from the autopilot.
-		if autopilot and (t.length() > 0.01 or _stick.length() > 0.25 or roll != 0.0):
+		if autopilot and (hands or _stick.length() > 0.25 or roll != 0.0):
 			_autopilot_off("Autopilot off. She is yours.")
 		var acc := Vector3.ZERO
 		if autopilot:
@@ -563,7 +564,7 @@ func _terrain(_dt: float) -> void:
 	# A descent the assist is already pacing (Shift, low down) is not danger.
 	var up := (global_position - b.node.position).normalized()
 	var paced := assist and altitude < HOVER_ALT and v.dot(-up) > speed * 0.8 and speed < 1.6 + altitude * 0.35 + 3.0
-	if speed < 3.0 or paced:
+	if speed < 1.5 or paced:
 		_danger = move_toward(_danger, 0.0, 0.2)
 		return
 	if _cast == null:
@@ -583,7 +584,7 @@ func _terrain(_dt: float) -> void:
 	var d := hit[0] * look
 	# What she needs to stop: braking against her path with her strongest
 	# engines, gravity working against her where it does.
-	var stop := speed * speed / (2.0 * 13.0) + speed * 0.35 + 12.0
+	var stop := speed * speed / (2.0 * 10.0) + speed * 0.4 + 12.0
 	_danger = clampf((stop * 1.6 - d) / (stop * 0.8), 0.0, 1.0)
 	_danger_dir = v.normalized()
 
@@ -910,7 +911,25 @@ func _ignite() -> void:
 	_shake = 0.75
 	cam.fov = FOV + 6.0
 	create_tween().tween_property(cam, "fov", FOV, 2.2).set_trans(Tween.TRANS_SINE)
+	# The first lift-off of a morning has its tune (once through, fading
+	# as it ends; the next morning it plays again).
+	if _ride_ready:
+		_ride_ready = false
+		_theme()
 	launched.emit()
+
+var _theme_player: AudioStreamPlayer
+
+func _theme() -> void:
+	var wav := load("res://audio/reach/launch.wav") as AudioStream
+	if wav == null:
+		return
+	if _theme_player == null:
+		_theme_player = AudioStreamPlayer.new()
+		add_child(_theme_player)
+	_theme_player.stream = wav
+	_theme_player.volume_db = -9.0 + Flow.music_db()
+	_theme_player.play()
 
 ## One frame of ignition, without the ignition: the plume wide and hot,
 ## the engine light on the deck, the gear down, the cockpit from outside.
@@ -1325,6 +1344,8 @@ func reset_to(xf: Transform3D) -> void:
 	_stick = Vector2.ZERO
 	_danger = 0.0
 	_ride_ready = true
+	if _theme_player:
+		_theme_player.stop()
 	_lit = false
 	_auto_lift = 0.0
 	_gear_k = 1.0

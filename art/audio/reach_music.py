@@ -12,6 +12,8 @@ Writes 22,050 Hz mono WAVs:
   choir.wav     the Choir's songlines and the Engine: a hum on the roots
   end.wav       the last minute of a loop: the hum rising, a music box
   wake.wav      a soft chime as the eyes open
+  launch.wav    the first lift-off of a morning: the banjo and the tune
+                together over a choir that swells, once through
 
 The song is in D, 92 beats a minute, sixteen bars of four, about 41.7 s.
 Plain Python (no numpy): each part is synthesised sample by sample.
@@ -259,8 +261,22 @@ def wake():
     return out
 
 
+def launch():
+    b = banjo()
+    f = flute()
+    c = choir()
+    n = len(b)
+    out = [0.0] * n
+    swell = pad([0 - 12, 7 - 12], LENGTH, 0.1, 1.0, 0.7)
+    for i in range(n):
+        t = i / RATE
+        env = min(1.0, t / 2.5) * min(1.0, (LENGTH - t) / 6.0)
+        out[i] = (b[i] * 0.8 + f[i] * 0.9 + c[i] * 0.6 + swell[i] * 0.07) * env
+    return out
+
+
 if __name__ == '__main__':
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
-    for name, fn in (('banjo', banjo), ('flute', flute), ('harmonica', harmonica), ('drums', drums), ('choir', choir), ('end', end), ('wake', wake)):
+    for name, fn in (('banjo', banjo), ('flute', flute), ('harmonica', harmonica), ('drums', drums), ('choir', choir), ('end', end), ('wake', wake), ('launch', launch)):
         write(os.path.join(out, f'{name}.wav'), fn())

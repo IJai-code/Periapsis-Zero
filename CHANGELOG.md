@@ -26,6 +26,12 @@ but not yet fixed is under *Known limitations* rather than left out.
   ash rising off its vents; the Phantom is violet stone with veins of light
   inside a breathing shimmer; the Wanderer is ice, with two tails streaming
   away from the Lantern that grow long and bright as it falls in toward it.
+- **The first lift-off of a morning has its tune**: Mara's banjo and
+  Okafor's tune together over a choir that swells, once through.
+- **No hitch as the morning opens**: every material in the scene (not only
+  the worlds') is drawn once behind the black, lit by a lamp and by two, so
+  the first view of the village no longer stops for 134 ms to compile; the
+  worst frame through the wake-up is now 17 ms.
 
 ### Smooth hands on the controls, no flying into mountains, and a lighter frame, 18 October 2026 (evening)
 
