@@ -99,7 +99,7 @@ func _paint_main() -> void:
 	var up := (ship.global_position - b.node.position).normalized() if near else Vector3.ZERO
 	var key := ship.assist_body if ship.assist_body != "" else (ship.target if ship.target != "" else b.key)
 	var v := ship.linear_velocity - (sys.world_vel(key) if sys.bodies.has(key) else Vector3.ZERO)
-	var low := near and ship.altitude < 60.0
+	var low := near and ship.altitude < 60.0 and not ship.landed
 	# The horizon: tilted by her roll, raised by her nose against the world.
 	var mid := Vector2(w * 0.5, h * 0.5 + 6.0)
 	var r := 112.0
@@ -186,9 +186,12 @@ func _paint_main() -> void:
 		var col2 := OK if s2 < 3.0 else (WARN if s2 < 7.0 else BAD)
 		c.draw_rect(Rect2(w * 0.5 - 92, 16, 184, 34), Color(0, 0, 0, 0.5))
 		_text(c, Vector2(w * 0.5 - 92, 41), "LANDING  %.1f" % maxf(s2, 0.0), 20, col2, true, HORIZONTAL_ALIGNMENT_CENTER, 184)
-	# The loop's clock, top middle (when not landing).
+	if ship.landed:
+		c.draw_rect(Rect2(w * 0.5 - 92, 16, 184, 34), Color(0, 0, 0, 0.5))
+		_text(c, Vector2(w * 0.5 - 92, 41), "LANDED", 20, OK, true, HORIZONTAL_ALIGNMENT_CENTER, 184)
+		# The loop's clock, top middle (when not landing).
 	var root := ship.get_tree().get_first_node_in_group("reach_root")
-	if not low and root and root.system:
+	if not low and not ship.landed and root and root.system:
 		var left := maxf(ReachSystem.LOOP - float(root.system.t), 0.0)
 		_text(c, Vector2(w * 0.5 - 80, 30), "%02d:%02d" % [int(left) / 60, int(left) % 60], 20, WARN if left < 120.0 else DIM, true, HORIZONTAL_ALIGNMENT_CENTER, 160)
 	# Scan lines, faintly.
