@@ -138,6 +138,16 @@ The Kestrel rests on the tower (Village.ship_rest); Okafor gives the codes.
   `Reach._air` tints the space inside it.
 - The sky is art/sky/space-hearth.jpg in shaders/reach/sky.gdshader
   (no TIME: a sky using it is relit every frame).
+- `NightSky` (on Hearth's planet): four curtains of aurora
+  (aurora.gdshader, additive, `night` fades them) and a falling stone now
+  and then. Drawn only at night and only while Hearthstone is the frame's
+  body. `-- --noaurora` leaves it dark, for measuring.
+- `Lamp`: a village of 29 lights would be 29 lights on everything in the
+  valley. Up close the OmniLight3D burns; further off it is a soft halo.
+  `Reach._process` pumps the register five times a second and breathes the
+  lit ones. The campfire's own light is culled the same way.
+- Mara's banjo loops quietly at the fire (the file is a phrase: the loop is
+  set at run time), so the village has a sound to walk home by.
 
 ## Taking off
 
@@ -206,3 +216,12 @@ cube face (not 3×3), the light renderer draws one shadow cascade at 145 m
 instead of two at 220 m, and the air is ray-marched in 4 samples instead
 of 6. `Reach._count_draws` (`-- --count`) prints what the scene asks for
 by world; `scripts/godot-webshot.mjs` prints what a frame actually used.
+
+`Site.merge_pieces` (the village calls it once, when everything is
+placed) groups the static pieces that repeat — houses of a kind, cliff
+segments, benches, lamps — into one multimesh per mesh, with the scanned
+surface materials baked into a copy of the mesh. Hearthstone: 352 mesh
+submissions down to 147 plus a few dozen multimeshes (166 fewer objects),
+and shadow casters 341 → 136.
+Anything with a script under it (the lift's car, the orrery, people) is
+left alone; `-- --nomerge` draws it the old way, for an A/B.

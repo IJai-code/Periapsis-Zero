@@ -11,6 +11,8 @@ extends Node3D
 
 var body: ReachBody
 var center: Transform3D
+## Every piece made through piece(): the list merge_pieces works from.
+var _pieces: Array[Node3D] = []
 
 func _init(b: ReachBody = null, mark := "") -> void:
 	body = b
@@ -58,6 +60,7 @@ func piece(path: String, xf: Transform3D, solid := true, scale := 1.0, sink := 0
 	n.transform = Transform3D(xf.basis * Basis.from_scale(Vector3.ONE * scale), xf.origin - xf.basis.y * sink)
 	if solid:
 		Surfaces.collide(n)
+	_pieces.append(n)
 	# Ramps under stairs ('collide_only'): walked on, never seen.
 	for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh and mi.mesh.get_surface_count() > 0 and mi.mesh.surface_get_material(0) and mi.mesh.surface_get_material(0).resource_name == "collide_only":
@@ -153,15 +156,84 @@ func footprints() -> Array:
 		out.append([(n as Node3D).position, minf(r, 14.0)])
 	return out
 
-## A light on a piece, in its own space.
-static func lamp(on: Node3D, at: Vector3, color := Color(1.0, 0.68, 0.36), energy := 1.2, reach := 7.0) -> OmniLight3D:
-	var l := OmniLight3D.new()
-	l.light_color = color
-	l.light_energy = energy
-	l.omni_range = reach
-	l.position = at
-	on.add_child(l)
-	return l
+## A light on a piece, in its own space: a real light up close, a halo from
+## far off (Lamp), so a village of lamps does not cost a village of lights.
+static func lamp(on: Node3D, at: Vector3, color := Color(1.0, 0.68, 0.36), energy := 1.2, reach := 7.0) -> Lamp:
+	return Lamp.make(on, at, color, energy, reach)
+
+## Pieces that repeat (lamps, cliff segments, benches, houses of one kind)
+## are drawn as one multimesh per mesh and material: the same picture, a
+## fraction of the draw calls a browser pays for. Static pieces only:
+## anything with a script under it (a lift's car, an orrery, a person) is
+## left exactly as it was. Returns the draw calls saved.
+func merge_pieces(min_instances := 2) -> int:
+	var site_inv := global_transform.affine_inverse()
+	var groups := {}
+	for p in _pieces:
+		if is_instance_valid(p):
+			_collect(p, site_inv, groups)
+	var saved := 0
+	for key in groups:
+		var g: Dictionary = groups[key]
+		var xfs: Array = g.xfs
+		if xfs.size() < min_instances:
+			continue
+		# A multimesh draws the mesh's own surfaces: bake the piece's surface
+		# overrides into a copy of the mesh, or the merged houses come out
+		# wearing the raw export's materials instead of the scanned ones.
+		var mesh := g.mesh as Mesh
+		var bake := false
+		for m in g.mats:
+			if m:
+				bake = true
+				break
+		if bake and mesh is ArrayMesh:
+			var copy := mesh.duplicate() as ArrayMesh
+			for i in (g.mats as Array).size():
+				if g.mats[i]:
+					copy.surface_set_material(i, g.mats[i])
+			mesh = copy
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = xfs.size()
+		for i in xfs.size():
+			mm.set_instance_transform(i, xfs[i])
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = g.mat
+		mi.cast_shadow = g.shadow
+		add_child(mi)
+		for n: MeshInstance3D in g.nodes:
+			n.visible = false
+		saved += xfs.size() - 1
+	return saved
+
+func _collect(node: Node, site_inv: Transform3D, groups: Dictionary) -> void:
+	for c in node.get_children():
+		if c is MeshInstance3D:
+			var mi := c as MeshInstance3D
+			if not mi.visible or not mi.mesh or mi.mesh.get_surface_count() == 0:
+				continue
+			var mat: Material = mi.material_override
+			# Surfaces.apply sets each surface's material by override, not the
+			# instance's: carry both over or a merged piece comes out bare.
+			var sig := ""
+			var mats := []
+			for i in mi.mesh.get_surface_count():
+				var sm := mi.get_surface_override_material(i)
+				mats.append(sm)
+				sig += "%d," % [sm.get_instance_id() if sm else 0]
+			var key := "%d|%d|%s|%d" % [mi.mesh.get_instance_id(), mat.get_instance_id() if mat else 0, sig, int(mi.cast_shadow)]
+			if not groups.has(key):
+				groups[key] = {"mesh": mi.mesh, "mat": mat, "mats": mats, "shadow": mi.cast_shadow, "xfs": [], "nodes": []}
+			(groups[key].xfs as Array).append(site_inv * mi.global_transform)
+			(groups[key].nodes as Array).append(mi)
+		elif c is Node3D:
+			# A script means something moves or drives that subtree.
+			if (c as Node3D).get_script() != null:
+				continue
+			_collect(c, site_inv, groups)
 
 ## A Choir songline (Songline: read it with the translator) at (east, north).
 func songline(id: String, at: Vector2, look: Vector2, path := "site-songline") -> Songline:

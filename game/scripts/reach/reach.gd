@@ -23,6 +23,7 @@ var scope: Signalscope
 var _log: ShipLog
 var _music: AudioStreamPlayer
 var quantum: QuantumMoon
+var night: NightSky
 var memories: Memories
 var fold: Fold
 ## The Choir core, carried this loop (from Ashfall's vault).
@@ -49,7 +50,7 @@ func _ready() -> void:
 	_environment()
 	_build_sites()
 	if "--count" in OS.get_cmdline_user_args():
-		_count_draws()
+		_count_soon()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
 	# The title's scene alone, for pictures: #reach/backdrop.
@@ -85,6 +86,8 @@ func _ready() -> void:
 		_launch_test()
 	if "--landtest" in args:
 		_land_test()
+	if "--skytest" in args:
+		_sky_test()
 	if "--reachwalk" in args:
 		_walk_test()
 	if "--reachfly" in args:
@@ -99,7 +102,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest"]:
 			return true
 	return false
 
@@ -155,17 +158,30 @@ func _prewarm() -> void:
 	fx.queue_free()
 	cam.queue_free()
 
+## Count once the camera exists and the places near it are awake: two
+## frames, so the count is what a frame actually draws.
+func _count_soon() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_count_draws()
+
 ## What the scene asks the renderer for, by world: for judging a draw-call
 ## budget (a browser submits each one through WebGL, which is not free).
 func _count_draws() -> void:
 	var total := 0
 	var shadowed := 0
 	var mms := 0
+	# Only what is actually submitted: a hidden node (a merged piece) is
+	# not a draw call.
 	for mi: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		if not mi.is_visible_in_tree():
+			continue
 		total += 1
 		if mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			shadowed += 1
 	for mm: MultiMeshInstance3D in find_children("*", "MultiMeshInstance3D", true, false):
+		if not mm.is_visible_in_tree():
+			continue
 		mms += 1
 		if mm.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			shadowed += 1
@@ -175,13 +191,20 @@ func _count_draws() -> void:
 		var c := 0
 		var sh := 0
 		for mi: MeshInstance3D in p.find_children("*", "MeshInstance3D", true, false):
+			if not mi.is_visible_in_tree():
+				continue
 			c += 1
 			if mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 				sh += 1
-		var mc: int = p.find_children("*", "MultiMeshInstance3D", true, false).size()
+		var mc := 0
+		for mm: MultiMeshInstance3D in p.find_children("*", "MultiMeshInstance3D", true, false):
+			if mm.is_visible_in_tree():
+				mc += 1
 		print("  %-11s meshes=%d multimesh=%d shadow=%d" % [key, c, mc, sh])
 		var kinds := {}
 		for mm: MultiMeshInstance3D in p.find_children("*", "MultiMeshInstance3D", true, false):
+			if not mm.is_visible_in_tree():
+				continue
 			var path := mm.multimesh.mesh.resource_path if mm.multimesh and mm.multimesh.mesh else "?"
 			kinds[path.get_file()] = int(kinds.get(path.get_file(), 0)) + 1
 		for k in kinds:
@@ -204,6 +227,10 @@ func _build_sites() -> void:
 	# on Verdance, dust out on the cold ones.
 	for key in planets:
 		Ambience.attach(planets[key] as Planet, key)
+	# After dark, Hearth's sky: the aurora, and stones falling through it.
+	night = NightSky.new()
+	night.reach = self
+	(planets["hearthstone"] as Planet).add_child(night)
 
 ## Static caches hold resources; let them go with the scene, or the
 ## engine reports them as leaked at exit.
@@ -273,6 +300,8 @@ var _launched := false
 var _goal_t := 0.0
 ## The far worlds are lit on a timer, not every frame: see _process.
 var _light_t := 0.0
+## Lamps are recollected on a timer; the lit ones breathe every frame.
+var _lamp_t := 0.0
 const PLACE_WORDS := {"verdance": "the jungle world", "ashfall": "where the Aster fell", "phantom": "the moon that moves",
 	"wanderer": "the comet", "hearthstone": "home"}
 
@@ -319,6 +348,13 @@ func _process(_dt: float) -> void:
 			if key != system.ref:
 				(planets[key] as Planet).light(star, power)
 	_air(cam)
+	# Only the lamps near the camera burn; the rest are a lit dot. A village
+	# of lamps should not cost a village of lights.
+	_lamp_t -= _dt
+	if _lamp_t <= 0.0:
+		_lamp_t = 0.2
+		Lamp.pump(cam)
+	Lamp.animate(Time.get_ticks_msec() * 0.001)
 	_carry()
 	_goal_t -= _dt
 	if hud and _goal_t <= 0.0:
@@ -365,8 +401,10 @@ func _air(cam: Camera3D) -> void:
 	env.fog_light_color = Color(tint.r, tint.g, tint.b).lerp(Color(0.04, 0.05, 0.08), 1.0 - day) * 0.9
 	env.fog_density = 0.0006 * thick
 	env.fog_sky_affect = 0.0
-	env.ambient_light_color = Color(tint.r, tint.g, tint.b).lerp(Color(0.25, 0.3, 0.45), 1.0 - day)
-	env.ambient_light_energy = lerpf(0.1, 0.45, day) * lerpf(0.4, 1.0, thick)
+	# Night is dark but never blind: starlight off the dust, enough to find
+	# the fire and the path lanterns by.
+	env.ambient_light_color = Color(tint.r, tint.g, tint.b).lerp(Color(0.30, 0.36, 0.55), 1.0 - day)
+	env.ambient_light_energy = lerpf(0.17, 0.45, day) * lerpf(0.4, 1.0, thick)
 
 func _start_player() -> void:
 	hud = ReachHud.new()
@@ -944,6 +982,51 @@ func _land_test() -> void:
 	Report.line("LANDTEST landed %s after %.1f s, dust %d, hull %d%%" % [ship.landed, t, dust, int(maxf(ship.integrity, 0.0))])
 	Report.finish(get_tree())
 
+## Night over Hearth: the aurora comes up as the Lantern sets, a stone falls
+## through it, and the lamps burn only where they are worth burning.
+func _sky_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var home: ReachBody = system.bodies["hearthstone"]
+	var up := Worlds.place(home, "village").origin.normalized()
+	var dark_at := 0.0
+	var low := INF
+	var day_at := 0.0
+	var high := -INF
+	var t := 0.0
+	while t < ReachSystem.LOOP:
+		var el: float = up.dot((system.helio("lantern", t) - system.helio("hearthstone", t)).normalized())
+		if el < low:
+			low = el
+			dark_at = t
+		if el > high:
+			high = el
+			day_at = t
+		t += 5.0
+	system.running = false
+	system.t = dark_at
+	system.place()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cam := get_viewport().get_camera_3d()
+	var near := Lamp.pump(cam)
+	night.shoot()
+	await get_tree().process_frame
+	var aurora := night.visible and night.night > 0.6
+	var stars := night.star_shown() and night._streak.visible
+	var dark := night.night
+	# Three kilometres up: not one lamp is lit.
+	var away := Camera3D.new()
+	add_child(away)
+	away.global_position = cam.global_position + up * 3000.0
+	var far := Lamp.pump(away)
+	away.queue_free()
+	system.t = day_at
+	system.place()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	Report.line("SKYTEST night %.2f aurora %s stars %s day %.2f lamps near %d/%d far %d/%d at %.0f s" % [dark, aurora, stars, night.night, near.lit, near.lit + near.dark, far.lit, far.lit + far.dark, dark_at])
+	Report.finish(get_tree())
+
 ## Codes known: ride the lift up the tower, walk to the Kestrel, board her;
 ## report the height reached and whether she is flown.
 func _lift_test() -> void:
@@ -1214,7 +1297,18 @@ func _place_view() -> void:
 		system.t = float(parts[4])
 		system.running = false
 	system.switch(key)
+	# A view of the body it already is swaps nothing, so nothing would wake
+	# its detail, its collision or its places: wake them here.
+	if system.ref == key and planets.has(key):
+		(planets[key] as Planet).set_ref(true)
 	system.place()
+	if parts.size() > 1 and parts[1] == "sky":
+		# Standing in the village, looking up: what the night does.
+		var v := Worlds.place(b, "village")
+		var vup := v.basis.y
+		_view_cam.global_position = v.origin + vup * 2.0
+		_view_cam.look_at(v.origin + vup * 2.0 + (v.basis.z + vup * 1.5).normalized(), vup)
+		return
 	if parts.size() > 1:
 		# view:<body>:surface (its first landmark) or view:<body>:<landmark>,
 		# then :top (from overhead), :<metres> away along the ground, and

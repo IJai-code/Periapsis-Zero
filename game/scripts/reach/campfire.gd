@@ -61,6 +61,22 @@ func _ready() -> void:
 	crackle.position = Vector3(0, 0.4, 0)
 	add_child(crackle)
 	crackle.play()
+	# Mara's banjo, drifting across the village: quiet enough to be part of
+	# the evening, loud enough to find your way back by. Looped at run time
+	# (the file is a phrase, not a loop).
+	var wav := load("res://audio/reach/banjo.wav") as AudioStreamWAV
+	if wav:
+		var song := AudioStreamPlayer3D.new()
+		var loop := wav.duplicate() as AudioStreamWAV
+		loop.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		loop.loop_end = int(loop.get_length() * loop.mix_rate)
+		song.stream = loop
+		song.unit_size = 7.0
+		song.max_distance = 55.0
+		song.volume_db = -21.0 + Flow.music_db()
+		song.position = Vector3(0, 0.7, 0)
+		add_child(song)
+		song.play()
 	# Sit by it (FireRest): roast a marshmallow, or sleep.
 	var use := Usable.sphere("Sit by the fire", 1.3)
 	use.reach = 3.6
@@ -139,7 +155,15 @@ func _flame_emitter(amount: int, life: float, size: Vector2) -> CPUParticles3D:
 
 func _process(dt: float) -> void:
 	_t += dt
-	_light.light_energy = 2.0 + 0.35 * sin(_t * 7.3) * sin(_t * 3.1 + 1.0) + 0.15 * sin(_t * 17.0)
+	# Its light only matters to what is near it: off from the air, or the
+	# far side of the valley, it is a whole village light saved.
+	var cam := get_viewport().get_camera_3d()
+	var lit := true
+	if cam:
+		lit = cam.global_position.distance_squared_to(global_position) < 3600.0
+	_light.visible = lit
+	if lit:
+		_light.light_energy = 2.0 + 0.35 * sin(_t * 7.3) * sin(_t * 3.1 + 1.0) + 0.15 * sin(_t * 17.0)
 
 ## Crackle: sparse sharp pops over a soft roar, looping.
 static func _crackle() -> AudioStreamWAV:

@@ -87,6 +87,13 @@ func _ready() -> void:
 	clear.append_array(footprints())
 	clear.append([center.origin, 4.4])
 	Grass.field(self, center, 64.0, 15000, clear, 11)
+	# Everything above is placed and never moves again: draw the repeated
+	# pieces (lamps, cliffs, benches, houses of a kind) as a handful of
+	# multimeshes rather than a hundred submissions.
+	# `-- --nomerge` draws every piece as itself, for an A/B of the merge.
+	var saved := 0 if "--nomerge" in OS.get_cmdline_user_args() else merge_pieces()
+	if "--count" in OS.get_cmdline_user_args():
+		print("MERGE village saved %d draws" % saved)
 
 var pier_xf: Transform3D
 var pier_shore_flat := Vector2.ZERO
@@ -118,13 +125,7 @@ func _find_pier() -> void:
 ## boat tied alongside.
 func _lake() -> void:
 	var pier := piece("valley-pier", pier_xf, true, 1.0, 0.0)
-	var lamp_at := pier.transform * Vector3(-3.9, 2.66, -19.1)
-	var l := OmniLight3D.new()
-	l.light_color = Color(1.0, 0.68, 0.38)
-	l.light_energy = 1.6
-	l.omni_range = 9.0
-	add_child(l)
-	l.position = lamp_at
+	Lamp.make(self, pier.transform * Vector3(-3.9, 2.66, -19.1), Color(1.0, 0.68, 0.38), 1.6, 9.0)
 	var up := pier_xf.basis.y
 	var at := func(x: float, y: float, z: float) -> Vector3:
 		return pier.transform * Vector3(x, z, -y)

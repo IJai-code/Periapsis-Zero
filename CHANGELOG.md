@@ -5,6 +5,39 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Night over Hearth, and a village drawn in fewer pieces, 17 October 2026
+
+- **The sky does something after dark.** As the Lantern sets, four curtains
+  of aurora come up over the crater — long bands that fold and drift, green
+  at the hem and blue at their tops — and now and then a stone falls through
+  them. One node on Hearth's planet, drawn only while Hearthstone is the
+  frame's body and only at night: from orbit, from another world, or by day
+  it costs nothing.
+- **Lamps are lamps up close and lit dots from afar.** A village of 29 lights
+  used to be 29 lights on every surface round the crater. Now each burns only
+  while the camera is within a few of its own ranges (5 of them at the fire),
+  and the rest keep a soft halo, so the paths still read from the far side of
+  the valley. The campfire's light does the same, and is off from the air.
+- **Mara's banjo drifts from the fire.** Sitting in the village is the
+  quietest it has been: the crackle, and a phrase of banjo looping low,
+  louder as you come near it. The signalscope could always find her from
+  across the Reach; now you can hear her without it.
+- **Repeated pieces are drawn as one.** Lamps, cliff segments, benches and
+  the five houses (twelve meshes each) went up as 352 separate submissions;
+  they are now 147 meshes plus a few dozen multimeshes — 166 fewer things for
+  the renderer to submit — the scanned surface materials baked into each
+  group so the picture is unchanged (an A/B of the two frames differs on
+  antialiased edges, and on the aurora, which moves).
+  Hearthstone's shadow casters fall
+  **341 → 136** — the pass that draws the world a second time.
+- **A view of the world you are already on now wakes it** (`--view`), so the
+  checks and the pictures show the village itself rather than the planet's
+  far shell.
+- **Gates**: `--skytest` requires night above 0.6 with the aurora and a
+  falling star up, day below 0.15 with neither, a lit lamp at the fire and
+  none from three kilometres up. `--count` now counts only what is visible.
+  The walk, wall, fire, lift-off and landing checks still pass.
+
 ### Weight, grit and a cheaper surface, 17 October 2026
 
 - **Every surface costs a third less in the browser.** Each photo-scanned

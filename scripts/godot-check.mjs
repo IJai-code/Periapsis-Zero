@@ -141,6 +141,16 @@ const checks = [
     const ok = Boolean(m) && Number(m[1]) > 0.3 && m[2] === '1' && Number(m[3]) > 20 && m[4] === '1' && m[5] === 'true' && m[6] === 'false'
     return [ok, m ? m[0] : (out.match(/FIRETEST[^\n]*/) ?? ['no result'])[0]]
   }],
+  ['the Reach: night brings the aurora, and only near lamps burn', async () => {
+    const out = await run('reach', ['--skytest'], /SKYTEST/)
+    const m = out.match(/SKYTEST night ([\d.]+) aurora (\w+) stars (\w+) day ([\d.]+) lamps near (\d+)\/(\d+) far (\d+)\/(\d+)/)
+    if (!m) return [false, (out.match(/SKYTEST[^\n]*/) ?? ['no result'])[0]]
+    // Dark brings the curtains and a falling stone; day takes them away;
+    // a lamp burns near the camera and none three kilometres up.
+    const ok = Number(m[1]) > 0.6 && m[2] === 'true' && m[3] === 'true' && Number(m[4]) < 0.15
+      && Number(m[5]) > 0 && Number(m[7]) === 0
+    return [ok, m[0]]
+  }],
   ['the Reach: nothing in the village can be walked through (with a control)', async () => {
     const out = await run('reach', ['--walltest'], /WALLTEST/, 480000)
     const m = out.match(/WALLTEST tried (\d+) inside (\d+) (\[[^\]]*\]) control (\w+)/)
