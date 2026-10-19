@@ -604,16 +604,38 @@ func _avoid(acc: Vector3, _g: Vector3) -> Vector3:
 
 ## Height over the ground of the world she is in (a ray when it is close,
 ## the terrain's own height when not) and how fast she is sinking to it.
-func _measure() -> void:
+## The world she is near: the frame's, or (for the small ones, whose pull
+## reaches only a few hundred metres) any world within a kilometre and a
+## half of its ground, the nearest. "" out in the open.
+var near_key := ""
+
+func _near_world() -> String:
 	var b := system.ruling()
-	if b.key == "lantern":
+	if b.key != "lantern":
+		return b.key
+	var best := ""
+	var best_d := INF
+	for key in system.order:
+		if key == "lantern":
+			continue
+		var w: ReachBody = system.bodies[key]
+		var d := global_position.distance_to(system.world(key)) - w.radius
+		if d < maxf(1500.0, w.radius * 3.0) and d < best_d:
+			best_d = d
+			best = key
+	return best
+
+func _measure() -> void:
+	near_key = _near_world()
+	if near_key == "":
 		altitude = INF
 		sink = 0.0
 		return
-	var r := global_position - b.node.position
+	var b: ReachBody = system.bodies[near_key]
+	var r := global_position - system.world(near_key)
 	var up := r.normalized()
 	altitude = r.length() - b.radius - Worlds.height(b.key, up, b.radius) - 1.9
-	sink = -linear_velocity.dot(up)
+	sink = -(linear_velocity - system.world_vel(near_key)).dot(up)
 	if altitude < 160.0:
 		if _ray == null:
 			_ray = PhysicsRayQueryParameters3D.new()
@@ -630,10 +652,10 @@ var _ray: PhysicsRayQueryParameters3D
 ## The world the assist flies relative to: the locked one; the one she is
 ## low over; or the one her nose is pointed at.
 func _assist_ref() -> String:
-	# Inside a world's pull, always that world: that is what "still" means.
+	# Near a world, always that world: that is what "still" means.
 	var b := system.ruling()
-	if b.key != "lantern":
-		return b.key
+	if near_key != "":
+		return near_key
 	if target != "":
 		return target
 	var fwd := -global_basis.z
@@ -669,7 +691,7 @@ func _assist(acc: Vector3, t: Vector3, g: Vector3, _roll: float, _dt: float) -> 
 	var v := inv * v_rel
 	var to := system.world(key) - global_position
 	var surf := to.length() - tb.radius
-	var near := key == system.ref and key != "lantern"
+	var near := key == near_key and key != ""
 	var out := acc
 	var k := 1.6
 	if near:
@@ -680,9 +702,14 @@ func _assist(acc: Vector3, t: Vector3, g: Vector3, _roll: float, _dt: float) -> 
 		# and Shift climb and sink at a pace (gentler the lower she is), and
 		# just over the ground with nothing pressed, or Shift, she settles
 		# onto her gear at a walking pace.
-		var up := (global_position - system.ruling().node.position).normalized()
+		var up := (global_position - system.world(key)).normalized()
 		var aw := global_basis * acc
 		var v_up := v_rel.dot(up)
+		# Out of its frame (a small world, whose pull reaches only a little
+		# way), the Lantern pulls the world as it pulls her: what moves her
+		# against it is only the difference.
+		if key != system.ref:
+			g = g - system.gravity(system.world(key))
 		var settle := altitude < 3.0 and t.y <= 0.0 and t.x == 0.0 and t.z == 0.0
 		if t.y != 0.0 or settle:
 			aw -= up * aw.dot(up)
@@ -735,10 +762,9 @@ func _clamp_acc(a: Vector3) -> Vector3:
 ## Low over a world, her wings brought level (and right down near the
 ## ground, her nose too), so she sets down on her feet.
 func _level(_dt: float) -> Vector3:
-	var b := system.ruling()
-	if b.key == "lantern" or altitude > 140.0:
+	if near_key == "" or altitude > 140.0:
 		return Vector3.ZERO
-	var up := (global_position - b.node.position).normalized()
+	var up := (global_position - system.world(near_key)).normalized()
 	var err := global_basis.y.cross(up)
 	if altitude > 30.0:
 		var fwd := -global_basis.z

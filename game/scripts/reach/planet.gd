@@ -266,18 +266,18 @@ func _decorate(deco: Dictionary) -> void:
 						var shape: String = ["pine_a", "pine_b", "pine_c"][v]
 						# Close: the whole tree drawn, its shadow cast by the
 						# simple one (the shadow pass cannot tell).
-						var near := _deco_mm(Valley.mesh(shape), some, centre, Valley.pine_material(), 0.0, 70.0, false)
-						var shade := _deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 0.0, 70.0, true)
+						var near := _deco_mm(Valley.mesh(shape), some, centre, Valley.pine_material(), 0.0, 120.0, false)
+						var shade := _deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 0.0, 120.0, true)
 						shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 						near.visibility_range_end_margin = 20.0
-						_deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 60.0, 260.0, true)
-				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 245.0, range_end, true)
+						_deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 110.0, 330.0, true)
+				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 315.0, range_end, true)
 				continue
 			if kind in ["giant", "tree", "palm"]:
 				# The jungle's trees: their whole selves within a few hundred
 				# metres, a trunk and a lumpy crown beyond (Flora.far_mesh).
-				_deco_mm(Flora.mesh(kind), xfs, centre, null, 0.0, 210.0, true)
-				_deco_mm(Flora.far_mesh(kind), xfs, centre, null, 195.0, range_end, false)
+				_deco_mm(Flora.mesh(kind), xfs, centre, null, 0.0, 260.0, true)
+				_deco_mm(Flora.far_mesh(kind), xfs, centre, null, 245.0, range_end, false)
 				continue
 			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] else null
 			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])
@@ -300,6 +300,7 @@ func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: flo
 	mi.visibility_range_begin = begin
 	mi.visibility_range_end = end
 	mi.visibility_range_end_margin = 30.0
+	mi.visibility_range_begin_margin = 30.0
 	mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	add_child(mi)
 	_deco.append(mi)

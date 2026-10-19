@@ -184,9 +184,15 @@ const checks = [
   }]),
   ['the Reach: flown at a cliff at 45 m/s with W held, the assist stops her short; without it she crashes (the control)', async () => {
     const out = await run('reach', ['--walltestfly'], /FLYWALL/)
-    const m = out.match(/assist: warned (\w+), touched at ([\d.]+) m\/s, bounced back ([\d.]+) m\/s, crashed (\w+); no assist: warned \w+, touched at ([\d.]+) m\/s, bounced back [\d.]+ m\/s, crashed (\w+)/)
+    const m = out.match(/assist: warned (\w+), touched at ([\d.]+) m\/s, bounced back ([-\d.]+) m\/s, crashed (\w+); no assist: warned \w+, touched at ([\d.]+) m\/s, bounced back [-\d.]+ m\/s, crashed (\w+)/)
     if (!m) return [false, (out.match(/FLYWALL[^\n]*/) ?? ['no result'])[0]]
     return [m[1] === 'true' && Number(m[2]) < 4 && Number(m[3]) < 2 && m[4] === 'false' && Number(m[5]) > 30 && m[6] === 'true', m[0]]
+  }],
+  ['the Reach: land on the Phantom (whose pull is small) from 600 m with Shift; out, look away: it stays underfoot', async () => {
+    const out = await run('reach', ['--phantomtest'], /PHANTOMTEST/, 300000)
+    const m = out.match(/PHANTOMTEST landed (\w+), moon jumped (\d+) times, frame (\w+), lowest ([-\d.]+) m over its middle radius, player alive (\w+)/)
+    if (!m) return [false, (out.match(/PHANTOMTEST[^\n]*/) ?? ['no result'])[0]]
+    return [m[1] === 'true' && m[2] === '0' && m[3] === 'phantom' && Number(m[4]) > -6 && m[5] === 'true', m[0]]
   }],
   ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
     const out = await run('reach', ['--swimtest'], /SWIMTEST/)

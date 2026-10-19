@@ -212,7 +212,8 @@ func merge_pieces(min_instances := 2) -> int:
 ## Small things are only drawn near: a crate, a bucket, a fence at a
 ## hundred metres is a pixel or two, and each is a draw call (and another in
 ## the shadow pass). Anything under a metre and a half casts no shadow and
-## goes beyond 70 m; under five metres, beyond 170 m. Houses, cliffs, the
+## goes beyond 130 m (a pixel or two by then, so its going is not seen);
+## under five metres, beyond 300 m. Houses, cliffs, the
 ## tower: always. Returns how many were limited.
 func cull_small() -> int:
 	var n := 0
@@ -226,12 +227,12 @@ func cull_small() -> int:
 		var big := maxf(size.x, maxf(size.y, size.z))
 		if big < 1.5:
 			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			gi.visibility_range_end = 70.0
+			gi.visibility_range_end = 130.0
 		elif big < 5.0:
-			gi.visibility_range_end = 170.0
+			gi.visibility_range_end = 300.0
 		else:
 			continue
-		gi.visibility_range_end_margin = 10.0
+		gi.visibility_range_end_margin = 25.0
 		n += 1
 	return n
 

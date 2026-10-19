@@ -494,7 +494,7 @@ func _ship(vp: Vector2, c: Vector2, s: ReachShip) -> void:
 			_draw.draw_colored_polygon(PackedVector2Array([tip, edge + side, edge - side]), ReachStyle.EMBER)
 			_draw.draw_string(ReachStyle.round_bold, edge - dir * 22.0 + Vector2(-80, 5), (sys.bodies[s.target] as ReachBody).title, HORIZONTAL_ALIGNMENT_CENTER, 160, 16, ReachStyle.EMBER)
 	# Near a world: how to land, until you have.
-	if s.piloted and not s.autopilot and sys.ruling().key != "lantern" and s.assist and s._danger < 0.3:
+	if s.piloted and not s.autopilot and s.near_key != "" and s.assist and s._danger < 0.3:
 		var msg := ""
 		if s.landed:
 			msg = "Landed.  E to step out"

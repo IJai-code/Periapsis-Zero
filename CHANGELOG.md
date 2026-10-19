@@ -5,6 +5,25 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Landing on the small worlds, no pop-in, steadier quality, 19 October 2026
+
+- **The Phantom (and the Wanderer) can be landed on.** Their pull reaches
+  only a few hundred metres, and the landing help only woke inside it, so
+  coming down onto them Shift was full thrust down: the ship hit at 90 m/s
+  and the morning began again (which looked like the moon flying apart and
+  falling away). The help now works within a kilometre and a half of any
+  world's ground, out of its frame too (undoing only the difference between
+  the Lantern's pull on her and on it). From 600 m: landed in 40 s, out of
+  the seat, looking away at the sky for 20 s, and the Phantom stays
+  underfoot (`--phantomtest`).
+- **No popping in.** Small things are drawn to 130 m (was 70) and medium
+  ones to 300 m (was 170); pines keep their whole shape to 120 m (was 70) and
+  jungle trees to 260 m (was 210); every switch has thirty metres of margin
+  either way, so nothing flickers in and out at the edge.
+- **Quality changes are rarer.** Each step down is itself a hitch, so it
+  waits for three seconds under 46 fps, never steps twice within twenty
+  seconds, and only steps back up after thirty smooth ones.
+
 ### A clean black before waking; Squadron's Earth and nebulae, 18 October 2026 (late)
 
 - **Nothing shows before the eyes open.** The shaders are warmed behind the

@@ -94,6 +94,8 @@ func _ready() -> void:
 		_prof_test()
 	if "--arrivetest" in args:
 		_arrive_test()
+	if "--phantomtest" in args:
+		_phantom_test()
 	if "--walltestfly" in args:
 		_fly_wall_test()
 	var apt := args.find("--aptest")
@@ -115,7 +117,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest"]:
 			return true
 	return false
 
@@ -1256,6 +1258,67 @@ func _land_test() -> void:
 	Input.parse_input_event(k)
 	var t := (Time.get_ticks_msec() - start) / 1000.0
 	Report.line("LANDTEST held %.2f m/s at %.0f m, landed %s after %.1f s, touched at %.1f m/s, dust %d, hull %d%%" % [held, hover_alt, ship.landed, t, touch, dust, int(maxf(ship.integrity, 0.0))])
+	Report.finish(get_tree())
+
+## Landing on the Phantom as a player does: in from 600 m with the nose
+## not on it, Shift down onto it, out of the seat, then looking away at the
+## sky for a while. It must stay under your feet the whole time.
+func _phantom_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	var ph: ReachBody = system.bodies["phantom"]
+	system.switch("lantern")
+	await get_tree().physics_frame
+	var c := system.world("phantom")
+	var d := Vector3(0.3, 0.9, 0.2).normalized()
+	var log := func(what: String) -> void:
+		print("PHANTOM %s ref %s dist %.0f landed %s" % [what, system.ref, (system.focus as Node3D).global_position.distance_to(system.world("phantom")), ship.landed])
+	ship.freeze = true
+	ship.global_transform = Transform3D(Site.upright(d, d.cross(Vector3.UP)), c + d * (ph.radius + 600.0))
+	ship.reset_physics_interpolation()
+	ship.freeze = false
+	ship.linear_velocity = system.world_vel("phantom")
+	ship._last_v = ship.linear_velocity
+	ship.landed = false
+	ship._lit = true
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var k := InputEventKey.new()
+	k.keycode = KEY_SHIFT
+	k.physical_keycode = KEY_SHIFT
+	k.pressed = true
+	Input.parse_input_event(k)
+	var t := 0.0
+	var jumped := 0
+	var m0 := ph.orbit.m0
+	while t < 120.0 and not ship.landed:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if ph.orbit.m0 != m0:
+			jumped += 1
+			m0 = ph.orbit.m0
+	var k2 := k.duplicate() as InputEventKey
+	k2.pressed = false
+	Input.parse_input_event(k2)
+	log.call("down after %.0f s" % t)
+	ship.leave()
+	await ship.left_ship
+	# Looking away, straight up at the sky, for twenty seconds.
+	player.set_pitch(1.4)
+	var t2 := 0.0
+	var lowest := INF
+	while t2 < 20.0:
+		await get_tree().physics_frame
+		t2 += get_physics_process_delta_time()
+		if ph.orbit.m0 != m0:
+			jumped += 1
+			m0 = ph.orbit.m0
+		var h := player.global_position.distance_to(system.world("phantom")) - ph.radius
+		lowest = minf(lowest, h)
+	log.call("after looking away")
+	Report.line("PHANTOMTEST landed %s, moon jumped %d times, frame %s, lowest %.1f m over its middle radius, player alive %s" % [ship.landed, jumped, system.ref, lowest, not player._dead])
 	Report.finish(get_tree())
 
 ## Arriving at Verdance as a player does: 1.5 km up, sliding across it at
