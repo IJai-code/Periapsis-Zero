@@ -11,7 +11,7 @@ const STANDS := [
 	["The Lantern", "It flickered three nights ago and has been swelling since. Okafor gives it a day. When it starts to stutter, it is almost out of time."],
 	["Listening", "Press X for the signalscope. Point it at the sky and tune it with Z and C, or the wheel. Travellers play the same old song: find them by their instruments. Distress beacons, chatter and stranger things share the band."],
 	["The Choir", "Spirals cut in stone all over the Reach: the writing of the people who were here first. Look at one and press E, and Okafor's translator reads it to you a verse at a time."],
-	["Flying the Kestrel", "W burns forward and S slows; A and D slide; Space and Shift rise and sink. The mouse turns her, Q and E roll. T locks onto a world and holding F matches your speed to it. Come down slower than eight metres a second, on her gear."],
+	["Flying your ship, the Kestrel", "W burns forward and S slows; A and D slide; Space and Shift rise and sink. The mouse turns her, Q and E roll. T locks onto a world and holding F matches your speed to it. Come down slower than eight metres a second, on her gear."],
 	["Your suit", "Air, fuel and the suit itself, bottom left. Hold Space to crouch, let go to jump: the longer you hold, the higher. In the air, Space again fires the jetpack up, Shift down, and the move keys push you sideways. Out of the air the oxygen counts down; the Kestrel refills both. P takes a photograph; L opens the ship's log."],
 	["The Fold", "Beyond the Wanderer's farthest swing lies a nebula we call the Fold. Every ship that ever came to the Reach came through it."],
 ]

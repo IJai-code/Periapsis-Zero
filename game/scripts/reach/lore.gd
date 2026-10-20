@@ -207,7 +207,7 @@ const TALK := {
 	"okafor": {
 		"start": {"lines": [
 			["Okafor", "Ah, the pilot who fell out of the sky. Come in, mind the telescope. Your launch codes: there, keyed into your suit. The Kestrel will answer to you now."],
-			["Okafor", "Have a look round the stands before you go; they'll tell you more about the Reach than I can in a morning. I've been watching the Lantern."],
+			["Okafor", "Have a look round the stands before you go; they'll tell you more about the Reach than I can in a morning. I've been watching the Lantern, our star."],
 			["Okafor", "Three nights ago it flickered. It's been swelling ever since. Stars don't do that, not on any clock we'd notice."],
 			["Okafor", "As for the Aster's people: if any of them lived, you'll hear them before you see them. Your suit's signalscope, X. Start there."],
 		], "learn": ["hearth_codes", "hearth_lantern"], "choices": [

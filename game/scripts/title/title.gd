@@ -10,17 +10,26 @@ const INK := Color("#3a2618")
 
 var _menu: VBoxContainer
 var _settings: PanelContainer
+var _help: Control
 var _items: Array[Button] = []
 var _marker: Control
 var _t := 0.0
 var _confirm := false
 
 func _ready() -> void:
-	var reach: Node = load("res://scenes/reach.tscn").instantiate()
-	reach.set_meta("backdrop", true)
-	add_child(reach)
-	if not "--noui" in OS.get_cmdline_user_args():
-		_ui()
+	# A link straight into the game (#reach, #hearth, #flight...) does not
+	# need the title's backdrop, and on a small machine building it first is
+	# most of the wait: Flow changes scene from the address as soon as the
+	# first frame is up.
+	if Flow.start_scene == "":
+		var reach: Node = load("res://scenes/reach.tscn").instantiate()
+		reach.set_meta("backdrop", true)
+		add_child(reach)
+		if not "--noui" in OS.get_cmdline_user_args():
+			_ui()
+		# The backdrop says when it has a picture (Reach._backdrop): the
+		# village is made a piece at a time, and the browser's loading
+		# screen should stay up until then.
 	Flow.music(false)
 
 func _process(dt: float) -> void:
@@ -91,6 +100,9 @@ func _ui() -> void:
 	_settings = _settings_panel()
 	_settings.visible = false
 	root.add_child(_settings)
+	_help = _help_panel()
+	_help.visible = false
+	root.add_child(_help)
 
 func _small(text: String, size: int) -> Label:
 	var l := Label.new()
@@ -133,6 +145,7 @@ func _fill_menu() -> void:
 			chapter = "hearth"
 		_button("The Road Here", func(): Flow.go(chapter if done or seen else "intro"))
 		_button("Explore the Cosmos", Flow.open_sim)
+		_button("How to Play", _toggle_help)
 		_button("Settings", _toggle_settings)
 		if not Flow.on_web():
 			_button("Quit", get_tree().quit)
@@ -243,6 +256,107 @@ class _Logo extends Control:
 			draw_circle(p, 6.0, Color("#e8853d"))
 func _toggle_settings() -> void:
 	_settings.visible = not _settings.visible
+	if _help:
+		_help.visible = false
+
+func _toggle_help() -> void:
+	_help.visible = not _help.visible
+	_settings.visible = false
+
+## The game in plain words, on the title screen: the goal, the first few
+## minutes, the keys, and the words the Reach uses. The pause menu's help
+## says the same in game; this is what a new pilot reads before starting.
+const HELP_GOAL := "You are a pilot who crashed on a little world called Hearthstone. Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Every twenty-two minutes the star at the middle of the Reach goes out, and you wake by the campfire again. Nobody else remembers. What you learn is the only thing you keep."
+const HELP_STEPS := [
+	"Talk to Mara by the fire: look at her and press E.",
+	"Get your ship's launch codes from Okafor, in the glass-domed observatory.",
+	"Ride the lift up the launch tower, and climb into your ship through the hatch underneath (E).",
+	"Hold Space to lift off. Look at a world, press T to lock onto it, then G to fly there.",
+	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
+]
+const HELP_KEYS := [
+	["W A S D", "walk, or fly"], ["Mouse", "look and steer"],
+	["Space", "jump (hold for higher), lift off"], ["Shift", "run, sink and land"],
+	["E", "talk, use, read"], ["X", "signalscope"],
+	["L", "ship log"], ["M", "map"], ["Esc", "pause and every key"],
+]
+const HELP_WORDS := [
+	["Your ship", "the Kestrel, a small two-engine craft on the launch tower"],
+	["The star", "the Lantern, which the five worlds go round. It is dying"],
+	["The loop", "every 22 minutes the star goes out and you wake at the fire again"],
+	["Ship log (L)", "your notebook: what you have learned, and where it points"],
+	["Signalscope (X)", "hears music and signals; turn toward the loudest and follow it"],
+	["The Choir", "the people who lived here long ago; they wrote in spirals"],
+	["Songline", "a spiral of the Choir's writing; look at it and press E"],
+	["Hearthstone", "home: the village, the lake, the observatory, the tower"],
+	["Verdance, Ashfall", "the jungle world, and the volcanic moon"],
+	["The Phantom, the Wanderer", "the moon that moves, and the comet"],
+]
+
+func _help_panel() -> Control:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", ReachStyle.panel(14))
+	# The right side of the screen, whatever its height: the words scroll
+	# rather than run off a laptop's screen.
+	p.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	p.offset_left = -700
+	p.offset_right = -96
+	p.offset_top = 46
+	p.offset_bottom = -46
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 10)
+	p.add_child(outer)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer.add_child(scroll)
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(552, 0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 8)
+	scroll.add_child(v)
+	v.add_child(ReachStyle.title("How to play", 34, ReachStyle.EMBER))
+	var goal := ReachStyle.label(HELP_GOAL, 17, ReachStyle.BONE)
+	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	goal.custom_minimum_size = Vector2(552, 0)
+	v.add_child(goal)
+	var steps := ReachStyle.label("YOUR FIRST FEW MINUTES", 15, ReachStyle.EMBER)
+	steps.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(steps)
+	for i in HELP_STEPS.size():
+		var row := ReachStyle.label("%d.  %s" % [i + 1, HELP_STEPS[i]], 16, ReachStyle.BONE)
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.custom_minimum_size = Vector2(552, 0)
+		v.add_child(row)
+	var keys := ReachStyle.label("THE KEYS", 15, ReachStyle.EMBER)
+	keys.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(keys)
+	for k: Array in HELP_KEYS:
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		var cap := PanelContainer.new()
+		cap.add_theme_stylebox_override("panel", ReachStyle.keycap())
+		var key := ReachStyle.label(k[0], 13, ReachStyle.CHARCOAL, true)
+		key.add_theme_font_override("font", Style.mono_bold)
+		cap.add_child(key)
+		h.add_child(cap)
+		h.add_child(ReachStyle.label(k[1], 16, ReachStyle.BONE))
+		v.add_child(h)
+	var words := ReachStyle.label("THE WORDS", 15, ReachStyle.EMBER)
+	words.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(words)
+	for w: Array in HELP_WORDS:
+		var row := ReachStyle.label("%s:  %s" % [w[0], w[1]], 15, ReachStyle.BONE)
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.custom_minimum_size = Vector2(552, 0)
+		v.add_child(row)
+	# The way out stays out of the scrolling words.
+	var close := Button.new()
+	close.text = "Close"
+	close.size_flags_horizontal = Control.SIZE_SHRINK_END
+	close.pressed.connect(_toggle_help)
+	outer.add_child(close)
+	return p
 
 func _settings_panel() -> PanelContainer:
 	var p := PanelContainer.new()

@@ -214,7 +214,7 @@ func _process(dt: float) -> void:
 		_clock.text = "Sleeping   %02d:%02d\nany key to wake" % [int(t) / 60, int(t) % 60]
 		if t >= WAKE_BEFORE:
 			_wake()
-			reach.hud.caption("Something wakes you. The Lantern is wrong.", 4.0)
+			reach.hud.caption("Something wakes you. The star is wrong.", 4.0)
 		_prompt.text = ""
 	else:
 		var words := ["[E] hold over the fire"]

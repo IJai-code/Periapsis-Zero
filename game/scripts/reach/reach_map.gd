@@ -335,7 +335,7 @@ func _header(vp: Vector2) -> void:
 		var b := x0 + w * WandererSite.OPEN_TO / ReachSystem.LOOP
 		_canvas.draw_rect(Rect2(Vector2(a, y - 9), Vector2(b - a, 2)), Color(0.6, 0.85, 1.0, 0.9))
 		_canvas.draw_string(Style.mono, Vector2(a, y + 14), "the Engine's door", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.6, 0.85, 1.0))
-	_canvas.draw_string(Style.mono, Vector2(48, vp.y - 30), "Wheel  zoom      C  centre on %s      M  close" % ("the Lantern" if _on_you else "you"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ReachStyle.MUTE)
+	_canvas.draw_string(Style.mono, Vector2(48, vp.y - 30), "Wheel  zoom      C  centre on %s      M  close" % ("the star" if _on_you else "you"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ReachStyle.MUTE)
 
 static func _clock(t: float) -> String:
 	var s := int(maxf(t, 0.0))

@@ -15,13 +15,15 @@ var _menu: VBoxContainer
 var _items: Array[Button] = []
 var _marker: Control
 var _keys: Control
+var _help: Control
+var _help_goal: Label
 var _settings: Control
 var _t := 0.0
 
 const KEYS := [
 	["On foot", [["W A S D", "walk"], ["Shift", "run"], ["Space", "hold to crouch, let go to jump"], ["Space (in the air)", "jetpack up"], ["E", "use, talk, read"], ["F", "torch"]]],
 	["In the water", [["W A S D", "swim"], ["Space", "up"], ["Shift", "dive"]]],
-	["The Kestrel", [["W S", "forward, back"], ["A D", "sideways"], ["Space", "lift off, climb"], ["Shift", "sink and land"], ["let go", "she holds still near a world"], ["Mouse", "turn"], ["Q E", "roll"], ["T", "lock the world you look at"], ["G", "autopilot to it"], ["F (held)", "match its speed"], ["R", "flight assist on or off"], ["V", "view from outside"], ["Right mouse", "look about the cockpit"], ["E (landed)", "leave the seat"]]],
+	["Your ship", [["W S", "forward, back"], ["A D", "sideways"], ["Space", "lift off, climb"], ["Shift", "sink and land"], ["let go", "she holds still near a world"], ["Mouse", "turn"], ["Q E", "roll"], ["T", "lock the world you look at"], ["G", "autopilot to it"], ["F (held)", "match its speed"], ["R", "flight assist on or off"], ["V", "view from outside"], ["Right mouse", "look about the cockpit"], ["E (landed)", "leave the seat"]]],
 	["Anywhere", [["X", "signalscope (Z C or wheel to tune)"], ["M", "map"], ["L", "ship log"], ["P", "photograph"], ["Esc", "pause"]]],
 ]
 
@@ -55,6 +57,7 @@ func _ready() -> void:
 	_menu.add_theme_constant_override("separation", 4)
 	left.add_child(_menu)
 	_button("Resume", func(): resume.emit())
+	_button("How to play", func(): _show(_help))
 	_button("Controls", func(): _show(_keys))
 	_button("Settings", func(): _show(_settings))
 	_button("Back to the title", func(): leave.emit())
@@ -65,13 +68,19 @@ func _ready() -> void:
 	add_child(_marker)
 	_keys = _keys_panel()
 	add_child(_keys)
+	_help = _help_panel()
+	add_child(_help)
 	_settings = _settings_panel()
 	add_child(_settings)
 	_show(_keys)
 
 func open() -> void:
 	visible = true
-	_show(_keys)
+	var r := get_tree().get_first_node_in_group("reach_root")
+	if r and _help_goal:
+		var g: String = r._next_goal()
+		_help_goal.text = g.trim_prefix("Lead: ") if g != "" else "Explore. Your ship log (L) lists every lead you have found."
+	_show(_help)
 	if not _items.is_empty():
 		_items[0].grab_focus()
 
@@ -82,6 +91,7 @@ func _process(dt: float) -> void:
 func _show(panel: Control) -> void:
 	_keys.visible = panel == _keys
 	_settings.visible = panel == _settings
+	_help.visible = panel == _help
 
 ## A menu line, as on the title: big rounded words, cream on a dark outline.
 func _button(text: String, action: Callable) -> Button:
@@ -147,6 +157,73 @@ func _card() -> PanelContainer:
 	p.offset_right = -120
 	return p
 
+const WORDS := [
+	["Your ship", "the Kestrel: a small two-engine craft, parked on the launch tower"],
+	["The star", "the Lantern, which the five worlds go round. It is dying"],
+	["The loop", "every 22 minutes the star goes out and you wake by the fire again"],
+	["Ship log (L)", "your notebook: what you have learned and where it points"],
+	["Signalscope (X)", "listens for music and signals; turn toward the loudest"],
+	["The Choir", "the people who lived here long ago; they wrote in spirals"],
+	["Songline", "a spiral of the Choir's writing; look at it and press E"],
+	["Hearthstone", "home: the village, the lake, the observatory, the tower"],
+	["Verdance, Ashfall", "the jungle world and the volcanic moon"],
+	["The Phantom, the Wanderer", "the moon that moves, and the comet"],
+]
+
+const STEPS := [
+	"Talk to Mara by the fire: look at her and press E.",
+	"Get your ship's launch codes from Okafor, in the glass-domed observatory.",
+	"Ride the lift up the launch tower, and climb into your ship through the hatch underneath (E).",
+	"Hold Space to lift off. Look at a world, press T to lock onto it, then G to fly there.",
+	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
+]
+
+## The goal, the first few minutes, what to do next, and the words the game
+## uses. Scrolled: the words do not fit on a laptop's screen all at once.
+func _help_panel() -> Control:
+	var p := _card()
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(560, 620)
+	p.add_child(scroll)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	v.custom_minimum_size = Vector2(560, 0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(v)
+	var head := ReachStyle.label("THE GOAL", 15, ReachStyle.EMBER)
+	head.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(head)
+	var goal := ReachStyle.label("Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Then put an end to it. What you learn is the only thing you keep from one day to the next.", 18, ReachStyle.BONE)
+	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	goal.custom_minimum_size = Vector2(560, 0)
+	v.add_child(goal)
+	var sh := ReachStyle.label("YOUR FIRST FEW MINUTES", 15, ReachStyle.EMBER)
+	sh.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(sh)
+	for i in STEPS.size():
+		var step := ReachStyle.label("%d.  %s" % [i + 1, STEPS[i]], 16, ReachStyle.BONE)
+		step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		step.custom_minimum_size = Vector2(560, 0)
+		v.add_child(step)
+	var nh := ReachStyle.label("WHAT TO DO NEXT", 15, ReachStyle.EMBER)
+	nh.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(nh)
+	_help_goal = ReachStyle.label("", 18, ReachStyle.BONE)
+	_help_goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_help_goal.custom_minimum_size = Vector2(560, 0)
+	v.add_child(_help_goal)
+	var wh := ReachStyle.label("WORDS", 15, ReachStyle.EMBER)
+	wh.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(wh)
+	for w: Array in WORDS:
+		var row := ReachStyle.label("", 16, ReachStyle.BONE)
+		row.text = "%s:  %s" % [w[0], w[1]]
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.custom_minimum_size = Vector2(560, 0)
+		v.add_child(row)
+	return p
+
 ## Every key, grouped, as keycaps and words.
 func _keys_panel() -> Control:
 	var p := _card()
@@ -160,7 +237,7 @@ func _keys_panel() -> Control:
 		cols.add_child(c)
 	for g in KEYS.size():
 		var group: Array = KEYS[g]
-		var col := col_b if group[0] == "The Kestrel" else col_a
+		var col := col_b if group[0] == "Your ship" else col_a
 		var head := ReachStyle.label(String(group[0]).to_upper(), 15, ReachStyle.EMBER)
 		head.add_theme_font_override("font", ReachStyle.round_bold)
 		if col.get_child_count() > 0:

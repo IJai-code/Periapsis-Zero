@@ -227,7 +227,28 @@ func plaque(title: String, text: String, at: Vector3) -> void:
 	_plaque_text.text = text
 	_plaque_at = at
 	_plaque_t = 20.0
+	_guide_t = 0.0
 	_plaque.visible = true
+
+## A guide: what this place is and what to do here, in plain words. The
+## plaque's panel, held for `seconds` wherever you walk (Enter or Tab puts
+## it away sooner).
+var _guide_t := 0.0
+func guide(title: String, text: String, seconds := 18.0) -> void:
+	_plaque_title.text = title
+	_plaque_text.text = text + "\n\n[Tab to put this away]"
+	_plaque_at = Vector3.INF
+	_plaque_t = seconds
+	_guide_t = seconds
+	_plaque.visible = true
+
+## Tab alone puts a guide away: Enter and Space already mean "go on" in
+## conversations and the Choir's verses, and must keep meaning that.
+func _unhandled_key_input(e: InputEvent) -> void:
+	if _guide_t > 0.0 and e is InputEventKey and e.pressed and not e.echo and (e as InputEventKey).keycode == KEY_TAB:
+		_guide_t = 0.0
+		_plaque.visible = false
+		get_viewport().set_input_as_handled()
 
 ## What to do next ("" for nothing).
 func goal(text: String) -> void:
@@ -340,7 +361,9 @@ func _process(dt: float) -> void:
 	var pl: Explorer = reach.player
 	if _plaque.visible:
 		_plaque_t -= dt
-		if _plaque_t <= 0.0 or not pl or pl.global_position.distance_to(_plaque_at) > 4.5:
+		_guide_t = maxf(_guide_t - dt, 0.0)
+		var walked := _plaque_at != Vector3.INF and (not pl or pl.global_position.distance_to(_plaque_at) > 4.5)
+		if _plaque_t <= 0.0 or walked:
 			_plaque.visible = false
 	var want_goal: bool = _goal_text.text != "" and pl != null and (pl.enabled or (reach.ship != null and reach.ship.piloted))
 	_goal.modulate.a = move_toward(_goal.modulate.a, 0.9 if want_goal else 0.0, dt * 1.5)

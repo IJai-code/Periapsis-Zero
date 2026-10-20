@@ -5,6 +5,31 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Plain instructions, and a browser that answers while it loads, 19 October 2026 (evening)
+
+- **How to play, everywhere it is needed.** The site's home page has a How
+  to play panel (the goal, the first five minutes, the keys, and the words
+  the game uses); the Godot title has the same under its menu; Esc opens
+  the help in game (goal, what to do next, first steps, the words) instead
+  of only a bare key list; and stepping out onto a world for the first time
+  each morning says what the place is and what to do there. The Lantern and
+  the Kestrel are introduced as "the star" and "your ship" before the
+  proper names, and quest lines, deaths and the map use the plain words too.
+- **The browser no longer says "page unresponsive" while the Reach loads.**
+  Three causes, all fixed. The title's backdrop built every world and every
+  site, for a view of one pier; it now builds Hearthstone only, with a
+  fifth of the grass. A link straight into the game (`#reach`, which is
+  what the site's Play button opens) built the title first and then threw
+  it away; the address is now read before the first scene is made. And the
+  village's several seconds of work was one unbroken block; on the web it
+  is built in stages with a frame between (planets, roads, buildings,
+  people, grass in four batches, then each other world), while the shader
+  warm-up spreads its 599 materials over frames instead of one. The
+  browser's loading screen now stays up until the game has a picture,
+  rather than leaving a black canvas. Under a 6× CPU throttle the worst
+  single block fell from **38.5 s to 11.3 s** on the title and **8.0 s**
+  straight into the Reach, with every other block at 2.5 s or less.
+
 ### Landing on the small worlds, no pop-in, steadier quality, 19 October 2026
 
 - **The Phantom (and the Wanderer) can be landed on.** Their pull reaches

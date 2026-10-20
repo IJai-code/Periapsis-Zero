@@ -13,6 +13,12 @@ var lift: TowerLift
 var tower: Node3D
 ## Where the Kestrel rests each morning: on the tower's deck.
 var ship_rest: Transform3D
+## Built a piece at a time, a frame between the big steps, so a browser
+## stays answerable while the village is made (it is the longest single
+## piece of work in the game). Tests and the desktop build it in one go.
+var chunk := false
+var done := false
+signal built
 
 static func make(b: ReachBody) -> Village:
 	var v := Village.new(b, "village")
@@ -26,6 +32,9 @@ func _flat(name: String) -> Vector2:
 	return Vector2(local.x, -local.z)
 
 func _ready() -> void:
+	_build()
+
+func _build() -> void:
 	var pad := _flat("pad")
 	var obs := _flat("observatory")
 	var cave := _flat("cave")
@@ -74,12 +83,16 @@ func _ready() -> void:
 			var p: Vector2 = start.lerp(to, float(k) / (lamps + 1)) + to.normalized().orthogonal() * (2.4 if k % 2 == 0 else -2.4)
 			lamp(put("valley-lamp2", p, p + to.normalized().orthogonal() * (-1.0 if k % 2 == 0 else 1.0)), Vector3(0, 2.25, 0.72), Color(1.0, 0.7, 0.4), 1.4, 8.0)
 	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond})
+	if chunk:
+		await get_tree().process_frame
 	_tower()
 	_observatory()
 	_lake()
 	put_near("village-lookout", Worlds.place(body, "lookout"), Vector3.ZERO, center.origin)
 	_mine()
 	_crater()
+	if chunk:
+		await get_tree().process_frame
 	# The people: Mara by the fire, Fen by a porch, Tull on the mine path,
 	# Isa at the tower's foot, Okafor in the observatory.
 	person("mara", "mara", Vector2(-2.6, 1.4), Vector2.ZERO)
@@ -87,16 +100,24 @@ func _ready() -> void:
 	person("miner", "crowd3", cave * 0.55 + Vector2(2.0, 1.0), Vector2.ZERO)
 	person("hauler", "crowd1", pad * 0.8 + pad.orthogonal().normalized() * 3.0, pad)
 
+	if chunk:
+		await get_tree().process_frame
 	# Strings of little lanterns across the square, porch to porch.
 	_strings([Vector2(-15.0, 3.0), Vector2(4.0, 18.0), Vector2(19.0, 6.0), Vector2(14.0, -14.0), Vector2(-9.0, -18.5)])
 	# Smoke from the chimneys.
 	for n in get_children():
 		if n is Node3D and String(n.scene_file_path).contains("valley-house"):
 			_chimney(n as Node3D)
-	# Grass and wildflowers everywhere people do not walk.
+	# Grass and wildflowers everywhere people do not walk. In the title's
+	# backdrop the camera is 26 m out on the pier and never moves: a fifth
+	# of the tufts is indistinguishable from all of them there, and it is
+	# most of the seconds the title takes to build on a small machine.
 	clear.append_array(footprints())
 	clear.append([center.origin, 4.4])
-	Grass.field(self, center, 64.0, 15000, clear, 11)
+	if chunk:
+		await Grass.field(self, center, 64.0 if not backdrop else 40.0, 15000 if not backdrop else 2600, clear, 11, true)
+	else:
+		Grass.field(self, center, 64.0 if not backdrop else 40.0, 15000 if not backdrop else 2600, clear, 11)
 	# Everything above is placed and never moves again: draw the repeated
 	# pieces (lamps, cliffs, benches, houses of a kind) as a handful of
 	# multimeshes rather than a hundred submissions.
@@ -105,6 +126,8 @@ func _ready() -> void:
 	var culled := cull_small()
 	if "--count" in OS.get_cmdline_user_args():
 		print("MERGE village saved %d draws, %d small things drawn only near" % [saved, culled])
+	done = true
+	built.emit()
 
 ## Strings of bulbs hung between the houses' porches, sagging, warm: one
 ## drawing for every bulb (a multimesh) and one for the wire.

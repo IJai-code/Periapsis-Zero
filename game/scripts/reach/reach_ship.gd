@@ -192,7 +192,7 @@ func _ready() -> void:
 	add_child(_launch_cam)
 	# The hatch is in her belly, behind the seat: reached from either side,
 	# from under the wings or from beside her nose.
-	_board = Usable.box("Climb into the Kestrel", Vector3(6.4, 2.4, 5.6))
+	_board = Usable.box("Climb into your ship", Vector3(6.4, 2.4, 5.6))
 	_board.position = Vector3(0.0, -0.9, -2.2)
 	add_child(_board)
 	_hatch_make()
@@ -1123,7 +1123,7 @@ func _process(dt: float) -> void:
 		var up := at.basis.y
 		chase.global_position = at.origin + at.basis.z * 16.0 + up * 4.5
 		chase.look_at(at.origin - at.basis.z * 10.0, up)
-	_board.prompt = "Climb into the Kestrel" if not piloted and not _moving else ""
+	_board.prompt = "Climb into your ship" if not piloted and not _moving else ""
 
 func _cameras() -> void:
 	if not piloted:

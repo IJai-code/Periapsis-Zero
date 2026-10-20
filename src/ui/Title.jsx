@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AccountButton } from './Account.jsx'
 import { Mark } from './Mark.jsx'
 import { logbookLine } from '../sim/logbook.js'
@@ -80,14 +80,14 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
                   <a className="tt-primary tt-begin control" href={`${BASE}play/index.html#reach`}>Enter the Reach →</a>
                   <a className="tt-secondary control" href={`${DESKTOP}${download.file}`}>Download for {download.name}</a>
                 </div>
-                <p className="tt-downloads">Plays in the browser, about 95 MB the first time. Or download for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> or <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a>. <a className="tt-help-link" href="#install" onClick={(e) => { e.preventDefault(); document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' }) }}>How to open the download</a></p>
+                <p className="tt-downloads">Plays in the browser, about 100 MB the first time. Or download for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> or <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a>. <a className="tt-help-link" href="#install" onClick={(e) => { e.preventDefault(); document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' }) }}>How to open the download</a></p>
                 <p className="tt-career">{save ? <>Already flying? <button onClick={onPlay}>Continue your career</button> or <button onClick={newGame}>start a new pilot</button>.</> : <>Rather fly and fight? <button onClick={newGame}>Start a career</button> in the original flight game.</>}</p>
                 {confirm && <div className="tt-confirm" role="alert"><p>Replace your saved career with a new pilot?</p><button className="tt-primary control" onClick={onNew}>Replace career</button><button className="tt-secondary control" onClick={() => setConfirm(false)}>Keep my pilot</button></div>}
               </>}
             </div>
             <div className="tt-hero-coordinate" aria-hidden>HEARTH VILLAGE<br />HEARTHSTONE / THE REACH</div>
           </section>
-          <section className="tt-briefing"><div><span className="tt-eyebrow">The Reach / one loop, five worlds, one song</span><h2>How it goes.</h2><p>You wake by Hearth&rsquo;s campfire. Mara has your launch codes. After that there are no waypoints: only rumours in your ship&rsquo;s log, signals on your scope, and twenty-two minutes before the Lantern falls. The road here, the prologue and Act One, is on the game&rsquo;s title screen.</p></div><ol><li><b>01</b><span><strong>Hearthstone</strong>A village of forty round a campfire, a banjo, an observatory, and past the lake an old mine with writing on its far wall.</span></li><li><b>02</b><span><strong>Verdance</strong>Sandstone pillars and waterfalls, and a harmonica on the Travellers frequency that nobody in Hearth plays.</span></li><li><b>03</b><span><strong>Ashfall</strong>The Aster&rsquo;s wreck in a grey crater, Rook&rsquo;s drones sweeping it with searchlights, her captain&rsquo;s recorder still talking.</span></li><li><b>04</b><span><strong>The Phantom</strong>A little moon that is never where you left it, unless you keep its picture.</span></li><li><b>05</b><span><strong>The Wanderer</strong>A comet that dives past the Lantern at twenty and a half minutes. Something on it has been waiting a long time.</span></li></ol></section>
+          <section className="tt-briefing"><div><span className="tt-eyebrow">The Reach / one loop, five worlds, one song</span><h2>How it goes.</h2><p>You wake by Hearth&rsquo;s campfire. Mara has your launch codes. After that there are no waypoints: only rumours in your ship&rsquo;s log, signals on your scope, and twenty-two minutes before the star (the Lantern) goes out. The road here, the prologue and Act One, is on the game&rsquo;s title screen.</p></div><ol><li><b>01</b><span><strong>Hearthstone</strong>A village of forty round a campfire, a banjo, an observatory, and past the lake an old mine with writing on its far wall.</span></li><li><b>02</b><span><strong>Verdance</strong>Sandstone pillars and waterfalls, and a harmonica on the Travellers frequency that nobody in Hearth plays.</span></li><li><b>03</b><span><strong>Ashfall</strong>The Aster&rsquo;s wreck in a grey crater, Rook&rsquo;s drones sweeping it with searchlights, her captain&rsquo;s recorder still talking.</span></li><li><b>04</b><span><strong>The Phantom</strong>A little moon that is never where you left it, unless you keep its picture.</span></li><li><b>05</b><span><strong>The Wanderer</strong>A comet that dives past the Lantern at twenty and a half minutes. Something on it has been waiting a long time.</span></li></ol></section>
           {!isPhone && <section className="tt-install" id="install" aria-labelledby="install-title">
             <header><span className="tt-eyebrow">Installing the download</span><h2 id="install-title">Opening the game on your computer</h2><p>The desktop builds are not signed yet, so your computer will warn you the first time you open one. It is safe to continue. Here is how, once per download.</p></header>
             <div className="tt-install-grid">
@@ -155,11 +155,59 @@ function Logo() {
   </h1>
 }
 
+/** How to play: the goal, the first steps, the keys, and the game's words, in plain language. */
+function HowToPlay({ onClose }) {
+  const close = useRef()
+  useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', k)
+    // The panel owns the screen: the page behind it does not scroll, and
+    // the first thing a keyboard reaches is its way out.
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    close.current?.focus()
+    return () => { window.removeEventListener('keydown', k); document.body.style.overflow = overflow }
+  }, [onClose])
+  return <div className="lp-help" role="dialog" aria-modal="true" aria-labelledby="lp-help-title" onClick={onClose}>
+    <div className="lp-help-card" onClick={(e) => e.stopPropagation()}>
+      <button ref={close} className="lp-help-x" onClick={onClose} aria-label="Close">×</button>
+      <h2 id="lp-help-title">How to play</h2>
+      <h3>The goal</h3>
+      <p>You are a pilot who crashed on a little world called Hearthstone. Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Every twenty-two minutes the star at the middle of this tiny solar system goes out, and you wake by the campfire again. Nobody else remembers. What you learn is the only thing you keep, so each day you get a little further.</p>
+      <h3>Your first few minutes</h3>
+      <ol>
+        <li>Talk to Mara by the fire: look at her and press <kbd>E</kbd>.</li>
+        <li>Walk to the glass-domed observatory and get your ship&rsquo;s launch codes from Okafor.</li>
+        <li>Ride the lift up the launch tower, and climb into your ship through the hatch underneath (<kbd>E</kbd>).</li>
+        <li>Hold <kbd>Space</kbd> to lift off. Look at a world, press <kbd>T</kbd> to lock onto it and <kbd>G</kbd> to fly there by autopilot.</li>
+        <li>Near a world, let go of everything and the ship holds still. Hold <kbd>Shift</kbd> to land gently. <kbd>E</kbd> steps out.</li>
+      </ol>
+      <h3>Keys</h3>
+      <div className="lp-help-keys">
+        <p><kbd>W A S D</kbd> walk or fly · <kbd>Mouse</kbd> look and steer · <kbd>Space</kbd> jump (hold for higher) / lift off · <kbd>Shift</kbd> run / sink and land</p>
+        <p><kbd>E</kbd> talk, use, read · <kbd>X</kbd> signalscope · <kbd>L</kbd> ship log · <kbd>M</kbd> map · <kbd>P</kbd> photograph · <kbd>F</kbd> torch · <kbd>Esc</kbd> pause and every key</p>
+      </div>
+      <h3>Words you will meet</h3>
+      <dl>
+        <dt>Your ship</dt><dd>the Kestrel, a small two-engine craft parked on the launch tower.</dd>
+        <dt>The star</dt><dd>the Lantern. The five worlds go round it. It is dying.</dd>
+        <dt>The Reach</dt><dd>this little solar system: Hearthstone (home), Verdance (jungle), Ashfall (a volcanic moon), the Phantom (a moon that moves) and the Wanderer (a comet).</dd>
+        <dt>Ship log</dt><dd>your notebook (<kbd>L</kbd>): everything you have learned, and where it points next.</dd>
+        <dt>Signalscope</dt><dd>listens for music and signals (<kbd>X</kbd>). Turn toward the loudest and follow it.</dd>
+        <dt>The Choir</dt><dd>the people who lived here long ago. They wrote in spirals called songlines: look at one and press <kbd>E</kbd> to read it.</dd>
+      </dl>
+    </div>
+  </div>
+}
+
 function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, setTab }) {
   const toInstall = (e) => { e.preventDefault(); document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' }) }
+  const [help, setHelp] = useState(false)
   return <main className="tt-root lp-root">
+    {help && <HowToPlay onClose={() => setHelp(false)} />}
     <section className="lp-hero" style={{ backgroundImage: `url(${BASE}game/landing-lake.jpg)` }}>
       <nav className="lp-top" aria-label="More">
+        <button className="lp-top-help" onClick={() => setHelp(true)}>How to play</button>
         <button onClick={() => setTab('training')}>Flight school</button>
         <button onClick={() => setTab('worlds')}>Worlds</button>
         <AccountButton />
@@ -167,6 +215,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
       <div className="lp-left">
         <Logo />
         <p className="lp-tag">Twenty-two minutes. Then the star goes out, and you wake by the campfire again.</p>
+        <p className="lp-goal">Fly a little ship between five tiny worlds and find out why the day keeps repeating. <button onClick={() => setHelp(true)}>How to play</button></p>
         <ul className="lp-menu">
           {isPhone
             ? <li className="lp-note">The game needs a keyboard and mouse. Come back on a computer, or try the simulator here.</li>
@@ -181,7 +230,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
         </ul>
       </div>
       <div className="lp-links">
-        {!isPhone && <p>Free in your browser, about 95 MB the first time · also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> and <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> · <a href="#install" onClick={toInstall}>how to open the download</a></p>}
+        {!isPhone && <p>Free in your browser, about 100 MB the first time · also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> and <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> · <a href="#install" onClick={toInstall}>how to open the download</a></p>}
         <p>{save ? <>Your career in the original flight game: <button onClick={onPlay}>continue</button> or <button onClick={newGame}>start a new pilot</button></> : <>Rather fly and fight? <button onClick={newGame}>Start a career</button> in the original flight game</>}{flown ? ` · Flight log: ${flown}` : ''}</p>
         {confirm && <p className="lp-confirm" role="alert">Replace your saved career with a new pilot? <button onClick={onNew}>Replace it</button> <button onClick={() => setConfirm(false)}>Keep my pilot</button></p>}
       </div>
@@ -189,7 +238,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
     </section>
     <section className="lp-worlds" aria-labelledby="lp-worlds-title">
       <h2 id="lp-worlds-title">Five small worlds, one loop</h2>
-      <p className="lp-lede">You wake by Hearth&rsquo;s campfire. After that there are no waypoints: only rumours in your ship&rsquo;s log, signals on your scope, and twenty-two minutes before the Lantern falls.</p>
+      <p className="lp-lede">You wake by Hearth&rsquo;s campfire. After that there are no waypoints: only rumours in your ship&rsquo;s log, signals on your scope, and twenty-two minutes before the star (the Lantern) goes out.</p>
       <ol>
         <li><strong>Hearthstone</strong>A village in a crater: houses on stilts, a lake and a pier, a waterfall, an observatory, and your ship on top of the launch tower.</li>
         <li><strong>Verdance</strong>Sandstone pillars and waterfalls, and a harmonica on the Travellers frequency that nobody in Hearth plays.</li>

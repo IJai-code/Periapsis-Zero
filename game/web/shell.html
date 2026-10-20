@@ -48,7 +48,7 @@ body { color: var(--cream); background: #0b0d16; overflow: hidden; touch-action:
 			<div id="status-progress"></div>
 			<div id="status-mb"></div>
 			<div id="status-notice"></div>
-			<div class="tips">Keyboard and mouse, and headphones if you have them<br>The first visit downloads the game once; after that your browser keeps it<br><a href="/">Back to periapsiszero.dev</a></div>
+			<div class="tips"><b>W A S D</b> walk &middot; <b>Mouse</b> look &middot; <b>E</b> talk, use, read &middot; <b>X</b> signalscope &middot; <b>Esc</b> pause and every key<br>Keyboard and mouse, and headphones if you have them. The first visit downloads the game once; after that your browser keeps it.<br><a href="/">Back to periapsiszero.dev</a></div>
 			<div class="ver">The Reach · early build</div>
 		</div>
 		<script src="$GODOT_URL"></script>
@@ -64,6 +64,20 @@ const engine = new Engine(GODOT_CONFIG);
 
 	let initializing = true;
 	let statusMode = '';
+	let started = false;
+	let ready = false;
+	let fallback = 0;
+
+	// The game calls this when it has a picture to show. Until then the
+	// loading screen stays up, even after the engine has started: building
+	// the first scene (the title's lake, or the village) is the long part
+	// on a small machine, and a black canvas looks like a hang.
+	window.pzReady = function () {
+		ready = true;
+		if (!started) return;
+		clearTimeout(fallback);
+		setStatusMode('hidden');
+	};
 
 	function setStatusMode(mode) {
 		if (statusMode === mode || !initializing) {
@@ -171,7 +185,15 @@ const engine = new Engine(GODOT_CONFIG);
 				}
 			},
 		}).then(() => {
-			setStatusMode('hidden');
+			started = true;
+			const label = document.getElementById('status-mb');
+			if (label) label.textContent = 'Building Hearth…';
+			if (ready) setStatusMode('hidden');
+			// Never hold the page hostage to a scene that failed to say it
+			// was ready: after a while, show whatever there is.
+			// Two minutes: the Reach can take a while to build on a small
+			// machine, and a black canvas is worse than a loading screen.
+			fallback = setTimeout(() => setStatusMode('hidden'), 120000);
 		}, displayFailureNotice);
 	}
 }());

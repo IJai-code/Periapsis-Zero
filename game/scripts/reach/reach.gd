@@ -31,9 +31,19 @@ var carrying_core := false
 var _core_vis: Node3D
 var _map: ReachMap
 var finished := false
+## Made a piece at a time with a frame between, so a browser stays
+## answerable while the Reach is built (checks and desktop build in one go).
+var chunk := false
 
 func _ready() -> void:
 	add_to_group("reach_root")
+	# The title's backdrop shows one pier on Hearthstone: every other world
+	# (and its people, grass and wrecks) would be built only to be invisible.
+	var backdrop := has_meta("backdrop") or Flow.beat == "backdrop"
+	if Flow.beat == "backdrop":
+		Flow.beat = ""
+		set_meta("backdrop", true)
+	chunk = OS.has_feature("web") and not _testing(OS.get_cmdline_user_args())
 	system = ReachSystem.new()
 	add_child(system)
 	for key in system.order:
@@ -44,30 +54,34 @@ func _ready() -> void:
 			fold = Fold.new()
 			b.node.add_child(fold)
 			continue
+		if backdrop and key != "hearthstone":
+			continue
 		var p := Planet.make(b)
 		b.node.add_child(p)
 		planets[key] = p
+		if chunk:
+			await get_tree().process_frame
 	_environment()
-	_build_sites()
+	if chunk:
+		await get_tree().process_frame
+	await _build_sites(backdrop)
 	if "--count" in OS.get_cmdline_user_args():
 		_count_soon()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
-	# The title's scene alone, for pictures: #reach/backdrop.
-	if Flow.beat == "backdrop":
-		Flow.beat = ""
-		set_meta("backdrop", true)
-	if has_meta("backdrop"):
+	if backdrop:
 		_backdrop()
 		return
 	var i := args.find("--view")
 	if i >= 0 and i + 1 < args.size():
 		_view(args[i + 1])
+		Flow.scene_ready()
 		return
 	if Flow.beat.begins_with("view:"):
 		# From a browser link: #reach/view:hearthstone or view:hearthstone:surface.
 		_view(Flow.beat.trim_prefix("view:").replace(":", "/"))
 		Flow.beat = ""
+		Flow.scene_ready()
 		return
 	_start_player()
 	if "--maptest" in args:
@@ -134,13 +148,13 @@ func _next_goal() -> String:
 	if not Lore.known("hearth_codes"):
 		if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
 			return "Talk to Mara, by the fire"
-		return "Get the launch codes from Okafor, in the observatory"
+		return "Get your ship's launch codes from Okafor, in the glass-domed observatory"
 	if ship.piloted:
 		return "Take off: hold Space to rise, then W" if ship.landed else "Climb: up and out of the air"
 	var village: Village = (planets["hearthstone"] as Planet).sites[0]
 	if village.lift.at_top():
-		return "Board the Kestrel"
-	return "Ride the lift up the launch tower to the Kestrel"
+		return "Climb into your ship (through the hatch underneath)"
+	return "Ride the lift up the launch tower to your ship"
 
 ## A few frames from the tower, behind the black of the morning, so every
 ## material the lift-off will show (the valley, the sky, the air of the
@@ -222,12 +236,16 @@ func _material_zoo(cam: Camera3D) -> void:
 		var k: int = n.i
 		n.i = k + 1
 		return cam.global_transform * Transform3D(Basis(), Vector3(-0.6 + (k % 24) * 0.05, -0.4 + (k / 24) * 0.05, -2.0))
+	var made := 0
 	for m in plain:
 		var mi := MeshInstance3D.new()
 		mi.mesh = fleck
 		mi.material_override = m
 		zoo.add_child(mi)
 		mi.global_transform = place.call()
+		made += 1
+		if chunk and made % 20 == 0:
+			await get_tree().process_frame
 	for m in multi:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -239,6 +257,9 @@ func _material_zoo(cam: Camera3D) -> void:
 		mmi.material_override = m
 		zoo.add_child(mmi)
 		mmi.global_transform = place.call()
+		made += 1
+		if chunk and made % 20 == 0:
+			await get_tree().process_frame
 	# Lit by lamps too (a lamp's light is another version of each shader):
 	# one, then two, then none.
 	var lamps: Array[OmniLight3D] = []
@@ -350,17 +371,32 @@ func _count_draws() -> void:
 		for s in p.sites:
 			print("    site %-12s meshes=%d" % [s.name, s.find_children("*", "MeshInstance3D", true, false).size()])
 
-## The places on each world (Site), the campfire.
-func _build_sites() -> void:
+## The places on each world (Site), the campfire. In the title's backdrop,
+## only Hearthstone's village: the rest is over the horizon.
+func _build_sites(backdrop := false) -> void:
 	var home: ReachBody = system.bodies["hearthstone"]
 	campfire = Campfire.new()
 	home.node.add_child(campfire)
 	campfire.transform = Worlds.place(home, "village")
-	(planets["hearthstone"] as Planet).add_site(Village.make(home))
+	var v := Village.make(home)
+	v.backdrop = backdrop
+	v.chunk = chunk
+	(planets["hearthstone"] as Planet).add_site(v)
+	if chunk:
+		while not v.done:
+			await v.built
+	if backdrop:
+		return
 	(planets["verdance"] as Planet).add_site(VerdanceSite.make(system.bodies["verdance"]))
+	if chunk:
+		await get_tree().process_frame
 	(planets["ashfall"] as Planet).add_site(AshfallSite.make(system.bodies["ashfall"]))
+	if chunk:
+		await get_tree().process_frame
 	(planets["phantom"] as Planet).add_site(PhantomSite.make(system.bodies["phantom"]))
 	(planets["wanderer"] as Planet).add_site(WandererSite.make(system.bodies["wanderer"]))
+	if chunk:
+		await get_tree().process_frame
 	# Small things on every world drawn only near (Site.cull_small).
 	for key in planets:
 		for site in (planets[key] as Planet).sites:
@@ -600,6 +636,7 @@ func _start_player() -> void:
 	ship.system = system
 	ship.explorer = player
 	ship.boarded.connect(_on_boarded)
+	ship.left_ship.connect(_on_left_ship)
 	add_child(ship)
 	ship.destroyed.connect(loop.die)
 	system.frame_will_change.connect(func(from, _to): ship.frame_leaving(from))
@@ -636,6 +673,9 @@ func _start_player() -> void:
 		hud.blackout()
 		player.enabled = false
 		await _prewarm()
+	# The world is made: the browser's loading screen can give way to the
+	# morning (the black behind it is the eyelids opening).
+	Flow.scene_ready()
 	# The morning plays for a player. A check places the camera itself and
 	# needs the world answering at once, so it starts already awake.
 	if not _testing(args):
@@ -747,12 +787,31 @@ func _signals() -> void:
 	var wa: ReachBody = B["wanderer"]
 	scope.add_source(wa.node, "engine", "The Engine", 2, load("res://audio/reach/choir.wav"), Worlds.place(wa, "engine").origin, 20.0)
 
+## Stepping out onto a world: what it is and what to do there, in plain
+## words, the first time each morning.
+const GUIDES := {
+	"verdance": ["Verdance, the jungle world", "Someone here is playing a harmonica, and nobody in Hearth plays one. Press X to hold up your signalscope (it hears music and signals), turn until the sound is loudest, and walk that way.\n\nStones carved with spirals are the Choir's writing (the people who lived here long ago): look at one and press E to read it. What you learn goes into your ship log (L)."],
+	"ashfall": ["Ashfall, the volcanic moon", "The wreck of the Aster, the freighter you were escorting, lies in a crater here. Drones guard it with searchlights: stay out of their light.\n\nPress X and listen: hand drums (a salvager called Vex) and the wreck's own distress beacon. Follow either one in."],
+	"phantom": ["The Phantom, the moon that moves", "It jumps somewhere else whenever nobody is watching it, but it holds still while you are standing on it.\n\nThe Choir (the people who lived here long ago) left a shrine on it. Find their spiral writing and press E to read it."],
+	"wanderer": ["The Wanderer, the comet", "Something very old is sealed inside it. Its door only opens when the comet swings closest to the star, at about 20:30 on the clock (M, the map, shows the time).\n\nIf you are early, wait nearby; if you are late, there is always tomorrow."],
+}
+var _guided := {}
+
+func _on_left_ship() -> void:
+	var key := system.ref
+	if GUIDES.has(key) and not _guided.has(key):
+		_guided[key] = true
+		hud.guide(GUIDES[key][0], GUIDES[key][1] + "\n\nTo fly again, walk back under your ship and press E.", 22.0)
+
 func _on_woke(n: int, _first: bool) -> void:
 	if n > 1 and Lore.learn("hearth_loop"):
 		hud.toast("SHIP LOG UPDATED")
 		# The first time round again, said plainly: what happened and what
 		# carries over.
-		hud.plaque("The same morning", "The Lantern went out, and you woke here again, at the fire, at the start of the same day. Nobody else remembers it. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. Twenty-two minutes each time. Find out why it happens, and end it.", player.global_position)
+		hud.plaque("The same morning", "The star (the Lantern) went out, and you woke here again, at the fire, at the start of the same day. Nobody else remembers it. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. Twenty-two minutes each time. Find out why it happens, and end it.", player.global_position)
+	_guided.clear()
+	if n == 1 and not Lore.known("hearth_codes"):
+		hud.guide("Your goal", "You are a pilot. Three days ago your ship crashed here, on a little world called Hearthstone, while you were escorting a freighter called the Aster. The villagers pulled you out and fixed your ship.\n\nGet your ship flying, then find out what happened to the Aster and its crew. Start with Mara, by the fire: look at her and press E.", 24.0)
 	if n <= 2:
 		hud.hint("E  talk, use, read    X  signalscope    M  map\nL  ship log    P  photograph    F  torch    Esc  every key", 20.0)
 
@@ -771,7 +830,7 @@ const LEADS := [
 	["ph_shrine", "ash_core", "The core is in the Aster's vault on Ashfall."],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412."],
 	["verd_engine", "ash_core", "The Engine needs a core. Hale's cargo hummed like the songlines."],
-	["hearth_songline", "wan_door", "The Wanderer carries the Engine. Its door opens near the Lantern, at about 20:30."],
+	["hearth_songline", "wan_door", "The comet (the Wanderer) carries the Engine. Its door opens when it is nearest the star, at about 20:30."],
 	["verd_cargo", "ash_hale", "Hale's bridge recorder, at the Aster's wreck on Ashfall (signalscope: Distress)."],
 	["hearth_vex", "ash_vex", "Vex salvages the Aster's wreck on Ashfall. Listen for her drums (X)."],
 	["hearth_renn", "verd_renn", "A harmonica on Verdance that nobody in Hearth plays. Follow it with the signalscope (X)."],
@@ -1841,6 +1900,8 @@ func _backdrop() -> void:
 		p.play()
 		create_tween().tween_property(p, "volume_db", -9.0 + Flow.music_db(), 4.0)
 	_place_drift()
+	# The title's picture is made: the browser's loading screen can go.
+	Flow.web_ready()
 
 func _place_drift() -> void:
 	var b := _drift_base.basis

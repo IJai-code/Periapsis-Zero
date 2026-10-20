@@ -259,3 +259,14 @@ submissions down to 147 plus a few dozen multimeshes (166 fewer objects),
 and shadow casters 341 → 136.
 Anything with a script under it (the lift's car, the orrery, people) is
 left alone; `-- --nomerge` draws it the old way, for an A/B.
+
+Loading is measured the same way, because an unresponsive page is worse
+than a slow one. On the web the Reach is made in stages with a frame
+between (one planet at a time, the village's roads then buildings then
+people then grass in four batches, then each other world), the shader
+warm-up spreads its materials over frames, and the browser's loading
+screen stays up until the frame is ready. The title's backdrop builds only
+Hearthstone, and a `#reach` link skips the title altogether: the address
+is read before the first scene is made, so the one world you cannot see is
+not built twice. Under a 6× CPU throttle the longest single block is
+11.3 s on the title and 8.0 s straight into the Reach (it was 38.5 s).

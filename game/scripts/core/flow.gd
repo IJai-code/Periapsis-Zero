@@ -32,6 +32,9 @@ var _music: AudioStreamPlayer
 var _busy := false
 ## A chapter's starting beat, from a test link or `-- --beat`.
 var beat := ""
+## A chapter the address asks for, read before the first scene is made, so
+## the title does not build its Reach backdrop only to throw it away.
+var start_scene := ""
 
 ## Keys, defined here rather than in project.godot so they read as a list.
 ## Flight matches the web game: W/S thrust, A/D strafe, Q/E roll, mouse aims.
@@ -117,15 +120,20 @@ func _ready() -> void:
 	if lite() and not on_web():
 		Engine.max_fps = 60
 	get_tree().node_added.connect(_tune)
-	await get_tree().process_frame
 	# A link straight to a chapter, for testing: /play/#flight, #flight/strike.
+	# Read before the first frame: the title's backdrop is the whole Reach,
+	# and building it only to change scene is the slowest part of getting
+	# into the game on a small machine.
 	if on_web():
 		var hash := str(JavaScriptBridge.eval("location.hash", true)).trim_prefix("#")
 		var parts := hash.split("/")
 		if SCENES.has(parts[0]) and parts[0] != "title":
 			beat = parts[1] if parts.size() > 1 else ""
-			go(parts[0])
-			return
+			start_scene = parts[0]
+	await get_tree().process_frame
+	if start_scene != "":
+		go(start_scene)
+		return
 	# Whatever scene the game opened on fades up from black.
 	var title := get_tree().current_scene and get_tree().current_scene.scene_file_path == SCENES.title
 	Hud.fade_in(2.0 if title else 0.6)
@@ -377,9 +385,23 @@ func go(scene: String) -> void:
 	ambience(scene in ["corridor", "bridge", "hangar", "arrival", "hearth", "hearth_bay"])
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# The Reach builds across several frames (so a slow browser stays
+	# answerable); it says when it is ready, and until then the loading
+	# screen stays up rather than showing a black canvas.
+	if scene == "reach":
+		return
 	_busy = false
 	Hud.loading(false)
 	Hud.fade_in(1.2)
+	web_ready()
+
+## A scene that builds itself a piece at a time says when it is done
+## (Reach does): the loading screen can go and control can pass.
+func scene_ready() -> void:
+	_busy = false
+	Hud.loading(false)
+	Hud.fade_in(1.2)
+	web_ready()
 
 ## The flight missions: skipping one marks it done (its pay is not paid), so
 ## the save and the chain of chapters agree.
@@ -498,6 +520,13 @@ func spend(amount: int) -> bool:
 
 ## The simulator: the real solar system to explore (the site's #sim). In
 ## the browser it opens in place; from the desktop app, in a browser.
+## The browser's loading screen (web/shell.html) waits for this: the game
+## has built what it needs and has a frame to show, so the picture can
+## replace the progress bar rather than a black canvas.
+func web_ready() -> void:
+	if on_web():
+		JavaScriptBridge.eval("window.pzReady && window.pzReady()", true)
+
 func open_sim() -> void:
 	if on_web():
 		JavaScriptBridge.eval("location.href = '/#sim'", true)

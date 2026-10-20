@@ -73,7 +73,9 @@ void fragment() {
 
 ## A field round a site's frame origin: `count` tufts within `radius`
 ## metres, not within any [point, radius] in `keep_clear` (body space).
-static func field(site: Site, frame: Transform3D, radius: float, count: int, keep_clear: Array, seed: int) -> void:
+## `chunked` puts a frame between four equal batches: the browser can still
+## paint while a field is made.
+static func field(site: Site, frame: Transform3D, radius: float, count: int, keep_clear: Array, seed: int, chunked := false) -> void:
 	if not _mesh:
 		_mesh = _tuft(false)
 		_flower = _tuft(true)
@@ -87,8 +89,11 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 	var grass: Array[Transform3D] = []
 	var blooms: Array[Transform3D] = []
 	var tries := 0
+	var batch := maxi(1, count / 4)
 	while grass.size() + blooms.size() < count and tries < count * 3:
 		tries += 1
+		if chunked and tries % batch == 0:
+			await site.get_tree().process_frame
 		# Thickest near the middle, thinning outward.
 		var r := radius * pow(rng.randf(), 0.72)
 		var a := rng.randf() * TAU

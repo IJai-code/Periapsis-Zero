@@ -11,6 +11,9 @@ extends Node3D
 
 var body: ReachBody
 var center: Transform3D
+## The title's backdrop: seen from a pier at night, never walked on, so the
+## ground cover can be thinner and the small life left out.
+var backdrop := false
 ## Every piece made through piece(): the list merge_pieces works from.
 var _pieces: Array[Node3D] = []
 
