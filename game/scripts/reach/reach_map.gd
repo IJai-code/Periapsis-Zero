@@ -14,7 +14,7 @@ signal closed
 
 const SPAN := 14500.0   # metres from the Lantern to the frame's edge, at zoom 1
 const PREDICT := 600.0
-const STEP := 2.0
+const STEP := 4.0
 
 var reach: Node
 var _canvas: Control
@@ -31,6 +31,13 @@ var _crossings: Array = []
 var _approaches: Array = []
 ## The body whose sphere you are in now ("" for the open Reach).
 var _inside_now := ""
+## The chart is redrawn a few dozen times a second, not every frame: it is
+## mostly still ink, and the 3D reach is still being drawn behind it.
+var _redraw := 0.0
+## Orbits projected once per zoom/centre, not every redraw.
+var _orbits_screen := {}
+var _screen_key := ""
+var _screen_cache := ""
 
 static func open(r: Node) -> ReachMap:
 	var m := ReachMap.new()
@@ -70,9 +77,12 @@ func _process(dt: float) -> void:
 	_t += dt
 	_path_t -= dt
 	if _path_t <= 0.0:
-		_path_t = 0.3
+		_path_t = 0.5
 		_predict()
-	_canvas.queue_redraw()
+	_redraw -= dt
+	if _redraw <= 0.0:
+		_redraw = 1.0 / (20.0 if Flow.lite() else 30.0)
+		_canvas.queue_redraw()
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed:
@@ -211,6 +221,7 @@ func _to_screen(p: Vector3) -> Vector2:
 	return vp / 2.0 + Vector2(p.x - c.x, p.z - c.z) * _scale()
 
 ## A line drawn like ink: a soft glow under a firm stroke, a little uneven.
+## The glow is the expensive half; a browser gets the firm stroke alone.
 func _ink(pts: PackedVector2Array, c: Color, width := 1.8) -> void:
 	if pts.size() < 2:
 		return
@@ -218,7 +229,8 @@ func _ink(pts: PackedVector2Array, c: Color, width := 1.8) -> void:
 	w.resize(pts.size())
 	for i in pts.size():
 		w[i] = pts[i] + Vector2(sin(i * 0.9 + c.r * 9.0), cos(i * 1.3 + c.g * 7.0)) * 0.6
-	_canvas.draw_polyline(w, Color(c, c.a * 0.22), width * 4.5, true)
+	if not Flow.lite():
+		_canvas.draw_polyline(w, Color(c, c.a * 0.22), width * 4.5, true)
 	_canvas.draw_polyline(w, c, width, true)
 
 func _paint() -> void:
@@ -243,12 +255,22 @@ func _paint() -> void:
 		_canvas.draw_circle(fc + Vector2(sin(k * 2.1), cos(k * 1.3)) * fr * 0.25, fr * (1.0 - k * 0.15), Color(0.45 + k * 0.08, 0.6 - k * 0.05, 0.75, 0.06))
 	_canvas.draw_string(ReachStyle.serif_italic, fc + Vector2(-fr * 0.5, fr + 18.0), "The Fold", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.7, 0.85, 0.95, 0.85))
 	# Orbits, each with its periapsis marked; the mark pulses as the body
-	# nears it. The orbit of the sphere you are in glows with it.
+	# nears it. The orbit of the sphere you are in glows with it. Projected
+	# once per zoom and centre: this is most of the map's drawing work.
+	_screen_key = "%d/%d/%.3f/%d/%d/%d" % [int(vp.x), int(vp.y), _zoom,
+		int(round(_centre().x / 5.0)), int(round(_centre().y / 5.0)), int(round(_centre().z / 5.0))]
+	if _screen_key != _screen_cache:
+		_orbits_screen.clear()
+		var skip := 2 if Flow.lite() else 1
+		for key in _orbits:
+			var pts := PackedVector2Array()
+			for i in range(0, (_orbits[key] as PackedVector3Array).size(), skip):
+				pts.append(_to_screen((_orbits[key] as PackedVector3Array)[i]))
+			_orbits_screen[key] = pts
+		_screen_cache = _screen_key
 	for key in _orbits:
 		var b: ReachBody = sys.bodies[key]
-		var pts := PackedVector2Array()
-		for p: Vector3 in _orbits[key]:
-			pts.append(_to_screen(p))
+		var pts: PackedVector2Array = _orbits_screen[key]
 		var to_peri := b.orbit.periapsis_time(sys.t) - sys.t
 		var period := b.orbit.period()
 		var near := 1.0 - clampf(absf(to_peri) / (period * 0.08), 0.0, 1.0)
@@ -323,11 +345,14 @@ func _paint() -> void:
 func _header(vp: Vector2) -> void:
 	var sys: ReachSystem = reach.system
 	var x0 := 48.0
-	var w := minf(520.0, vp.x - 96.0)
+	# The clock keeps its own room on the right, on any width: the bar
+	# gives way before the time does.
+	var clock_x := maxf(vp.x - 208.0, x0 + 220.0)
+	var w := clampf(clock_x - 24.0 - x0, 120.0, 520.0)
 	var y := 54.0
 	var f := clampf(sys.t / ReachSystem.LOOP, 0.0, 1.0)
 	_canvas.draw_string(Style.mono_bold, Vector2(x0, y - 18), "THE REACH  ·  LOOP %d" % int(reach.loop.loops), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, ReachStyle.EMBER)
-	_canvas.draw_string(Style.mono, Vector2(x0 + w - 160, y - 18), "%s  of  22:00" % _clock(sys.t), HORIZONTAL_ALIGNMENT_RIGHT, 160, 15, ReachStyle.BONE)
+	_canvas.draw_string(Style.mono, Vector2(clock_x, y - 18), "%s  of  22:00" % _clock(sys.t), HORIZONTAL_ALIGNMENT_RIGHT, 160, 15, ReachStyle.BONE)
 	_canvas.draw_rect(Rect2(Vector2(x0, y - 4), Vector2(w, 4)), Color(ReachStyle.BONE, 0.12))
 	_canvas.draw_rect(Rect2(Vector2(x0, y - 4), Vector2(w * f, 4)), ReachStyle.EMBER)
 	if Lore.known("wan_door"):

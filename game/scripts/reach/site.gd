@@ -136,10 +136,13 @@ func put_dir(path: String, d: Vector3, toward: Vector3, solid := true, scale := 
 	var at := d * (body.radius + Worlds.height(body.key, d, body.radius))
 	return piece(path, Transform3D(upright(d, toward - at), at), solid, scale, sink)
 
-## A person standing at (east, north), facing a point.
-func person(key: String, model: String, at: Vector2, look: Vector2, sit := false) -> Npc:
+## A person standing at (east, north), facing a point. `roam` is where
+## they move between (same coordinates), if they have business elsewhere.
+func person(key: String, model: String, at: Vector2, look: Vector2, sit := false, roam: Array = []) -> Npc:
 	var xf := ground(at)
-	var n := Npc.make(key, model, sit)
+	var n := Npc.make(key, model, sit, roam)
+	n.site = self
+	n.home_flat = at
 	add_child(n)
 	n.transform = Transform3D(upright(xf.basis.y, ground(look).origin - xf.origin), xf.origin)
 	return n

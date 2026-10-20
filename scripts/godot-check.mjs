@@ -141,6 +141,34 @@ const checks = [
     const ok = Boolean(m) && Number(m[1]) > 0.3 && m[2] === '1' && Number(m[3]) > 20 && m[4] === '1' && m[5] === 'true' && m[6] === 'false'
     return [ok, m ? m[0] : (out.match(/FIRETEST[^\n]*/) ?? ['no result'])[0]]
   }],
+  ['the Reach: the campfire burns down, and a new morning relights it', async () => {
+    const out = await run('reach', ['--burntest'], /BURNTEST/)
+    const m = out.match(/BURNTEST logs ([\d.]+) ([\d.]+) ([\d.]+) twigs (\w+) (\w+) flames (\w+) light ([\d.]+) ([\d.]+) reset ([\d.]+) relit (\w+)/)
+    const ok = Boolean(m) && Number(m[1]) > 0.98 && Number(m[2]) < 0.9 && Number(m[3]) < 0.65
+      && m[4] === 'true' && m[5] === 'false' && m[6] === 'false'
+      && Number(m[8]) < Number(m[7]) * 0.5 && Number(m[9]) > 0.98 && m[10] === 'true'
+    return [ok, m ? m[0] : (out.match(/BURNTEST[^\n]*/) ?? ['no result'])[0]]
+  }],
+  ['the Reach: stepping out on Ashfall never drops you through the world', async () => {
+    const out = await run('reach', ['--leavetest'], /LEAVETEST/, 180000)
+    const m = out.match(/LEAVETEST ref (\w+) planet (\w+) above (-?[\d.]+) under (-?[\d.]+) on floor (\w+) enabled (\w+) died (\w+) solid (\w+)/)
+    const ok = Boolean(m) && m[1] === 'ashfall' && m[2] === 'true' && Number(m[3]) > -0.6
+      && Number(m[4]) > -1.0 && m[5] === 'true' && m[6] === 'true' && m[7] === 'false' && m[8] === 'true'
+    return [ok, m ? m[0] : (out.match(/LEAVETEST[^\n]*/) ?? ['no result'])[0]]
+  }],
+  ['the Reach: the map opens, paints and closes', async () => {
+    const out = await run('reach', ['--mapui'], /MAPUI/)
+    const m = out.match(/MAPUI opened (\w+) painted (\w+) closed (\w+) enabled (\w+)/)
+    const ok = Boolean(m) && m[2] === 'true' && m[3] === 'true' && m[4] === 'true'
+    return [ok, m ? m[0] : (out.match(/MAPUI[^\n]*/) ?? ['no result'])[0]]
+  }],
+  ['the Reach: the villagers keep their own routines', async () => {
+    const out = await run('reach', ['--npctest'], /NPCTEST/)
+    const m = out.match(/NPCTEST people (\d+) moved (\d+) grounded (\d+) greeted (\w+) held (\d+)\/150/)
+    const ok = Boolean(m) && Number(m[1]) >= 4 && Number(m[2]) >= 2 && Number(m[3]) === Number(m[1])
+      && m[4] === 'true' && Number(m[5]) < 75
+    return [ok, m ? m[0] : (out.match(/NPCTEST[^\n]*/) ?? ['no result'])[0]]
+  }],
   ['the Reach: night brings the aurora, and only near lamps burn', async () => {
     const out = await run('reach', ['--skytest'], /SKYTEST/)
     const m = out.match(/SKYTEST night ([\d.]+) aurora (\w+) stars (\w+) day ([\d.]+) lamps near (\d+)\/(\d+) far (\d+)\/(\d+)/)

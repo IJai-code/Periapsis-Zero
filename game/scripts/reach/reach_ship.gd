@@ -1336,7 +1336,23 @@ func leave() -> void:
 	explorer.process_mode = Node.PROCESS_MODE_INHERIT
 	explorer.visible = true
 	explorer.add_to_group("reach_dynamic")
-	explorer.place(Transform3D(_upright(up), foot + up * 0.05), away)
+	# Not blindly at the ramp's foot: on rough ground (Ashfall's crater rim,
+	# a slope under the hatch) that point can be inside a rise. Find the
+	# floor under it and stand on that; failing a hit, never below the
+	# world's own surface.
+	var stand := foot
+	var query := PhysicsRayQueryParameters3D.create(foot + up * 5.0, foot - up * 5.0, 1, [get_rid(), explorer.get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit and (hit.position - foot).length() < 2.2:
+		stand = hit.position
+	var b: ReachBody = system.ruling()
+	if b.key != "lantern":
+		var c := b.node.global_position
+		var d := (stand - c).normalized()
+		var surf := c + d * (b.radius + Worlds.height(b.key, d, b.radius))
+		if (stand - c).dot(d) < (surf - c).dot(d):
+			stand = surf
+	explorer.place(Transform3D(_upright(up), stand + up * 0.1), away)
 	explorer.camera.make_current()
 	system.focus = explorer
 	_moving = false

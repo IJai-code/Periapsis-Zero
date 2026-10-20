@@ -90,6 +90,14 @@ func _ready() -> void:
 		_log_test()
 	if "--firetest" in args:
 		_fire_test()
+	if "--burntest" in args:
+		_burn_test()
+	if "--npctest" in args:
+		_npc_test()
+	if "--leavetest" in args:
+		_leave_test()
+	if "--mapui" in args:
+		_map_ui_test()
 	if "--walltest" in args:
 		_wall_test()
 	if "--lifttest" in args:
@@ -131,7 +139,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest"]:
 			return true
 	return false
 
@@ -1737,6 +1745,156 @@ func _fire_test() -> void:
 	key.call(KEY_SPACE, false)
 	await get_tree().create_timer(0.5).timeout
 	Report.line("FIRETEST toast %.2f eaten %d slept %.0f s warp after %.0f stood %s talking %s" % [toast, eaten, slept, warp, player.enabled, talking])
+	Report.finish(get_tree())
+
+## Burn the loop's clock forward and report what the campfire does: the
+## logs sink and char, the twigs go, the flames die to embers, the light
+## falls, and the next morning puts it back.
+func _burn_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var fire := campfire
+	var start := fire._logs.scale
+	var start_light := fire._light.light_energy
+	var start_twigs := fire._twigs.visible
+	system.t = Campfire.BURN * 0.5
+	await get_tree().create_timer(0.15).timeout
+	var mid := fire._logs.scale
+	var mid_t := system.t
+	system.t = ReachSystem.LOOP * 0.92
+	await get_tree().create_timer(0.15).timeout
+	var end := fire._logs.scale
+	var flames := fire._outer.emitting
+	var dim := fire._light.light_energy
+	var twigs := fire._twigs.visible
+	system.t = 0.0
+	await get_tree().create_timer(0.15).timeout
+	var reset := fire._logs.scale
+	var relit := fire._outer.emitting
+	Report.line("BURNTEST logs %.2f %.2f %.2f twigs %s %s flames %s light %.2f %.2f reset %.2f relit %s at %.0f" % [
+		start.y, mid.y, end.y, start_twigs, twigs, flames, start_light, dim, reset.y, relit, mid_t])
+	Report.finish(get_tree())
+
+## Let the village live: the people walk their own errands, come back to
+## their post, stay on the ground, and do not stare at a pilot for ever.
+func _npc_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var npcs: Array = get_tree().get_nodes_in_group("reach_root")[0].find_children("Npc_*", "Npc", true, false)
+	var start := {}
+	var far := {}
+	for n: Npc in npcs:
+		start[n.name] = n.global_position
+		far[n.name] = 0.0
+	# No one stops to talk while the village is being watched.
+	player.enabled = false
+	for i in 320:
+		for n: Npc in npcs:
+			n._process(0.2)
+			far[n.name] = maxf(far[n.name], n.global_position.distance_to(start[n.name]))
+	var moved := 0
+	var grounded := 0
+	var notes := []
+	for n: Npc in npcs:
+		var walked: float = far[n.name]
+		if n.roam.size() > 1 and walked > 2.0:
+			moved += 1
+		var above := 0.0
+		if n.site == null:
+			# Placed by hand indoors (Okafor): never walks the ground.
+			grounded += 1
+		else:
+			var b: ReachBody = n.site.body
+			var off := n.global_position - b.node.global_position
+			above = off.length() - b.radius - Worlds.height(b.key, off.normalized(), b.radius)
+			if absf(above) < 0.8:
+				grounded += 1
+		notes.append("%s/%.1f/%.1f/%d" % [n.key, walked, above, n.roam.size()])
+	# Now stand by Mara: she should look up (and likely say something), then
+	# go back to her day instead of holding the stare for ever.
+	var mara: Npc = npcs[0]
+	for n: Npc in npcs:
+		if n.key != "mara":
+			continue
+		mara = n
+	var at := mara.global_position + mara.global_basis.z * 1.5
+	player.place(Transform3D(Site.upright(system.up_at(at), mara.global_position - at), at), mara.global_position - at)
+	player.enabled = true
+	mara._greet_cool = 0.0
+	mara._cool = 0.0
+	mara._notice = 0.0
+	var held := 0
+	for i in 150:
+		mara._process(0.2)
+		if mara._notice > 0.0:
+			held += 1
+	var greeted := mara._greet_cool > 0.0
+	Report.line("NPCTEST people %d moved %d grounded %d greeted %s held %d/150 [%s]" % [npcs.size(), moved, grounded, greeted, held, ", ".join(notes)])
+	Report.finish(get_tree())
+
+## Set the Kestrel down on Ashfall's rough floor and step out: the frame
+## must stay Ashfall, the ground must be under the explorer's feet, and the
+## planet must still be solid (its shell stops a fall from either side).
+func _leave_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	await get_tree().create_timer(0.5).timeout
+	var body: ReachBody = system.bodies["ashfall"]
+	system.switch("ashfall")
+	await get_tree().physics_frame
+	var wreck := Worlds.place(body, "wreck")
+	var d := (wreck.origin + wreck.basis.z * 60.0).normalized()
+	var up := d
+	var ground := d * (body.radius + Worlds.height("ashfall", d, body.radius))
+	# Ashfall is far from Hearthstone: after the frame swap the ship is out
+	# in the open, so put her at the world first and let the frame come to
+	# her, as it does when a pilot flies in.
+	var c := system.world("ashfall")
+	ship.global_basis = Site.upright(up, wreck.basis.z)
+	ship.global_position = c + ground + up * 1.86
+	ship.linear_velocity = Vector3.ZERO
+	ship.angular_velocity = Vector3.ZERO
+	ship._last_v = Vector3.ZERO
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	# Set down on her feet (the gear reaches 1.8 m under her origin) and
+	# held there, as she is on a real landing: no drop, no impact.
+	ship.freeze = true
+	ship.global_transform = Transform3D(Site.upright(up, wreck.basis.z), ground + up * 1.86)
+	ship.linear_velocity = Vector3.ZERO
+	ship.angular_velocity = Vector3.ZERO
+	ship.landed = true
+	ship.reset_physics_interpolation()
+	await get_tree().create_timer(0.5).timeout
+	ship.leave()
+	await get_tree().create_timer(3.6).timeout
+	await get_tree().create_timer(1.2).timeout
+	var off := player.global_position - body.node.global_position
+	var above := off.length() - body.radius - Worlds.height("ashfall", off.normalized(), body.radius)
+	var planet: Planet = planets["ashfall"]
+	# And the last resort: dropped far under the shell (the old way of
+	# falling through), the explorer comes back to the surface rather than
+	# falling for ever.
+	var deep := body.node.global_position + off.normalized() * (body.radius + Worlds.height("ashfall", off.normalized(), body.radius) - 15.0)
+	player.place(Transform3D(Site.upright(off.normalized(), -player.global_basis.z), deep), -player.global_basis.z)
+	await get_tree().create_timer(4.0).timeout
+	var off2 := player.global_position - body.node.global_position
+	var above2 := off2.length() - body.radius - Worlds.height("ashfall", off2.normalized(), body.radius)
+	Report.line("LEAVETEST ref %s planet %s above %.2f under %.2f on floor %s enabled %s died %s solid %s" % [
+		system.ref, planet.is_ref, above, above2, player.is_on_floor(), player.enabled, player._dead, not planet._shape.disabled])
+	Report.finish(get_tree())
+
+## Open the map for a moment and close it: its paint has to run without an
+## error, at whatever the window is, and leave the player able to move.
+func _map_ui_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	_map = ReachMap.open(self)
+	_map.closed.connect(func(): _map = null)
+	await get_tree().create_timer(1.2).timeout
+	var painted := _map._screen_cache != ""
+	_map.close()
+	await get_tree().create_timer(0.3).timeout
+	Report.line("MAPUI opened %s painted %s closed %s enabled %s" % [true, painted, _map == null, player.enabled])
 	Report.finish(get_tree())
 
 ## Press L once awake and report whether the ship's log opened.

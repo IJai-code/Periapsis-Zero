@@ -5,6 +5,39 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A fire that burns down, a village with business, and no falling through Ashfall, 19 October 2026 (night)
+
+- **The campfire burns away.** The logs are paced by the loop's own clock:
+  the twigs catch and are gone in about two minutes, the logs char, sink and
+  shorten over the first fifteen, one gives way with a shower of sparks and a
+  line about the ash, and the last seven minutes of the loop are a bed of
+  embers with a low red light. The flames, glow, crackle and the light on the
+  ground all fall with it, and a fresh morning relights it (sleeping by the
+  fire runs the clock fast, so the fire burns down while you sleep).
+- **The people of Hearth have their own business.** Mara moves between her
+  chair, the fire and the woodpile; Fen walks her porch and the bench; Tull
+  works up and down the mine path; Isa checks her crates at the tower.
+  They stop to look when a pilot comes close, but after a few seconds they go
+  back to what they were doing rather than holding the stare; greetings are
+  varied, change as the Lantern reddens, and come once a morning rather than
+  every forty-five seconds. Late in the loop they stop and watch the sky.
+- **Stepping out on Ashfall keeps you on Ashfall.** The explorer was placed
+  at the hatch's ramp foot, which on rough ground can be under a rise; the
+  planet's shell collided only from outside, so a bad step dropped you
+  through the world to fall in the dark with it gone from view. The step-out
+  now finds the floor under the hatch with a ray and stands on it (never
+  below the world's surface), the shell is solid from underneath as well, and
+  a fall through any world is caught after three seconds and put back on the
+  surface.
+- **The Kestrel's cockpit screens.** Time remaining is always on the main
+  screen, above the landing/landed banner instead of being hidden by it, and
+  the status screen's six key lines fit instead of losing the last one.
+- **The map is lighter.** Orbits are projected once per zoom and centre
+  instead of every frame, the chart redraws 30 times a second (20 in a
+  browser), the glow under each line is dropped on the web, and the
+  prediction is computed half as often. The clock no longer gives way to
+  the title line on a narrow window.
+
 ### Plain instructions, and a browser that answers while it loads, 19 October 2026 (evening)
 
 - **How to play, everywhere it is needed.** The site's home page has a How

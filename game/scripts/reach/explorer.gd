@@ -66,6 +66,9 @@ var _bob := 0.0
 ## What E would use is looked for a dozen times a second, with one query
 ## object reused, rather than sixty times a second with a new one each time.
 var _look_t := 0.0
+## Seconds spent below a world's surface with no floor underfoot: a fall
+## through a shell, not walking in its tunnels.
+var _under := 0.0
 var _q: PhysicsRayQueryParameters3D
 ## Grit at the boots, a ring of puffs on a landing or the first burn.
 var _dust: CPUParticles3D
@@ -227,6 +230,7 @@ func _physics_process(dt: float) -> void:
 		velocity = horiz + vert + g * dt
 	_last_vel = velocity
 	move_and_slide()
+	_under_world(dt)
 	_landing()
 	_suit(dt)
 	_sounds(dt, jet_on)
@@ -239,6 +243,29 @@ func _physics_process(dt: float) -> void:
 	if _look_t <= 0.0:
 		_look_t = 0.083
 		_look()
+
+## Last resort against falling through a world (a spawn under a slope, a
+## hull-sized hole): once deep inside the shell with no floor for three
+## seconds, put the explorer back on the surface. Tunnels have floors, so
+## walking in them never counts.
+func _under_world(dt: float) -> void:
+	var b: ReachBody = system.ruling()
+	if b.key == "lantern" or _dead:
+		_under = 0.0
+		return
+	var off := global_position - b.node.global_position
+	if off.length() < 1.0:
+		_under = 0.0
+		return
+	var up := off.normalized()
+	var surf := b.radius + Worlds.height(b.key, up, b.radius)
+	if not is_on_floor() and off.length() < surf - 12.0:
+		_under += dt
+	else:
+		_under = 0.0
+	if _under > 3.0:
+		_under = 0.0
+		place(Transform3D(Site.upright(up, -global_basis.z), b.node.global_position + up * (surf + 0.5)), -global_basis.z)
 
 ## How deep the water is here, and swimming when it is deep enough: true if
 ## this tick was spent swimming.

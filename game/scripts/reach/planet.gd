@@ -68,7 +68,12 @@ func _ready() -> void:
 	add_child(lo)
 	_solid = StaticBody3D.new()
 	_shape = CollisionShape3D.new()
-	_shape.shape = mesh_hi.create_trimesh_shape()
+	var shell := mesh_hi.create_trimesh_shape()
+	# Solid from underneath too. A single-sided shell is a trap: step out of
+	# a ship with one foot under a rise and there is nothing to stop you
+	# falling through the world, into the dark inside it.
+	shell.backface_collision = true
+	_shape.shape = shell
 	_solid.add_child(_shape)
 	add_child(_solid)
 	if body.sea != 0.0:

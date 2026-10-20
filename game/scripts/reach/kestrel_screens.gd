@@ -179,21 +179,24 @@ func _paint_main() -> void:
 	elif ship.assist_body != "" and sys.bodies.has(ship.assist_body):
 		state = "ASSIST · " + (sys.bodies[ship.assist_body] as ReachBody).title.to_upper()
 	if state != "":
-		_text(c, Vector2(w - 14, h - 20), state, 17, scol, true, HORIZONTAL_ALIGNMENT_RIGHT, -1)
+		_text(c, Vector2(w - 14, h - 42), state, 17, scol, true, HORIZONTAL_ALIGNMENT_RIGHT, -1)
+	# The loop's clock, always: how long is left is the one number a pilot
+	# should never have to go looking for. The glass's upper edge sits under
+	# the dash's bezel, so the strip starts low enough to be actually seen.
+	var root := ship.get_tree().get_first_node_in_group("reach_root")
+	if root and root.system:
+		var left := maxf(ReachSystem.LOOP - float(root.system.t), 0.0)
+		c.draw_rect(Rect2(w * 0.5 - 56, 38, 112, 22), Color(0, 0, 0, 0.62))
+		_text(c, Vector2(w * 0.5 - 80, 56), "%02d:%02d" % [int(left) / 60, int(left) % 60], 20, WARN if left < 120.0 else INK, true, HORIZONTAL_ALIGNMENT_CENTER, 160)
 	if low:
-		# The landing screen: the sink rate, big, over everything.
+		# The landing screen: the sink rate, big, under the clock.
 		var s2 := ship.sink
 		var col2 := OK if s2 < 3.0 else (WARN if s2 < 7.0 else BAD)
-		c.draw_rect(Rect2(w * 0.5 - 92, 16, 184, 34), Color(0, 0, 0, 0.5))
-		_text(c, Vector2(w * 0.5 - 92, 41), "LANDING  %.1f" % maxf(s2, 0.0), 20, col2, true, HORIZONTAL_ALIGNMENT_CENTER, 184)
+		c.draw_rect(Rect2(w * 0.5 - 92, 66, 184, 32), Color(0, 0, 0, 0.55))
+		_text(c, Vector2(w * 0.5 - 92, 90), "LANDING  %.1f" % maxf(s2, 0.0), 20, col2, true, HORIZONTAL_ALIGNMENT_CENTER, 184)
 	if ship.landed:
-		c.draw_rect(Rect2(w * 0.5 - 92, 16, 184, 34), Color(0, 0, 0, 0.5))
-		_text(c, Vector2(w * 0.5 - 92, 41), "LANDED", 20, OK, true, HORIZONTAL_ALIGNMENT_CENTER, 184)
-		# The loop's clock, top middle (when not landing).
-	var root := ship.get_tree().get_first_node_in_group("reach_root")
-	if not low and not ship.landed and root and root.system:
-		var left := maxf(ReachSystem.LOOP - float(root.system.t), 0.0)
-		_text(c, Vector2(w * 0.5 - 80, 30), "%02d:%02d" % [int(left) / 60, int(left) % 60], 20, WARN if left < 120.0 else DIM, true, HORIZONTAL_ALIGNMENT_CENTER, 160)
+		c.draw_rect(Rect2(w * 0.5 - 92, 66, 184, 32), Color(0, 0, 0, 0.55))
+		_text(c, Vector2(w * 0.5 - 92, 90), "LANDED  ·  E", 20, OK, true, HORIZONTAL_ALIGNMENT_CENTER, 184)
 	# Scan lines, faintly.
 	for yy in range(0, int(h), 4):
 		c.draw_line(Vector2(0, yy), Vector2(w, yy), Color(0, 0, 0, 0.12), 1.0)
@@ -205,30 +208,32 @@ func _paint_status() -> void:
 	c.draw_rect(Rect2(0, 0, w, h), Color(0.02, 0.07, 0.03))
 	var g := Color(0.55, 1.0, 0.62)
 	var gd := Color(0.55, 1.0, 0.62, 0.45)
-	_text(c, Vector2(14, 30), "KESTREL", 22, g, true)
+	# No title line: the glass's top edge sits under the dash's bezel, and
+	# the ship's name is the least useful thing to lose a key line for.
 	var hull := int(ship.integrity)
-	_text(c, Vector2(14, 62), "HULL", 16, gd)
+	_text(c, Vector2(14, 50), "HULL", 16, gd)
 	var hc := g if hull > 60 else (WARN if hull > 30 else BAD)
-	c.draw_rect(Rect2(80, 48, 150, 16), Color(g, 0.15))
-	c.draw_rect(Rect2(80, 48, 150.0 * clampf(ship.integrity / 100.0, 0.0, 1.0), 16), hc)
-	_text(c, Vector2(238, 62), "%d%%" % hull, 16, hc, true)
+	c.draw_rect(Rect2(80, 36, 150, 16), Color(g, 0.15))
+	c.draw_rect(Rect2(80, 36, 150.0 * clampf(ship.integrity / 100.0, 0.0, 1.0), 16), hc)
+	_text(c, Vector2(238, 50), "%d%%" % hull, 16, hc, true)
 	var rows := [
 		["GEAR", "DOWN" if ship.landed else "UP"],
 		["ASSIST", "ON" if ship.assist else "OFF"],
 		["PILOT", "AUTO" if ship.autopilot else "YOU"],
 	]
-	var y := 92.0
+	var y := 76.0
 	for row: Array in rows:
 		_text(c, Vector2(14, y), row[0], 16, gd)
 		_text(c, Vector2(110, y), row[1], 16, g, true)
-		y += 22.0
-	y += 6.0
+		y += 21.0
+	y += 2.0
 	var keys := ["T  lock a world", "G  autopilot to it", "F  match its speed", "R  flight assist", "V  view outside"]
 	if ship.landed:
 		keys.append("E  leave the seat")
+	# Six short lines have to fit the glass above the bezel: 16 px apart.
 	for k: String in keys:
 		_text(c, Vector2(14, y), k, 14, gd)
-		y += 19.0
+		y += 16.0
 	for yy in range(0, int(h), 4):
 		c.draw_line(Vector2(0, yy), Vector2(w, yy), Color(0, 0, 0, 0.14), 1.0)
 

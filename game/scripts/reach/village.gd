@@ -94,11 +94,23 @@ func _build() -> void:
 	if chunk:
 		await get_tree().process_frame
 	# The people: Mara by the fire, Fen by a porch, Tull on the mine path,
-	# Isa at the tower's foot, Okafor in the observatory.
-	person("mara", "mara", Vector2(-2.6, 1.4), Vector2.ZERO)
-	person("fen", "crowd2", Vector2(7.0, 12.5), Vector2.ZERO)
-	person("miner", "crowd3", cave * 0.55 + Vector2(2.0, 1.0), Vector2.ZERO)
-	person("hauler", "crowd1", pad * 0.8 + pad.orthogonal().normalized() * 3.0, pad)
+	# Isa at the tower's foot, Okafor in the observatory. Each has a few
+	# metres of errands around their post: a village is people doing things,
+	# not people waiting to be talked to. The paths keep clear of the fire,
+	# the benches, the chair and the well.
+	var mine_dir := cave.normalized()
+	var mine_side := mine_dir.orthogonal()
+	var tull := cave * 0.55 + Vector2(2.0, 1.0)
+	var pad_side := pad.normalized().orthogonal()
+	var isa := pad * 0.8 + pad_side * 3.0
+	person("mara", "mara", Vector2(-2.6, 1.4), Vector2.ZERO, false,
+		[Vector2(-2.6, 1.4), Vector2(-4.2, 2.8), Vector2(-4.8, -0.2), Vector2(-6.4, -2.4)])
+	person("fen", "crowd2", Vector2(7.0, 12.5), Vector2.ZERO, false,
+		[Vector2(7.0, 12.5), Vector2(5.6, 9.8), Vector2(6.4, 7.2)])
+	person("miner", "crowd3", tull, Vector2.ZERO, false,
+		[tull, tull - mine_dir * 3.2 + mine_side * 0.7, tull - mine_dir * 6.4 - mine_side * 0.5, tull + mine_dir * 1.6])
+	person("hauler", "crowd1", isa, pad, false,
+		[isa, isa + pad_side * 2.2, isa - pad_side * 1.8])
 
 	if chunk:
 		await get_tree().process_frame
