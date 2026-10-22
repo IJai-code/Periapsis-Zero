@@ -19,8 +19,9 @@ import JsConfuser from 'js-confuser'
  * The site's own code is obfuscated in the build (js-confuser): names
  * mangled and strings hidden, so what a visitor can read in the browser is
  * not our source. The libraries (react, three and the rest) are public
- * code and are left as they are, as are the HTML's comments, which are
- * taken out. Control-flow flattening is left off: it costs frame rate.
+ * code and are left as they are; so are the web workers, which renaming
+ * breaks (the simulator stalled loading). The HTML's comments are taken
+ * out. Control-flow flattening is left off: it costs frame rate.
  * PZ_NO_OBFUSCATE=1 builds without it (faster, for local checks).
  */
 function obfuscate() {
@@ -42,8 +43,6 @@ function obfuscate() {
         if (file.type === 'chunk' && !vendor.test(file.name)) {
           file.code = (await JsConfuser.obfuscate(file.code, options)).code
           file.map = null
-        } else if (file.type === 'asset' && file.fileName.endsWith('.js') && /worker/.test(file.fileName) && typeof file.source === 'string') {
-          file.source = (await JsConfuser.obfuscate(file.source, options)).code
         }
       }
     },
