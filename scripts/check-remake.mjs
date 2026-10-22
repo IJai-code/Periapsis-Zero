@@ -94,9 +94,11 @@ try {
   await mobile.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true })
   await mobile.send('Emulation.setTouchEmulationEnabled', { enabled: true })
   await mobile.goto(url)
-  await text(mobile, 'FLIGHT OPERATIONS')
+  // A phone gets the front page without the game's links (it needs a
+  // keyboard), and the simulator and flight school instead.
+  await text(mobile, 'needs a keyboard and mouse')
   assert.equal((await layout(mobile)).width, 390)
-  await text(mobile, 'Enter flight school')
+  await text(mobile, 'Explore the Cosmos')
   assert.equal((await layout(mobile)).overflow, false)
   await shot(mobile, 'hub-mobile')
   await click(mobile, 'Flight school')
