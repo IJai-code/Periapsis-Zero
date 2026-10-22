@@ -5,6 +5,51 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A friend's review: markers, sharp text, Kenney's models, third person, stairs, 21 October 2026
+
+- **A marker always shows where to go next**: Mara, the observatory and
+  Okafor, the lift, your ship's hatch, and after lift-off the world and
+  then the spot the ship log's lead is about (named, with the distance).
+  Off the screen it is an arrow at the edge. Redrawn every frame, so it
+  does not judder as you turn.
+- **Every step says the key**: "Walk to Mara (W A S D, follow the marker),
+  look at her and press E", "Walk under your ship and press E at the
+  hatch", "Hold Space to lift off". The leads say where to fly, what the
+  place looks like and what you will find there, so they work with the
+  sound off; the signalscope names the nearest signal, how far and which
+  way ("Mara's banjo · 2 m · straight ahead").
+- **A Help button**, top right (or H): the goal, what to do next, and the
+  game's words, the pause screen's first page.
+- **Sharp text in the browser.** The web build drew everything at half the
+  screen's pixels on a Retina screen and stretched it. It now draws the
+  page at the screen's own pixels and the 3D at about the pixel count it
+  always had, so words are sharp and the frame rate does not pay for it.
+- **Smaller paragraph text** in the guides, the goal card, captions and
+  key hints; nothing (the goal card included) sits over a conversation.
+- **Kenney's Nature Kit** (CC0) for the trees, pines, bushes, rocks,
+  stumps, grass and flowers on every world, in the valley's colours
+  rather than Kenney's teal and orange. About a tenth of the triangles of
+  the old pines: at the fire **125 fps** uncapped on battery.
+- **Fewer things**: half the pines and bushes on Hearthstone, half the
+  jungle on Verdance, two fewer houses in the village, the mast and a
+  barrel gone.
+- **The crater's cliffs** lost their fence of narrow columns: broad
+  gullies and layered beds instead.
+- **People talk with their whole bodies**: nods in time with their words
+  and harder on the emphasis, a tilted head, a weight shift, a shrug, a
+  lean, gestures that vary; idle, breath and a look about (LifeMotion,
+  layered over the animation).
+- **The observatory's steps can be walked up**: their hidden ramp sat
+  13 cm under the top step's edge. And any step up to 45 cm is stepped
+  onto now, anywhere, rather than jumped (`--stairtest`).
+- **Third person** (V, remembered): the pilot seen from over the shoulder,
+  walking, running, crouching; the camera comes in front of walls.
+- **The marshmallow is gone**: sitting by the fire is sleep and get up.
+- **The code is obfuscated**: the site's own JavaScript (not the public
+  libraries) and the game's loading page go through js-confuser in the
+  build, names mangled and strings hidden, and the HTML's comments are
+  taken out. The game's scripts already shipped as compiled tokens.
+
 ### A fire that burns down, a village with business, and no falling through Ashfall, 19 October 2026 (night)
 
 - **The campfire burns away.** The logs are paced by the loop's own clock:

@@ -15,7 +15,7 @@
  *
  * PZ_WEBSHOT_KEYS="10:click 12:KeyW:down 14:KeyW:up" clicks the middle of
  * the page and presses keys at given times.
- * PZ_WEBSHOT_SIZE=1280x720 sets the window. PZ_WEBSHOT_LOGS=1 prints the
+ * PZ_WEBSHOT_SIZE=1280x720 sets the window; PZ_WEBSHOT_DPR=2 a Retina screen. PZ_WEBSHOT_LOGS=1 prints the
  * whole browser console.
  */
 import { createServer } from 'node:http'
@@ -44,6 +44,8 @@ const port = server.address().port
 
 const [w, h] = (process.env.PZ_WEBSHOT_SIZE ?? '1280x720').split('x').map(Number)
 const page = await launch({ width: w, height: h })
+// PZ_WEBSHOT_DPR=2 draws as a Retina screen does (twice the pixels).
+if (process.env.PZ_WEBSHOT_DPR) await page.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: Number(process.env.PZ_WEBSHOT_DPR), mobile: false })
 const keys = (process.env.PZ_WEBSHOT_KEYS ?? '').split(/\s+/).filter(Boolean).map((s) => {
   const [t, code, dir] = s.split(':')
   return { t: Number(t), code, dir }

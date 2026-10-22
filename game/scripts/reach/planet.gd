@@ -239,7 +239,7 @@ func _decorate(deco: Dictionary) -> void:
 			var up := Vector3(data[i + 3], data[i + 4], data[i + 5])
 			# The pines in smaller patches (4 x 4 a face), so the trees near
 			# you switch to their close-up shape and those beyond do not.
-			var key := _chunk(up, 4 if kind in ["pine", "giant", "tree", "palm"] else 2)
+			var key := _chunk(up, 2)
 			if not chunks.has(key):
 				chunks[key] = []
 			var fwd := up.cross(Vector3.RIGHT if absf(up.y) > 0.9 else Vector3.UP).normalized()
@@ -257,35 +257,55 @@ func _decorate(deco: Dictionary) -> void:
 			for xf: Transform3D in xfs:
 				centre += xf.origin
 			centre /= xfs.size()
-			if kind == "pine":
-				# The valley's tall pines: three shapes, each whole up close
-				# and a sixth of its triangles from 90 m; one simple shape far
-				# off. (Ranges are to the patch's middle, about 50 m from its
-				# edge.)
-				for v in 3:
+			# Kenney's Nature Kit (KenneyKit): a few shapes of each kind,
+			# the instances dealt among them. A couple of hundred triangles a
+			# tree, so each is drawn whole as far as it is drawn at all.
+			var shapes := _kenney(kind)
+			if not shapes.is_empty():
+				for v in shapes.size():
 					var some: Array = []
 					for k in xfs.size():
-						if k % 3 == v:
-							some.append(xfs[k])
+						if k % shapes.size() == v:
+							var xf: Transform3D = xfs[k]
+							some.append(Transform3D(xf.basis.scaled(Vector3.ONE * float(shapes[v][1])), xf.origin))
 					if not some.is_empty():
-						var shape: String = ["pine_a", "pine_b", "pine_c"][v]
-						# Close: the whole tree drawn, its shadow cast by the
-						# simple one (the shadow pass cannot tell).
-						var near := _deco_mm(Valley.mesh(shape), some, centre, Valley.pine_material(), 0.0, 120.0, false)
-						var shade := _deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 0.0, 120.0, true)
-						shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-						near.visibility_range_end_margin = 20.0
-						_deco_mm(Valley.mesh(shape + "_mid"), some, centre, Valley.pine_material(), 110.0, 330.0, true)
-				_deco_mm(Valley.mesh("pine_far"), xfs, centre, Valley.pine_material(), 315.0, range_end, true)
-				continue
-			if kind in ["giant", "tree", "palm"]:
-				# The jungle's trees: their whole selves within a few hundred
-				# metres, a trunk and a lumpy crown beyond (Flora.far_mesh).
-				_deco_mm(Flora.mesh(kind), xfs, centre, null, 0.0, 260.0, true)
-				_deco_mm(Flora.far_mesh(kind), xfs, centre, null, 245.0, range_end, false)
+						_deco_mm(KenneyKit.mesh(shapes[v][0], _kenney_tint(kind)), some, centre, null, 0.0, range_end, not kind in ["fern", "bush", "stump"])
 				continue
 			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] else null
 			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])
+
+## The Kenney shapes for a kind of plant or rock on this world, and the
+## scale each is drawn at (their models are about a metre tall).
+func _kenney(kind: String) -> Array:
+	var bare := body.key in ["ashfall", "phantom", "wanderer"]
+	match kind:
+		"pine":
+			return [["tree_pineTallA_detailed", 15.0], ["tree_pineTallC_detailed", 14.0]]
+		"bush":
+			return [["plant_bushDetailed", 4.5], ["plant_bushLarge", 5.5]]
+		"rock":
+			if bare:
+				return [["stone_largeA", 3.2], ["stone_largeB", 3.0], ["stone_tallA", 2.4]]
+			return [["rock_largeA", 3.2], ["rock_tallA", 2.6]]
+		"stump":
+			return [["stump_old", 3.5], ["log", 4.0]]
+		"giant":
+			return [["tree_oak", 16.0], ["tree_detailed", 15.0], ["tree_fat", 15.0]]
+		"tree":
+			return [["tree_default", 9.0], ["tree_oak", 10.0], ["tree_tall", 9.0]]
+		"palm":
+			return [["tree_palmTall", 7.0], ["tree_palmBend", 7.0], ["tree_palmDetailedTall", 7.5]]
+		"fern":
+			return [["plant_flatTall", 4.0], ["plant_flatShort", 4.0]]
+	return []
+
+func _kenney_tint(kind: String) -> Color:
+	if kind == "rock":
+		match body.key:
+			"ashfall": return Color(0.42, 0.36, 0.34)
+			"phantom": return Color(0.78, 0.66, 1.0)
+			"wanderer": return Color(0.85, 0.95, 1.1)
+	return Color(1, 1, 1)
 
 ## One drawing of many plants (a chunk's worth), seen between two distances.
 func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: float, end: float, shadow: bool) -> MultiMeshInstance3D:

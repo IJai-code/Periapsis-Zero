@@ -302,11 +302,12 @@ def cliff(name, seed, groove=False):
         uu = u * 54.0
         # Buttresses and gullies: broad bulges, sharp narrow channels.
         butt = noise.noise(V((uu * 0.07, 0.5, seed))) * 2.6
-        gully = (1.0 - abs(noise.noise(V((uu * 0.16, z * 0.012, seed + 4))))) ** 6 * 3.2
+        # A few broad gullies, not a fence of columns.
+        gully = (1.0 - abs(noise.noise(V((uu * 0.06, z * 0.01, seed + 4))))) ** 4 * 1.4
         bedding = noise.noise(V((uu * 0.02, z * 1.6, seed + 6))) * 0.22
-        wear = _fbm(V((uu * 0.13, z * 0.11, 0)) + off, 4) * 0.75
+        wear = _fbm(V((uu * 0.09, z * 0.08, 0)) + off, 4) * 0.9
         # Vertical joints: narrow, sharp, the beds broken into blocks.
-        joint = max(0.0, 0.18 - abs(noise.noise(V((uu * 0.33, z * 0.004, seed + 9))))) * 6.0
+        joint = max(0.0, 0.12 - abs(noise.noise(V((uu * 0.12, z * 0.004, seed + 9))))) * 2.5
         d = strata(z) + butt + gully + bedding + wear + joint + groove_at(u)
         p = centre + out * d + V((0, 0, z))
         if over_top > 0.0:
@@ -805,7 +806,11 @@ def observatory():
     # Steps up to the door (and its ramp), a lamp each side, a sign board.
     for i in range(4):
         kit.box(m('stone'), (0, -R - 1.0 - i * 0.4, 0.45 - i * 0.15), (3.4, 0.45, 0.3))
-    kit.box(m('collide_only'), (0, -R - 1.6, 0.32), (3.2, 2.2, 0.06), Matrix.Rotation(-0.3, 3, 'X'))
+    # The ramp actually walked on: over the steps' front corners (which lie
+    # on a slope of 0.15 in 0.4), from the ground to the top step's edge.
+    a, b = V((0, -R - 3.7, -0.3)), V((0, -R - 1.2, 0.64))
+    rot = (b - a).normalized().to_track_quat('Y', 'Z').to_matrix()
+    kit.box(m('collide_only'), (a + b) / 2 - V((0, 0, 0.03)), (3.2, (b - a).length, 0.06), rot)
     for x in (-2.2, 2.2):
         beam(m('beam'), (x, -R - 1.2, 0), (x, -R - 1.2, 2.8), 0.14)
         lantern_hang(m, (x, -R - 1.45, 2.8))

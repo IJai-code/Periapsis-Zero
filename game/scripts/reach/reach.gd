@@ -118,6 +118,8 @@ func _ready() -> void:
 		_arrive_test()
 	if "--phantomtest" in args:
 		_phantom_test()
+	if "--stairtest" in args:
+		_stair_test()
 	if "--walltestfly" in args:
 		_fly_wall_test()
 	var apt := args.find("--aptest")
@@ -139,7 +141,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest"]:
 			return true
 	return false
 
@@ -155,14 +157,14 @@ func _next_goal() -> String:
 		return _lead()
 	if not Lore.known("hearth_codes"):
 		if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
-			return "Talk to Mara, by the fire"
-		return "Get your ship's launch codes from Okafor, in the glass-domed observatory"
+			return "Walk to Mara by the fire (W A S D, follow the marker), look at her and press E"
+		return "Walk to the observatory, the glass dome on the hill (follow the marker), and press E to talk to Okafor"
 	if ship.piloted:
-		return "Take off: hold Space to rise, then W" if ship.landed else "Climb: up and out of the air"
+		return "Hold Space to lift off" if ship.landed else "Keep holding Space to climb. Then look at a world, press T to lock it and G to fly there"
 	var village: Village = (planets["hearthstone"] as Planet).sites[0]
 	if village.lift.at_top():
-		return "Climb into your ship (through the hatch underneath)"
-	return "Ride the lift up the launch tower to your ship"
+		return "Walk under your ship and press E at the hatch to climb in"
+	return "Walk to the lift at the foot of the tower and press E to ride up to your ship"
 
 ## A few frames from the tower, behind the black of the morning, so every
 ## material the lift-off will show (the valley, the sky, the air of the
@@ -423,6 +425,7 @@ func _build_sites(backdrop := false) -> void:
 func _exit_tree() -> void:
 	Grass.clear_cache()
 	Valley.clear_cache()
+	KenneyKit.clear()
 	Props._cache.clear()
 	Worlds._noise.clear()
 
@@ -640,6 +643,8 @@ func _start_player() -> void:
 	player.system = system
 	add_child(player)
 	player.died.connect(loop.die)
+	if bool(Flow.settings.get("third_person", false)) or "--third" in OS.get_cmdline_user_args():
+		player.set_third.call_deferred(true)
 	ship = ReachShip.new()
 	ship.system = system
 	ship.explorer = player
@@ -821,7 +826,7 @@ func _on_woke(n: int, _first: bool) -> void:
 	if n == 1 and not Lore.known("hearth_codes"):
 		hud.guide("Your goal", "You are a pilot. Three days ago your ship crashed here, on a little world called Hearthstone, while you were escorting a freighter called the Aster. The villagers pulled you out and fixed your ship.\n\nGet your ship flying, then find out what happened to the Aster and its crew. Start with Mara, by the fire: look at her and press E.", 24.0)
 	if n <= 2:
-		hud.hint("E  talk, use, read    X  signalscope    M  map\nL  ship log    P  photograph    F  torch    Esc  every key", 20.0)
+		hud.hint("E  talk, use, read    X  signalscope    M  map\nL  ship log    V  third person    H  help    Esc  every key", 20.0)
 
 ## The ship's keys, the first times you sit in her.
 var _ship_hints := 0
@@ -833,24 +838,83 @@ func _on_boarded() -> void:
 ## What the log points at next, once the pilot is off the ground: the lead
 ## nearest the end of the story that is still open (its place not yet all
 ## learned), in a few words.
+## [known, not yet known, what to do (plain words, and enough to go on with
+## the sound off), world, landmark (or "recorder"), what the marker says].
 const LEADS := [
-	["ash_core", "wan_end", "Carry the core to the Wanderer's Engine. Its door opens at about 20:30."],
-	["ph_shrine", "ash_core", "The core is in the Aster's vault on Ashfall."],
-	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412."],
-	["verd_engine", "ash_core", "The Engine needs a core. Hale's cargo hummed like the songlines."],
-	["hearth_songline", "wan_door", "The comet (the Wanderer) carries the Engine. Its door opens when it is nearest the star, at about 20:30."],
-	["verd_cargo", "ash_hale", "Hale's bridge recorder, at the Aster's wreck on Ashfall (signalscope: Distress)."],
-	["hearth_vex", "ash_vex", "Vex salvages the Aster's wreck on Ashfall. Listen for her drums (X)."],
-	["hearth_renn", "verd_renn", "A harmonica on Verdance that nobody in Hearth plays. Follow it with the signalscope (X)."],
-	["hearth_phantom", "ph_moves", "The Phantom moves when no one looks. A photograph (P) might hold it."],
-	["hearth_choir", "hearth_songline", "A Choir songline in the old mine, past the lake."],
+	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its door is only open around 20:30 on the clock (the map, M, shows the time).", "wanderer", "engine", "The Engine"],
+	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
+	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
+	["verd_engine", "ash_core", "The Engine needs a core, and the Aster's cargo hummed like the Choir's writing. Search the wreck on Ashfall, the dark moon with glowing cracks.", "ashfall", "wreck", "The Aster's wreck"],
+	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its door opens only when it is nearest the star, around 20:30 on the clock (M shows the time).", "wanderer", "engine", "The Engine's door"],
+	["verd_cargo", "ash_hale", "Find the Aster's bridge recorder on Ashfall, in the crater by the wreck: follow the marker. It is still talking; press E beside it.", "ashfall", "recorder", "The bridge recorder"],
+	["hearth_vex", "ash_vex", "Fly to Ashfall, the dark moon with glowing cracks. Vex, a salvager, camps beside the Aster's wreck: follow the marker to her and press E. (With the sound on, the signalscope, X, picks up her drums.)", "ashfall", "vex", "Vex's camp"],
+	["hearth_renn", "verd_renn", "Fly to Verdance, the green world wrapped in clouds. Someone is hiding at a camp under a waterfall: follow the marker. (With the sound on, the signalscope, X, picks up their harmonica.)", "verdance", "renn", "A hidden camp"],
+	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
+	["hearth_choir", "hearth_songline", "In the old mine past the lake, read the Choir's spiral writing on the far wall: walk up to it, look at it and press E.", "hearthstone", "cave", "The old mine"],
 ]
 
-func _lead() -> String:
+func _lead_row() -> Array:
 	for l in LEADS:
 		if Lore.known(l[0]) and not Lore.known(l[1]):
-			return "Lead: " + String(l[2])
-	return "Lead: Press M for the map and pick a world; T locks it, G flies there."
+			return l
+	return []
+
+func _lead() -> String:
+	var l := _lead_row()
+	if not l.is_empty():
+		return "Lead: " + String(l[2])
+	return "Lead: Open the map (M), pick a world, look at it and press T to lock it, then G to fly there."
+
+var _npcs := {}
+func _npc(v: Node, key: String) -> Node3D:
+	if not _npcs.has(key) or not is_instance_valid(_npcs[key]):
+		_npcs[key] = v.find_child("Npc_" + key, true, false)
+	return _npcs[key]
+
+## Where the marker points now: {at: world position, label}, or {} for
+## nothing. The first morning, the people and places in turn; after that,
+## the spot the lead is about (the world itself while it is far off).
+func goal_target() -> Dictionary:
+	if not player or not ship or loop == null or loop.ending:
+		return {}
+	var home: ReachBody = system.bodies["hearthstone"]
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var on_home := func(local: Vector3) -> Vector3: return system.world("hearthstone") + local
+	if not _launched and not (Lore.known("hearth_loop") and Lore.known("hearth_codes")):
+		if not Lore.known("hearth_codes"):
+			if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
+				var mara := _npc(village, "mara")
+				if mara:
+					return {"at": mara.global_position + mara.global_basis.y * 2.1, "label": "Mara"}
+			var ok := _npc(village, "okafor")
+			if ok and player.global_position.distance_to(ok.global_position) < 25.0:
+				return {"at": ok.global_position + ok.global_basis.y * 2.1, "label": "Okafor"}
+			var obs := Worlds.place(home, "observatory")
+			return {"at": on_home.call(obs.origin + obs.basis.y * 6.0), "label": "The observatory"}
+		if ship.piloted:
+			return {}
+		if village.lift and village.lift.at_top():
+			return {"at": ship.global_position - ship.global_basis.y * 0.6, "label": "Your ship (hatch underneath)"}
+		if village.lift:
+			return {"at": village.lift.global_transform * (TowerLift.SHAFT + Vector3(0, 2.0, -1.6)), "label": "The lift up the tower"}
+		return {}
+	var l := _lead_row()
+	if l.is_empty():
+		return {}
+	var key: String = l[3]
+	var b: ReachBody = system.bodies[key]
+	var local := Vector3.ZERO
+	if l[4] == "recorder":
+		local = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
+	else:
+		var xf := Worlds.place(b, l[4])
+		local = xf.origin + xf.basis.y * 2.0
+	var at := system.world(key) + local
+	var cam := get_viewport().get_camera_3d()
+	# Far off, the world itself, named; near, the spot on it.
+	if cam and cam.global_position.distance_to(system.world(key)) - b.radius > 1500.0:
+		return {"at": system.world(key), "label": b.title}
+	return {"at": at, "label": l[5]}
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not (e is InputEventKey and e.pressed and not e.echo) or talking or _log or not player or finished:
@@ -867,6 +931,8 @@ func _unhandled_input(e: InputEvent) -> void:
 				_map.closed.connect(func(): _map = null)
 		KEY_P:
 			_photo()
+		KEY_H:
+			Hud.pause(true)
 		_:
 			return
 	get_viewport().set_input_as_handled()
@@ -1327,6 +1393,40 @@ func _land_test() -> void:
 	Report.line("LANDTEST held %.2f m/s at %.0f m, landed %s after %.1f s, touched at %.1f m/s, dust %d, hull %d%%" % [held, hover_alt, ship.landed, t, touch, dust, int(maxf(ship.integrity, 0.0))])
 	Report.finish(get_tree())
 
+## Walk (no jumping) from the path up the observatory's steps and in
+## through its door: the floor inside is 0.6 m up.
+func _stair_test() -> void:
+	await get_tree().create_timer(1.5).timeout
+	var home: ReachBody = system.bodies["hearthstone"]
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var o: Node3D = null
+	for c in village.get_children():
+		if c is Node3D and String((c as Node3D).scene_file_path).contains("observatory2"):
+			o = c
+	var up := o.global_basis.y.normalized()
+	# Blender -Y (the door's side) is Godot +Z.
+	var out := o.global_basis.z.normalized()
+	var start := o.global_position + out * 13.0
+	var d := (start - system.world("hearthstone")).normalized()
+	start = system.world("hearthstone") + d * (home.radius + Worlds.height("hearthstone", d, home.radius) + 0.2)
+	player.place(Transform3D(Site.upright(up, -out), start), -out)
+	await get_tree().physics_frame
+	Input.action_press("forward")
+	var t := 0.0
+	var inside := false
+	var h0 := (player.global_position - o.global_position).dot(up)
+	while t < 8.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		var rel := player.global_position - o.global_position
+		if (rel - up * rel.dot(up)).length() < 6.0 and rel.dot(up) > 0.4:
+			inside = true
+			break
+	Input.action_release("forward")
+	var rel2 := player.global_position - o.global_position
+	Report.line("STAIRTEST inside %s after %.1f s, height %.2f m (started %.2f), distance to centre %.1f m" % [inside, t, rel2.dot(up), h0, (rel2 - up * rel2.dot(up)).length()])
+	Report.finish(get_tree())
+
 ## Landing on the Phantom as a player does: in from 600 m with the nose
 ## not on it, Shift down onto it, out of the seat, then looking away at the
 ## sky for a while. It must stay under your feet the whole time.
@@ -1719,16 +1819,6 @@ func _fire_test() -> void:
 		Report.finish(get_tree())
 		return
 	await get_tree().create_timer(0.8).timeout
-	key.call(KEY_E, true)
-	await get_tree().create_timer(3.4).timeout
-	key.call(KEY_E, false)
-	await get_tree().create_timer(1.0).timeout
-	var toast := rest._toast
-	key.call(KEY_F, true)
-	await get_tree().process_frame
-	key.call(KEY_F, false)
-	await get_tree().create_timer(0.3).timeout
-	var eaten := rest._eaten
 	var t0 := system.t
 	key.call(KEY_Q, true)
 	await get_tree().process_frame
@@ -1744,7 +1834,7 @@ func _fire_test() -> void:
 	await get_tree().process_frame
 	key.call(KEY_SPACE, false)
 	await get_tree().create_timer(0.5).timeout
-	Report.line("FIRETEST toast %.2f eaten %d slept %.0f s warp after %.0f stood %s talking %s" % [toast, eaten, slept, warp, player.enabled, talking])
+	Report.line("FIRETEST slept %.0f s warp after %.0f stood %s talking %s" % [slept, warp, player.enabled, talking])
 	Report.finish(get_tree())
 
 ## Burn the loop's clock forward and report what the campfire does: the

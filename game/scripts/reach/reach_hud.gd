@@ -28,6 +28,7 @@ var _plaque_t := 0.0
 var _goal: PanelContainer
 var _goal_text: Label
 var _goal_kind: Label
+var _goal_last := ""
 var _caption: Label
 var _caption_t := 0.0
 var _fade: ColorRect
@@ -38,6 +39,7 @@ var _hint: VBoxContainer
 var _hint_t := 0.0
 ## The overlay's canvas is rebuilt this often, not every frame.
 var _paint_t := 0.0
+var _help: Button
 
 func _ready() -> void:
 	layer = 6
@@ -76,7 +78,7 @@ func _ready() -> void:
 	_key.add_theme_font_override("font", Style.mono_bold)
 	_key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.add_child(_key)
-	_act = ReachStyle.label("", 22, ReachStyle.BONE)
+	_act = ReachStyle.label("", 20, ReachStyle.BONE)
 	_shadow(_act)
 	_prompt_box.add_child(_act)
 	_prompt_box.visible = false
@@ -98,7 +100,7 @@ func _ready() -> void:
 	_card.add_child(ch)
 	var mark := ReachStyle.label("◆", 16, ReachStyle.EMBER)
 	ch.add_child(mark)
-	_card_text = ReachStyle.label("", 16, ReachStyle.BONE)
+	_card_text = ReachStyle.label("", 15, ReachStyle.BONE)
 	_card_text.add_theme_font_override("font", ReachStyle.serif)
 	ch.add_child(_card_text)
 	# A museum's plaque, read (bottom middle, above the prompt).
@@ -108,18 +110,18 @@ func _ready() -> void:
 	_plaque.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_plaque.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_plaque.offset_bottom = -150
-	_plaque.custom_minimum_size = Vector2(620, 0)
+	_plaque.custom_minimum_size = Vector2(540, 0)
 	_plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_plaque.visible = false
 	root.add_child(_plaque)
 	var pv := VBoxContainer.new()
 	pv.add_theme_constant_override("separation", 8)
 	_plaque.add_child(pv)
-	_plaque_title = ReachStyle.title("", 22, ReachStyle.EMBER)
+	_plaque_title = ReachStyle.title("", 19, ReachStyle.EMBER)
 	pv.add_child(_plaque_title)
-	_plaque_text = ReachStyle.label("", 17, ReachStyle.BONE)
+	_plaque_text = ReachStyle.label("", 15, ReachStyle.BONE)
 	_plaque_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_plaque_text.custom_minimum_size = Vector2(576, 0)
+	_plaque_text.custom_minimum_size = Vector2(496, 0)
 	pv.add_child(_plaque_text)
 	# What to do next (or, once flying, the lead the log points at): a
 	# small card top left, its kind in ember capitals over the words.
@@ -140,14 +142,54 @@ func _ready() -> void:
 	var gv := VBoxContainer.new()
 	gv.add_theme_constant_override("separation", 1)
 	_goal.add_child(gv)
-	_goal_kind = ReachStyle.label("NEXT", 14, ReachStyle.EMBER)
+	_goal_kind = ReachStyle.label("NEXT", 12, ReachStyle.EMBER)
 	_goal_kind.add_theme_font_override("font", ReachStyle.round_bold)
 	gv.add_child(_goal_kind)
-	_goal_text = ReachStyle.label("", 24, ReachStyle.BONE)
+	_goal_text = ReachStyle.label("", 18, ReachStyle.BONE)
 	_goal_text.add_theme_font_override("font", ReachStyle.round_bold)
 	_shadow(_goal_text)
 	gv.add_child(_goal_text)
 	_goal.modulate.a = 0.0
+	# Help, top right: the goal, what to do next, every key (the pause
+	# screen's first page). H, or a click when the mouse is free.
+	_help = Button.new()
+	_help.text = "?  Help"
+	_help.add_theme_font_override("font", ReachStyle.round_bold)
+	_help.add_theme_font_size_override("font_size", 16)
+	var hs := ReachStyle.panel(16)
+	hs.bg_color = Color(0.08, 0.07, 0.06, 0.6)
+	hs.border_width_top = 0
+	hs.border_width_left = 2
+	hs.border_width_right = 2
+	hs.border_width_bottom = 2
+	hs.border_width_top = 2
+	hs.border_color = Color(ReachStyle.BONE, 0.5)
+	hs.content_margin_left = 14
+	hs.content_margin_right = 14
+	hs.content_margin_top = 5
+	hs.content_margin_bottom = 6
+	for st in ["normal", "hover", "pressed", "focus"]:
+		_help.add_theme_stylebox_override(st, hs)
+	_help.add_theme_color_override("font_color", ReachStyle.BONE)
+	_help.add_theme_color_override("font_hover_color", ReachStyle.EMBER)
+	_help.focus_mode = Control.FOCUS_NONE
+	_help.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_help.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_help.offset_right = -24
+	_help.offset_top = 22
+	_help.pressed.connect(func(): Hud.pause(true))
+	root.add_child(_help)
+	var hk := PanelContainer.new()
+	hk.add_theme_stylebox_override("panel", ReachStyle.keycap())
+	var hkl := ReachStyle.label("H", 12, ReachStyle.CHARCOAL, true)
+	hkl.add_theme_font_override("font", Style.mono_bold)
+	hk.add_child(hkl)
+	hk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hk.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	hk.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	hk.offset_right = -132
+	hk.offset_top = 27
+	root.add_child(hk)
 	# Arriving somewhere: its name, large, at the top.
 	_place = VBoxContainer.new()
 	_place.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -164,7 +206,7 @@ func _ready() -> void:
 	_place_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shadow(_place_title)
 	_place.add_child(_place_title)
-	_caption = ReachStyle.label("", 26, ReachStyle.BONE)
+	_caption = ReachStyle.label("", 21, ReachStyle.BONE)
 	_caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -257,14 +299,27 @@ func goal(text: String) -> void:
 	if text.begins_with("Lead: "):
 		kind = "LEAD  ·  SHIP LOG (L)"
 		text = text.trim_prefix("Lead: ")
-	if text == _goal_text.text:
+	if text == _goal_last:
 		return
-	_goal_text.text = text
+	_goal_last = text
 	_goal_kind.text = kind
-	# One line when it fits; wrapped at 440 px when it does not.
-	var wide := ReachStyle.round_bold.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x > 560.0
-	_goal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wide else TextServer.AUTOWRAP_OFF
-	_goal_text.custom_minimum_size = Vector2(560.0 if wide else 0.0, 0.0)
+	# Broken into lines of at most 460 px here (a wrapping label inside a
+	# shrinking panel measures its height before its width, and comes out
+	# a tall empty box).
+	var lines: Array[String] = []
+	var line := ""
+	for w in text.split(" "):
+		var tryl := w if line == "" else line + " " + w
+		if line != "" and ReachStyle.round_bold.get_string_size(tryl, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x > 460.0:
+			lines.append(line)
+			line = w
+		else:
+			line = tryl
+	if line != "":
+		lines.append(line)
+	_goal_text.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_goal_text.custom_minimum_size = Vector2.ZERO
+	_goal_text.text = "\n".join(lines)
 	_goal.size = Vector2.ZERO
 	_goal.reset_size()
 	if text != "":
@@ -295,11 +350,11 @@ func hint(text: String, seconds := 16.0) -> void:
 		while i + 1 < parts.size():
 			var cap := PanelContainer.new()
 			cap.add_theme_stylebox_override("panel", ReachStyle.keycap())
-			var k := ReachStyle.label(parts[i], 15, ReachStyle.CHARCOAL, true)
+			var k := ReachStyle.label(parts[i], 13, ReachStyle.CHARCOAL, true)
 			k.add_theme_font_override("font", Style.mono_bold)
 			cap.add_child(k)
 			row.add_child(cap)
-			var w := ReachStyle.label(parts[i + 1], 19, ReachStyle.BONE)
+			var w := ReachStyle.label(parts[i + 1], 16, ReachStyle.BONE)
 			_shadow(w)
 			row.add_child(w)
 			var gap := Control.new()
@@ -359,6 +414,8 @@ func _process(dt: float) -> void:
 	_place_t -= dt
 	_place.modulate.a = clampf(minf(_place_t, 4.0 - _place_t) * 1.2, 0.0, 1.0)
 	var pl: Explorer = reach.player
+	# Nothing over a conversation.
+	_plaque.modulate.a = move_toward(_plaque.modulate.a, 0.0 if reach.talking else 1.0, dt * 6.0)
 	if _plaque.visible:
 		_plaque_t -= dt
 		_guide_t = maxf(_guide_t - dt, 0.0)
@@ -383,22 +440,22 @@ func _process(dt: float) -> void:
 	# The helmet's glass while walking about (not in the seat, not by a
 	# fire, not waking).
 	var on_foot: bool = p != null and p.enabled and not (s and s.piloted)
-	_visor.visible = on_foot
+	_visor.visible = on_foot and not p.third
 	if on_foot:
 		var vp := _visor.get_viewport_rect().size
 		_visor_mat.set_shader_parameter("aspect", Vector2(vp.x / maxf(vp.y, 1.0), 1.0))
 	# At 30 a second: a dot, three capsules and a line of text rebuilt sixty
 	# times is half of the work done for nothing (the eye cannot tell).
-	_paint_t += dt
-	if _paint_t >= 1.0 / 30.0:
-		_paint_t = 0.0
-		_draw.queue_redraw()
+	# Every frame: the goal's marker and the flight markers sit on things in
+	# the world, and drawn a frame behind they would judder as you turn.
+	_draw.queue_redraw()
 
 func _paint() -> void:
 	var vp := _draw.get_viewport_rect().size
 	var c := vp / 2.0
 	var p: Explorer = reach.player
 	var s: ReachShip = reach.ship
+	_marker(vp, c)
 	if s and s.piloted and not s.launching:
 		_ship(vp, c, s)
 	elif p and p.enabled:
@@ -409,6 +466,62 @@ func _paint() -> void:
 		else:
 			_draw.draw_circle(c, 2.4, Color(ReachStyle.BONE, 0.75))
 		_suit(vp, p)
+
+## The goal's marker: a diamond over the place with its name and distance;
+## off the screen (or behind you), an arrow at the edge pointing the way.
+var _goal_at := {}
+var _goal_check := 0.0
+func _marker(vp: Vector2, c: Vector2) -> void:
+	_goal_check -= get_process_delta_time()
+	if _goal_check <= 0.0:
+		_goal_check = 0.25
+		_goal_at = reach.goal_target() if reach.has_method("goal_target") else {}
+	if _goal_at.is_empty() or reach.talking:
+		return
+	var cam := _draw.get_viewport().get_camera_3d()
+	if not cam:
+		return
+	var at: Vector3 = _goal_at.at
+	var d := cam.global_position.distance_to(at)
+	if d < 3.5:
+		return
+	var label: String = _goal_at.label
+	var dist := _range(d)
+	var col := Color(1.0, 0.86, 0.6)
+	var ink := Color(0.12, 0.08, 0.05, 0.85)
+	var behind := cam.is_position_behind(at)
+	var m := cam.unproject_position(at) if not behind else Vector2.ZERO
+	var margin := Vector2(60, 70)
+	var inside := not behind and Rect2(margin, vp - margin * 2.0).has_point(m)
+	if inside:
+		var pulse := 1.0 + 0.12 * sin(Time.get_ticks_msec() * 0.006)
+		var r := 9.0 * pulse
+		var dia := PackedVector2Array([m + Vector2(0, -r), m + Vector2(r, 0), m + Vector2(0, r), m + Vector2(-r, 0)])
+		var outline := PackedVector2Array([m + Vector2(0, -r - 3), m + Vector2(r + 3, 0), m + Vector2(0, r + 3), m + Vector2(-r - 3, 0)])
+		_draw.draw_colored_polygon(outline, ink)
+		_draw.draw_colored_polygon(dia, col)
+		_draw.draw_string_outline(ReachStyle.round_bold, m + Vector2(-150, 30), label, HORIZONTAL_ALIGNMENT_CENTER, 300, 15, 6, ink)
+		_draw.draw_string(ReachStyle.round_bold, m + Vector2(-150, 30), label, HORIZONTAL_ALIGNMENT_CENTER, 300, 15, col)
+		_draw.draw_string_outline(ReachStyle.round, m + Vector2(-150, 48), dist, HORIZONTAL_ALIGNMENT_CENTER, 300, 13, 5, ink)
+		_draw.draw_string(ReachStyle.round, m + Vector2(-150, 48), dist, HORIZONTAL_ALIGNMENT_CENTER, 300, 13, Color(col, 0.85))
+		return
+	# Off the screen: which way, round the edge of an oval.
+	var local := cam.global_basis.inverse() * (at - cam.global_position)
+	var dir := Vector2(local.x, -local.y)
+	if dir.length() < 0.001:
+		dir = Vector2(0, 1)
+	dir = dir.normalized()
+	var half := vp * 0.5 - margin
+	var k := 1.0 / sqrt((dir.x * dir.x) / (half.x * half.x) + (dir.y * dir.y) / (half.y * half.y))
+	var tip := c + dir * k
+	var side := dir.orthogonal()
+	var tri := PackedVector2Array([tip + dir * 14.0, tip - dir * 6.0 + side * 13.0, tip - dir * 6.0 - side * 13.0])
+	var tri_o := PackedVector2Array([tip + dir * 18.0, tip - dir * 9.0 + side * 17.0, tip - dir * 9.0 - side * 17.0])
+	_draw.draw_colored_polygon(tri_o, ink)
+	_draw.draw_colored_polygon(tri, col)
+	var tp := tip - dir * 34.0 + Vector2(-150, 5)
+	_draw.draw_string_outline(ReachStyle.round_bold, tp, label + "  " + dist, HORIZONTAL_ALIGNMENT_CENTER, 300, 14, 6, ink)
+	_draw.draw_string(ReachStyle.round_bold, tp, label + "  " + dist, HORIZONTAL_ALIGNMENT_CENTER, 300, 14, col)
 
 func _suit(vp: Vector2, p: Explorer) -> void:
 	var gauges := [

@@ -27,7 +27,7 @@ const SCENES := {
 	"reach": "res://scenes/reach.tscn",
 }
 
-var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1}
+var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1, "third_person": false}
 var _music: AudioStreamPlayer
 var _busy := false
 ## A chapter's starting beat, from a test link or `-- --beat`.
@@ -267,16 +267,32 @@ func fx_low() -> bool:
 func _tier_key() -> String:
 	return "tier_web" if on_web() else ("tier_lite" if lite() else "tier_desktop")
 
+func _on_resize() -> void:
+	if not _pinned:
+		get_viewport().scaling_3d_scale = _res * _hidpi_k()
+
+## In the browser the page is drawn at the screen's own pixels (so text is
+## sharp on a Retina screen); the 3D is drawn at about the pixel count it
+## always was, and scaled up, so sharp words cost no frame rate.
+func _hidpi_k() -> float:
+	if not on_web():
+		return 1.0
+	var vp := get_viewport()
+	var px := float(vp.size.x * vp.size.y)
+	return clampf(sqrt(2_300_000.0 / maxf(px, 1.0)), 0.5, 1.0)
+
 func _start_tier() -> void:
 	var a := OS.get_cmdline_user_args().find("--res")
 	if a >= 0:
 		_pinned = true
 		_res = float(OS.get_cmdline_user_args()[a + 1])
-		get_viewport().scaling_3d_scale = _res
+		get_viewport().scaling_3d_scale = _res * _hidpi_k()
 		return
 	var key := _tier_key()
 	var vp := get_viewport()
-	var px := float(vp.size.x * vp.size.y)
+	if on_web() and not vp.size_changed.is_connected(_on_resize):
+		vp.size_changed.connect(_on_resize)
+	var px := float(vp.size.x * vp.size.y) * _hidpi_k() * _hidpi_k()
 	var guess := 1 if px > 2_400_000.0 else 0
 	var saved := int(settings.get(key, -1))
 	set_tier(saved if saved >= 0 else guess)
@@ -285,7 +301,7 @@ func set_tier(t: int) -> void:
 	tier = clampi(t, 0, _tiers().size() - 1)
 	var spec: Array = _tiers()[tier]
 	_res = spec[0]
-	get_viewport().scaling_3d_scale = _res
+	get_viewport().scaling_3d_scale = _res * _hidpi_k()
 	for n in get_tree().root.find_children("*", "DirectionalLight3D", true, false):
 		_tune(n)
 	for n in get_tree().root.find_children("*", "WorldEnvironment", true, false):

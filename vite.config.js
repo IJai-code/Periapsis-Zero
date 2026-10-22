@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs'
 import path from 'node:path'
+import JsConfuser from 'js-confuser'
 
 /**
  * Vite copies public/ into dist wholesale, and the NASA model archives carry a
@@ -14,6 +15,41 @@ import path from 'node:path'
  * refers to. It only ever touches the build output — public/ keeps the
  * originals, so nothing the user dropped in is lost.
  */
+/**
+ * The site's own code is obfuscated in the build (js-confuser): names
+ * mangled and strings hidden, so what a visitor can read in the browser is
+ * not our source. The libraries (react, three and the rest) are public
+ * code and are left as they are, as are the HTML's comments, which are
+ * taken out. Control-flow flattening is left off: it costs frame rate.
+ * PZ_NO_OBFUSCATE=1 builds without it (faster, for local checks).
+ */
+function obfuscate() {
+  const vendor = /^(react|three|deps|preload)$/
+  return {
+    name: 'periapsis:obfuscate',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      return html.replace(/<!--[\s\S]*?-->/g, '')
+    },
+    async generateBundle(_options, bundle) {
+      if (process.env.PZ_NO_OBFUSCATE) return
+      // Its names start __pz, which no minified name does, so they never
+      // collide with the chunk's imported bindings.
+      let n = 0
+      const options = { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, identifierGenerator: () => '__pz' + (n++).toString(36), hexadecimalNumbers: true, stringConcealing: true }
+      for (const file of Object.values(bundle)) {
+        if (file.type === 'chunk' && !vendor.test(file.name)) {
+          file.code = (await JsConfuser.obfuscate(file.code, options)).code
+          file.map = null
+        } else if (file.type === 'asset' && file.fileName.endsWith('.js') && /worker/.test(file.fileName) && typeof file.source === 'string') {
+          file.source = (await JsConfuser.obfuscate(file.source, options)).code
+        }
+      }
+    },
+  }
+}
+
 function pruneUnusedModels() {
   return {
     name: 'periapsis:prune-unused-models',
@@ -137,7 +173,7 @@ const base = '/'
 
 export default defineConfig({
   base,
-  plugins: [react(), tailwindcss(), provideDraco(), pruneUnusedModels(), stampModules()],
+  plugins: [react(), tailwindcss(), provideDraco(), pruneUnusedModels(), stampModules(), obfuscate()],
   build: {
     // Retain Vite's ordinary warning: both the lazy simulator application
     // chunk and the three vendor chunk exceed 500 kB. A lean title entry

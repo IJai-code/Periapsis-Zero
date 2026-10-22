@@ -1,10 +1,11 @@
 class_name Grass
-## Grass round the places people live: thousands of small tufts (five thin
-## blades each, a few with a flower), in one draw, bending in a slow wind.
+## Grass round the places people live: thousands of Kenney grass clumps and
+## a scatter of flowers, a draw each, bending in a slow wind.
 ## Stood on the sphere along its up; kept off paths and out of buildings.
 
 static var _mesh: ArrayMesh
 static var _flower: ArrayMesh
+static var _flowers: Array = []
 static var _mat: ShaderMaterial
 
 static func _tuft(flower: bool) -> ArrayMesh:
@@ -77,8 +78,10 @@ void fragment() {
 ## paint while a field is made.
 static func field(site: Site, frame: Transform3D, radius: float, count: int, keep_clear: Array, seed: int, chunked := false) -> void:
 	if not _mesh:
-		_mesh = _tuft(false)
-		_flower = _tuft(true)
+		# Kenney's grass and flowers (KenneyKit), their colours baked in for
+		# this shader's wind.
+		_mesh = KenneyKit.baked("grass_leafs", 1.7)
+		_flowers = [KenneyKit.baked("flower_yellowA", 0.95), KenneyKit.baked("flower_redA", 0.9), KenneyKit.baked("flower_purpleA", 0.95)]
 	# The light renderer (the browser, weak PCs): half as many, a little
 	# bigger.
 	var lite := Flow.lite()
@@ -115,7 +118,14 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 			blooms.append(xf)
 		else:
 			grass.append(xf)
-	for pair in [[_mesh, grass], [_flower, blooms]]:
+	var pairs := [[_mesh, grass]]
+	for f in _flowers.size():
+		var some: Array = []
+		for i in blooms.size():
+			if i % _flowers.size() == f:
+				some.append(blooms[i])
+		pairs.append([_flowers[f], some])
+	for pair in pairs:
 		var list: Array = pair[1]
 		if list.is_empty():
 			continue
@@ -140,4 +150,5 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 static func clear_cache() -> void:
 	_mesh = null
 	_flower = null
+	_flowers = []
 	_mat = null

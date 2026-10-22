@@ -26,3 +26,10 @@ Montoreano) for the title's logo and Fredoka for its menus.
 ## Music
 
 Made in code for the game (art/audio/reach_music.py).
+
+## Kenney Nature Kit
+
+Trees, pines, bushes, rocks, stumps, logs, grass and flowers on the Reach's
+worlds are from Kenney's Nature Kit (www.kenney.nl), CC0 1.0. Recoloured in
+the game (game/scripts/reach/kenney_kit.gd). Licence:
+game/art/kenney/LICENSE-kenney-nature.txt.

@@ -148,6 +148,11 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_F:
 				flashlight.visible = not flashlight.visible
 				Sfx.play("click", -12.0, 1.4)
+			KEY_V:
+				set_third(not third)
+				Flow.settings["third_person"] = third
+				Flow.apply_settings()
+				Sfx.play("click", -12.0, 1.0)
 
 func _physics_process(dt: float) -> void:
 	if _dead or not system:
@@ -228,8 +233,13 @@ func _physics_process(dt: float) -> void:
 				jet_on = true
 		_jet_t -= dt
 		velocity = horiz + vert + g * dt
+		_want_h = horiz if is_on_floor() else Vector3.ZERO
+	if _ladder or free_fall or wet > 1.0:
+		_want_h = Vector3.ZERO
 	_last_vel = velocity
 	move_and_slide()
+	if _want_h.length() > 0.4:
+		_step_up(dt)
 	_under_world(dt)
 	_landing()
 	_suit(dt)
@@ -280,7 +290,7 @@ func _water(g: Vector3, gl: float, mv: Vector2, space: bool, shift: bool, dt: fl
 	var up := global_basis.y
 	var level := b.radius + b.sea
 	wet = level - (global_position - c).length()
-	underwater = (camera.global_position - c).length() < level - 0.05
+	underwater = (head.global_position - c).length() < level - 0.05
 	_splash_check()
 	# Deep enough to float: chest under.
 	var depth := level - (global_position + up * 1.2 - c).length()
@@ -375,6 +385,44 @@ static func _ring() -> Texture2D:
 	img.generate_mipmaps()
 	_ring_tex = ImageTexture.create_from_image(img)
 	return _ring_tex
+
+## Steps and kerbs: walking into something no higher than STEP, the body
+## goes up onto it (if there is room above and floor on top) instead of
+## stopping. The view eases up after it rather than jumping.
+const STEP := 0.45
+var _want_h := Vector3.ZERO
+
+func _step_up(dt: float) -> void:
+	var up := up_direction
+	var blocked := false
+	for i in get_slide_collision_count():
+		# Anything too steep to stand on is in the way.
+		if get_slide_collision(i).get_normal().dot(up) < cos(floor_max_angle):
+			blocked = true
+			break
+	if not blocked:
+		return
+	var fwd := _want_h.normalized() * maxf(_want_h.length() * dt, 0.12)
+	var xf := global_transform
+	if test_move(xf, up * STEP):
+		return
+	var raised := xf.translated(up * STEP)
+	if test_move(raised, fwd):
+		return
+	var moved := raised.translated(fwd)
+	var col := KinematicCollision3D.new()
+	if not test_move(moved, -up * (STEP + 0.05), col):
+		return
+	if col.get_normal().dot(up) < 0.7:
+		return
+	var landed := moved.translated(col.get_travel())
+	var rise := (landed.origin - xf.origin).dot(up)
+	if rise < 0.03:
+		return
+	global_transform = landed
+	velocity -= up * minf(velocity.dot(up), 0.0)
+	_dip -= rise
+	_dip_v = 0.0
 
 ## Turn so that up is `want`, smoothly (fast enough for a walk round a moon).
 func _align(want: Vector3, dt: float) -> void:
@@ -486,7 +534,8 @@ func _boot_dust(k: float) -> void:
 ## What is looked at, within reach.
 func _look() -> void:
 	var space := get_world_3d().direct_space_state
-	var from := camera.global_position
+	# From the eyes, along the view (the same in first and third person).
+	var from := head.global_position
 	if _q == null:
 		_q = PhysicsRayQueryParameters3D.new()
 		_q.collision_mask = 8
@@ -514,7 +563,57 @@ func _process(dt: float) -> void:
 	var speed := (velocity - up_direction * velocity.dot(up_direction)).length() if is_on_floor() else 0.0
 	_bob += dt * speed * 1.9
 	var bob := sin(_bob * 2.0) * 0.022 * clampf(speed / WALK, 0.0, 1.4)
-	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch + _dip + bob))
+	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch + _dip + (0.0 if third else bob)))
+	if third:
+		_third_cam(dt, speed)
+
+## Third person (V): the camera over the right shoulder, pulled in front of
+## anything between it and the head; the pilot seen walking, running,
+## crouching to jump, in the air.
+var third := false
+var _avatar: Person
+var _avatar_root: Node3D
+var _cam_dist := 3.6
+var _cast_q: PhysicsRayQueryParameters3D
+const THIRD_OFFSET := Vector3(0.55, 0.35, 3.6)
+
+func set_third(on: bool) -> void:
+	third = on
+	if on and _avatar == null:
+		_avatar_root = Node3D.new()
+		add_child(_avatar_root)
+		_avatar = Person.make("pilot")
+		# Not a body of its own: it would push against the explorer's.
+		_avatar.solid = false
+		_avatar_root.add_child(_avatar)
+		_avatar_root.rotation.y = PI
+	if _avatar_root:
+		_avatar_root.visible = on
+	if not on:
+		camera.transform = Transform3D()
+	_cam_dist = THIRD_OFFSET.z
+
+func _third_cam(dt: float, speed: float) -> void:
+	var want := THIRD_OFFSET
+	var from := head.global_position
+	var to := head.global_transform * want
+	if _cast_q == null:
+		_cast_q = PhysicsRayQueryParameters3D.new()
+		_cast_q.collision_mask = 1
+		_cast_q.exclude = [get_rid()]
+	_cast_q.from = from
+	_cast_q.to = to + (to - from).normalized() * 0.3
+	var hit := get_world_3d().direct_space_state.intersect_ray(_cast_q)
+	var dist := want.length()
+	if not hit.is_empty():
+		dist = maxf(from.distance_to(hit.position) - 0.3, 0.4)
+	# In at once (nothing seen through a wall), out again gently.
+	_cam_dist = dist if dist < _cam_dist else lerpf(_cam_dist, dist, minf(1.0, dt * 3.0))
+	camera.position = want.normalized() * _cam_dist
+	camera.rotation = Vector3.ZERO
+	if _avatar:
+		var crouched := _charge >= 0.0
+		_avatar.locomote(speed, crouched, not is_on_floor() and not free_fall and wet < 1.0)
 
 ## The world's frame moved (Reach): move with it.
 func frame_shift(dp: Vector3, dv: Vector3) -> void:

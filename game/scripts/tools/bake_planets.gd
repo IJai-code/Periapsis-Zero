@@ -96,9 +96,9 @@ func _deco(b: ReachBody) -> Dictionary:
 	var spec := {}
 	match b.key:
 		"hearthstone":
-			spec = {"pine": 3200, "bush": 1100, "rock": 320, "stump": 60}
+			spec = {"pine": 1500, "bush": 500, "rock": 200, "stump": 30}
 		"verdance":
-			spec = {"giant": 700, "tree": 2600, "palm": 700, "fern": 5600, "bush": 2600, "rock": 650}
+			spec = {"giant": 300, "tree": 1300, "palm": 350, "fern": 2400, "bush": 1200, "rock": 350}
 		"ashfall":
 			spec = {"rock": 420, "shard": 60}
 		"phantom":

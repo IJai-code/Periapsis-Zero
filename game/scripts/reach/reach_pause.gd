@@ -21,10 +21,10 @@ var _settings: Control
 var _t := 0.0
 
 const KEYS := [
-	["On foot", [["W A S D", "walk"], ["Shift", "run"], ["Space", "hold to crouch, let go to jump"], ["Space (in the air)", "jetpack up"], ["E", "use, talk, read"], ["F", "torch"]]],
+	["On foot", [["W A S D", "walk"], ["Shift", "run"], ["Space", "hold to crouch, let go to jump"], ["Space (in the air)", "jetpack up"], ["E", "use, talk, read"], ["F", "torch"], ["V", "first or third person"]]],
 	["In the water", [["W A S D", "swim"], ["Space", "up"], ["Shift", "dive"]]],
 	["Your ship", [["W S", "forward, back"], ["A D", "sideways"], ["Space", "lift off, climb"], ["Shift", "sink and land"], ["let go", "she holds still near a world"], ["Mouse", "turn"], ["Q E", "roll"], ["T", "lock the world you look at"], ["G", "autopilot to it"], ["F (held)", "match its speed"], ["R", "flight assist on or off"], ["V", "view from outside"], ["Right mouse", "look about the cockpit"], ["E (landed)", "leave the seat"]]],
-	["Anywhere", [["X", "signalscope (Z C or wheel to tune)"], ["M", "map"], ["L", "ship log"], ["P", "photograph"], ["Esc", "pause"]]],
+	["Anywhere", [["X", "signalscope (Z C or wheel to tune)"], ["M", "map"], ["L", "ship log"], ["P", "photograph"], ["H", "help: the goal and what to do next"], ["Esc", "pause"]]],
 ]
 
 func _init() -> void:

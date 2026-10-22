@@ -176,7 +176,7 @@ function HowToPlay({ onClose }) {
       <p>You are a pilot who crashed on a little world called Hearthstone. Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Every twenty-two minutes the star at the middle of this tiny solar system goes out, and you wake by the campfire again. Nobody else remembers. What you learn is the only thing you keep, so each day you get a little further.</p>
       <h3>Your first few minutes</h3>
       <ol>
-        <li>Talk to Mara by the fire: look at her and press <kbd>E</kbd>.</li>
+        <li>Follow the marker to Mara by the fire, look at her and press <kbd>E</kbd>. (A marker always shows where to go next.)</li>
         <li>Walk to the glass-domed observatory and get your ship&rsquo;s launch codes from Okafor.</li>
         <li>Ride the lift up the launch tower, and climb into your ship through the hatch underneath (<kbd>E</kbd>).</li>
         <li>Hold <kbd>Space</kbd> to lift off. Look at a world, press <kbd>T</kbd> to lock onto it and <kbd>G</kbd> to fly there by autopilot.</li>
@@ -185,7 +185,7 @@ function HowToPlay({ onClose }) {
       <h3>Keys</h3>
       <div className="lp-help-keys">
         <p><kbd>W A S D</kbd> walk or fly · <kbd>Mouse</kbd> look and steer · <kbd>Space</kbd> jump (hold for higher) / lift off · <kbd>Shift</kbd> run / sink and land</p>
-        <p><kbd>E</kbd> talk, use, read · <kbd>X</kbd> signalscope · <kbd>L</kbd> ship log · <kbd>M</kbd> map · <kbd>P</kbd> photograph · <kbd>F</kbd> torch · <kbd>Esc</kbd> pause and every key</p>
+        <p><kbd>E</kbd> talk, use, read · <kbd>X</kbd> signalscope · <kbd>L</kbd> ship log · <kbd>M</kbd> map · <kbd>P</kbd> photograph · <kbd>F</kbd> torch · <kbd>V</kbd> first or third person · <kbd>H</kbd> help in the game · <kbd>Esc</kbd> pause and every key</p>
       </div>
       <h3>Words you will meet</h3>
       <dl>

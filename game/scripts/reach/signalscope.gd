@@ -170,7 +170,28 @@ func _paint() -> void:
 		var hiss := rng.randf_range(-1.0, 1.0)
 		pts.append(Vector2(x, y0 - (wave * k * 16.0 + hiss * (1.0 - k) * 5.0)))
 	_ui.draw_polyline(pts, Color(ReachStyle.PINE, 0.25 + 0.6 * k), 1.6, true)
-	var name := "Nothing on this frequency yet." if not best else (best.title if best.identified() else "Unidentified signal")
+	# Pointing at nothing: the nearest on this frequency, so there is
+	# always somewhere to go, said in words as well as by the arrows (the
+	# sound off is no reason to be lost).
+	if best and k < 0.05 and cam:
+		here.sort_custom(func(a, b): return cam.global_position.distance_to(a.global_position) < cam.global_position.distance_to(b.global_position))
+		best = here[0]
+	var name := "Nothing on this frequency yet. Z and C change it." if not best else (best.title if best.identified() else "Unidentified signal")
+	if best and cam:
+		var to := best.global_position - cam.global_position
+		var local := cam.global_basis.inverse() * to
+		var way := "straight ahead"
+		if local.z > 0.0 and absf(local.x) < absf(local.z):
+			way = "behind you"
+		elif local.x < -to.length() * 0.25:
+			way = "to your left"
+		elif local.x > to.length() * 0.25:
+			way = "to your right"
+		var d := to.length()
+		name += "  ·  %s  ·  %s" % ["%d m" % int(d) if d < 1000.0 else "%.1f km" % (d / 1000.0), way]
+	var how := "Turn until the ring fills, then walk that way."
+	var hw := ReachStyle.round.get_string_size(how, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	_ui.draw_string(ReachStyle.round, Vector2(c.x - hw / 2.0, r.position.y - 10), how, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ReachStyle.MUTE)
 	var nw := Style.mono.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	_ui.draw_string(Style.mono, Vector2(c.x - nw / 2.0, r.position.y + 106), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ReachStyle.BONE if k > 0.05 else ReachStyle.MUTE)
 	_ui.draw_string(Style.mono, Vector2(r.position.x + 12, r.position.y + 106), "Z", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ReachStyle.FAINT)

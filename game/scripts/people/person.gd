@@ -69,6 +69,13 @@ func _ready() -> void:
 				_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_anim.play("idle")
 		_anim.seek(randf() * 3.0)
+	# Nods, tilts, shrugs and breath on top of the animation (LifeMotion).
+	var sks := body.find_children("*", "Skeleton3D", true, false)
+	if sks.size() > 0:
+		var life := LifeMotion.new()
+		life.active = not "--nolife" in OS.get_cmdline_user_args()
+		life.person = self
+		sks[0].add_child(life)
 
 ## MakeHuman exports every material as layered transparency, which is
 ## slow, sorts badly and rules out subsurface scattering. Each part gets

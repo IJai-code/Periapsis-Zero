@@ -110,6 +110,11 @@ const checks = [
     const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
     return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
   }],
+  ['the Reach: walk round Hearthstone in third person and never fall through', async () => {
+    const out = await run('reach', ['--reachwalk', '--third'], /REACHWALK/)
+    const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
+    return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
+  }],
   ['the Reach: the map marks sphere-of-influence crossings', async () => {
     const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
     const near = out.match(/MAPTEST path (\d+) crossings (\d+) inside '(\w*)'/)
@@ -135,10 +140,10 @@ const checks = [
     const line = (out.match(/TALKTEST [^\n]*/) ?? ['no result'])[0]
     return [facts.every(f => line.includes(`"${f}"`)) && /player enabled true/.test(line), line]
   }]),
-  ['the Reach: sit by the fire, roast, eat, sleep, wake, stand', async () => {
+  ['the Reach: sit by the fire, sleep, wake, stand', async () => {
     const out = await run('reach', ['--firetest'], /FIRETEST/)
-    const m = out.match(/FIRETEST toast ([\d.]+) eaten (\d+) slept (\d+) s warp after (\d+) stood (\w+) talking (\w+)/)
-    const ok = Boolean(m) && Number(m[1]) > 0.3 && m[2] === '1' && Number(m[3]) > 20 && m[4] === '1' && m[5] === 'true' && m[6] === 'false'
+    const m = out.match(/FIRETEST slept (\d+) s warp after (\d+) stood (\w+) talking (\w+)/)
+    const ok = Boolean(m) && Number(m[1]) > 20 && m[2] === '1' && m[3] === 'true' && m[4] === 'false'
     return [ok, m ? m[0] : (out.match(/FIRETEST[^\n]*/) ?? ['no result'])[0]]
   }],
   ['the Reach: the campfire burns down, and a new morning relights it', async () => {
@@ -221,6 +226,12 @@ const checks = [
     const m = out.match(/PHANTOMTEST landed (\w+), moon jumped (\d+) times, frame (\w+), lowest ([-\d.]+) m over its middle radius, player alive (\w+)/)
     if (!m) return [false, (out.match(/PHANTOMTEST[^\n]*/) ?? ['no result'])[0]]
     return [m[1] === 'true' && m[2] === '0' && m[3] === 'phantom' && Number(m[4]) > -6 && m[5] === 'true', m[0]]
+  }],
+  ['the Reach: the observatory steps can be walked up (no jumping) and in through its door', async () => {
+    const out = await run('reach', ['--stairtest'], /STAIRTEST/)
+    const m = out.match(/STAIRTEST inside (\w+) after ([\d.]+) s, height ([-\d.]+) m/)
+    if (!m) return [false, (out.match(/STAIRTEST[^\n]*/) ?? ['no result'])[0]]
+    return [m[1] === 'true' && Number(m[2]) < 6, m[0]]
   }],
   ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
     const out = await run('reach', ['--swimtest'], /SWIMTEST/)

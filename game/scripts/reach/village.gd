@@ -48,11 +48,9 @@ func _build() -> void:
 	put("valley-house_b", Vector2(-15.0, 3.0))
 	put("valley-house_a", Vector2(4.0, 18.0))
 	put("valley-house_a", Vector2(14.0, -14.0))
-	put("valley-house_b", Vector2(-9.0, -18.5))
-	put("valley-house_a", Vector2(19.0, 6.0))
 	put("valley-woodpile", Vector2(-9.5, -2.5), Vector2(-15.0, 3.0))
 	for spec in [["crate", Vector2(10.0, -8.0)], ["crate", Vector2(10.8, -8.6)], ["barrel", Vector2(-5.5, -13.0)],
-			["barrel", Vector2(13.0, 12.0)], ["table", Vector2(-6.0, 9.0)], ["mast", Vector2(-24.0, -26.0)]]:
+			["table", Vector2(-6.0, 9.0)]]:
 		put("village-" + spec[0], spec[1])
 	# The well on the square; Mara's garden behind her house, fenced; an ore
 	# cart on its rails on the way to the mine.
@@ -115,7 +113,7 @@ func _build() -> void:
 	if chunk:
 		await get_tree().process_frame
 	# Strings of little lanterns across the square, porch to porch.
-	_strings([Vector2(-15.0, 3.0), Vector2(4.0, 18.0), Vector2(19.0, 6.0), Vector2(14.0, -14.0), Vector2(-9.0, -18.5)])
+	_strings([Vector2(-15.0, 3.0), Vector2(4.0, 18.0), Vector2(14.0, -14.0)])
 	# Smoke from the chimneys.
 	for n in get_children():
 		if n is Node3D and String(n.scene_file_path).contains("valley-house"):
@@ -127,9 +125,9 @@ func _build() -> void:
 	clear.append_array(footprints())
 	clear.append([center.origin, 4.4])
 	if chunk:
-		await Grass.field(self, center, 64.0 if not backdrop else 40.0, 15000 if not backdrop else 2600, clear, 11, true)
+		await Grass.field(self, center, 64.0 if not backdrop else 40.0, 10000 if not backdrop else 2600, clear, 11, true)
 	else:
-		Grass.field(self, center, 64.0 if not backdrop else 40.0, 15000 if not backdrop else 2600, clear, 11)
+		Grass.field(self, center, 64.0 if not backdrop else 40.0, 10000 if not backdrop else 2600, clear, 11)
 	# Everything above is placed and never moves again: draw the repeated
 	# pieces (lamps, cliffs, benches, houses of a kind) as a handful of
 	# multimeshes rather than a hundred submissions.

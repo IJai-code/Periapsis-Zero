@@ -88,6 +88,21 @@ rmSync(out, { recursive: true, force: true })
 mkdirSync(out, { recursive: true })
 if (target === 'web') {
   godot('--export-release', 'Web', join(out, 'index.html'))
+  // The loading page's own script is ours: its comments out, the script
+  // obfuscated (js-confuser), as the site's own code is (vite.config.js).
+  {
+    const JsConfuser = (await import('js-confuser')).default
+    const page = join(out, 'index.html')
+    let html = readFileSync(page, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+    const parts = html.split(/(<script>[\s\S]*?<\/script>)/)
+    for (let i = 0; i < parts.length; i++) {
+      const m = parts[i].match(/^<script>([\s\S]*)<\/script>$/)
+      if (!m) continue
+      const code = (await JsConfuser.obfuscate(m[1], { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, stringConcealing: true, hexadecimalNumbers: true })).code
+      parts[i] = `<script>${code}</script>`
+    }
+    writeFileSync(page, parts.join(''))
+  }
   writeFileSync(join(out, 'version.json'), JSON.stringify({ build: stamp, date: new Date(stamp * 1000).toISOString().slice(0, 10), pck_sha256: createHash('sha256').update(readFileSync(join(out, 'index.pck'))).digest('hex') }))
 } else {
   const engine = execFileSync(GODOT, ['--version']).toString().trim().split('.').slice(0, 4).join('.')
