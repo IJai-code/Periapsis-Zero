@@ -261,6 +261,8 @@ func _physics_process(dt: float) -> void:
 ## hull-sized hole): once deep inside the shell with no floor for three
 ## seconds, put the explorer back on the surface. Tunnels have floors, so
 ## walking in them never counts.
+var _ray_q := PhysicsRayQueryParameters3D.new()
+
 func _under_world(dt: float) -> void:
 	var b: ReachBody = system.ruling()
 	if b.key == "lantern" or _dead:
@@ -272,7 +274,19 @@ func _under_world(dt: float) -> void:
 		return
 	var up := off.normalized()
 	var surf := b.radius + Worlds.height(b.key, up, b.radius)
-	if not is_on_floor() and off.length() < surf - 12.0:
+	var depth := surf - off.length()
+	# Through the ground and still falling, with nothing under the feet
+	# (a tunnel has a floor): caught at once, before the dark inside a
+	# world is ever seen. Deep under it for long, whatever the reason: the
+	# old catch, kept.
+	var falling := not is_on_floor() and velocity.dot(up) < -0.5 and depth > 1.2
+	if falling:
+		_ray_q.from = global_position + up * 0.5
+		_ray_q.to = global_position - up * 4.0
+		_ray_q.exclude = [get_rid()]
+		if get_world_3d().direct_space_state.intersect_ray(_ray_q).is_empty():
+			_under = maxf(_under, 2.85)
+	if not is_on_floor() and (depth > 12.0 or falling):
 		_under += dt
 	else:
 		_under = 0.0

@@ -122,6 +122,9 @@ func _ready() -> void:
 		_stair_test()
 	if "--zerogtest" in args:
 		_zerog_test()
+	var gt := args.find("--groundtest")
+	if gt >= 0 and gt + 1 < args.size():
+		_ground_test(args[gt + 1])
 	var wt := args.find("--wandertest")
 	if wt >= 0:
 		# --wandertest [loop seconds]: at the door's hour by default; 100 is
@@ -148,7 +151,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest"]:
 			return true
 	return false
 
@@ -432,6 +435,7 @@ func _build_sites(backdrop := false) -> void:
 func _exit_tree() -> void:
 	Grass.clear_cache()
 	Valley.clear_cache()
+	Crystals.clear_cache()
 	KenneyKit.clear()
 	Props._cache.clear()
 	Worlds._noise.clear()
@@ -1219,6 +1223,86 @@ func _wander_test(at: float) -> void:
 	var r := player.global_position.distance_to(system.world("wanderer"))
 	var ground := Worlds.height("wanderer", (player.global_position - system.world("wanderer")).normalized(), wb.radius) + wb.radius
 	Report.line("WANDERTEST landed %s after %.0f s, pushed away at most %.1f m/s, frames %s, hull %d, standing %.1f m over the ground, frame %s, alive %s" % [landed, t, pushed, ",".join(frames.keys()), hull, r - ground, system.ref, not player._dead])
+	Report.finish(get_tree())
+
+## Standing all over a world: dropped from 2 m at points spread round the
+## whole of it (and thickest round its landmarks, where its sites are),
+## then a few steps on: nowhere may the explorer end up under the surface.
+## Reports how many points, how many fell through, and where.
+func _ground_test(key: String) -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	var b: ReachBody = system.bodies[key]
+	system.switch(key)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var dirs: Array[Vector3] = []
+	var n := 40
+	for i in n:
+		var y := 1.0 - 2.0 * (i + 0.5) / n
+		var r := sqrt(1.0 - y * y)
+		var a := i * 2.39996
+		dirs.append(Vector3(cos(a) * r, y, sin(a) * r))
+	for mark in Worlds.landmarks(key):
+		var m := Worlds.place(b, mark)
+		var md := m.origin.normalized()
+		dirs.append(md)
+		for k in 6:
+			for dist: float in [8.0, 22.0]:
+				var side := (m.basis.x * cos(k * TAU / 6.0) + m.basis.z * sin(k * TAU / 6.0))
+				dirs.append((m.origin + side * dist).normalized())
+	var bad := []
+	var worst := INF
+	var c := system.world(key)
+	for d in dirs:
+		var ground := b.radius + Worlds.height(key, d, b.radius)
+		var fwd := d.cross(Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT).normalized()
+		# On whatever is there (a roof, the top of a crater rock), not inside it.
+		var top := c + d * (ground + 2.0)
+		var qd := PhysicsRayQueryParameters3D.create(c + d * (ground + 90.0), c + d * (ground - 3.0), 1, [player.get_rid(), ship.get_rid()])
+		var hit_top := get_world_3d().direct_space_state.intersect_ray(qd)
+		if not hit_top.is_empty():
+			top = hit_top.position + d * 2.0
+		player.place(Transform3D(Site.upright(d, fwd), top), fwd)
+		await get_tree().physics_frame
+		var lowest := INF
+		var t := 0.0
+		Input.action_press("forward")
+		while t < 1.8:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			var off := player.global_position - system.world(key)
+			var here := off.length() - (b.radius + Worlds.height(key, off.normalized(), b.radius))
+			lowest = minf(lowest, here)
+		Input.action_release("forward")
+		worst = minf(worst, lowest)
+		# Under the world's own surface is fine on a real floor (a tunnel,
+		# the crater floor in front of its rock): a fall is under it with
+		# nothing underfoot.
+		var upn := (player.global_position - system.world(key)).normalized()
+		var q := PhysicsRayQueryParameters3D.create(player.global_position + upn * 0.5, player.global_position - upn * 3.0, 1, [player.get_rid()])
+		var floor_under := not get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+		# (In water, swimming, is not a fall either.)
+		var offe := player.global_position - system.world(key)
+		var end_depth := (b.radius + Worlds.height(key, offe.normalized(), b.radius)) - offe.length()
+		if end_depth > 1.5 and not floor_under and player.wet <= 0.2:
+			bad.append("%s(%.1f)" % [str(d.snapped(Vector3.ONE * 0.01)), lowest])
+	# And through it anyway (as if a hole were there): caught how fast?
+	var d0 := Worlds.place(b, Worlds.landmarks(key).keys()[0]).origin.normalized()
+	var g0 := b.radius + Worlds.height(key, d0, b.radius)
+	var f0 := d0.cross(Vector3.UP if absf(d0.y) < 0.95 else Vector3.RIGHT).normalized()
+	player.place(Transform3D(Site.upright(d0, f0), system.world(key) + d0 * (g0 - 3.0)), f0)
+	player.velocity = -d0 * 6.0
+	var caught := -1.0
+	var tc := 0.0
+	while tc < 5.0:
+		await get_tree().physics_frame
+		tc += get_physics_process_delta_time()
+		var o := player.global_position - system.world(key)
+		if o.length() > b.radius + Worlds.height(key, o.normalized(), b.radius) - 0.5:
+			caught = tc
+			break
+	Report.line("GROUNDTEST %s points %d fell %d worst %.1f m, through it caught after %.2f s %s" % [key, dirs.size(), bad.size(), worst, caught, " ".join(bad.slice(0, 6))])
 	Report.finish(get_tree())
 
 ## Into a body's frame, standing at its first landmark.
@@ -2295,6 +2379,30 @@ func _place_view() -> void:
 	if system.ref == key and planets.has(key):
 		(planets[key] as Planet).set_ref(true)
 	system.place()
+	if parts.size() > 2 and parts[1] == "deco":
+		# view:<body>:deco:<kind>[:<loop s>[:<metres>[:<which>]]]: a few
+		# metres from one of its plants or rocks of that kind.
+		if parts.size() > 3:
+			system.t = float(parts[3])
+			system.running = false
+		var pl: Planet = planets[key]
+		var want := int(parts[5]) if parts.size() > 5 else 0
+		var seen := 0
+		for item in pl._solids:
+			if item[0] != parts[2]:
+				continue
+			if seen < want:
+				seen += 1
+				continue
+			var xf: Transform3D = item[1]
+			var up := xf.origin.normalized()
+			var side := up.cross(Vector3.RIGHT if absf(up.x) < 0.9 else Vector3.UP).normalized()
+			var m := float(parts[4]) if parts.size() > 4 else 6.0
+			var eye := xf.origin + side * m + up * (m * 0.3 + 1.5)
+			_view_cam.global_position = system.world(key) + eye
+			_view_cam.look_at(system.world(key) + xf.origin + up * 1.2, up)
+			break
+		return
 	if parts.size() > 5 and parts[1] == "from":
 		# view:<body>:from:<landmark>:<landmark>:<height>:<look height>[:<loop s>[:<metres along>]]
 		# Standing at one landmark (or some metres along the way from it),

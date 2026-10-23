@@ -5,6 +5,30 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Nowhere to fall through, real crystals, and climbing in and out of the Kestrel, 23 October 2026
+
+- **Nowhere to fall through, on every world.** A world is solid only while
+  it is the frame's (its sphere is the one you are in); before today's
+  frame fix, inside Verdance's sphere the Wanderer was not, and you fell
+  straight through it. Now a ground test (`--groundtest <world>`) drops
+  the explorer and walks it at points all round each world, thickest
+  round its landmarks: none falls through on Hearthstone, Verdance,
+  Ashfall or the Wanderer. And if anything ever does let you through,
+  you are caught at once (in under a third of a second: under the
+  surface, falling, nothing underfoot) instead of after three seconds
+  twelve metres down in the dark.
+- **Real crystals.** The Phantom's and Ashfall's spikes are quartz-like
+  clusters (art/godot/crystals.py: hexagonal prisms with six-sided points,
+  fanned from a scanned boulder) with a crystal shader: glassy, sharp
+  facet highlights, veils and flaws deep inside that shift as you move
+  round them. The Wanderer, a comet, has no crystals at all now (a real
+  one would not): frosted scanned rock instead.
+- **Climbing in and out of the Kestrel** is a turn to the hatch and a blink
+  (the black covers the climb; you open your eyes in the seat, or on the
+  ground under her). The camera used to fly the whole way in straight
+  lines, and so through her floors and hull.
+
+
 ### Landing on the Wanderer, a crater wall of real rock, and Verdance's forest, 23 October 2026
 
 - **The Wanderer can be landed on.** Three faults, each found by a new

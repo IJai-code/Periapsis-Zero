@@ -1287,40 +1287,24 @@ func board() -> void:
 		return
 	_moving = true
 	explorer.enabled = false
+	# A turn to the hatch as it opens, then a blink: the black covers the
+	# climb, and the eyes open in the seat. (The camera used to fly the
+	# whole way, ramp, well, ladder and seat, in straight lines, and so
+	# through her floors and hull on the way.)
 	var from := explorer.camera.global_transform
 	var up := global_basis.y.normalized()
-	var xf := global_transform
-	var hinge := xf * HATCH_HINGE
-	# Under her, looking up the ramp; in the well, facing the ladder; at the
-	# top, facing the back wall (the log's terminal, the shelf, the lamp);
-	# then round and down into the seat.
-	var foot := xf * (_ramp_foot() + Vector3(0.0, 1.62, -0.7))
-	var at_foot := Transform3D(Basis.looking_at(hinge - foot, up), foot)
-	var low := xf * Vector3(0.0, -0.15, -1.75)
-	var at_low := Transform3D(Basis.looking_at(xf.basis * Vector3(0.0, 0.55, 1.0), up), low)
-	var high := xf * Vector3(0.0, 1.25, -1.7)
-	var at_high := Transform3D(Basis.looking_at(xf.basis * Vector3(0.0, -0.25, 1.0), up), high)
-	var seat := xf * Transform3D(Basis(), EYE)
+	var hinge := global_transform * HATCH_HINGE
 	cam.global_transform = from
 	cam.make_current()
 	var face := Transform3D(Basis.looking_at(hinge - from.origin, up), from.origin)
 	var t := create_tween()
-	t.tween_method(func(k: float): cam.global_transform = from.interpolate_with(face, k), 0.0, 1.0, 0.45).set_trans(Tween.TRANS_SINE)
-	_hatch_to(1.0, 0.8)
+	t.tween_method(func(k: float): cam.global_transform = from.interpolate_with(face, k), 0.0, 1.0, 0.4).set_trans(Tween.TRANS_SINE)
+	_hatch_to(1.0, 0.6)
 	await t.finished
 	Sfx.play("step", -12.0, 0.9)
-	t = create_tween()
-	t.tween_method(func(k: float): cam.global_transform = face.interpolate_with(at_foot, k), 0.0, 1.0, 0.8).set_trans(Tween.TRANS_SINE)
-	t.tween_callback(func():
-		Sfx.play("step", -10.0, 0.8)
-		cockpit.visible = true)
-	t.tween_method(func(k: float): cam.global_transform = at_foot.interpolate_with(at_low, k), 0.0, 1.0, 0.6).set_trans(Tween.TRANS_SINE)
-	t.tween_callback(func(): Sfx.play("step", -11.0, 1.1))
-	t.tween_method(func(k: float): cam.global_transform = at_low.interpolate_with(at_high, k), 0.0, 1.0, 0.85).set_trans(Tween.TRANS_SINE)
-	t.tween_callback(func(): _hatch_to(0.0, 0.6))
-	t.tween_interval(0.25)
-	t.tween_method(func(k: float): cam.global_transform = at_high.interpolate_with(seat, k), 0.0, 1.0, 0.95).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await t.finished
+	await _blink(true)
+	Sfx.play("step", -10.0, 0.8)
+	_hatch_to(0.0, 0.3)
 	cockpit.visible = true
 	cam.position = EYE
 	cam.rotation = Vector3.ZERO
@@ -1336,6 +1320,7 @@ func board() -> void:
 	_cameras()
 	Sfx.play("door", -8.0, 1.3)
 	boarded.emit()
+	_blink(false)
 
 ## Out of the seat, back past the log's terminal, down the ladder and the
 ## ramp, and out onto the ground under her.
@@ -1349,28 +1334,16 @@ func leave() -> void:
 	var down := system.gravity(global_position).normalized()
 	var up := -down if down.length() > 0.5 else global_basis.y
 	var xf := global_transform
-	var seat := xf * Transform3D(Basis(), EYE)
-	var high := xf * Vector3(0.0, 1.25, -1.7)
-	var at_high := Transform3D(Basis.looking_at(xf.basis * Vector3(0.0, -0.6, 1.0), up), high)
-	var low := xf * Vector3(0.0, -0.15, -1.75)
-	var at_low := Transform3D(Basis.looking_at(xf.basis * Vector3(0.0, -0.5, -1.0), up), low)
 	var foot := xf * (_ramp_foot() + Vector3(0.0, 0.0, -1.5))
 	var away := xf.basis * Vector3(0.0, 0.0, -1.0)
 	away = (away - up * away.dot(up)).normalized()
-	var stand_eye := foot + up * 1.62
-	var at_out := Transform3D(Basis.looking_at(away, up), stand_eye)
+	# Out of the seat in a blink: the hatch drops, the black covers the
+	# climb down, and the eyes open on the ground under her.
 	cam.make_current()
-	cam.global_transform = seat
-	_hatch_to(1.0, 0.8)
-	var t := create_tween()
-	t.tween_method(func(k: float): cam.global_transform = seat.interpolate_with(at_high, k), 0.0, 1.0, 0.8).set_trans(Tween.TRANS_SINE)
-	t.tween_callback(func(): Sfx.play("step", -11.0, 1.1))
-	t.tween_method(func(k: float): cam.global_transform = at_high.interpolate_with(at_low, k), 0.0, 1.0, 0.7).set_trans(Tween.TRANS_SINE)
-	t.tween_callback(func():
-		Sfx.play("step", -10.0, 0.8)
-		cockpit.visible = false)
-	t.tween_method(func(k: float): cam.global_transform = at_low.interpolate_with(at_out, k), 0.0, 1.0, 0.8).set_trans(Tween.TRANS_SINE)
-	await t.finished
+	_hatch_to(1.0, 0.5)
+	Sfx.play("step", -11.0, 1.1)
+	await _blink(true)
+	Sfx.play("step", -10.0, 0.8)
 	cockpit.visible = false
 	if _canopy:
 		_canopy.visible = true
@@ -1401,6 +1374,17 @@ func leave() -> void:
 	_moving = false
 	_hatch_to(0.0, 0.7)
 	left_ship.emit()
+	_blink(false)
+
+## The screen to black (true) or back (false) over a third of a second,
+## for climbing in and out; awaitable. Without a HUD (some checks) it only
+## waits.
+func _blink(close: bool) -> void:
+	var r := get_tree().get_first_node_in_group("reach_root")
+	if r and r.hud:
+		await r.hud.fade_to(Color(0, 0, 0, 1) if close else Color(0, 0, 0, 0), 0.3 if close else 0.4)
+	else:
+		await get_tree().create_timer(0.3).timeout
 
 ## Back on her pad at the start of a loop, whole and empty.
 func reset_to(xf: Transform3D) -> void:

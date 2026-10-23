@@ -269,7 +269,9 @@ func _decorate(deco: Dictionary) -> void:
 							var xf: Transform3D = xfs[k]
 							some.append(Transform3D(xf.basis.scaled(Vector3.ONE * float(shapes[v][1])), xf.origin))
 					if not some.is_empty():
-						_deco_mm(KenneyKit.mesh(shapes[v][0], _kenney_tint(kind)), some, centre, null, 0.0, range_end, not kind in ["fern", "bush", "stump"])
+						var shape_name: String = shapes[v][0]
+						var m: Mesh = Crystals.mesh(shape_name.trim_prefix("crystal:"), body.key) if shape_name.begins_with("crystal:") else KenneyKit.mesh(shape_name, _kenney_tint(kind))
+						_deco_mm(m, some, centre, null, 0.0, range_end, not kind in ["fern", "bush", "stump"])
 				continue
 			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] and not (kind == "bush" and body.key == "verdance") else null
 			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])
@@ -289,6 +291,13 @@ func _kenney(kind: String) -> Array:
 			return [["ph/ph-pine_a", 1.0], ["ph/ph-pine_b", 1.0], ["ph/ph-pine_c", 1.0]]
 		"bush":
 			return [["plant_bushDetailed", 4.5], ["plant_bushLarge", 5.5]]
+		"shard":
+			# The comet has no crystals, as a real one would not: ridges of
+			# dirty ice (scanned rock, frosted pale). The Phantom and Ashfall
+			# grow quartz-like clusters (Crystals).
+			if body.key == "wanderer":
+				return [["ph/ph-moon_rock_03", 20.0], ["ph/ph-moon_rock_05", 30.0], ["ph/ph-namaqualand_boulder_03", 1.6]]
+			return [["crystal:a", 1.0], ["crystal:b", 1.1], ["crystal:c", 0.9]]
 		"rock":
 			if bare:
 				# Poly Haven's scanned moon rocks (a hand's width as scanned).
@@ -307,6 +316,9 @@ func _kenney(kind: String) -> Array:
 	return []
 
 func _kenney_tint(kind: String) -> Color:
+	if kind == "shard" and body.key == "wanderer":
+		# Dirty ice: the scans frosted pale and blue.
+		return Color(1.35, 1.5, 1.75)
 	if kind == "rock":
 		match body.key:
 			"ashfall": return Color(0.55, 0.45, 0.42)

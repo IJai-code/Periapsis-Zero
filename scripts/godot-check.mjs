@@ -261,6 +261,11 @@ const checks = [
     const m = out.match(/WANDERTEST landed (\w+) after (\d+) s, pushed away at most ([\d.]+) m\/s, frames ([\w,]+), hull (\d+), standing (-?[\d.]+) m over the ground, frame (\w+), alive (\w+)/)
     return [Boolean(m) && m[1] === 'true' && Number(m[3]) < 4 && m[5] === '100' && Math.abs(Number(m[6])) < 4 && m[7] === 'wanderer' && m[8] === 'true', m ? m[0] : (out.match(/WANDERTEST[^\n]*/) ?? ['no result'])[0]]
   }]),
+  ...['hearthstone', 'verdance', 'ashfall', 'wanderer'].map((w) => [`the Reach: on ${w}, nowhere to fall through (dropped and walked all round it), and through it anyway, caught at once`, async () => {
+    const out = await run('reach', ['--groundtest', w], /GROUNDTEST/, 600000)
+    const m = out.match(/GROUNDTEST \w+ points (\d+) fell (\d+) worst (-?[\d.]+) m, through it caught after (-?[\d.]+) s/)
+    return [Boolean(m) && Number(m[1]) > 40 && m[2] === '0' && Number(m[4]) >= 0 && Number(m[4]) < 1.0, (out.match(/GROUNDTEST[^\n]*/) ?? ['no result'])[0]]
+  }]),
   ['the Reach: L opens the ship log', async () => {
     const out = await run('reach', ['--logtest'], /LOGTEST/)
     return [/LOGTEST open true/.test(out), (out.match(/LOGTEST[^\n]*/) ?? ['no result'])[0]]
