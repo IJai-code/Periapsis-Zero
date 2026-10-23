@@ -54,7 +54,7 @@ const textures = [...walk(join(game, 'assets')), ...walk(join(game, 'art'))].fil
 let changed = 0
 for (const file of textures) {
   const name = file.split('/').pop()
-  const big = /earth_(day|night|clouds_hd)/.test(name)
+  const big = /earth_(day|night|clouds_hd)|grass-cards/.test(name)
   const normal = /normal/i.test(name)
   // Sky panoramas stay plain RGBA everywhere: never block-compressed (a GPU
   // that misreads the format, or a guess that it is a normal map, shows a

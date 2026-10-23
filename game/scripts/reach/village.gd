@@ -153,9 +153,9 @@ func _build() -> void:
 	clear.append_array(footprints())
 	clear.append([center.origin, 4.4])
 	if chunk:
-		await Grass.field(self, center, 64.0 if not backdrop else 40.0, 10000 if not backdrop else 2600, clear, 11, true)
+		await Grass.field(self, center, 64.0 if not backdrop else 40.0, 16000 if not backdrop else 4000, clear, 11, true)
 	else:
-		Grass.field(self, center, 64.0 if not backdrop else 40.0, 10000 if not backdrop else 2600, clear, 11)
+		Grass.field(self, center, 64.0 if not backdrop else 40.0, 16000 if not backdrop else 4000, clear, 11)
 	# Everything above is placed and never moves again: draw the repeated
 	# pieces (lamps, cliffs, benches, houses of a kind) as a handful of
 	# multimeshes rather than a hundred submissions.

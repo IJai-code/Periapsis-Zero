@@ -25,6 +25,34 @@ static func apply(root: Node) -> void:
 		var glass := mi.mesh.get_surface_count() > 0 and mi.mesh.surface_get_material(0) and mi.mesh.surface_get_material(0).resource_name == "glass"
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if glass else GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 
+static var _pinned := {}
+
+## For things that move (a ship): the surface materials under `root` mapped
+## in each mesh's own space. Mapped in the world's (the default, for sets
+## that stand still), a flying ship's metal and paint slid and swirled
+## across her as she moved and turned.
+static func pin(root: Node) -> void:
+	var swap := func(m: Material) -> Material:
+		if not (m is ShaderMaterial) or (m as ShaderMaterial).shader == null or not (m as ShaderMaterial).shader.resource_path.ends_with("surface.gdshader"):
+			return m
+		var id := m.get_instance_id()
+		if not _pinned.has(id):
+			_pinned[id] = _obj(m.duplicate() as ShaderMaterial)
+		return _pinned[id]
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if mi.material_override:
+			mi.material_override = swap.call(mi.material_override)
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var m := mi.get_surface_override_material(i)
+			if m == null:
+				m = mi.mesh.surface_get_material(i)
+			if m:
+				var n: Material = swap.call(m)
+				if n != m:
+					mi.set_surface_override_material(i, n)
+
 ## Make every mesh under `root` solid, from both sides: a room seen from
 ## inside must stop the player whichever way its faces point.
 static func collide(root: Node, skip := "") -> void:

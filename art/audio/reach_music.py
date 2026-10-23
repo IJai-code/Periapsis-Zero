@@ -66,19 +66,36 @@ def add(buf, start, data, gain=1.0):
 
 
 def pluck(f, seconds, bright=0.6, rng=random.Random(1)):
-    """Karplus-Strong: a plucked string."""
-    period = max(2, int(RATE / f))
+    """Karplus-Strong: a plucked string, tuned exactly.
+
+    The loop's delay is the string's period. A whole number of samples
+    (as it was) rounds the pitch: at 22,050 Hz the banjo's top notes came
+    out most of a semitone sharp, and the averaging filter's half sample
+    pulled the low ones flat. The leftover fraction is made up by an
+    allpass in the loop, so every string sounds the note it should."""
+    want = RATE / f - 0.5
+    period = int(want)
+    frac = want - period
+    if frac < 0.15:
+        period -= 1
+        frac += 1.0
+    period = max(2, period)
+    c = (1.0 - frac) / (1.0 + frac)
     ring = [rng.uniform(-1, 1) for _ in range(period)]
     out = []
     idx = 0
     damp = 0.996 - (1.0 - bright) * 0.01
+    prev_x = 0.0
+    prev_y = 0.0
+    prev_a = 0.0
     for i in range(int(seconds * RATE)):
-        a = ring[idx]
-        b = ring[(idx + 1) % period]
-        v = (a + b) * 0.5 * damp
-        ring[idx] = v
+        x = ring[idx]
+        y = (x + prev_x) * 0.5 * damp
+        a = c * y + prev_y - c * prev_a
+        prev_x, prev_y, prev_a = x, y, a
+        ring[idx] = a
         idx = (idx + 1) % period
-        out.append(a)
+        out.append(x)
     # A banjo's head: a short twang on the attack.
     for i in range(min(len(out), 400)):
         out[i] += math.sin(2 * math.pi * f * 2 * i / RATE) * 0.25 * (1 - i / 400)
@@ -111,10 +128,10 @@ def flute():
         (3, 0, 9, 1), (3, 1, 7, 1), (3, 2, 4, 2),
         (4, 0, 9, 1.5), (4, 1.5, 11, 0.5), (4, 2, 14, 2),
         (5, 0, 11, 1), (5, 1, 9, 1), (5, 2, 7, 2),
-        (6, 0, 7, 1), (6, 1, 9, 1), (6, 2, 11, 1), (6, 3, 9, 1),
+        (6, 0, 7, 1), (6, 1, 9, 1), (6, 2, 12, 1), (6, 3, 11, 1),
         (7, 0, 7, 3), (7, 3, 4, 1),
         (8, 0, 2, 1.5), (8, 1.5, 4, 0.5), (8, 2, 7, 2),
-        (9, 0, 7, 1), (9, 1, 9, 1), (9, 2, 11, 2),
+        (9, 0, 7, 1), (9, 1, 9, 1), (9, 2, 12, 2),
         (10, 0, 9, 1.5), (10, 1.5, 7, 0.5), (10, 2, 4, 2),
         (11, 0, 9, 1), (11, 1, 7, 1), (11, 2, 4, 2),
         (12, 0, 4, 1), (12, 1, 7, 1), (12, 2, 9, 2),
@@ -154,7 +171,7 @@ def harmonica():
             note = [0.0] * n
             for semi in tones[:2] + [tones[0] + 12]:
                 f = freq(semi, D3 * 2)
-                det = rng.uniform(-0.6, 0.6)
+                det = rng.uniform(-0.15, 0.15)
                 for i in range(n):
                     t = i / RATE
                     env = min(1.0, t / 0.12) * (1.0 if t < dur else max(0.0, 1.0 - (t - dur) / 0.1))

@@ -476,19 +476,38 @@ func _marker(vp: Vector2, c: Vector2) -> void:
 	if _goal_check <= 0.0:
 		_goal_check = 0.25
 		_goal_at = reach.goal_target() if reach.has_method("goal_target") else {}
-	if _goal_at.is_empty() or reach.talking:
+	if reach.talking:
 		return
 	var cam := _draw.get_viewport().get_camera_3d()
 	if not cam:
 		return
+	# Where you left the Kestrel, whenever you are on foot and away from
+	# her: a blue mark of its own, so she is never lost behind a hill.
+	var p: Explorer = reach.player
+	var s: ReachShip = reach.ship
+	var ship_at := Vector3.INF
+	if s and p and p.enabled and not s.piloted and s.is_inside_tree():
+		ship_at = s.global_position + s.global_basis.y * 2.5
+		var far := p.global_position.distance_to(s.global_position)
+		if far > 22.0:
+			_pin(vp, c, cam, ship_at, "Kestrel", Color(0.6, 0.85, 1.0), true)
+	if _goal_at.is_empty():
+		return
 	var at: Vector3 = _goal_at.at
+	# The goal is the ship herself: her own mark already shows it.
+	if ship_at != Vector3.INF and at.distance_to(ship_at) < 12.0:
+		return
+	_pin(vp, c, cam, at, _goal_at.label, Color(1.0, 0.86, 0.6), false)
+
+## A mark on a place: on the screen, a diamond (a ship's chevron for the
+## Kestrel) with its name and distance; off the screen or behind you, an
+## arrow round the edge pointing the way.
+func _pin(vp: Vector2, c: Vector2, cam: Camera3D, at: Vector3, label: String, col: Color, ship: bool) -> void:
 	var d := cam.global_position.distance_to(at)
 	if d < 3.5:
 		return
-	var label: String = _goal_at.label
 	var dist := _range(d)
-	var col := Color(1.0, 0.86, 0.6)
-	var ink := Color(0.12, 0.08, 0.05, 0.85)
+	var ink := Color(0.12, 0.08, 0.05, 0.85) if not ship else Color(0.03, 0.07, 0.12, 0.85)
 	var behind := cam.is_position_behind(at)
 	var m := cam.unproject_position(at) if not behind else Vector2.ZERO
 	var margin := Vector2(60, 70)
@@ -498,6 +517,10 @@ func _marker(vp: Vector2, c: Vector2) -> void:
 		var r := 9.0 * pulse
 		var dia := PackedVector2Array([m + Vector2(0, -r), m + Vector2(r, 0), m + Vector2(0, r), m + Vector2(-r, 0)])
 		var outline := PackedVector2Array([m + Vector2(0, -r - 3), m + Vector2(r + 3, 0), m + Vector2(0, r + 3), m + Vector2(-r - 3, 0)])
+		if ship:
+			# A chevron, nose up: her shape from behind.
+			dia = PackedVector2Array([m + Vector2(0, -r * 1.1), m + Vector2(r * 1.2, r * 0.8), m + Vector2(0, r * 0.25), m + Vector2(-r * 1.2, r * 0.8)])
+			outline = PackedVector2Array([m + Vector2(0, -r * 1.1 - 4), m + Vector2(r * 1.2 + 4, r * 0.8 + 3), m + Vector2(0, r * 0.25 + 3), m + Vector2(-r * 1.2 - 4, r * 0.8 + 3)])
 		_draw.draw_colored_polygon(outline, ink)
 		_draw.draw_colored_polygon(dia, col)
 		_draw.draw_string_outline(ReachStyle.round_bold, m + Vector2(-150, 30), label, HORIZONTAL_ALIGNMENT_CENTER, 300, 15, 6, ink)

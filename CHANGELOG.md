@@ -5,6 +5,37 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Scanned grass and pines, villagers with a life, a way back to the ship, and the music in tune, 22 October 2026
+
+- **Grass, dandelions and daisies from Poly Haven's scans** in place of
+  the low-poly tufts: each scanned clump rendered side on into one sheet
+  (art/godot/grass_cards.py), drawn as three crossed cards a tuft, the
+  whole field one draw that sways in the wind and sinks away at its edge.
+- **Pines from a scanned fir**: the sapling rendered from above and from
+  the side into boughs, built into 13 to 19 m firs with a scanned bark
+  trunk (art/godot/pines.py), a few hundred triangles each.
+- **The Kestrel's metal no longer swims.** Her materials were mapped in
+  the world's space, so as she flew the textures slid and turned across
+  the cockpit's brass and steel; they ride with her now (Surfaces.pin).
+  The speed dial reads her speed against the world below, as the screen
+  does, and eases like a needle.
+- **A mark on the Kestrel** whenever you are on foot and more than 22 m
+  from her: a blue chevron with her distance, an arrow at the screen's
+  edge when she is behind you.
+- **Villagers less like statues**: heads follow you while the body keeps
+  working; a wave when they see you coming; stretches, a scratch of the
+  head, hands to the fire, a hand shading the eyes at the Lantern; muttering
+  at their work; Fen walks to the fire twice a morning to talk with Mara
+  (overheard if you are near); lines about what you have found out; and a
+  word when you land near them or lift off.
+- **The music in tune.** The banjo's plucked strings were rounded to a
+  whole sample per period, up to 120 cents sharp on the top strings; they
+  are tuned exactly now (within 2 cents). The tune no longer holds a C#
+  over the G chords, and the harmonica's reeds beat less.
+- **The website's front page** shows the title as it looks today (the
+  crater walls, the new pines), rendered from the game.
+
+
 ### Scanned models, calmer light, every script obfuscated, and a Zero-G cave, 22 October 2026
 
 - **Poly Haven's photo-scanned models** (CC0): Mara's rocking chair, a

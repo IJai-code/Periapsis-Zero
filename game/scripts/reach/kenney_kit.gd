@@ -14,6 +14,9 @@ static func mesh(name: String, tint := Color(1, 1, 1)) -> ArrayMesh:
 	# Poly Haven's scanned models (art/godot/polyhaven.py) come through here
 	# too, as "ph/<id>": their own textured materials kept, tinted.
 	var file := "res://art/%s.glb" % name if name.begins_with("ph/") else "res://art/kenney/%s.glb" % name
+	# The pines are glTF beside their shared textures (art/godot/pines.py).
+	if not ResourceLoader.exists(file) and ResourceLoader.exists(file.trim_suffix(".glb") + ".gltf"):
+		file = file.trim_suffix(".glb") + ".gltf"
 	var scene: Node3D = load(file).instantiate()
 	var out := ArrayMesh.new()
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
@@ -54,6 +57,16 @@ static func _material(src: Material, tint: Color) -> Material:
 		if not _mats.has(tk):
 			var d := src.duplicate() as BaseMaterial3D
 			d.albedo_color = d.albedo_color * tint
+			# Cut-out cards (the pines' boughs): clipped, not blended, so
+			# they sort and shadow as solids; lit through from behind.
+			if d.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				d.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				d.alpha_scissor_threshold = 0.4
+				d.cull_mode = BaseMaterial3D.CULL_DISABLED
+				d.backlight_enabled = true
+				d.backlight = Color(0.16, 0.22, 0.1)
+				d.roughness = 0.9
+				d.metallic_specular = 0.2
 			_mats[tk] = d
 		return _mats[tk]
 	if src is BaseMaterial3D:

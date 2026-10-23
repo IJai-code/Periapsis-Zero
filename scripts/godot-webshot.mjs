@@ -52,7 +52,8 @@ const keys = (process.env.PZ_WEBSHOT_KEYS ?? '').split(/\s+/).filter(Boolean).ma
 })
 try {
   const start = Date.now()
-  await page.goto(`http://127.0.0.1:${port}/index.html#${chapter}`, 500)
+  // PZ_WEBSHOT_QUERY=noui adds ?noui (the title's backdrop without its menu).
+  await page.goto(`http://127.0.0.1:${port}/index.html${process.env.PZ_WEBSHOT_QUERY ? '?' + process.env.PZ_WEBSHOT_QUERY : ''}#${chapter}`, 500)
   const events = [...times.map((t) => ({ t, shot: true })), ...keys].sort((a, b) => a.t - b.t)
   for (const e of events) {
     const left = e.t * 1000 - (Date.now() - start)

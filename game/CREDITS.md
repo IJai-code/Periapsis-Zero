@@ -40,4 +40,7 @@ Mara's rocking chair, the village's table and barrels, the tree stumps,
 fallen trunks, mossy rocks, ferns and shrubs, and the moon rocks on Ashfall,
 the Phantom, the Wanderer and in the Zero-G cave are photo-scanned models
 from Poly Haven (polyhaven.com), CC0. Decimated for the browser by
-art/godot/polyhaven.py.
+art/godot/polyhaven.py. The grass, dandelions and daisies are Poly Haven's
+scanned grass_medium_01/02, dandelion_01 and flower_ursinia rendered into
+cards (art/godot/grass_cards.py); the pines are built from its scanned
+fir_sapling and pine_sapling_small bark (art/godot/pines.py).

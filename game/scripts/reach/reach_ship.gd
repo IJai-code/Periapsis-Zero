@@ -61,6 +61,7 @@ var screens: KestrelScreens
 var _fuselage: MeshInstance3D
 var _needle_rest := Basis()
 var _needle: Node3D
+var _needle_v := 0.0
 var _alarm_mat: StandardMaterial3D
 var _alarm_t := 0.0
 ## Controls let go (the map is open).
@@ -168,6 +169,8 @@ func _ready() -> void:
 	_gear()
 	_plumes_make()
 	_cockpit()
+	# Her textures ride with her (once the hatch and the rest are built).
+	Surfaces.pin.call_deferred(self)
 	cam = Camera3D.new()
 	cam.fov = FOV
 	cam.near = 0.04
@@ -404,13 +407,16 @@ func _instruments(dt: float) -> void:
 		return
 	_alarm_t += dt
 	var r := get_tree().get_first_node_in_group("reach_root")
-	var v := linear_velocity
-	if target != "":
-		v -= system.world_vel(target)
-	var speed := v.length()
+	# The dial reads what the screen reads: her speed against the world
+	# she flies by (raw, it was her speed round the Lantern, swinging wildly
+	# as a parked ship was carried along), eased like a real needle.
+	var key := assist_body if assist_body != "" else (target if target != "" else system.ruling().key)
+	var v := linear_velocity - (system.world_vel(key) if system.bodies.has(key) else Vector3.ZERO)
+	var speed := 0.0 if landed else v.length()
+	_needle_v = lerpf(_needle_v, clampf(speed / 200.0, 0.0, 1.0), minf(1.0, dt * 3.0))
 	screens.tick(dt)
 	if _needle:
-		_needle.basis = _needle_rest * Basis(Vector3.UP, lerpf(2.1, -2.1, clampf(speed / 200.0, 0.0, 1.0)))
+		_needle.basis = _needle_rest * Basis(Vector3.UP, lerpf(2.1, -2.1, _needle_v))
 	var late: bool = r != null and r.system != null and float(r.system.t) > 1250.0
 	var alarm: bool = integrity < 40.0 or late
 	var on: bool = alarm and fmod(_alarm_t, 0.8) < 0.4

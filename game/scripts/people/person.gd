@@ -26,6 +26,12 @@ var _blink_in := 2.0
 var _blink := 0.0
 var _brow := 0.0
 var _t := 0.0
+## Where the head turns to (LifeMotion), Vector3.INF for nowhere.
+var look_at_point := Vector3.INF
+## The gesture under way (LifeMotion), how far in and how long it lasts.
+var gesture_name := ""
+var gesture_t := 0.0
+var gesture_len := 0.0
 
 static func make(name: String) -> Person:
 	var p := Person.new()
@@ -194,6 +200,21 @@ func _animate_speed(gait: String, speed: float) -> void:
 	else:
 		_anim.speed_scale = 1.0
 
+## Follow a point with the head (Vector3.INF: look ahead again).
+func look(point: Vector3) -> void:
+	look_at_point = point
+
+## A wave, a stretch, a scratch of the head, hands out to a fire, a hand
+## shading the eyes, a shrug (LifeMotion). Ignored while one is under way.
+const GESTURES := {"wave": 2.4, "stretch": 3.2, "scratch": 2.6, "warm": 7.0, "shade": 4.5, "shrug": 1.8}
+func gesture(name: String) -> bool:
+	if gesture_name != "" or not GESTURES.has(name):
+		return false
+	gesture_name = name
+	gesture_t = 0.0
+	gesture_len = GESTURES[name]
+	return true
+
 ## Turn the whole body to face a point, over a second or so.
 func face(point: Vector3) -> void:
 	var parent := get_parent_node_3d()
@@ -214,6 +235,10 @@ var _gone := false
 var _anim_acc := 0.0
 
 func _process(dt: float) -> void:
+	if gesture_name != "":
+		gesture_t += dt
+		if gesture_t >= gesture_len:
+			gesture_name = ""
 	if not is_nan(_yaw_target):
 		rotation.y = lerp_angle(rotation.y, _yaw_target, minf(1.0, dt * 3.0))
 	_lod_t -= dt

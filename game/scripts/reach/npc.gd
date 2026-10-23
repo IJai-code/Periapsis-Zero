@@ -67,6 +67,36 @@ const LINES := {
 	},
 }
 
+## Said to no one, while they work (heard when you are close by).
+const MUTTER := {
+	"mara": ["Kettle, kettle, kettle.", "Where did I put the good mug?", "That chair squeaks. I like that it squeaks.", "Three more logs. Then I sit."],
+	"fen": ["Still there. Still there.", "If I blink, will it move?", "One, two, three moons. Where is the fourth?"],
+	"miner": ["Come on, you stubborn seam.", "Left, left, mind the beam.", "Thirty-one carts this month. Thirty-two."],
+	"hauler": ["Forty-one, forty-two. Forty-two. Good.", "Who keeps moving my ropes?", "Lift's sticking again. Of course it is."],
+	"okafor": ["Point six. No. Point seven.", "Where are my glasses? On my head. Of course.", "Steady. Steady. Write it down."],
+}
+
+## What they say once you have found something out (a fact in the ship
+## log), each once a morning, ahead of their usual lines.
+const KNOWS := {
+	"mara": [["hearth_zerog", "Saw you in the Zero-G cave. You kept your breakfast down? Good pilot."], ["verd_renn", "Renn is alive? Bring her home, if she will come."], ["ash_core", "What is that humming in your pack? It sets my teeth on edge."]],
+	"fen": [["ph_moves", "You saw it move, did you not? I knew it. Nobody believes me."], ["ph_photo", "A photograph holds it still? Ha. I should have thought of that."]],
+	"miner": [["hearth_songline", "You read the writing down there? I have been walking past it for years."]],
+	"hauler": [["ash_vex", "Vex? She still owes me a crate of bolts. Tell her I said so."], ["verd_renn", "Renn. Huh. Thought we had lost her with the Aster."]],
+	"okafor": [["hearth_choir", "The Choir's writing spirals in. Read from the middle out, and it makes sense."], ["verd_engine", "An Engine that sings time back? I would give my telescope to hear it."]],
+}
+
+## Fen walks over to the fire twice a morning and talks with Mara: overheard
+## if you are near. Each talk is [speaker, line] in turn.
+const TALKS := [
+	[["fen", "It moved again, Mara. The little moon."], ["mara", "You said that yesterday."], ["fen", "And it moved yesterday too."], ["mara", "Sit down. Tea first, moons after."]],
+	[["mara", "The pilot was up early."], ["fen", "Up, out, gone. Like the rest of them, once."], ["mara", "This one came back. Give them time."], ["fen", "Time. Hm. Plenty of that, it seems."]],
+	[["fen", "Does the light look thin to you?"], ["mara", "Everything looks thin before tea."], ["fen", "I mean it. The Lantern."], ["mara", "I know you do. I know."]],
+]
+const VISIT := [[150.0, 240.0], [700.0, 790.0]]
+const VISIT_SPOT := Vector2(-1.2, 3.9)
+const HOST_SPOT := Vector2(-2.6, 1.4)
+
 var key := ""
 var model := "crowd1"
 var sitting := false
@@ -101,6 +131,26 @@ var _look_hold := 0.0
 var _last_t := 0.0
 var _spoke_first := false
 var _last_pick := -1
+var _said_known := {}
+var _mutter_in := 20.0
+var _fidget_in := 12.0
+var _wave_cool := 0.0
+var _seen := false
+# Fen's visit to the fire: where she is going, the talk, whose turn.
+var _visiting := false
+var _talk_i := 0
+var _line_in := 0.0
+var _talk_pick := 0
+var _host: Npc
+var _dest := Vector2.INF
+# --gesturetest (?gesturetest in the browser): everyone runs through their
+# gestures in turn, for a look at the poses.
+var _gesture_test := "--gesturetest" in OS.get_cmdline_user_args() or (OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("gesturetest"))
+var _gt := 1.0
+var _gi := 0
+## One villager reacts to a landing, not the whole square at once.
+static var _react_at := -100.0
+var _ship_was_down := true
 
 # The routine.
 var _flat := Vector2.ZERO
@@ -205,6 +255,16 @@ func _process(dt: float) -> void:
 			if _player and is_instance_valid(_player):
 				person.face(_player.global_position)
 		return
+	if _gesture_test:
+		_gt -= dt
+		if _gt <= 0.0:
+			_gt = 3.0
+			var all := Person.GESTURES.keys()
+			# ?gesturetest=wave: that one only, over and over.
+			var only := str(JavaScriptBridge.eval("location.search", true)).get_slice("gesturetest=", 1).get_slice("&", 0) if OS.has_feature("web") else ""
+			person.gesture(only if Person.GESTURES.has(only) else all[_gi % all.size()])
+			_gi += 1
+		return
 	_tick -= dt
 	if _tick <= 0.0:
 		_tick = TICK
@@ -233,7 +293,11 @@ func _think() -> void:
 		_greet_cool = 0.0
 		_cool = 0.0
 		_notice = 0.0
+		_said_known.clear()
 	_last_t = t
+	_mutter_in -= TICK
+	_wave_cool -= TICK
+	_react(sys)
 	var ex := _player as Explorer
 	# Even when a cutscene holds the pilot, the village keeps working; it
 	# just has no one to look at.
@@ -241,6 +305,31 @@ func _think() -> void:
 		_notice = 0.0
 		return
 	var d := global_position.distance_to(_player.global_position)
+	var head := _player.global_position + _player.global_basis.y * 1.6
+	var toward := (_player.global_position - global_position).normalized()
+	var ahead := person.global_basis.z.dot(toward)
+	# Someone they know coming up the path: a wave, once, from a way off.
+	if d > 22.0:
+		_seen = false
+	elif d > 6.0 and d < 16.0 and not _seen and _wave_cool <= 0.0 and ahead > 0.2 and not _walking and not _reach.talking:
+		_seen = true
+		_wave_cool = 90.0
+		person.look(head)
+		_look_hold = 2.6
+		person.gesture("wave")
+	# The head follows you while they notice you, glance up, or you stand
+	# close: the body stays on its work.
+	var follow := d < 9.0 and (_notice > 0.0 or _glance_hold > 0.0 or _speak_t > 0.0 or d < 4.0)
+	if follow:
+		person.look(head)
+	elif _look_hold <= 0.0:
+		person.look(Vector3.INF)
+	# A word to themselves now and then, heard if you are close.
+	if d < 6.5 and _mutter_in <= 0.0 and _speak_t <= 0.0 and not _reach.talking and not _visiting and MUTTER.has(key):
+		_mutter_in = randf_range(28.0, 50.0)
+		var m: Array = MUTTER[key]
+		if _reach.hud:
+			_reach.hud.caption("%s, muttering: %s" % [_title(), m[randi() % m.size()]], 3.2)
 	if d > FAR:
 		_watching = false
 		_notice = 0.0
@@ -249,7 +338,9 @@ func _think() -> void:
 		if _notice <= 0.0 and _cool <= 0.0:
 			_notice = NOTICE + randf_range(0.0, 1.4)
 			_watching = true
-			if _gaze_t <= 0.0:
+			# The head does the looking (above); only someone behind them
+			# makes them turn round.
+			if _gaze_t <= 0.0 and ahead < -0.3:
 				_gaze_t = GAZE
 				person.face(_player.global_position)
 			# Walking stopped, not forgotten: _routine picks it up again.
@@ -267,8 +358,7 @@ func _think() -> void:
 		# Already had their look: let them glance up now and then, but get on.
 		if d < GREET_AT and _glance_player <= 0.0:
 			_glance_player = randf_range(4.0, 7.0)
-			person.face(_player.global_position)
-			_glance_hold = 1.2
+			_glance_hold = 1.4
 		return
 	# The Lantern reddening late in the loop: people stop and watch it.
 	if _late():
@@ -296,6 +386,9 @@ func _routine(dt: float) -> void:
 			_walking = false
 			person.locomote(0.0)
 		return
+	if key == "fen" or key == "mara":
+		if _visit_routine(dt):
+			return
 	if _walking:
 		_walk(dt)
 		return
@@ -303,6 +396,7 @@ func _routine(dt: float) -> void:
 		_work -= dt
 		if _work <= 0.0:
 			person.locomote(0.0)
+	_fidget(dt)
 	_dwell -= dt
 	if _dwell <= 0.0:
 		_next_stop()
@@ -311,12 +405,16 @@ func _walk(dt: float) -> void:
 	if roam.size() < 2 or site == null:
 		_walking = false
 		return
-	var target: Vector2 = roam[_leg]
+	var target: Vector2 = _dest if _dest != Vector2.INF else roam[_leg]
 	var delta := target - _flat
 	var step := _walk_speed * dt
 	if delta.length() <= step:
 		_flat = target
 		_walking = false
+		if _dest != Vector2.INF:
+			_dest = Vector2.INF
+			person.locomote(0.0)
+			return
 		_dwell = randf_range(7.0, 16.0)
 		_rest_face()
 		if _task() == "work":
@@ -390,6 +488,11 @@ func _greet() -> void:
 func _line() -> String:
 	var book: Dictionary = LINES.get(key, LINES["default"])
 	var list: Array
+	if _spoke_first and not _late():
+		for kv: Array in KNOWS.get(key, []):
+			if Lore.known(kv[0]) and not _said_known.has(kv[0]):
+				_said_known[kv[0]] = true
+				return kv[1]
 	if _late():
 		list = book.get("late", book["pass"])
 	elif not _spoke_first:
@@ -408,3 +511,110 @@ func _line() -> String:
 func _hush() -> void:
 	person.talk(false)
 	_resume()
+
+## Now and then, while they stand at a stop: Mara holds her hands to the
+## fire, Fen shades her eyes at the Lantern, Okafor scratches his head over
+## the numbers, the others stretch or shrug.
+func _fidget(dt: float) -> void:
+	_fidget_in -= dt
+	if _fidget_in > 0.0 or _walking or _work > 0.0 or _speak_t > 0.0:
+		return
+	_fidget_in = randf_range(14.0, 30.0)
+	var g: String = ["stretch", "scratch", "shrug"][randi() % 3]
+	match key:
+		"mara": g = "warm" if _flat.length() < 5.0 else "stretch"
+		"fen": g = "shade" if randf() < 0.7 else "stretch"
+		"okafor": g = "scratch" if randf() < 0.6 else "stretch"
+	person.gesture(g)
+
+## Fen's walk to the fire and her talk with Mara (Mara waits at her chair
+## for it). True while the visit has the routine.
+func _visit_routine(dt: float) -> bool:
+	var t: float = _reach.system.t if _reach and _reach.system else 0.0
+	var on := false
+	for w: Array in VISIT:
+		if t > float(w[0]) and t < float(w[1]):
+			on = true
+	if key == "mara":
+		if not on:
+			return false
+		if _flat.distance_to(HOST_SPOT) > 0.2:
+			if not _walking or _dest != HOST_SPOT:
+				_dest = HOST_SPOT
+				_walking = true
+				_work = 0.0
+				person.follow_route()
+			_walk(dt)
+			return true
+		# Waiting at her chair for Fen (her talk is driven from Fen's side).
+		return true
+	# Fen.
+	if on and not _visiting:
+		_visiting = true
+		_talk_i = 0
+		_line_in = 2.0
+		_talk_pick = randi() % TALKS.size()
+		_dest = VISIT_SPOT
+		_walking = true
+		_work = 0.0
+		person.follow_route()
+	elif not on and _visiting:
+		_visiting = false
+		_dest = Vector2.INF
+		_walking = true
+		person.follow_route()
+		return false
+	if not _visiting:
+		return false
+	if _walking:
+		_walk(dt)
+		return true
+	if _host == null and site:
+		_host = site.get_node_or_null("Npc_mara") as Npc
+	if _host == null or _host._walking or _host._in_talk or _in_talk:
+		return true
+	# Face each other, then the talk, a line every few seconds.
+	if _talk_i == 0 and _line_in > 1.9:
+		person.face(_host.global_position)
+		_host.person.face(global_position)
+	_line_in -= dt
+	if _line_in > 0.0:
+		return true
+	var talk: Array = TALKS[_talk_pick]
+	if _talk_i >= talk.size():
+		# Talked out: they stand at the fire together, hands to the warmth.
+		_line_in = randf_range(20.0, 30.0)
+		person.gesture("warm")
+		return true
+	var line: Array = talk[_talk_i]
+	_talk_i += 1
+	_line_in = 3.8
+	var who: Npc = self if line[0] == key else _host
+	who._speak_t = 3.0
+	who.person.talk(true)
+	if randf() < 0.25:
+		(_host if who == self else self).person.gesture("shrug")
+	if _player and is_instance_valid(_player) and global_position.distance_to(_player.global_position) < 12.0 and _reach.hud and not _reach.talking:
+		_reach.hud.caption("%s: %s" % [who._title(), line[1]], 3.6)
+	return true
+
+## The Kestrel coming down near them, or going up: they look, and the one
+## nearest says something about it.
+func _react(sys: ReachSystem) -> void:
+	var ship = _reach.ship if _reach else null
+	if ship == null or not is_instance_valid(ship):
+		return
+	var down: bool = ship.landed
+	var near := global_position.distance_to(ship.global_position) < 110.0
+	if down != _ship_was_down and near and ship.piloted:
+		person.look(ship.global_position)
+		_look_hold = 3.0
+		var now := Time.get_ticks_msec() / 1000.0
+		if now - _react_at > 20.0 and not _reach.talking:
+			_react_at = now
+			var lines: Array = ["Nice landing!", "Gently does it.", "Mind the grass, pilot!", "Back already?"] if down else ["There she goes.", "Safe flying!", "Bring her back in one piece."]
+			if _reach.hud:
+				_reach.hud.caption("%s: %s" % [_title(), lines[randi() % lines.size()]], 3.0)
+			if not down:
+				person.gesture("wave")
+	_ship_was_down = down

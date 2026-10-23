@@ -280,7 +280,8 @@ func _kenney(kind: String) -> Array:
 	var bare := body.key in ["ashfall", "phantom", "wanderer"]
 	match kind:
 		"pine":
-			return [["tree_pineTallA_detailed", 15.0], ["tree_pineTallC_detailed", 14.0]]
+			# Poly Haven's scanned fir, made into tall pines (art/godot/pines.py).
+			return [["ph/ph-pine_a", 1.0], ["ph/ph-pine_b", 1.0], ["ph/ph-pine_c", 1.0]]
 		"bush":
 			return [["plant_bushDetailed", 4.5], ["plant_bushLarge", 5.5]]
 		"rock":

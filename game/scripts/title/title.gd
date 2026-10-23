@@ -25,7 +25,10 @@ func _ready() -> void:
 		var reach: Node = load("res://scenes/reach.tscn").instantiate()
 		reach.set_meta("backdrop", true)
 		add_child(reach)
-		if not "--noui" in OS.get_cmdline_user_args():
+		# --noui (or ?noui in the browser): the backdrop alone, for the
+		# website's front page.
+		var noui := "--noui" in OS.get_cmdline_user_args() or (OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("noui"))
+		if not noui:
 			_ui()
 		# The backdrop says when it has a picture (Reach._backdrop): the
 		# village is made a piece at a time, and the browser's loading

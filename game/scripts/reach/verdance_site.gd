@@ -73,7 +73,7 @@ func _camp() -> void:
 	var clear := footprints()
 	clear.append([ground(Vector2(1.0, -1.5)).origin, 3.0])
 	clear.append([center.origin - center.basis.z * 15.0, 10.0])
-	Grass.field(self, center, 34.0, 5000, clear, 23)
+	Grass.field(self, center, 34.0, 7000, clear, 23)
 
 ## Spray at the foot of the falls.
 static func _mist(at: Vector3) -> CPUParticles3D:

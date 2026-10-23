@@ -1,0 +1,46 @@
+{
+ "cols": 4,
+ "rows": 2,
+ "tiles": [
+  {
+   "model": "grass_medium_01",
+   "name": "grass_medium_01_tall_a_LOD0",
+   "size": 0.336
+  },
+  {
+   "model": "grass_medium_01",
+   "name": "grass_medium_01_tall_b_LOD0",
+   "size": 0.2976
+  },
+  {
+   "model": "grass_medium_01",
+   "name": "grass_medium_01_mid_a_LOD0",
+   "size": 0.2268
+  },
+  {
+   "model": "grass_medium_01",
+   "name": "grass_medium_01_large_a_LOD0",
+   "size": 0.3302
+  },
+  {
+   "model": "grass_medium_02",
+   "name": "grass_medium_02_e",
+   "size": 0.42
+  },
+  {
+   "model": "grass_medium_02",
+   "name": "grass_medium_02_d",
+   "size": 0.3306
+  },
+  {
+   "model": "dandelion_01",
+   "name": "dandelion_01_a_LOD0",
+   "size": 0.2295
+  },
+  {
+   "model": "flower_ursinia",
+   "name": "flower_ursinia_c_LOD0",
+   "size": 0.2719
+  }
+ ]
+}
