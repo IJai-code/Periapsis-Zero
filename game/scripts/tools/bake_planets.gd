@@ -100,7 +100,7 @@ func _deco(b: ReachBody) -> Dictionary:
 		"verdance":
 			spec = {"giant": 300, "tree": 1300, "palm": 350, "fern": 2400, "bush": 1200, "rock": 350}
 		"ashfall":
-			spec = {"rock": 420, "shard": 60}
+			spec = {"rock": 260, "shard": 60}
 		"phantom":
 			spec = {"shard": 90, "rock": 40}
 		"wanderer":

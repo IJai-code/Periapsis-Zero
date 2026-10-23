@@ -120,6 +120,8 @@ func _ready() -> void:
 		_phantom_test()
 	if "--stairtest" in args:
 		_stair_test()
+	if "--zerogtest" in args:
+		_zerog_test()
 	if "--walltestfly" in args:
 		_fly_wall_test()
 	var apt := args.find("--aptest")
@@ -141,7 +143,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest"]:
 			return true
 	return false
 
@@ -732,6 +734,13 @@ func _start_player() -> void:
 				await get_tree().physics_frame
 			ship.target = beat.trim_prefix("cruise:")
 			ship.start_autopilot()
+		elif beat == "zerog":
+			# Inside the Zero-G cave, floating, looking at the first ring.
+			var zv: Village = (planets["hearthstone"] as Planet).sites[0]
+			var zc := zv.zerog
+			var at := zc.global_transform * Vector3(0, 3.5, 7.5)
+			var upz := (at - system.world("hearthstone")).normalized()
+			player.place(Transform3D(Site.upright(upz, -zc.global_basis.z), at), -zc.global_basis.z)
 		elif beat.begins_with("deck"):
 			# On the tower's deck by the Kestrel (deck:<loop s> for the hour),
 			# looking at her from her left side, ahead of the wing.
@@ -1204,7 +1213,7 @@ func _wall_test() -> void:
 	var targets := []
 	for n in village.get_children():
 		if n is Node3D and not n is Npc and (n as Node3D).find_children("*", "CollisionShape3D", true, false).size() > 0:
-			targets.append([String(n.name), (n as Node3D).global_position, (n as Node3D).global_basis.z])
+			targets.append([String(n.name) + ":" + String(n.scene_file_path).get_file(), (n as Node3D).global_position, (n as Node3D).global_basis.z])
 	# The fire too: walked round, not through.
 	targets.append(["campfire", campfire.global_position, campfire.global_basis.x])
 	var pl: Planet = planets["hearthstone"]
@@ -1244,7 +1253,11 @@ func _wall_test() -> void:
 			await get_tree().physics_frame
 			s += get_physics_process_delta_time()
 			q.transform = Transform3D(Basis(), player.global_position + player.global_basis.y * 1.2)
-			if not space.intersect_shape(q, 1).is_empty():
+			var inside_of := space.intersect_shape(q, 1)
+			if not inside_of.is_empty():
+				if not hit:
+					var col: Object = inside_of[0].collider
+					print("WALLHIT %s in %s (%s)" % [t[0], col, String((col as Node).get_parent().get_parent().scene_file_path) if col is Node and (col as Node).get_parent() and (col as Node).get_parent().get_parent() else "?"])
 				hit = true
 		Input.action_release("forward")
 		if hit:
@@ -1391,6 +1404,28 @@ func _land_test() -> void:
 	Input.parse_input_event(k)
 	var t := (Time.get_ticks_msec() - start) / 1000.0
 	Report.line("LANDTEST held %.2f m/s at %.0f m, landed %s after %.1f s, touched at %.1f m/s, dust %d, hull %d%%" % [held, hover_alt, ship.landed, t, touch, dust, int(maxf(ship.integrity, 0.0))])
+	Report.finish(get_tree())
+
+## In the Zero-G cave: you float (no fall in three seconds, free of the
+## floor), then the five rings flown in order teach the jetpack.
+func _zerog_test() -> void:
+	Lore.forget_all()
+	await get_tree().create_timer(1.5).timeout
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var z := village.zerog
+	var mid := z.global_transform * (ZeroGCave.CENTER + Vector3(0, 1.0, 0))
+	var up := (mid - system.world("hearthstone")).normalized()
+	player.place(Transform3D(Site.upright(up, z.global_basis.z), mid), z.global_basis.z)
+	await get_tree().create_timer(3.0).timeout
+	var drop := (mid - player.global_position).dot(up)
+	var floating := player.free_fall
+	for i in ZeroGCave.RINGS.size():
+		player.global_position = z.global_transform * (ZeroGCave.RINGS[i] as Vector3) - player.global_basis.y * 0.9
+		player.velocity = Vector3.ZERO
+		for f in 3:
+			await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	Report.line("ZEROGTEST floating %s, sank %.2f m in 3 s, rings %d of %d, learned %s" % [floating, drop, z._next, ZeroGCave.RINGS.size(), Lore.known("hearth_zerog")])
 	Report.finish(get_tree())
 
 ## Walk (no jumping) from the path up the observatory's steps and in

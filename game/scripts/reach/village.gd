@@ -10,6 +10,11 @@ extends Site
 ## hearth_village.py.
 
 var lift: TowerLift
+var zerog: ZeroGCave
+
+func reset_loop() -> void:
+	if zerog:
+		zerog.reset_loop()
 var tower: Node3D
 ## Where the Kestrel rests each morning: on the tower's deck.
 var ship_rest: Transform3D
@@ -43,15 +48,34 @@ func _build() -> void:
 	for k in 3:
 		var a := TAU * k / 3.0 + 0.9
 		put("valley-logbench", Vector2(cos(a), sin(a)) * 3.3, Vector2.ZERO, true, 1.0, 0.04)
-	put("valley-chair", Vector2(-3.1, -1.5), Vector2.ZERO, true)
+	put("ph/ph-Rockingchair_01", Vector2(-3.1, -1.5), Vector2.ZERO, true, 1.05)
 	# The houses, their porches toward the fire; Mara's beside it.
 	put("valley-house_b", Vector2(-15.0, 3.0))
 	put("valley-house_a", Vector2(4.0, 18.0))
 	put("valley-house_a", Vector2(14.0, -14.0))
 	put("valley-woodpile", Vector2(-9.5, -2.5), Vector2(-15.0, 3.0))
 	for spec in [["crate", Vector2(10.0, -8.0)], ["crate", Vector2(10.8, -8.6)], ["barrel", Vector2(-5.5, -13.0)],
-			["table", Vector2(-6.0, 9.0)]]:
+			]:
 		put("village-" + spec[0], spec[1])
+	# Poly Haven's scanned pieces (CC0, art/godot/polyhaven.py): a table and
+	# barrels about the houses, stumps and fallen trunks at the clearing's
+	# edge, mossy rocks under the crater's walls, ferns and shrubs by the
+	# porches. [model, (east, north), scale, solid]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	for spec in [["WoodenTable_01", Vector2(-6.0, 9.0), 1.0, true], ["Barrel_01", Vector2(11.6, -9.4), 1.15, true],
+			["Barrel_01", Vector2(-17.6, -0.6), 1.15, true], ["Barrel_01", Vector2(-18.4, 0.3), 1.1, true],
+			["tree_stump_01", Vector2(-30.0, 14.0), 1.5, true], ["tree_stump_02", Vector2(26.0, -24.0), 1.4, true],
+			["tree_stump_01", Vector2(36.0, 9.0), 1.3, true], ["dead_tree_trunk", Vector2(-35.0, -19.0), 2.2, true],
+			["dead_tree_trunk", Vector2(31.0, 27.0), 2.0, true], ["rock_moss_set_01", Vector2(-52.0, 32.0), 1.4, true],
+			["rock_moss_set_02", Vector2(70.0, -55.0), 1.5, true], ["rock_moss_set_01", Vector2(46.0, 44.0), 1.2, true],
+			["rock_moss_set_02", Vector2(-60.0, -62.0), 1.3, true], ["fern_02", Vector2(-19.5, 6.5), 1.0, false],
+			["fern_02", Vector2(7.5, 22.0), 1.0, false], ["fern_02", Vector2(18.0, -17.5), 1.0, false],
+			["fern_02", Vector2(-11.5, 6.0), 0.9, false], ["shrub_02", Vector2(-27.0, 23.0), 1.0, false],
+			["shrub_02", Vector2(25.0, 17.0), 0.9, false]]:
+		var a := rng.randf() * TAU
+		var at: Vector2 = spec[1]
+		put("ph/ph-" + spec[0], at, at + Vector2(cos(a), sin(a)) * 5.0, spec[3], spec[2], 0.05)
 	# The well on the square; Mara's garden behind her house, fenced; an ore
 	# cart on its rails on the way to the mine.
 	put("valley-well", Vector2(9.5, 5.5), Vector2.ZERO)
@@ -80,7 +104,11 @@ func _build() -> void:
 		for k in range(1, lamps + 1):
 			var p: Vector2 = start.lerp(to, float(k) / (lamps + 1)) + to.normalized().orthogonal() * (2.4 if k % 2 == 0 else -2.4)
 			lamp(put("valley-lamp2", p, p + to.normalized().orthogonal() * (-1.0 if k % 2 == 0 else 1.0)), Vector3(0, 2.25, 0.72), Color(1.0, 0.7, 0.4), 1.4, 8.0)
-	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond})
+	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond, "Zero-G cave": _flat("zerog")})
+	# The Zero-G cave (ZeroGCave), its dome on the crater floor.
+	var zm := put_near("valley-zerog_cave", Worlds.place(body, "zerog"), Vector3.ZERO, center.origin, true, 1.0, 0.0)
+	zerog = ZeroGCave.new()
+	zm.add_child(zerog)
 	if chunk:
 		await get_tree().process_frame
 	_tower()

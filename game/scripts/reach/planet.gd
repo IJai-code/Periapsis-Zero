@@ -285,7 +285,8 @@ func _kenney(kind: String) -> Array:
 			return [["plant_bushDetailed", 4.5], ["plant_bushLarge", 5.5]]
 		"rock":
 			if bare:
-				return [["stone_largeA", 3.2], ["stone_largeB", 3.0], ["stone_tallA", 2.4]]
+				# Poly Haven's scanned moon rocks (a hand's width as scanned).
+				return [["ph/ph-moon_rock_01", 14.0], ["ph/ph-moon_rock_02", 11.0], ["ph/ph-moon_rock_03", 26.0], ["ph/ph-moon_rock_05", 34.0]]
 			return [["rock_largeA", 3.2], ["rock_tallA", 2.6]]
 		"stump":
 			return [["stump_old", 3.5], ["log", 4.0]]
@@ -302,9 +303,9 @@ func _kenney(kind: String) -> Array:
 func _kenney_tint(kind: String) -> Color:
 	if kind == "rock":
 		match body.key:
-			"ashfall": return Color(0.42, 0.36, 0.34)
-			"phantom": return Color(0.78, 0.66, 1.0)
-			"wanderer": return Color(0.85, 0.95, 1.1)
+			"ashfall": return Color(0.55, 0.45, 0.42)
+			"phantom": return Color(0.85, 0.72, 1.1)
+			"wanderer": return Color(0.95, 1.05, 1.2)
 	return Color(1, 1, 1)
 
 ## One drawing of many plants (a chunk's worth), seen between two distances.

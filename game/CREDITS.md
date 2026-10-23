@@ -33,3 +33,11 @@ Trees, pines, bushes, rocks, stumps, logs, grass and flowers on the Reach's
 worlds are from Kenney's Nature Kit (www.kenney.nl), CC0 1.0. Recoloured in
 the game (game/scripts/reach/kenney_kit.gd). Licence:
 game/art/kenney/LICENSE-kenney-nature.txt.
+
+## Poly Haven
+
+Mara's rocking chair, the village's table and barrels, the tree stumps,
+fallen trunks, mossy rocks, ferns and shrubs, and the moon rocks on Ashfall,
+the Phantom, the Wanderer and in the Zero-G cave are photo-scanned models
+from Poly Haven (polyhaven.com), CC0. Decimated for the browser by
+art/godot/polyhaven.py.

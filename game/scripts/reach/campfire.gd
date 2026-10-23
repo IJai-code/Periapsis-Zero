@@ -17,6 +17,7 @@ const BURN := 900.0
 ## Where a log gives way and drops into the ash (fraction of BURN).
 const SETTLE_AT := 0.58
 
+var far_k := 1.0
 var _light: OmniLight3D
 var _solid: CollisionShape3D
 
@@ -305,10 +306,14 @@ func _process(dt: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	var lit := true
 	if cam:
-		lit = cam.global_position.distance_squared_to(global_position) < 3600.0
+		var d := cam.global_position.distance_to(global_position)
+		lit = d < 62.0
+		# Faded out with distance, not switched off at it.
+		far_k = smoothstep(62.0, 45.0, d)
 	_light.visible = lit
 	if lit:
-		_light.light_energy = (0.25 + 1.95 * heat) * (1.0 + 0.16 * sin(_t * 7.3) * sin(_t * 3.1 + 1.0) + 0.06 * sin(_t * 17.0))
+		# A gentle breathing, not a flicker that lights the whole village.
+		_light.light_energy = (0.25 + 1.95 * heat) * far_k * (1.0 + 0.07 * sin(_t * 4.1) * sin(_t * 1.7 + 1.0) + 0.03 * sin(_t * 9.0))
 		_light.light_color = Color(1.0, 0.62, 0.32).lerp(Color(1.0, 0.27, 0.1), 1.0 - heat)
 		_light.omni_range = 4.0 + 5.0 * heat
 	if _crackle:

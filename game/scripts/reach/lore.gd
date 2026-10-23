@@ -17,6 +17,7 @@ const FACTS := {
 	"hearth_crash": ["hearth", "Your Kestrel came down outside Hearth three days ago, burning, half an hour after the Aster's distress call. The village pulled you out.", ""],
 	"hearth_codes": ["hearth", "Okafor gave you the Kestrel's launch codes. She waits on top of the launch tower: the lift at its foot goes up.", ""],
 	"hearth_loop": ["hearth", "You woke at the campfire again, the same morning. Nobody else remembers.", ""],
+	"hearth_zerog": ["hearth", "You flew the five rings in the Zero-G cave, on the crater floor. The jetpack is second nature now.", ""],
 	"hearth_lantern": ["hearth", "Okafor says the Lantern is dying: it flickered three nights ago and has been swelling since.", ""],
 	"hearth_choir": ["hearth", "The Choir lived in the Reach before anyone. Their writing spirals; Okafor's translator reads it.", ""],
 	"hearth_phantom": ["hearth", "Fen says the small moon nearest the Lantern won't stay put. Okafor swears it moves when nobody is looking.", "phantom"],

@@ -18,10 +18,10 @@ import JsConfuser from 'js-confuser'
 /**
  * The site's own code is obfuscated in the build (js-confuser): names
  * mangled and strings hidden, so what a visitor can read in the browser is
- * not our source. The libraries (react, three and the rest) are public
- * code and are left as they are; so are the web workers, which renaming
- * breaks (the simulator stalled loading). The HTML's comments are taken
- * out. Control-flow flattening is left off: it costs frame rate.
+ * not our source. The libraries (react, three and the rest) and the web
+ * workers have their names scrambled but their strings kept (hiding the
+ * workers' strings stalled the simulator's loading). The HTML's comments
+ * are taken out. Control-flow flattening is left off: it costs frame rate.
  * PZ_NO_OBFUSCATE=1 builds without it (faster, for local checks).
  */
 function obfuscate() {
@@ -39,10 +39,15 @@ function obfuscate() {
       // collide with the chunk's imported bindings.
       let n = 0
       const options = { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, identifierGenerator: () => '__pz' + (n++).toString(36), hexadecimalNumbers: true, stringConcealing: true }
+      // The libraries and the workers: names scrambled, strings left (the
+      // workers stall with their strings hidden; three's are its API).
+      const light = { ...options, stringConcealing: false, renameLabels: false }
       for (const file of Object.values(bundle)) {
-        if (file.type === 'chunk' && !vendor.test(file.name)) {
-          file.code = (await JsConfuser.obfuscate(file.code, options)).code
+        if (file.type === 'chunk') {
+          file.code = (await JsConfuser.obfuscate(file.code, vendor.test(file.name) ? light : options)).code
           file.map = null
+        } else if (file.type === 'asset' && /worker.*\.js$/.test(file.fileName) && typeof file.source === 'string') {
+          file.source = (await JsConfuser.obfuscate(file.source, light)).code
         }
       }
     },

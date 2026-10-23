@@ -30,7 +30,8 @@ void fragment() {
 	vec3 hot = mix(vec3(1.0, 0.82, 0.55), vec3(1.0, 0.42, 0.18), heat);
 	vec3 cool = mix(vec3(1.0, 0.45, 0.15), vec3(0.6, 0.12, 0.05), heat);
 	vec3 c = mix(cool, hot, smoothstep(0.35, 0.75, cells)) * (0.65 + 0.6 * pow(centre, 0.6));
-	float fl = 1.0 - flicker * (0.5 + 0.5 * sin(TIME * 23.0) * sin(TIME * 7.3));
+	// A dying star stutters slowly (a strobe would be hard to look at).
+	float fl = 1.0 - flicker * 0.3 * (0.5 + 0.5 * sin(TIME * 2.4) * sin(TIME * 0.9 + 1.0));
 	ALBEDO = c * 4.0 * power * fl;
 	ALPHA = 1.0;
 }

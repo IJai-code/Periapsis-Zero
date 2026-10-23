@@ -48,6 +48,9 @@ static func make(parent: Node3D, at: Vector3, color := Color(1.0, 0.68, 0.36), l
 
 var light: OmniLight3D
 var on := false
+## How far lit (0 a halo only, 1 a real light): eased, not switched.
+var fade := 0.0
+static var _last_t := 0.0
 var energy := 1.2
 var reach := 7.0
 var phase := 0.0
@@ -89,8 +92,8 @@ static func pump(cam: Camera3D) -> Dictionary:
 		var want := cam.global_position.distance_to(l.global_position) < maxf(l.reach * NEAR, 24.0)
 		if want != l.on:
 			l.on = want
-			l.light.visible = want
-			l._halo.visible = not want
+			# The light fades in and out (animate), never switches.
+			l.light.visible = true
 		if want:
 			lit += 1
 		else:
@@ -100,10 +103,17 @@ static func pump(cam: Camera3D) -> Dictionary:
 ## The flame of a wick: a couple of slow sines, so a row of lamps never
 ## pulses in time. Only lit lamps are touched.
 static func animate(t: float) -> void:
+	var dt := clampf(t - _last_t, 0.0, 0.1)
+	_last_t = t
 	for l in _all:
-		if not is_instance_valid(l) or not l.on:
+		if not is_instance_valid(l):
 			continue
-		l.light.light_energy = l.energy * (0.93 + 0.07 * sin(t * 5.7 + l.phase) * sin(t * 2.1 + l.phase * 1.3))
+		if not l.on and l.fade <= 0.0:
+			continue
+		l.fade = move_toward(l.fade, 1.0 if l.on else 0.0, dt * 1.5)
+		l.light.visible = l.fade > 0.0
+		l._halo.visible = l.fade < 0.6
+		l.light.light_energy = l.energy * l.fade * (0.96 + 0.04 * sin(t * 3.1 + l.phase) * sin(t * 1.3 + l.phase * 1.3))
 
 func _exit_tree() -> void:
 	_all.erase(self)

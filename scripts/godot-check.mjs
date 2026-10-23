@@ -233,6 +233,12 @@ const checks = [
     if (!m) return [false, (out.match(/STAIRTEST[^\n]*/) ?? ['no result'])[0]]
     return [m[1] === 'true' && Number(m[2]) < 6, m[0]]
   }],
+  ['the Reach: no gravity in the Zero-G cave, and its five rings teach the jetpack', async () => {
+    const out = await run('reach', ['--zerogtest'], /ZEROGTEST/)
+    const m = out.match(/ZEROGTEST floating (\w+), sank ([-\d.]+) m in 3 s, rings (\d+) of (\d+), learned (\w+)/)
+    if (!m) return [false, (out.match(/ZEROGTEST[^\n]*/) ?? ['no result'])[0]]
+    return [m[1] === 'true' && Math.abs(Number(m[2])) < 0.5 && m[3] === m[4] && m[5] === 'true', m[0]]
+  }],
   ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
     const out = await run('reach', ['--swimtest'], /SWIMTEST/)
     const m = out.match(/SWIMTEST floating head ([-\d.]+) m over the water, dived (\w+), fog (\w+), back up (\w+), alive (\w+)/)

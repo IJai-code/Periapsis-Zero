@@ -25,6 +25,9 @@ static func landmarks(key: String) -> Dictionary:
 				"cave": [f * _dir(23.7, 300.0), 12.0, 2.0],
 				"falls": [f * _dir(21.3, 40.0), 0.0, -5.5],
 				"pond": [f * _dir(12.8, 112.0), 0.0, -5.0],
+				# The Zero-G cave: a dome of rock on the crater floor, between
+				# the lookout and the mine (ZeroGCave).
+				"zerog": [f * _dir(18.0, 250.0), 16.0, 2.0],
 				"lake": [f * _dir(40.0, 60.0), 0.0, -14.0],
 			}
 		"verdance":

@@ -5,6 +5,30 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Scanned models, calmer light, every script obfuscated, and a Zero-G cave, 22 October 2026
+
+- **Poly Haven's photo-scanned models** (CC0): Mara's rocking chair, a
+  table and barrels, tree stumps and fallen trunks, mossy rock clusters,
+  ferns and shrubs round the village, and scanned moon rocks for the rocks
+  of Ashfall, the Phantom and the Wanderer. Each decimated in Blender to a
+  few thousand triangles (art/godot/polyhaven.py), textures kept.
+- **The Zero-G cave**, on the crater floor between the lookout and the
+  mine (the signpost points to it): a dome of rock with no gravity inside,
+  scanned rocks drifting, and five rings to fly in order with the jetpack.
+  All five is a line in the ship log (`--zerogtest`).
+- **Less flashing.** The automatic quality steps no longer switch the
+  glow off and switch shadows off only at the last two steps (a
+  whole-screen change mid-play read as a flash); village lamps fade from a
+  dot to a light instead of switching; the dying star stutters slowly
+  instead of strobing at 3.7 Hz; the campfire breathes gently instead of
+  flickering the whole village, and fades out with distance.
+- **Every script the browser loads is obfuscated** now, not only the
+  site's own: Godot's loader and audio worklets (which still had 450 lines
+  of comments) and the libraries and workers have their names scrambled;
+  the site's own code also has its strings hidden.
+- The garden's leaves were white (their colours were lost in the export):
+  leaf green.
+
 ### A friend's review: markers, sharp text, Kenney's models, third person, stairs, 21 October 2026
 
 - **A marker always shows where to go next**: Mara, the observatory and

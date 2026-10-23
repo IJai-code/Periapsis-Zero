@@ -158,6 +158,9 @@ func _physics_process(dt: float) -> void:
 	if _dead or not system:
 		return
 	var g := system.gravity(global_position)
+	# The Zero-G cave: none at all.
+	if ZeroGCave.inside(global_position + global_basis.y * 0.9):
+		g = Vector3.ZERO
 	var gl := g.length()
 	free_fall = gl < 0.35 and not is_on_floor()
 	if not free_fall and gl > 0.001:

@@ -11,7 +11,10 @@ static func mesh(name: String, tint := Color(1, 1, 1)) -> ArrayMesh:
 	var key := "%s/%s" % [name, tint.to_html()]
 	if _meshes.has(key):
 		return _meshes[key]
-	var scene: Node3D = load("res://art/kenney/%s.glb" % name).instantiate()
+	# Poly Haven's scanned models (art/godot/polyhaven.py) come through here
+	# too, as "ph/<id>": their own textured materials kept, tinted.
+	var file := "res://art/%s.glb" % name if name.begins_with("ph/") else "res://art/kenney/%s.glb" % name
+	var scene: Node3D = load(file).instantiate()
 	var out := ArrayMesh.new()
 	for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 		var xf := _to_root(mi, scene)
@@ -46,6 +49,13 @@ const PALETTE := {
 static func _material(src: Material, tint: Color) -> Material:
 	var base := Color(0.7, 0.7, 0.7)
 	var name := "?"
+	if src is BaseMaterial3D and (src as BaseMaterial3D).albedo_texture != null:
+		var tk := "%d/%s" % [src.get_instance_id(), tint.to_html()]
+		if not _mats.has(tk):
+			var d := src.duplicate() as BaseMaterial3D
+			d.albedo_color = d.albedo_color * tint
+			_mats[tk] = d
+		return _mats[tk]
 	if src is BaseMaterial3D:
 		base = (src as BaseMaterial3D).albedo_color
 		name = src.resource_name

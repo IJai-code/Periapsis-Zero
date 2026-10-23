@@ -247,7 +247,9 @@ func _tune(n: Node) -> void:
 ## tier that has failed twice is not tried again; the tier reached is
 ## remembered for this machine. Lower tiers also drop shadows, bloom and
 ## the heavier effects (see `fx_low`).
-const TIERS_WEB := [[1.0, true, true], [0.8, true, true], [0.66, false, true], [0.55, false, false], [0.42, false, false]]
+# Steps down cost resolution first; shadows go only at the last two and the
+# glow never does (a whole-screen change mid-play reads as a flash).
+const TIERS_WEB := [[1.0, true, true], [0.85, true, true], [0.72, true, true], [0.6, false, true], [0.5, false, true]]
 const TIERS_DESKTOP := [[1.0, true, true], [0.85, true, true], [0.72, true, true], [0.6, true, true], [0.5, false, true]]
 var tier := 0
 var _floor_tier := 0

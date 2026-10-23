@@ -102,6 +102,15 @@ if (target === 'web') {
       parts[i] = `<script>${code}</script>`
     }
     writeFileSync(page, parts.join(''))
+    // Godot's own loader and its audio worklets are served from the same
+    // page: their comments out and their names scrambled too (strings
+    // left, since the engine looks some of them up by name).
+    for (const f of ['index.js', 'index.audio.worklet.js', 'index.audio.position.worklet.js']) {
+      const p = join(out, f)
+      if (!existsSync(p)) continue
+      const code = (await JsConfuser.obfuscate(readFileSync(p, 'utf8'), { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, hexadecimalNumbers: true })).code
+      writeFileSync(p, code)
+    }
   }
   writeFileSync(join(out, 'version.json'), JSON.stringify({ build: stamp, date: new Date(stamp * 1000).toISOString().slice(0, 10), pck_sha256: createHash('sha256').update(readFileSync(join(out, 'index.pck'))).digest('hex') }))
 } else {

@@ -1338,6 +1338,75 @@ def orecart():
     m.done('orecart')
 
 
+def zerog_cave():
+    """The Zero-G cave: a dome of rock 22 m across on the crater floor, its
+    mouth toward -Y (Godot +Z): an inner chamber, rough and dark, seen from
+    inside; an outer shell, mossy where it faces up, seen from outside; a
+    lip of rock round the mouth joining the two. The floor is the ground."""
+    kit.reset()
+    R_IN, R_OUT, CZ = 9.0, 11.0, 2.5
+    mouth = V((0, -1, 0.12)).normalized()
+    MOUTH = math.radians(28)
+
+    def shell(radius, rough, inward, name, cols):
+        bm = bmesh.new()
+        lay = bm.verts.layers.float_color.new('col')
+        res = bmesh.ops.create_icosphere(bm, subdivisions=4, radius=1.0)
+        off = V((3.1, 7.7, 1.3)) if inward else V((9.2, 2.4, 5.5))
+        for v in res['verts']:
+            d = v.co.normalized()
+            n = noise.noise(d * 2.2 + off) * rough + noise.noise(d * 6.0 + off) * rough * 0.35
+            v.co = d * radius * (1.0 + n) + V((0, 0, CZ))
+        dead = []
+        for f in bm.faces:
+            c = (f.calc_center_median() - V((0, 0, CZ))).normalized()
+            if c.angle(mouth) < MOUTH or f.calc_center_median().z < -1.5:
+                dead.append(f)
+        bmesh.ops.delete(bm, geom=dead, context='FACES')
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        if inward:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces)
+        bm.normal_update()
+        for v in bm.verts:
+            v[lay] = cols(v.co, v.normal)
+        _vcol_part(name, bm, 'rock_vc')
+
+    def inner_col(co, n):
+        k = 0.42 + 0.25 * max(0.0, noise.noise(co * 0.4))
+        return (k, k * 0.95, k * 0.9, 1.0)
+
+    def outer_col(co, n):
+        up = max(0.0, n.z)
+        base = V((0.6, 0.56, 0.5)) * (0.8 + 0.2 * noise.noise(co * 0.3))
+        moss = min(1.0, max(0.0, (up - 0.4) / 0.4))
+        c = base.lerp(V((0.33, 0.47, 0.2)), moss * 0.8)
+        return (c.x, c.y, c.z, 1.0)
+
+    shell(R_IN, 0.12, True, 'cave_inner', inner_col)
+    shell(R_OUT, 0.08, False, 'cave_outer', outer_col)
+    # The lip: a ring of boulders round the mouth, between the shells.
+    rocks = bmesh.new()
+    lay = rocks.verts.layers.float_color.new('col')
+    side = mouth.cross(V((0, 0, 1))).normalized()
+    upm = side.cross(mouth).normalized()
+    rng = random.Random(77)
+    for k in range(16):
+        a = 2 * math.pi * k / 16
+        rim = (mouth * math.cos(MOUTH) + (side * math.cos(a) + upm * math.sin(a)) * math.sin(MOUTH)).normalized()
+        c = V((0, 0, CZ)) + rim * (R_IN + R_OUT) / 2
+        if c.z < -0.5:
+            continue
+        sz = rng.uniform(1.0, 1.6)
+        res = bmesh.ops.create_icosphere(rocks, subdivisions=2, radius=1.0)
+        for v in res['verts']:
+            d = v.co.copy()
+            v.co = c + d * sz * (1 + noise.noise(d * 2 + V((k, 0, 0))) * 0.25)
+            g = 0.5 + 0.1 * noise.noise(d * 3)
+            v[lay] = (g, g * 0.95, g * 0.9, 1.0)
+    _vcol_part('cave_lip', rocks, 'rock_vc')
+
+
 def export_named(name):
     export(os.path.join(OUT, f'valley-{name}.glb'))
 
@@ -1373,6 +1442,7 @@ jobs = {
     'fence': lambda: (fence(), export_named('fence')),
     'garden': lambda: (garden(), export_named('garden')),
     'orecart': lambda: (orecart(), export_named('orecart')),
+    'zerog_cave': lambda: (zerog_cave(), export_named('zerog_cave')),
 }
 for name, fn in jobs.items():
     if ONLY and name not in ONLY:

@@ -205,10 +205,12 @@ void fragment() {
 
 ## Leaves painted in Blender: their own colours, a soft sheen.
 static func _leaf_vc() -> StandardMaterial3D:
+	# (Their painted colours did not survive the export: plain leaf green.)
 	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.vertex_color_is_srgb = true
-	m.roughness = 0.75
+	m.albedo_color = Color(0.3, 0.5, 0.2)
+	m.roughness = 0.8
+	m.backlight_enabled = true
+	m.backlight = Color(0.15, 0.22, 0.08)
 	return m
 
 ## Times the mesh's own vertex colours (shaders/surface.gdshader's vcol).
