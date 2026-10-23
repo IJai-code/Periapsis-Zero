@@ -554,6 +554,18 @@ func _match(_dt: float) -> Vector3:
 	var local := global_basis.inverse() * (-rel)
 	return local.normalized() * clampf(rel.length() / 6.0, 0.2, 1.0)
 
+## The part of `v` across the world (square to `up`).
+static func _across(v: Vector3, up: Vector3) -> Vector3:
+	return v - up * v.dot(up)
+
+## How fast Shift sinks her at this height: never more than the brake
+## allows (a stop at 6 m/s^2 in the height left, the last 25 m at a walk).
+## Asked for more, the sink and the brake took turns, and over a small,
+## lumpy world (the Wanderer) she bobbed, pushed back up each time.
+func _sink_pace() -> float:
+	var h := maxf(_alt_pace, 0.0)
+	return clampf(minf(1.6 + h * 0.45, 0.85 * (sqrt(2.0 * 6.0 * maxf(h - 25.0, 0.0)) + 5.0)), 1.2, 35.0)
+
 ## The ground ahead: her own shape swept along her path for the next few
 ## seconds (four ticks in five skipped). `_danger` rises from 0 as the room
 ## left to stop shrinks toward what she needs, to 1 when she cannot.
@@ -569,7 +581,8 @@ func _terrain(_dt: float) -> void:
 	var speed := v.length()
 	# A descent the assist is already pacing (Shift, low down) is not danger.
 	var up := (global_position - b.node.position).normalized()
-	var paced := assist and altitude < HOVER_ALT and v.dot(-up) > speed * 0.8 and speed < 1.6 + altitude * 0.35 + 3.0
+	# (Its pace is _sink_pace; a little drift across a slope is still it.)
+	var paced := assist and altitude < HOVER_ALT and v.dot(-up) > speed * 0.6 and speed < _sink_pace() + 4.0
 	if speed < 1.5 or paced:
 		_danger = move_toward(_danger, 0.0, 0.2)
 		return
@@ -635,6 +648,7 @@ func _measure() -> void:
 	near_key = _near_world()
 	if near_key == "":
 		altitude = INF
+		_alt_pace = INF
 		sink = 0.0
 		return
 	var b: ReachBody = system.bodies[near_key]
@@ -652,8 +666,16 @@ func _measure() -> void:
 		var hit := get_world_3d().direct_space_state.intersect_ray(_ray)
 		if not hit.is_empty():
 			altitude = global_position.distance_to(hit.position) - 1.9
+	# The height the sink and the brake pace by: down at once (a spire
+	# under her), back up only slowly (past it), so a lumpy world does not
+	# have her braking and speeding up by turns.
+	if altitude < _alt_pace or _alt_pace == INF:
+		_alt_pace = altitude
+	else:
+		_alt_pace = move_toward(_alt_pace, altitude, 5.0 * get_physics_process_delta_time())
 
 var _ray: PhysicsRayQueryParameters3D
+var _alt_pace := INF
 
 ## The world the assist flies relative to: the locked one; the one she is
 ## low over; or the one her nose is pointed at.
@@ -719,15 +741,28 @@ func _assist(acc: Vector3, t: Vector3, g: Vector3, _roll: float, _dt: float) -> 
 		var settle := altitude < 3.0 and t.y <= 0.0 and t.x == 0.0 and t.z == 0.0
 		if t.y != 0.0 or settle:
 			aw -= up * aw.dot(up)
-			var want_up := 12.0 if t.y > 0.0 else -clampf(1.6 + maxf(altitude, 0.0) * 0.45, 1.2, 35.0)
+			# The sink never asks for more than the brake below allows
+			# (a stop at 6 m/s^2 in the height left, the last 25 m at a
+			# walk): asked for more, the two took turns, and over a small
+			# world (the Wanderer) she bobbed, pushed back up each time.
+			var want_up := 12.0 if t.y > 0.0 else -_sink_pace()
 			if settle:
 				want_up = -1.2
 			aw += up * (want_up - v_up) * 2.5
+		if t.x == 0.0 and t.z == 0.0:
+			aw -= _across(aw, up)
 		aw -= g
-		var wish := aw + g
-		if wish.length() < 0.1:
-			aw -= v_rel * k if not settle else (v_rel - up * v_up) * k
+		if t.x == 0.0 and t.z == 0.0:
+			# Not steered across the world: no push across from her own
+			# tilt, and every bit of drift across taken out. (This used to
+			# read "across" off the push it had just worked out; once a
+			# descent reached its pace that push was all but nothing, a
+			# breath of tilt set the direction, the drift along it went
+			# untouched and grew, and over the Wanderer she slid round it
+			# and was flung off.)
+			aw -= (v_rel * k) if (t.y == 0.0 and not settle) else _across(v_rel, up) * k
 		else:
+			var wish := aw + g
 			var wd := wish.normalized()
 			aw -= (v_rel - wd * v_rel.dot(wd)) * k
 		out = inv * aw
@@ -748,7 +783,7 @@ func _assist(acc: Vector3, t: Vector3, g: Vector3, _roll: float, _dt: float) -> 
 	# Falling at a world faster than she can stop in the height left.
 	var dirn := to.normalized()
 	var closing := v_rel.dot(dirn)
-	var room := maxf(altitude - 25.0 if key == system.ref and altitude < INF else surf - 120.0, 0.0)
+	var room := maxf(_alt_pace - 25.0 if key == system.ref and altitude < INF else surf - 120.0, 0.0)
 	var safe := sqrt(2.0 * 6.0 * room) + 5.0
 	if closing > safe:
 		var brake := inv * (-dirn * (closing - safe) * 2.4)
@@ -858,7 +893,9 @@ func _impacts() -> void:
 	# Setting down: the first touch after flying throws the ground's grit out
 	# from under the gear and takes the hull with a thud. Softly from a
 	# hover, hard from a fall.
-	if touching and _airborne and piloted and _land_t <= 0.0 and dv > 0.2:
+	# (Or coming down onto it at all: a settle paced to a walk spreads its
+	# jolt over several ticks.)
+	if touching and _airborne and piloted and _land_t <= 0.0 and (dv > 0.2 or sink > 0.5):
 		_land_t = 0.7
 		var g := system.gravity(global_position)
 		var down := g.normalized() if g.length() > 0.001 else -global_basis.y.normalized()

@@ -193,16 +193,24 @@ func _pillar(at: Vector2, scale: float, variant: int, turn: float) -> Transform3
 
 ## A floating stone, solid (its hull built at its size: a scaled body is
 ## not reliably solid).
+## Poly Haven's scanned boulder (art/godot/polyhaven.py), stretched to the
+## size asked for and centred on `at` (its own origin is its foot).
+const STONE := "ph/ph-namaqualand_boulder_03"
+const STONE_SIZE := Vector3(2.40, 1.48, 3.08)
+
 func _stone(at: Vector3, b: Basis, size: Vector3, seed: int) -> void:
 	var turn := b.rotated(b.y, seed * 0.7)
 	var mi := MeshInstance3D.new()
-	mi.mesh = Props.mesh("rock")
-	mi.material_override = Props.material()
+	mi.mesh = KenneyKit.mesh(STONE)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	add_child(mi)
-	mi.transform = Transform3D(turn * Basis.from_scale(size), at)
+	var k := size / STONE_SIZE
+	at -= turn.y.normalized() * size.y * 0.5
+	mi.transform = Transform3D(turn * Basis.from_scale(k), at)
 	var pts := PackedVector3Array()
-	for v: Vector3 in (mi.mesh as ArrayMesh).surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
-		pts.append(v * size)
+	for sf in (mi.mesh as ArrayMesh).get_surface_count():
+		for v: Vector3 in (mi.mesh as ArrayMesh).surface_get_arrays(sf)[Mesh.ARRAY_VERTEX]:
+			pts.append(v * k)
 	var hull := ConvexPolygonShape3D.new()
 	hull.points = pts
 	var sb := StaticBody3D.new()

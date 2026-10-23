@@ -256,6 +256,11 @@ const checks = [
     const ok = Boolean(m) && Number(m[1]) > 0.4 && Number(m[2]) > Number(m[1]) * 2.5 && Number(m[3]) > 2.0 && Number(m[4]) > 0
     return [ok, m ? m[0] : 'no result']
   }],
+  ...[['at its door\'s hour, near the Lantern', []], ['while it runs through Verdance\'s sphere', ['100']]].map(([when, extra]) => [`the Reach: land on the Wanderer ${when}: Shift sets her down, nothing pushes her off, and you can stand on it`, async () => {
+    const out = await run('reach', ['--wandertest', ...extra], /WANDERTEST/, 300000)
+    const m = out.match(/WANDERTEST landed (\w+) after (\d+) s, pushed away at most ([\d.]+) m\/s, frames ([\w,]+), hull (\d+), standing (-?[\d.]+) m over the ground, frame (\w+), alive (\w+)/)
+    return [Boolean(m) && m[1] === 'true' && Number(m[3]) < 4 && m[5] === '100' && Math.abs(Number(m[6])) < 4 && m[7] === 'wanderer' && m[8] === 'true', m ? m[0] : (out.match(/WANDERTEST[^\n]*/) ?? ['no result'])[0]]
+  }]),
   ['the Reach: L opens the ship log', async () => {
     const out = await run('reach', ['--logtest'], /LOGTEST/)
     return [/LOGTEST open true/.test(out), (out.match(/LOGTEST[^\n]*/) ?? ['no result'])[0]]

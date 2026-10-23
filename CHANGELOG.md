@@ -5,6 +5,41 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Landing on the Wanderer, a crater wall of real rock, and Verdance's forest, 23 October 2026
+
+- **The Wanderer can be landed on.** Three faults, each found by a new
+  landing test (`--wandertest [loop s]`, run at the door's hour and while
+  the comet passes through Verdance's sphere):
+  - Its orbit runs through Verdance's and Hearthstone's spheres, and a
+    sphere could only be entered from open space: inside Verdance's, the
+    comet's frame never came, its pull was left out and the assist held
+    her still against Verdance while the comet slid away. The smallest
+    sphere you are in now rules, as a moon's does inside its planet's;
+    the comet's own sphere is 750 m (was 300), so it rules whenever it
+    fills the view.
+  - With only Shift held, the assist read "across" off the push it had
+    just worked out; once the descent reached its pace that push was
+    almost nothing, a breath of tilt set the direction, and the drift
+    along it grew unchecked (to 70 m/s), whipping her round the small
+    comet and flinging her off. Drift across is now always taken out when
+    you are not steering across.
+  - Shift's sink asked for more than the brake allowed, and a lumpy
+    surface made the measured height jump: the two took turns and she
+    bobbed. The sink keeps under the brake, paced by a height that drops
+    at once and recovers slowly.
+  Pushed away at most 0.0 m/s now (was 6.2), down in 31 s, standing on it.
+- **Hearth's crater wall is real rock**: Poly Haven's scanned stratified
+  sandstone faces, a dozen times their size and overlapping, round the
+  whole crater (the carved strips stay behind as the wall you cannot walk
+  through); narrower faces flank the mine's mouth and the falls like the
+  sides of a gorge; scanned boulders at the foot. The Zero-G cave's dome
+  has scanned rock bedded into it.
+- **Verdance's forest** is Flora's trees, palms, ferns and shrubs (scanned
+  bark and leaf cards) in place of Kenney's blobs; its floating stones are
+  a scanned boulder.
+- The landing page's picture is rendered again with the new wall.
+
+
 ### Scanned grass and pines, villagers with a life, a way back to the ship, and the music in tune, 22 October 2026
 
 - **Grass, dandelions and daisies from Poly Haven's scans** in place of

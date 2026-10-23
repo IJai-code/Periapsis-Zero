@@ -271,13 +271,18 @@ func _decorate(deco: Dictionary) -> void:
 					if not some.is_empty():
 						_deco_mm(KenneyKit.mesh(shapes[v][0], _kenney_tint(kind)), some, centre, null, 0.0, range_end, not kind in ["fern", "bush", "stump"])
 				continue
-			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] else null
+			var mat: Material = Props.material() if kind in ["rock", "shard", "stump", "bush"] and not (kind == "bush" and body.key == "verdance") else null
 			_deco_mm(_mesh_for(kind), xfs, centre, mat, 0.0, range_end, not kind in ["fern", "bush", "stump", "rock"])
 
 ## The Kenney shapes for a kind of plant or rock on this world, and the
 ## scale each is drawn at (their models are about a metre tall).
 func _kenney(kind: String) -> Array:
 	var bare := body.key in ["ashfall", "phantom", "wanderer"]
+	# Verdance's forest is Flora's: trunks of scanned bark carrying cards
+	# of scanned leaves (art/godot/flora.py), a few hundred triangles each,
+	# not Kenney's blobs.
+	if body.key == "verdance" and kind in ["tree", "giant", "palm", "fern", "bush"]:
+		return []
 	match kind:
 		"pine":
 			# Poly Haven's scanned fir, made into tall pines (art/godot/pines.py).
@@ -368,4 +373,7 @@ func _mesh_for(kind: String) -> Mesh:
 	match kind:
 		"giant", "tree", "palm", "fern":
 			return Flora.mesh(kind)
+		"bush":
+			if body.key == "verdance":
+				return Flora.mesh("shrub")
 	return Props.mesh(kind)

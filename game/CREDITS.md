@@ -43,4 +43,7 @@ from Poly Haven (polyhaven.com), CC0. Decimated for the browser by
 art/godot/polyhaven.py. The grass, dandelions and daisies are Poly Haven's
 scanned grass_medium_01/02, dandelion_01 and flower_ursinia rendered into
 cards (art/godot/grass_cards.py); the pines are built from its scanned
-fir_sapling and pine_sapling_small bark (art/godot/pines.py).
+fir_sapling and pine_sapling_small bark (art/godot/pines.py). Hearth's
+crater wall is its scanned rock_face_01 and rock_face_02 (stratified
+sandstone), with namaqualand_boulder_03 at the foot, on the Zero-G cave's
+dome and as Verdance's floating stones.

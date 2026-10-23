@@ -109,6 +109,7 @@ func _build() -> void:
 	var zm := put_near("valley-zerog_cave", Worlds.place(body, "zerog"), Vector3.ZERO, center.origin, true, 1.0, 0.0)
 	zerog = ZeroGCave.new()
 	zm.add_child(zerog)
+	_dress_dome(zm)
 	if chunk:
 		await get_tree().process_frame
 	_tower()
@@ -333,20 +334,122 @@ func _chimney(cabin: Node3D) -> void:
 ## The crater's walls: carved cliff all round (art/godot/hearth_valley.py),
 ## but for the mine's notch; at the falls, the gorge piece, the water
 ## coming down it (Falls) into the pool, its mist and its roar.
+## The Zero-G cave's dome was a smooth ball under a rock texture: scanned
+## boulders and a rock face or two bedded into its outside (not over its
+## mouth, which is +Z), solid like the dome.
+func _dress_dome(dome: Node3D) -> void:
+	var box := AABB()
+	var first := true
+	for mi: MeshInstance3D in dome.find_children("*", "MeshInstance3D", true, false):
+		var b := mi.transform * mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	var r := maxf(box.size.x, box.size.z) * 0.5
+	var mid := Vector3(box.get_center().x, box.position.y, box.get_center().z)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 23
+	var k := 0
+	while k < 11:
+		var az := rng.randf() * TAU
+		# Clear of the mouth (+Z) by 50 degrees either side.
+		if absf(angle_difference(az, 0.0)) < deg_to_rad(50.0):
+			continue
+		var el := rng.randf_range(0.1, 1.05)
+		var out := Vector3(sin(az) * cos(el), sin(el), cos(az) * cos(el))
+		var model := "ph/ph-namaqualand_boulder_03" if k % 3 != 0 else "ph/ph-cliff_face_b"
+		var n: Node3D = load("res://art/%s.glb" % model).instantiate()
+		dome.add_child(n)
+		var sc := rng.randf_range(2.6, 4.2) if k % 3 != 0 else rng.randf_range(3.0, 4.0)
+		var y := out
+		var x := y.cross(Vector3.UP if absf(y.y) < 0.95 else Vector3.RIGHT).normalized()
+		var b2 := Basis(x, y, x.cross(y)).rotated(y, rng.randf() * TAU).scaled(Vector3.ONE * sc)
+		n.transform = Transform3D(b2, mid + Vector3(0, r * 0.15, 0) + out * r * 0.86)
+		Surfaces.collide(n)
+		k += 1
+
 func _crater() -> void:
 	var k := 0
 	var az := 8.0
+	var walls: Array[Node3D] = []
 	while az < 368.0:
 		var a := fmod(az, 360.0)
 		if absf(angle_difference(deg_to_rad(a), deg_to_rad(300.0))) > deg_to_rad(14.0) and absf(angle_difference(deg_to_rad(a), deg_to_rad(40.0))) > deg_to_rad(11.0):
 			var d := Worlds.crater_dir(a, 112.5)
 			var cliff := put_dir("valley-cliff_a" if k % 2 == 0 else "valley-cliff_b", d, center.origin, true, 1.0, 0.6)
 			cliff.rotate_object_local(Vector3.UP, (k % 3 - 1) * 0.03)
+			walls.append(cliff)
 		k += 1
 		az += 25.0
 	# The gap the falls used to stand in: one more stretch of wall beside
 	# them, and the gorge piece itself.
-	put_dir("valley-cliff_b", Worlds.crater_dir(19.0, 112.5), center.origin, true, 1.0, 0.6)
+	walls.append(put_dir("valley-cliff_b", Worlds.crater_dir(19.0, 112.5), center.origin, true, 1.0, 0.6))
+	# The wall as it is seen: Poly Haven's scanned rock faces (stratified
+	# sandstone, art/godot/polyhaven.py, squashed front to back), stood a
+	# dozen times their size and overlapping, so the crater is ringed by
+	# real rock and no seam shows. The carved strips stay behind them,
+	# unseen, as the wall you cannot walk through.
+	for w in walls:
+		for mi: MeshInstance3D in w.find_children("*", "MeshInstance3D", true, false):
+			mi.visible = false
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	# [model, width, depth, height] as exported.
+	var faces := [["ph/ph-cliff_face_a", 4.95, 1.72, 3.57], ["ph/ph-cliff_face_b", 2.71, 1.07, 2.48]]
+	# The gaps: the mine's mouth and the falls, [azimuth, half-width deg].
+	var gaps := [[300.0, 4.5], [40.0, 2.2]]
+	var place_face := func(f: Array, a: float, h: float, squeeze: float, turn: float) -> void:
+		var sc := h / float(f[3])
+		# Its face at the wall's foot (its origin is the middle of its
+		# depth), stood on the crater floor's own height there: on the
+		# slope behind, it showed the bare slope under and in front of it.
+		var depth := float(f[2]) * sc
+		var dp := Worlds.crater_dir(a, 105.0 + depth * 0.5)
+		var floor_h := Worlds.height(body.key, Worlds.crater_dir(a, 99.0), body.radius)
+		var base := dp * (body.radius + floor_h)
+		var rock := piece(f[0], Transform3D(upright(dp, center.origin - base), base), true, sc, 3.0)
+		rock.rotate_object_local(Vector3.UP, turn)
+		if squeeze < 1.0:
+			rock.scale = Vector3(rock.scale.x * squeeze, rock.scale.y, rock.scale.z)
+	# Each gap flanked by a narrower face either side, turned a little to
+	# make the sides of a gorge.
+	var flank := 20.0
+	for g: Array in gaps:
+		for side in [-1.0, 1.0]:
+			var fb: Array = faces[1]
+			var h := rng.randf_range(50.0, 56.0)
+			var full := float(fb[1]) * h / float(fb[3])
+			var a: float = float(g[0]) + side * (float(g[1]) + rad_to_deg(flank * 0.5 / 112.5))
+			place_face.call(fb, a, h, flank / full, -side * 0.35)
+	# Room for a face's half-width before the nearest gap (degrees).
+	var room := func(a: float) -> float:
+		var best := INF
+		for g: Array in gaps:
+			best = minf(best, absf(rad_to_deg(angle_difference(deg_to_rad(a), deg_to_rad(float(g[0]))))) - float(g[1]) - 0.8)
+		return best
+	var at := 2.0
+	var i := 0
+	while at < 362.0:
+		var a := fmod(at, 360.0)
+		var f: Array = faces[i % 2 if rng.randf() > 0.25 else (i + 1) % 2]
+		var h := rng.randf_range(52.0, 60.0)
+		var width := float(f[1]) * h / float(f[3])
+		# Next to a gap it is narrowed to stop at the gap's edge, not left
+		# out (left out, the bare slope showed beside the mine's mouth).
+		var hw := rad_to_deg(width * 0.5 / 112.5)
+		var space: float = room.call(a)
+		if space > hw * 0.3:
+			place_face.call(f, a, h, minf(1.0, space / hw), rng.randf_range(-0.22, 0.22) if space > hw else 0.0)
+		# On round the ring, each overlapping the last by two fifths.
+		at += rad_to_deg(width * 0.6 / 112.5) if space > hw else 2.5
+		i += 1
+	# Boulders fallen from it, at its foot.
+	for b in 14:
+		var a2 := rng.randf() * 360.0
+		if absf(angle_difference(deg_to_rad(a2), deg_to_rad(300.0))) < deg_to_rad(16.0) or absf(angle_difference(deg_to_rad(a2), deg_to_rad(40.0))) < deg_to_rad(12.0):
+			continue
+		var bd := Worlds.crater_dir(a2, rng.randf_range(95.0, 100.0))
+		var boulder := put_dir("ph/ph-namaqualand_boulder_03", bd, center.origin, true, rng.randf_range(2.2, 4.2), 0.5)
+		boulder.rotate_object_local(Vector3.UP, rng.randf() * TAU)
 	var gorge := put_dir("valley-cliff_falls", Worlds.crater_dir(40.0, 112.5), center.origin, true, 1.0, 0.6)
 	# Where the gorge's lip and foot are, read off the rock itself.
 	var lip := Vector3(0.0, 39.0, 0.0)

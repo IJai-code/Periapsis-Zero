@@ -122,6 +122,11 @@ func _ready() -> void:
 		_stair_test()
 	if "--zerogtest" in args:
 		_zerog_test()
+	var wt := args.find("--wandertest")
+	if wt >= 0:
+		# --wandertest [loop seconds]: at the door's hour by default; 100 is
+		# while the comet runs through Verdance's sphere.
+		_wander_test(float(args[wt + 1]) if wt + 1 < args.size() and args[wt + 1].is_valid_float() else WandererSite.OPEN_FROM + 10.0)
 	if "--walltestfly" in args:
 		_fly_wall_test()
 	var apt := args.find("--aptest")
@@ -143,7 +148,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest"]:
 			return true
 	return false
 
@@ -1159,6 +1164,63 @@ func _story_test() -> void:
 			await get_tree().process_frame
 	Report.finish(get_tree())
 
+## The Wanderer at its door's hour, near the Lantern (when it moves
+## fastest): from 500 m over it, Shift brings her down onto it; out, and the
+## explorer stands on it. Reports the most she was pushed away on the way.
+func _wander_test(at: float) -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	system.t = at
+	ship.board()
+	await ship.boarded
+	var wb: ReachBody = system.bodies["wanderer"]
+	system.switch("lantern")
+	await get_tree().physics_frame
+	var c := system.world("wanderer")
+	var d := Vector3(0.2, 0.95, 0.25).normalized()
+	ship.freeze = true
+	ship.global_transform = Transform3D(Site.upright(d, d.cross(Vector3.UP)), c + d * (wb.radius + 500.0))
+	ship.reset_physics_interpolation()
+	ship.freeze = false
+	ship.linear_velocity = system.world_vel("wanderer")
+	ship._last_v = ship.linear_velocity
+	ship.landed = false
+	ship._lit = true
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	# At rest against the comet in whatever frame now rules (the switch into
+	# it may have come between the placing and the first tick).
+	ship.linear_velocity = system.world_vel("wanderer")
+	ship._last_v = ship.linear_velocity
+	await get_tree().physics_frame
+	var k := InputEventKey.new()
+	k.keycode = KEY_SHIFT
+	k.physical_keycode = KEY_SHIFT
+	k.pressed = true
+	Input.parse_input_event(k)
+	var t := 0.0
+	var pushed := 0.0
+	var frames := {}
+	while t < 150.0 and not ship.landed and not ship._dead:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		frames[system.ref] = true
+		var rel := ship.linear_velocity - system.world_vel("wanderer")
+		var up := (ship.global_position - system.world("wanderer")).normalized()
+		pushed = maxf(pushed, rel.dot(up))
+	var k2 := k.duplicate() as InputEventKey
+	k2.pressed = false
+	Input.parse_input_event(k2)
+	var landed := ship.landed
+	var hull := int(ship.integrity)
+	ship.leave()
+	await ship.left_ship
+	await get_tree().create_timer(6.0).timeout
+	var r := player.global_position.distance_to(system.world("wanderer"))
+	var ground := Worlds.height("wanderer", (player.global_position - system.world("wanderer")).normalized(), wb.radius) + wb.radius
+	Report.line("WANDERTEST landed %s after %.0f s, pushed away at most %.1f m/s, frames %s, hull %d, standing %.1f m over the ground, frame %s, alive %s" % [landed, t, pushed, ",".join(frames.keys()), hull, r - ground, system.ref, not player._dead])
+	Report.finish(get_tree())
+
 ## Into a body's frame, standing at its first landmark.
 func _go(key: String) -> void:
 	system.switch(key)
@@ -1213,7 +1275,13 @@ func _wall_test() -> void:
 	var targets := []
 	for n in village.get_children():
 		if n is Node3D and not n is Npc and (n as Node3D).find_children("*", "CollisionShape3D", true, false).size() > 0:
-			targets.append([String(n.name) + ":" + String(n.scene_file_path).get_file(), (n as Node3D).global_position, (n as Node3D).global_basis.z])
+			# Walked at from just past its own front (the crater's rock faces
+			# are tens of metres deep: seven metres out was inside them).
+			var reach_z := 0.0
+			for mi: MeshInstance3D in (n as Node3D).find_children("*", "MeshInstance3D", true, false):
+				var b := (n as Node3D).global_transform.affine_inverse() * mi.global_transform * mi.get_aabb()
+				reach_z = maxf(reach_z, b.end.z * (n as Node3D).global_basis.z.length())
+			targets.append([String(n.name) + ":" + String(n.scene_file_path).get_file(), (n as Node3D).global_position, (n as Node3D).global_basis.z, maxf(7.0, reach_z + 2.0)])
 	# The fire too: walked round, not through.
 	targets.append(["campfire", campfire.global_position, campfire.global_basis.x])
 	var pl: Planet = planets["hearthstone"]
@@ -1241,7 +1309,7 @@ func _wall_test() -> void:
 		var up := at.normalized()
 		var out: Vector3 = t[2]
 		out = (out - up * out.dot(up)).normalized()
-		var start := at + out * 7.0
+		var start := at + out * (float(t[3]) if t.size() > 3 else 7.0)
 		var d := start.normalized()
 		start = d * (system.ruling().radius + Worlds.height("hearthstone", d, system.ruling().radius) + 0.15)
 		player.place(Transform3D(Site.upright(d, -out), start), -out)
@@ -1271,7 +1339,7 @@ func _wall_test() -> void:
 			var up := at.normalized()
 			var out: Vector3 = t[2]
 			out = (out - up * out.dot(up)).normalized()
-			var start := at + out * 7.0
+			var start := at + out * (float(t[3]) if t.size() > 3 else 7.0)
 			var d := start.normalized()
 			start = d * (system.ruling().radius + Worlds.height("hearthstone", d, system.ruling().radius) + 3.0)
 			player.collision_mask = 0

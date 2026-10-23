@@ -64,7 +64,7 @@ static func define() -> Array:
 	var a := (peri_r + apo_r) / 2.0
 	var e := (apo_r - peri_r) / (apo_r + peri_r)
 	var n := sqrt(STAR_GM / (a * a * a))
-	var comet := ReachBody.make("wanderer", "The Wanderer", 90.0, 1.5, 300.0, Orbit.make(STAR_GM, a, e, -n * 1230.0, 2.2, 0.12, 0.4))
+	var comet := ReachBody.make("wanderer", "The Wanderer", 90.0, 1.5, 750.0, Orbit.make(STAR_GM, a, e, -n * 1230.0, 2.2, 0.12, 0.4))
 	comet.tint = Color(0.7, 0.88, 1.0)
 	out.append(comet)
 	return out
@@ -151,21 +151,27 @@ func _check_frame() -> void:
 	if not focus or not is_instance_valid(focus):
 		return
 	var p := focus.global_position
-	if ref == "lantern":
-		var best := ""
-		var best_k := 1.0
-		for key in order:
-			if key == "lantern":
-				continue
-			var b: ReachBody = bodies[key]
-			var k := p.distance_to(b.node.position) / b.soi
-			if k < best_k:
-				best_k = k
-				best = key
-		if best != "":
-			switch(best)
-	elif p.length() > (bodies[ref] as ReachBody).soi * 1.06:
-		switch("lantern")
+	# The smallest sphere you are inside rules, as a moon's does inside its
+	# planet's: the Wanderer's orbit runs through Hearthstone's and
+	# Verdance's spheres, and inside one of them you could never come into
+	# the comet's frame (its pull left out, the assist holding you still
+	# against the wrong world while the comet slid away). A little slack to
+	# leave the one you are in, so a sphere's edge does not flicker.
+	var best := ""
+	var best_soi := INF
+	for key in order:
+		if key == "lantern":
+			continue
+		var b: ReachBody = bodies[key]
+		var lim := b.soi * (1.06 if key == ref else 1.0)
+		if p.distance_to(b.node.position) < lim and b.soi < best_soi:
+			best = key
+			best_soi = b.soi
+	if best == "":
+		if ref != "lantern":
+			switch("lantern")
+	elif best != ref:
+		switch(best)
 
 ## Move the world into another body's frame.
 func switch(to: String) -> void:
