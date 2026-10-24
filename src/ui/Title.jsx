@@ -208,8 +208,6 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
     <section className="lp-hero" style={{ backgroundImage: `url(${BASE}game/landing-lake.jpg)` }}>
       <nav className="lp-top" aria-label="More">
         <button className="lp-top-help" onClick={() => setHelp(true)}>How to play</button>
-        <button onClick={() => setTab('training')}>Flight school</button>
-        <button onClick={() => setTab('worlds')}>Worlds</button>
         <AccountButton />
       </nav>
       <div className="lp-left">
@@ -217,21 +215,21 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
         <p className="lp-tag">Twenty-two minutes. Then the star goes out, and you wake by the campfire again.</p>
         <p className="lp-goal">Fly a little ship between five tiny worlds and find out why the day keeps repeating. <button onClick={() => setHelp(true)}>How to play</button></p>
         <ul className="lp-menu">
+          {/* One game on the front page: the Reach. The older projects are a
+              line at the bottom ("More from this project"). */}
           {isPhone
-            ? <li className="lp-note">The game needs a keyboard and mouse. Come back on a computer, or try the simulator here.</li>
+            ? <li className="lp-note">The game needs a keyboard and mouse. Come back on a computer, or try the orbital simulator below.</li>
             : <>
               {/* The game is the Godot build (game/, published to /play/); #reach goes straight in. */}
               <li><a href={`${BASE}play/index.html#reach`}>Play in your browser</a></li>
               <li><a href={`${DESKTOP}${download.file}`}>Download for {download.name}</a></li>
             </>}
-          <li><button onClick={onSimulator}>Explore the Cosmos</button></li>
-          <li><button onClick={() => setTab('training')}>Flight School</button></li>
-          <li><button onClick={onSquadron}>Squadron</button></li>
+          <li><button onClick={() => setHelp(true)}>How to Play</button></li>
         </ul>
       </div>
       <div className="lp-links">
-        {!isPhone && <p>Free in your browser, about 100 MB the first time · also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> and <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> · <a href="#install" onClick={toInstall}>how to open the download</a></p>}
-        <p>{save ? <>Your career in the original flight game: <button onClick={onPlay}>continue</button> or <button onClick={newGame}>start a new pilot</button></> : <>Rather fly and fight? <button onClick={newGame}>Start a career</button> in the original flight game</>}{flown ? ` · Flight log: ${flown}` : ''}</p>
+        {!isPhone && <p>Free in your browser, about 105 MB the first time · also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> and <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> · <a href="#install" onClick={toInstall}>how to open the download</a></p>}
+        <p className="lp-more">More from this project: <button onClick={onSimulator}>the orbital simulator</button> · <button onClick={() => setTab('training')}>Apollo flight school</button> · <button onClick={onSquadron}>Squadron</button> · {save ? <>your career in the original flight game (<button onClick={onPlay}>continue</button>)</> : <button onClick={newGame}>the original flight game</button>}{flown ? ` · Flight log: ${flown}` : ''}</p>
         {confirm && <p className="lp-confirm" role="alert">Replace your saved career with a new pilot? <button onClick={onNew}>Replace it</button> <button onClick={() => setConfirm(false)}>Keep my pilot</button></p>}
       </div>
       <div className="lp-version">Periapsis Zero · The Reach · early build</div>
@@ -240,7 +238,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
       <h2 id="lp-worlds-title">Five small worlds, one loop</h2>
       <p className="lp-lede">You wake by Hearth&rsquo;s campfire. After that there are no waypoints: only rumours in your ship&rsquo;s log, signals on your scope, and twenty-two minutes before the star (the Lantern) goes out.</p>
       <ol>
-        <li><strong>Hearthstone</strong>A village in a crater: houses on stilts, a lake and a pier, a waterfall, an observatory, and your ship on top of the launch tower.</li>
+        <li><strong>Hearthstone</strong>A village in a crater: houses on stilts, a lake and a pier, a waterfall, an observatory, and your ship on top of the launch tower. Isa&rsquo;s ring course for the Kestrel runs round its walls, and every morning stones fall from the dying star.</li>
         <li><strong>Verdance</strong>Sandstone pillars and waterfalls, and a harmonica on the Travellers frequency that nobody in Hearth plays.</li>
         <li><strong>Ashfall</strong>The Aster&rsquo;s wreck in a grey crater, drones sweeping it with searchlights, her captain&rsquo;s recorder still talking.</li>
         <li><strong>The Phantom</strong>A little moon that is never where you left it, unless you keep its picture.</li>

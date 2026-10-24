@@ -15,7 +15,7 @@ const PLACES := {
 ## id: [place, text, leads to (a place this is a rumour of, or "")]
 const FACTS := {
 	"hearth_crash": ["hearth", "Your Kestrel came down outside Hearth three days ago, burning, half an hour after the Aster's distress call. The village pulled you out.", ""],
-	"hearth_codes": ["hearth", "Okafor gave you the Kestrel's launch codes. She waits on top of the launch tower: the lift at its foot goes up.", ""],
+	"hearth_codes": ["hearth", "Mara gave you the Kestrel's launch codes (Okafor left them with her). She waits on top of the launch tower: the lift at its foot goes up.", ""],
 	"hearth_loop": ["hearth", "You woke at the campfire again, the same morning. Nobody else remembers.", ""],
 	"hearth_meteor": ["hearth", "Stones fall on Hearthstone every morning from eight: the Lantern is shedding. Where they land they leave starstones, still warm.", ""],
 	"hearth_rimrun": ["hearth", "Isa keeps a ring course in the crater, the Rim Run: the Kestrel through every ring, against the clock.", ""],
@@ -165,14 +165,15 @@ const TALK := {
 		"start": {"first": [["hearth_loop", "again"], ["@mara", "short"]], "lines": [
 			["Mara Voss", "There you are. Sleep well? You came down burning three days ago, pilot, half an hour after the Aster called mayday. We pulled you out of the cockpit."],
 			["Mara Voss", "Your Kestrel's patched and fuelled, up on the launch tower. If anyone off the Aster is still alive out there, she's how you'll find them."],
-			["Mara Voss", "Okafor has her launch codes, and he wants a word before you fly. The observatory: the glass dome on the rise. Follow the lamps from the signpost."],
-		], "learn": ["hearth_crash"], "choices": [
+			["Mara Voss", "Here: her launch codes. Okafor left them with me; he'd have kept you talking till noon. Take the lift at the foot of the tower and go and fly."],
+			["Mara Voss", "When you're back, call on him at the observatory, the glass dome on the rise. He's been watching the Lantern, and he doesn't like what he sees."],
+		], "learn": ["hearth_crash", "hearth_codes"], "choices": [
 			["How do I get up to the ship?", "codes", "", ""],
 			["What is this place?", "place", "", ""],
 			["The Aster. Were there other survivors?", "aster", "", ""],
 		]},
 		"codes": {"lines": [
-			["Mara Voss", "Codes from Okafor first. Then the lift at the foot of the tower: step on and it takes you up to her."],
+			["Mara Voss", "The lift at the foot of the tower: step on and it takes you up to her. The codes are in your suit now."],
 			["Mara Voss", "Take it slow off the deck. Gravity's light here and the air is thin; she'll want to climb."],
 		], "choices": [["Thank you, Mara.", "bye", "", ""]]},
 		"place": {"lines": [

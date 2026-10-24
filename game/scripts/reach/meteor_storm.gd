@@ -20,6 +20,7 @@ var _rng := RandomNumberGenerator.new()
 var _next := 3.0
 var _warned := false
 var _last_t := 0.0
+var _warmed := false
 ## Falling: [head, streak, light, from, to, t, duration, close].
 var _falling: Array = []
 ## Down: [root, glow material, usable or null, age].
@@ -50,6 +51,12 @@ func _process(dt: float) -> void:
 			Sfx.play("whistle", -14.0, 0.7)
 	if not on and sys.t < FROM:
 		_warned = false
+	# Twenty seconds before the first stone: everything a stone shows
+	# (the head, its trail, a crater's glow, embers, smoke) drawn once,
+	# tiny, in front of the eye, so its shaders are compiled before the
+	# first one lands, not on it (a tenth of a second's stall in a browser).
+	if not _warmed and sys.t > FROM - 20.0 and sys.t < FROM and sys.ref == "hearthstone":
+		_warm()
 	if on:
 		_next -= dt
 		if _next <= 0.0:
@@ -275,11 +282,45 @@ func _age(dt: float) -> void:
 			(c[0] as Node).queue_free()
 			_craters.remove_at(i)
 
+func _warm() -> void:
+	_warmed = true
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var holder := Node3D.new()
+	add_child(holder)
+	holder.global_transform = cam.global_transform.translated_local(Vector3(0, 0, -2.0)).scaled_local(Vector3.ONE * 0.002)
+	var head := MeshInstance3D.new()
+	head.mesh = SphereMesh.new()
+	var hot := StandardMaterial3D.new()
+	hot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	head.material_override = hot
+	holder.add_child(head)
+	var streak := MeshInstance3D.new()
+	streak.mesh = CylinderMesh.new()
+	var trail := StandardMaterial3D.new()
+	trail.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	trail.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	trail.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	streak.material_override = trail
+	holder.add_child(streak)
+	var rock := MeshInstance3D.new()
+	rock.mesh = KenneyKit.mesh("ph/ph-moon_rock_02", Color(0.42, 0.33, 0.28))
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	rock.material_overlay = glow
+	holder.add_child(rock)
+	_burst(holder.global_position, cam.global_basis.y)
+	get_tree().create_timer(0.5).timeout.connect(holder.queue_free)
+
 func _clear() -> void:
 	for m: Array in _falling:
 		for n in [m[0], m[1], m[2]]:
 			(n as Node).queue_free()
 	_falling.clear()
+	_warmed = false
 	for c: Array in _craters:
 		(c[0] as Node).queue_free()
 	_craters.clear()

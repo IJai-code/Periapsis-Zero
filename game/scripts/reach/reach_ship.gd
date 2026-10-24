@@ -496,7 +496,7 @@ func _physics_process(dt: float) -> void:
 		else:
 			if Input.is_key_pressed(KEY_F) and target != "":
 				t = _match(dt)
-			acc = Vector3(t.x * SIDE, t.y * SIDE, (MAIN if t.z < 0.0 else SIDE) * t.z)
+			acc = Vector3(t.x * SIDE, t.y * SIDE, (MAIN if t.z < 0.0 else SIDE) * t.z) * tune()
 			if assist:
 				acc = _assist(acc, t, g, roll, dt)
 			# The mouse asks for a turn rate (smoothed per frame in _process,
@@ -798,7 +798,13 @@ func _assist(acc: Vector3, t: Vector3, g: Vector3, _roll: float, _dt: float) -> 
 
 ## What her thrusters can do on each axis.
 func _clamp_acc(a: Vector3) -> Vector3:
-	return Vector3(clampf(a.x, -SIDE, SIDE), clampf(a.y, -SIDE, SIDE), clampf(a.z, -MAIN, SIDE))
+	var k := tune()
+	return Vector3(clampf(a.x, -SIDE * k, SIDE * k), clampf(a.y, -SIDE * k, SIDE * k), clampf(a.z, -MAIN * k, SIDE * k))
+
+## Her thrusters' limiter, opened a notch for each Rim Run medal (bronze,
+## silver, gold: RimRun). Isa shows you how; you remember it every morning.
+static func tune() -> float:
+	return 1.0 + 0.1 * int(Flow.progress("rimrun_medal", 0))
 
 ## Low over a world, her wings brought level (and right down near the
 ## ground, her nose too), so she sets down on her feet.
@@ -1282,7 +1288,7 @@ func board() -> void:
 	if not Lore.known("hearth_codes"):
 		var r := get_tree().get_first_node_in_group("reach_root")
 		if r:
-			r.hud.caption("The hatch is locked. Okafor has the launch codes, at the observatory.", 3.5)
+			r.hud.caption("The hatch is locked. Mara, by the fire, has the launch codes.", 3.5)
 		Sfx.play("beep", -8.0, 0.7)
 		return
 	_moving = true

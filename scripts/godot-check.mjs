@@ -268,9 +268,9 @@ const checks = [
   }]),
   ['the Reach: the Rim Run: through the first ring the clock starts, every ring counts in order, the finish keeps the best, no ring is blocked', async () => {
     const out = await run('reach', ['--racetest'], /RACETEST/, 300000)
-    const m = out.match(/RACETEST started (\w+), rings (\d+), splits (\d+), finished (\w+), best ([\d.]+) s, learned (\w+)/)
+    const m = out.match(/RACETEST started (\w+), rings (\d+), splits (\d+), finished (\w+), best ([\d.]+) s, learned (\w+), medal (\d), thrust x([\d.]+)/)
     const blocked = (out.match(/RACE blocked: \[([^\]]*)\]/) ?? [null, 'x'])[1]
-    return [Boolean(m) && m[1] === 'true' && m[2] === m[3] && m[4] === 'true' && Number(m[5]) > 0 && m[6] === 'true' && blocked === '', (m ? m[0] : 'no result') + ` blocked [${blocked}]`]
+    return [Boolean(m) && m[1] === 'true' && m[2] === m[3] && m[4] === 'true' && Number(m[5]) > 0 && m[6] === 'true' && m[7] === '3' && m[8] === '1.3' && blocked === '', (m ? m[0] : 'no result') + ` blocked [${blocked}]`]
   }],
   ['the Reach: the morning\'s falling stones come down, leave glowing craters and a starstone to take', async () => {
     const out = await run('reach', ['--meteortest'], /METEORTEST/, 300000)

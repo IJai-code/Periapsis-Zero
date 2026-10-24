@@ -5,6 +5,29 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### One game on the front page, flying in two minutes, the Rim Run in the story, fewer draw calls, 24 October 2026
+
+- **The front page is the Reach**: play, download, how to play. The
+  simulator, flight school, Squadron and the original flight game are one
+  small line at the bottom.
+- **Flying in two minutes**: Mara hands over the launch codes (Okafor left
+  them with her); the goal goes straight to the lift, and once you are up,
+  the log's lead is to call on Okafor at the observatory.
+- **The Rim Run belongs to Hearth now**: Isa radios you on your first
+  lift-off each morning; your first run is a flying lesson (a tip at five
+  rings); and each better medal opens a notch of the Kestrel's thruster
+  limiter (+10%, +20%, +30% thrust), which, like everything you learn in
+  the Reach, you remember every morning.
+- **Fewer draw calls** (13 to 28% fewer on Hearthstone, measured): each
+  patch of pines, rocks and bushes is one model instead of all three (each
+  had been its own draw, and another for its shadow); the twelve Rim Run
+  rings are one draw; people's eyes, lashes, brows and teeth are only
+  drawn within 25 m; the Zero-G cave's inside only within 90 m. The
+  falling stones' materials are compiled twenty seconds before the first
+  one lands, not on it.
+- Checks never leave a test's medal, best time or starstones in a save.
+
+
 ### A lighter first visit and a Rim Run challenge, 24 October 2026
 
 - The browser build no longer carries the desktop's high-detail person

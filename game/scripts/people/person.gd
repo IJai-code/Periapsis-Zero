@@ -60,6 +60,15 @@ func _ready() -> void:
 		sb.add_child(cs)
 		add_child(sb)
 	_dress(body)
+	# The small parts of a face (eyes, lashes, brows, teeth, tongue) are each
+	# their own draw, and a pixel or two past 25 m: drawn only near.
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		var part := String(mi.name).to_lower()
+		for small in ["eye", "lash", "brow", "teeth", "tongue", "poly"]:
+			if part.contains(small):
+				mi.visibility_range_end = 25.0
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				break
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh and mi.find_blend_shape_by_name("blink_l") >= 0:
 			var idx := PackedInt32Array()

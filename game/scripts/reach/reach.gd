@@ -124,6 +124,8 @@ func _ready() -> void:
 		_stair_test()
 	if "--zerogtest" in args:
 		_zerog_test()
+	if "--drawcount" in args:
+		_draw_count()
 	if "--racetest" in args:
 		_race_test()
 	if "--meteortest" in args:
@@ -157,7 +159,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount"]:
 			return true
 	return false
 
@@ -174,7 +176,7 @@ func _next_goal() -> String:
 	if not Lore.known("hearth_codes"):
 		if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
 			return "Walk to Mara by the fire (W A S D, follow the marker), look at her and press E"
-		return "Walk to the observatory, the glass dome on the hill (follow the marker), and press E to talk to Okafor"
+		return "Walk to Mara by the fire (follow the marker) and press E: she has your launch codes"
 	if ship.piloted:
 		return "Hold Space to lift off" if ship.landed else "Keep holding Space to climb. Then look at a world, press T to lock it and G to fly there"
 	var village: Village = (planets["hearthstone"] as Planet).sites[0]
@@ -878,6 +880,7 @@ const LEADS := [
 	["hearth_renn", "verd_renn", "Fly to Verdance, the green world wrapped in clouds. Someone is hiding at a camp under a waterfall: follow the marker. (With the sound on, the signalscope, X, picks up their harmonica.)", "verdance", "renn", "A hidden camp"],
 	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
 	["hearth_choir", "hearth_songline", "In the old mine past the lake, read the Choir's spiral writing on the far wall: walk up to it, look at it and press E.", "hearthstone", "cave", "The old mine"],
+	["hearth_codes", "hearth_lantern", "Okafor wants a word: set her down by the observatory, the glass dome on the hill, and press E to talk to him. (Isa's rings round the crater are there to fly any time.)", "hearthstone", "observatory", "Okafor"],
 ]
 
 func _lead_row() -> Array:
@@ -909,15 +912,9 @@ func goal_target() -> Dictionary:
 	var on_home := func(local: Vector3) -> Vector3: return system.world("hearthstone") + local
 	if not _launched and not (Lore.known("hearth_loop") and Lore.known("hearth_codes")):
 		if not Lore.known("hearth_codes"):
-			if not Talk.this_loop.has("mara") and not Lore.known("hearth_crash"):
-				var mara := _npc(village, "mara")
-				if mara:
-					return {"at": mara.global_position + mara.global_basis.y * 2.1, "label": "Mara"}
-			var ok := _npc(village, "okafor")
-			if ok and player.global_position.distance_to(ok.global_position) < 25.0:
-				return {"at": ok.global_position + ok.global_basis.y * 2.1, "label": "Okafor"}
-			var obs := Worlds.place(home, "observatory")
-			return {"at": on_home.call(obs.origin + obs.basis.y * 6.0), "label": "The observatory"}
+			var mara := _npc(village, "mara")
+			if mara:
+				return {"at": mara.global_position + mara.global_basis.y * 2.1, "label": "Mara"}
 		if ship.piloted:
 			return {}
 		if village.lift and village.lift.at_top():
@@ -1314,10 +1311,52 @@ func _ground_test(key: String) -> void:
 	Report.line("GROUNDTEST %s points %d fell %d worst %.1f m, through it caught after %.2f s %s" % [key, dirs.size(), bad.size(), worst, caught, " ".join(bad.slice(0, 6))])
 	Report.finish(get_tree())
 
+## What Hearthstone asks the GPU to draw while you stand in the village:
+## visible meshes grouped by the piece they belong to, with their surface
+## counts (each surface a draw, twice over with shadows).
+func _draw_count() -> void:
+	await get_tree().create_timer(3.0).timeout
+	var pl: Planet = planets["hearthstone"]
+	var groups := {}
+	var total := 0
+	for gi: GeometryInstance3D in pl.find_children("*", "GeometryInstance3D", true, false):
+		if not gi.is_visible_in_tree():
+			continue
+		var n := 1
+		if gi is MeshInstance3D and (gi as MeshInstance3D).mesh:
+			n = (gi as MeshInstance3D).mesh.get_surface_count()
+		elif gi is MultiMeshInstance3D and (gi as MultiMeshInstance3D).multimesh and (gi as MultiMeshInstance3D).multimesh.mesh:
+			n = (gi as MultiMeshInstance3D).multimesh.mesh.get_surface_count()
+		if gi.visibility_range_end > 0.0 and gi.global_position.distance_to(player.global_position) > gi.visibility_range_end:
+			continue
+		var owner_node: Node = gi
+		while owner_node.get_parent() and not owner_node.get_parent() is Site and not owner_node.get_parent() is Planet:
+			owner_node = owner_node.get_parent()
+		var key := String(owner_node.scene_file_path).get_file() if owner_node.scene_file_path != "" else owner_node.get_class() + ":" + String(gi.get_class())
+		if gi is MultiMeshInstance3D:
+			key = "mm:%s" % [gi.get_meta("kind", "?")]
+		elif key == "Node3D:MeshInstance3D":
+			key = "code:%s/%s" % [owner_node.get_class(), String(owner_node.get_parent().name) if owner_node.get_parent() else ""]
+			if owner_node.get_child_count() > 0 and owner_node.get_script():
+				key += ":" + String(owner_node.get_script().resource_path.get_file())
+		groups[key] = int(groups.get(key, 0)) + n
+		total += n
+	var keys := groups.keys()
+	keys.sort_custom(func(a, b): return groups[a] > groups[b])
+	for k in keys.slice(0, 25):
+		print("DRAWS %4d %s" % [groups[k], k])
+	Report.line("DRAWCOUNT total surfaces %d in %d groups" % [total, keys.size()])
+	Report.finish(get_tree())
+
 ## The Rim Run, flown ring by ring (the ship carried through each, a few
 ## metres a tick): the clock starts at the first, every ring counts in
 ## order, back through the first finishes, the best is kept.
 func _race_test() -> void:
+	# What a run changes (best, medal, runs) is put back after: a check must
+	# not leave a gold-tuned ship for the next one, or a best in a save.
+	var keep := {}
+	for k in ["rimrun_best", "rimrun_medal", "rimrun_runs"]:
+		keep[k] = Flow.progress(k, 0)
 	Lore.learn("hearth_codes")
 	await get_tree().create_timer(1.0).timeout
 	ship.board()
@@ -1361,7 +1400,11 @@ func _race_test() -> void:
 	for i in pts.size():
 		length += pts[i].distance_to(pts[(i + 1) % pts.size()])
 	print("RACE blocked: %s, course %.0f m" % [blocked, length])
-	Report.line("RACETEST started %s, rings %d, splits %d, finished %s, best %.1f s, learned %s" % [started, pts.size(), rr._splits.size(), not rr._running and rr._splits.size() == pts.size(), float(Flow.progress("rimrun_best", 0.0)), Lore.known("hearth_rimrun")])
+	var medal := int(Flow.progress("rimrun_medal", 0))
+	var tuned := ReachShip.tune()
+	Report.line("RACETEST started %s, rings %d, splits %d, finished %s, best %.1f s, learned %s, medal %d, thrust x%.1f" % [started, pts.size(), rr._splits.size(), not rr._running and rr._splits.size() == pts.size(), float(Flow.progress("rimrun_best", 0.0)), Lore.known("hearth_rimrun"), medal, tuned])
+	for k in keep:
+		Flow.set_progress(k, keep[k])
 	Report.finish(get_tree())
 
 ## Standing in the village in the morning's falling stones: they come down
@@ -1379,6 +1422,7 @@ func _meteor_test() -> void:
 		if storm._craters.size() > seen:
 			impacts += storm._craters.size() - seen
 		seen = storm._craters.size()
+	var stones: int = int(Flow.progress("starstones", 0))
 	var took := false
 	if storm._craters.size() > 0:
 		var c: Array = storm._craters[0]
@@ -1386,6 +1430,7 @@ func _meteor_test() -> void:
 			storm._take(c[0], c[2])
 			took = true
 	await get_tree().physics_frame
+	Flow.set_progress("starstones", stones)
 	Report.line("METEORTEST impacts %d, craters %d, starstone taken %s, learned %s, explorer alive %s, health %.0f" % [impacts, storm._craters.size(), took, Lore.known("hearth_meteor"), not player._dead, player.health])
 	Report.finish(get_tree())
 

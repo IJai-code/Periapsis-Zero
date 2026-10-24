@@ -7,6 +7,12 @@ extends Node3D
 ## through the first to finish. The next ring burns brightest and the HUD
 ## points to it; the clock and the split for each ring are shown top middle.
 ## Bronze, silver and gold, and the best time kept across every loop.
+##
+## It is Hearth's way of learning a ship: Isa calls you on the radio the
+## first time you lift off each morning; your first run is a flying lesson
+## (a tip at the rings where it is needed); and each better medal earns the
+## next notch of the Kestrel's thruster limiter (ReachShip.tune), which,
+## like everything you learn in the Reach, you remember every morning.
 ## Lives under the village (body space); the ship is reach.ship.
 
 ## [azimuth deg, metres from the crater's middle, height over the ground].
@@ -25,7 +31,9 @@ const STALL := 25.0
 var reach: Node
 var body: ReachBody
 var _gates: Array[Node3D] = []
-var _mats: Array[StandardMaterial3D] = []
+## The twelve rings, one draw: a multimesh whose instance colours say
+## which is next, which are done.
+var _rings: MultiMesh
 var _beam: MeshInstance3D
 var _running := false
 var _next := 0
@@ -34,6 +42,16 @@ var _since := 0.0
 var _splits: PackedFloat32Array = []
 var _pulse := 0.0
 var _was_inside := false
+var _called := false
+var _last_t := 0.0
+## Tips on the first run ever, by ring.
+const LESSON := {
+	1: "W pushes her forward; the mouse turns her. Aim through the middle.",
+	3: "Shift sinks her, Space lifts her: the rings sit at different heights.",
+	5: "Let go of everything and the flight assist holds her still. Breathe, then go.",
+	7: "Q and E roll her. Bank into the long turns.",
+	9: "Behind the tower: the next ring always burns brightest, and its beam shows where.",
+}
 
 static func make(b: ReachBody) -> RimRun:
 	var r := RimRun.new()
@@ -59,20 +77,7 @@ func _ready() -> void:
 		# the way the course runs.
 		var flat := (along - up * along.dot(up)).normalized()
 		gate.transform = Transform3D(Basis(flat.cross(up).normalized(), up, -flat).orthonormalized(), at)
-		var mi := MeshInstance3D.new()
-		var tm := TorusMesh.new()
-		tm.inner_radius = RADIUS - 0.9
-		tm.outer_radius = RADIUS
-		tm.rings = 48
-		tm.ring_segments = 8
-		mi.mesh = tm
-		mi.rotation = Vector3(PI / 2.0, 0, 0)
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(1.0, 0.7, 0.3)
-		mi.material_override = m
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		gate.add_child(mi)
+
 		# Its number, on a little plate under it.
 		var label := Label3D.new()
 		label.text = "START" if i == 0 else str(i)
@@ -84,9 +89,30 @@ func _ready() -> void:
 		label.outline_size = 12
 		label.outline_modulate = Color(0.2, 0.1, 0.05)
 		label.position = Vector3(0, -RADIUS - 2.5, 0)
+		label.visibility_range_end = 260.0
 		gate.add_child(label)
 		_gates.append(gate)
-		_mats.append(m)
+	var tm := TorusMesh.new()
+	tm.inner_radius = RADIUS - 0.9
+	tm.outer_radius = RADIUS
+	tm.rings = 48
+	tm.ring_segments = 8
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	tm.material = m
+	_rings = MultiMesh.new()
+	_rings.transform_format = MultiMesh.TRANSFORM_3D
+	_rings.use_colors = true
+	_rings.mesh = tm
+	_rings.instance_count = _gates.size()
+	var stand := Basis(Vector3.RIGHT, PI / 2.0)
+	for k in _gates.size():
+		_rings.set_instance_transform(k, Transform3D(_gates[k].transform.basis * stand, _gates[k].position))
+	var rmi := MultiMeshInstance3D.new()
+	rmi.multimesh = _rings
+	rmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(rmi)
 	# A pillar of light over the next ring, to find it from anywhere.
 	_beam = MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -105,11 +131,10 @@ func _ready() -> void:
 	_paint()
 
 func _paint() -> void:
-	for i in _mats.size():
+	for i in _gates.size():
 		var lit := (i == _next) if _running else (i == 0)
 		var done := _running and i < _next and _next > 0
-		_mats[i].albedo_color = Color(0.45, 1.0, 0.55, 0.9) if done else (Color(1.0, 0.72, 0.3) if lit else Color(0.55, 0.38, 0.22))
-		_gates[i].visible = true
+		_rings.set_instance_color(i, Color(0.45, 1.0, 0.55) if done else (Color(1.0, 0.72, 0.3) if lit else Color(0.55, 0.38, 0.22)))
 	var target := _gates[_next if _running else 0]
 	_beam.transform = Transform3D(target.transform.basis.orthonormalized(), target.position + target.transform.basis.y.normalized() * (RADIUS + 60.0))
 
@@ -120,8 +145,22 @@ func _process(dt: float) -> void:
 	_share_t = maxf(_share_t - dt, 0.0)
 	var ship: ReachShip = reach.ship
 	var flying: bool = ship != null and ship.piloted and not ship.landed and reach.system.ref == body.key
+	# A new morning: Isa will call again.
+	if reach.system.t < _last_t - 5.0:
+		_called = false
+	_last_t = reach.system.t
+	if flying and not _called and not _running and ship.altitude > 15.0 and reach.hud and not reach.talking:
+		_called = true
+		Sfx.play("comm", -6.0)
+		var medal := int(Flow.progress("rimrun_medal", 0))
+		var line := "Isa, on the radio: My rings are lit round the crater. Fly them once before you go out: it is how Hearth learns a ship. START is by the tower."
+		if medal == 3:
+			line = "Isa, on the radio: Gold pilot overhead! The rings are lit if you want to beat %s." % _clock(float(Flow.progress("rimrun_best", 0.0)))
+		elif medal > 0:
+			line = "Isa, on the radio: The rings are lit. Beat %s and I'll show you the next notch of that limiter." % ["", "%d s for silver" % int(SILVER), "%d s for gold" % int(GOLD)][medal]
+		reach.hud.caption(line, 7.0)
 	var i := _next if _running else 0
-	_mats[i].albedo_color = Color(1.0, 0.72, 0.3).lerp(Color(1.0, 0.95, 0.8), 0.5 + 0.5 * sin(_pulse * 6.0))
+	_rings.set_instance_color(i, Color(1.0, 0.72, 0.3).lerp(Color(1.0, 0.95, 0.8), 0.5 + 0.5 * sin(_pulse * 6.0)))
 	if not flying:
 		if _running:
 			_abandon("Run abandoned: she set down.")
@@ -166,6 +205,8 @@ func _through(i: int) -> void:
 	_since = 0.0
 	_splits.append(_t)
 	Sfx.play("gate", -5.0, 1.0 + 0.04 * i)
+	if int(Flow.progress("rimrun_runs", 0)) == 0 and LESSON.has(i) and reach.hud:
+		reach.hud.caption(LESSON[i], 4.0)
 	if i == 0:
 		_finish()
 		return
@@ -180,13 +221,21 @@ func _finish() -> void:
 	if record:
 		Flow.set_progress("rimrun_best", _t)
 	var medal := "Gold" if _t < GOLD else ("Silver" if _t < SILVER else ("Bronze" if _t < BRONZE else ""))
+	Flow.set_progress("rimrun_runs", int(Flow.progress("rimrun_runs", 0)) + 1)
+	# A better medal than ever: the next notch of the limiter.
+	var tier := {"Gold": 3, "Silver": 2, "Bronze": 1}.get(medal, 0) as int
+	var had := int(Flow.progress("rimrun_medal", 0))
+	var upgrade := ""
+	if tier > had:
+		Flow.set_progress("rimrun_medal", tier)
+		upgrade = ["", " Isa: \"Not bad. Feel under the left panel: the limiter. Give it a notch.\" (+10% thrust, every morning.)", " Isa: \"Now that's flying. Another notch on the limiter.\" (+20% thrust, every morning.)", " Isa: \"Gold. Take it all the way open; you've earned it.\" (+30% thrust, every morning.)"][tier]
 	Sfx.play("fanfare", -4.0, 1.0 if medal != "" else 0.8)
 	_share = "I flew the Rim Run in %s%s in Periapsis Zero. Beat it, free in your browser: https://periapsiszero.dev/play/" % [_clock(_t), (" (" + medal + ")") if medal != "" else ""]
 	_share_t = 15.0
 	if reach.hud:
 		reach.hud.race("")
-		var words := "Rim Run: %s.%s %s  Press Y to copy a challenge for a friend." % [_clock(_t), (" " + medal + "!") if medal != "" else "", "A new best." if record else "Best %s." % _clock(best)]
-		reach.hud.caption(words, 8.0)
+		var words := "Rim Run: %s.%s %s%s  Press Y to copy a challenge for a friend." % [_clock(_t), (" " + medal + "!") if medal != "" else "", "A new best." if record else "Best %s." % _clock(best), upgrade]
+		reach.hud.caption(words, 10.0 if upgrade != "" else 8.0)
 		if medal == "Gold":
 			reach.hud.flash(Color(1.0, 0.85, 0.4), 0.3)
 	_next = 0

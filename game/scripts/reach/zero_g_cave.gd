@@ -49,6 +49,7 @@ func _ready() -> void:
 		m.albedo_color = Color(0.2, 0.15, 0.1)
 		mi.material_override = m
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = 90.0
 		add_child(mi)
 		var at: Vector3 = RINGS[i]
 		var to: Vector3 = RINGS[(i + 1) % RINGS.size()] - at
@@ -67,6 +68,8 @@ func _ready() -> void:
 		r.scale = Vector3.ONE * rng.randf_range(6.0, 12.0)
 		for mi: MeshInstance3D in r.find_children("*", "MeshInstance3D", true, false):
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			# Inside the dome: never seen from further than its mouth.
+			mi.visibility_range_end = 90.0
 		_rocks.append([r, r.position, Vector3(rng.randf(), rng.randf(), rng.randf()).normalized(), rng.randf_range(0.1, 0.3), rng.randf() * TAU])
 	# A warm light in the dome, and dust motes hanging in the air.
 	var l := OmniLight3D.new()

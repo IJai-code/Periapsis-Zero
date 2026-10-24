@@ -249,7 +249,9 @@ func _decorate(deco: Dictionary) -> void:
 			if SOLID.has(kind):
 				_solids.append([kind, Transform3D(b, p)])
 		var range_end := _range(kind)
+		var ci := 0
 		for key in chunks:
+			ci += 1
 			var xfs: Array = chunks[key]
 			# The chunk's node sits at its middle (visibility ranges are
 			# measured to it), its plants relative to that.
@@ -262,12 +264,17 @@ func _decorate(deco: Dictionary) -> void:
 			# tree, so each is drawn whole as far as it is drawn at all.
 			var shapes := _kenney(kind)
 			if not shapes.is_empty():
+				# One shape a patch, the shapes taking turns patch by patch:
+				# every shape in every patch was a draw call (and another for
+				# its shadow) for each of them, three times over for the
+				# pines, the most of anything a browser drew on Hearthstone.
 				for v in shapes.size():
+					if v != ci % shapes.size():
+						continue
 					var some: Array = []
 					for k in xfs.size():
-						if k % shapes.size() == v:
-							var xf: Transform3D = xfs[k]
-							some.append(Transform3D(xf.basis.scaled(Vector3.ONE * float(shapes[v][1])), xf.origin))
+						var xf: Transform3D = xfs[k]
+						some.append(Transform3D(xf.basis.scaled(Vector3.ONE * float(shapes[v][1])), xf.origin))
 					if not some.is_empty():
 						var shape_name: String = shapes[v][0]
 						var m: Mesh = Crystals.mesh(shape_name.trim_prefix("crystal:"), body.key) if shape_name.begins_with("crystal:") else KenneyKit.mesh(shape_name, _kenney_tint(kind))
@@ -346,6 +353,7 @@ func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: flo
 	mi.visibility_range_end_margin = 30.0
 	mi.visibility_range_begin_margin = 30.0
 	mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	mi.set_meta("kind", String(mesh.resource_name) if mesh.resource_name != "" else str(mesh.get_instance_id()))
 	add_child(mi)
 	_deco.append(mi)
 	return mi
