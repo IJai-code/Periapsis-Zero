@@ -117,6 +117,7 @@ func _process(dt: float) -> void:
 	if reach == null:
 		return
 	_pulse += dt
+	_share_t = maxf(_share_t - dt, 0.0)
 	var ship: ReachShip = reach.ship
 	var flying: bool = ship != null and ship.piloted and not ship.landed and reach.system.ref == body.key
 	var i := _next if _running else 0
@@ -180,14 +181,31 @@ func _finish() -> void:
 		Flow.set_progress("rimrun_best", _t)
 	var medal := "Gold" if _t < GOLD else ("Silver" if _t < SILVER else ("Bronze" if _t < BRONZE else ""))
 	Sfx.play("fanfare", -4.0, 1.0 if medal != "" else 0.8)
+	_share = "I flew the Rim Run in %s%s in Periapsis Zero. Beat it, free in your browser: https://periapsiszero.dev/play/" % [_clock(_t), (" (" + medal + ")") if medal != "" else ""]
+	_share_t = 15.0
 	if reach.hud:
 		reach.hud.race("")
-		var words := "Rim Run: %s.%s %s" % [_clock(_t), (" " + medal + "!") if medal != "" else "", "A new best." if record else "Best %s." % _clock(best)]
-		reach.hud.caption(words, 6.0)
+		var words := "Rim Run: %s.%s %s  Press Y to copy a challenge for a friend." % [_clock(_t), (" " + medal + "!") if medal != "" else "", "A new best." if record else "Best %s." % _clock(best)]
+		reach.hud.caption(words, 8.0)
 		if medal == "Gold":
 			reach.hud.flash(Color(1.0, 0.85, 0.4), 0.3)
 	_next = 0
 	_paint()
+
+## Y, for a while after a finish: the time, as a line to paste anywhere
+## (the clipboard, from the key press itself, which a browser allows).
+var _share := ""
+var _share_t := 0.0
+
+func _unhandled_input(e: InputEvent) -> void:
+	if _share_t <= 0.0 or not (e is InputEventKey) or not e.pressed or e.echo or (e as InputEventKey).keycode != KEY_Y:
+		return
+	DisplayServer.clipboard_set(_share)
+	_share_t = 0.0
+	Sfx.play("click", -6.0)
+	if reach and reach.hud:
+		reach.hud.caption("Copied. Paste it to a friend.", 2.5)
+	get_viewport().set_input_as_handled()
 
 func _abandon(why: String) -> void:
 	_running = false

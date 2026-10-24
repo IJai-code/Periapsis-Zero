@@ -5,6 +5,16 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A lighter first visit and a Rim Run challenge, 24 October 2026
+
+- The browser build no longer carries the desktop's high-detail person
+  textures: the game data is 96.3 MB, down from 102.9.
+- After a Rim Run, Y copies a challenge line with your time and medal and
+  a link to the game, to paste to a friend.
+- docs/reality-check.md: a blunt look at what stands between the game and
+  a lot of players, and what to do about it, in order.
+
+
 ### The Rim Run and the morning's falling stones, 23 October 2026
 
 - **The Rim Run**: Isa's ring course round Hearth's crater, for the
