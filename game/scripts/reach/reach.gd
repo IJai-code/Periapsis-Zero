@@ -19,6 +19,8 @@ var hud: ReachHud
 var loop: ReachLoop
 var campfire: Campfire
 var talking := false
+## The Rim Run's next ring, while a run is on: {at, label} (RimRun).
+var race_at := {}
 var scope: Signalscope
 var _log: ShipLog
 var _music: AudioStreamPlayer
@@ -122,6 +124,10 @@ func _ready() -> void:
 		_stair_test()
 	if "--zerogtest" in args:
 		_zerog_test()
+	if "--racetest" in args:
+		_race_test()
+	if "--meteortest" in args:
+		_meteor_test()
 	var gt := args.find("--groundtest")
 	if gt >= 0 and gt + 1 < args.size():
 		_ground_test(args[gt + 1])
@@ -151,7 +157,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest"]:
 			return true
 	return false
 
@@ -407,6 +413,9 @@ func _build_sites(backdrop := false) -> void:
 			await v.built
 	if backdrop:
 		return
+	# The morning's falling stones, and Isa's ring course in the crater.
+	(planets["hearthstone"] as Planet).add_child(MeteorStorm.new())
+	v.add_child(RimRun.make(home))
 	(planets["verdance"] as Planet).add_site(VerdanceSite.make(system.bodies["verdance"]))
 	if chunk:
 		await get_tree().process_frame
@@ -1303,6 +1312,81 @@ func _ground_test(key: String) -> void:
 			caught = tc
 			break
 	Report.line("GROUNDTEST %s points %d fell %d worst %.1f m, through it caught after %.2f s %s" % [key, dirs.size(), bad.size(), worst, caught, " ".join(bad.slice(0, 6))])
+	Report.finish(get_tree())
+
+## The Rim Run, flown ring by ring (the ship carried through each, a few
+## metres a tick): the clock starts at the first, every ring counts in
+## order, back through the first finishes, the best is kept.
+func _race_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	ship.launch()
+	while ship._auto_lift > 0.0:
+		await get_tree().physics_frame
+	var village: Village = (planets["hearthstone"] as Planet).sites[0]
+	var rr: RimRun = village.get_node("RimRun")
+	var pts := rr.ring_points()
+	var order: Array = range(pts.size())
+	order.append(0)
+	var started := false
+	for idx in order:
+		var g: Node3D = rr._gates[idx]
+		var dirz := g.global_basis.z.normalized()
+		for k in 9:
+			ship.freeze = true
+			ship.global_position = g.global_position + dirz * (12.0 - k * 3.0)
+			ship.freeze = false
+			ship.linear_velocity = -dirz * 40.0 + system.world_vel(system.ref)
+			await get_tree().physics_frame
+		ship.linear_velocity = system.world_vel(system.ref)
+		await get_tree().create_timer(0.3).timeout
+		started = started or rr._running
+	await get_tree().create_timer(0.5).timeout
+	# Every ring open: nothing solid within its opening.
+	var blocked := []
+	var sq := PhysicsShapeQueryParameters3D.new()
+	var sph := SphereShape3D.new()
+	sph.radius = RimRun.RADIUS - 2.0
+	sq.shape = sph
+	sq.collision_mask = 1
+	sq.exclude = [ship.get_rid()]
+	for i in rr._gates.size():
+		sq.transform = Transform3D(Basis(), rr._gates[i].global_position)
+		var hits := get_world_3d().direct_space_state.intersect_shape(sq, 4)
+		if not hits.is_empty():
+			blocked.append("%d(%s)" % [i, (hits[0].collider as Node).get_parent().name if hits[0].collider is Node else "?"])
+	var length := 0.0
+	for i in pts.size():
+		length += pts[i].distance_to(pts[(i + 1) % pts.size()])
+	print("RACE blocked: %s, course %.0f m" % [blocked, length])
+	Report.line("RACETEST started %s, rings %d, splits %d, finished %s, best %.1f s, learned %s" % [started, pts.size(), rr._splits.size(), not rr._running and rr._splits.size() == pts.size(), float(Flow.progress("rimrun_best", 0.0)), Lore.known("hearth_rimrun")])
+	Report.finish(get_tree())
+
+## Standing in the village in the morning's falling stones: they come down
+## (some close), the craters glow, a starstone can be taken.
+func _meteor_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	system.t = MeteorStorm.FROM + 2.0
+	var storm: MeteorStorm = (planets["hearthstone"] as Planet).find_children("*", "MeteorStorm", false, false)[0]
+	var impacts := 0
+	var seen := 0
+	var t := 0.0
+	while t < 30.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if storm._craters.size() > seen:
+			impacts += storm._craters.size() - seen
+		seen = storm._craters.size()
+	var took := false
+	if storm._craters.size() > 0:
+		var c: Array = storm._craters[0]
+		if c[2] != null:
+			storm._take(c[0], c[2])
+			took = true
+	await get_tree().physics_frame
+	Report.line("METEORTEST impacts %d, craters %d, starstone taken %s, learned %s, explorer alive %s, health %.0f" % [impacts, storm._craters.size(), took, Lore.known("hearth_meteor"), not player._dead, player.health])
 	Report.finish(get_tree())
 
 ## Into a body's frame, standing at its first landmark.

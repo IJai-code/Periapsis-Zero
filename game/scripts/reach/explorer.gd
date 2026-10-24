@@ -569,6 +569,7 @@ func _look() -> void:
 	focus = u
 
 func _process(dt: float) -> void:
+	_jolt_step(dt)
 	# The head follows the body's drawn position, turned by the body's own
 	# (not interpolated) facing, so the mouse answers at once.
 	var at := get_global_transform_interpolated().origin
@@ -638,6 +639,27 @@ func frame_shift(dp: Vector3, dv: Vector3) -> void:
 	velocity += dv
 	_last_vel += dv
 	reset_physics_interpolation()
+
+var _jolt := 0.0
+var _jolt_t := 0.0
+
+## The ground shaking under you (a meteor landing near): the view trembles,
+## dying away over a second or two.
+func jolt(amount: float) -> void:
+	_jolt = maxf(_jolt, clampf(amount, 0.0, 1.0))
+
+func _jolt_step(dt: float) -> void:
+	if not camera:
+		return
+	if _jolt <= 0.001:
+		camera.h_offset = 0.0
+		camera.v_offset = 0.0
+		return
+	_jolt_t += dt
+	_jolt = maxf(_jolt - dt * 0.9, 0.0)
+	var a := _jolt * _jolt * 0.09
+	camera.h_offset = sin(_jolt_t * 37.0) * a
+	camera.v_offset = sin(_jolt_t * 29.0 + 1.3) * a
 
 ## Hurt by something (a drone's shot): dies of `cause` at nothing left.
 func hurt(amount: float, cause: String) -> void:

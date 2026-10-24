@@ -214,6 +214,14 @@ func _ready() -> void:
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shadow(_caption)
 	root.add_child(_caption)
+	# The Rim Run's clock, top middle, while a run is on (RimRun).
+	_race = ReachStyle.title("", 34, ReachStyle.BONE)
+	_race.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_race.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_race.offset_top = 64
+	_race.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shadow(_race)
+	root.add_child(_race)
 	# The last photograph, top right (P).
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", ReachStyle.panel(4))
@@ -259,6 +267,12 @@ func _shadow(l: Label) -> void:
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 
 ## A notice for a few seconds ("Ship log updated"): a card from the right.
+var _race: Label
+## The run's clock and splits; "" hides it.
+func race(text: String) -> void:
+	if _race:
+		_race.text = text
+
 func toast(text: String, seconds := 3.0) -> void:
 	_card_text.text = text.capitalize() if text == text.to_upper() and text.length() > 3 else text
 	_card_t = seconds
@@ -491,6 +505,11 @@ func _marker(vp: Vector2, c: Vector2) -> void:
 		var far := p.global_position.distance_to(s.global_position)
 		if far > 22.0:
 			_pin(vp, c, cam, ship_at, "Kestrel", Color(0.6, 0.85, 1.0), true)
+	# A run on: the next ring is the only place that matters.
+	var race_at = reach.get("race_at")
+	if race_at is Dictionary and not (race_at as Dictionary).is_empty():
+		_pin(vp, c, cam, race_at.at, race_at.label, Color(1.0, 0.72, 0.3), false)
+		return
 	if _goal_at.is_empty():
 		return
 	var at: Vector3 = _goal_at.at

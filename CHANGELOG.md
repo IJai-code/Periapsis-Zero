@@ -5,6 +5,28 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### The Rim Run and the morning's falling stones, 23 October 2026
+
+- **The Rim Run**: Isa's ring course round Hearth's crater, for the
+  Kestrel, against the clock. Twelve big rings weave between the crater's
+  walls, the tower, the observatory and the pond, from 10 to 50 m up; fly
+  through START (by the tower) and the clock starts, through every ring in
+  order and back through START to finish. The next ring burns brightest
+  under a pillar of light and the HUD points to it; the clock is top
+  middle; gold under 30 s, silver 42, bronze 60, and your best kept across
+  every loop. Set down or dawdle more than 25 s between rings and the run
+  is off. Isa tells you about it, and remarks when you have flown it.
+- **The falling stones**: from 8:00 to 10:30 on the clock, every morning,
+  the dying Lantern sheds stones onto Hearthstone. Streaks across the
+  sky, a flash and a boom as loud as it is near, embers and smoke, the
+  ground shaking under you; one now and then comes in close, with a
+  whistle a couple of seconds before it lands: get clear (a direct hit
+  hurts). Each leaves a crater of glowing rock that cools over two
+  minutes, and a starstone in it to take (counted across every loop;
+  the first is a line in the ship log). Never onto the Kestrel.
+- `--racetest` and `--meteortest` check both.
+
+
 ### Nowhere to fall through, real crystals, and climbing in and out of the Kestrel, 23 October 2026
 
 - **Nowhere to fall through, on every world.** A world is solid only while

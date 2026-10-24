@@ -36,6 +36,12 @@ func _ready() -> void:
 	# Water: a body going in, a stroke through it, a bubble rising.
 	_streams.splash = _make(1.1, func(t, n): return _lp(n, 0.35) * exp(-t * 4.2) * 1.1 + _lp(n, 0.06) * exp(-t * 2.0) * 0.5 + sin(TAU * (260.0 + sin(t * 70.0) * 90.0) * t) * exp(-t * 8.0) * 0.12)
 	_streams.swim = _make(0.6, func(t, n): return _lp(n, 0.07) * sin(PI * t / 0.6) * 0.55 + _lp(n, 0.4) * sin(PI * t / 0.6) * 0.08)
+	# A meteor coming in: a falling whistle under a rising roar.
+	_streams.whistle = _make(2.4, func(t, n): return sin(TAU * (1500.0 - t * 520.0) * t) * minf(1.0, t * 1.5) * 0.16 + _lp(n, 0.08 + t * 0.06) * (t / 2.4) * 0.7)
+	# A ring flown through: a bright two-note chime.
+	_streams.gate = _make(0.55, func(t, n): return (sin(TAU * 880.0 * t) * (1.0 if t < 0.1 else 0.0) + sin(TAU * 1320.0 * t) * (1.0 if t >= 0.1 else 0.0) + sin(TAU * 2640.0 * t) * 0.3) * exp(-t * 6.5) * 0.28)
+	# A medal: three rising notes and a held chord.
+	_streams.fanfare = _make(1.8, func(t, n): return (sin(TAU * (523.3 if t < 0.15 else (659.3 if t < 0.3 else 784.0)) * t) + (sin(TAU * 1046.5 * t) * 0.5 if t > 0.45 else 0.0)) * exp(-maxf(t - 0.45, 0.0) * 1.6) * 0.22)
 	_streams.bubble = _make(0.16, func(t, n): return sin(TAU * (420.0 + t * 2600.0) * t) * exp(-t * 26.0) * 0.28)
 
 var _lp_state := 0.0

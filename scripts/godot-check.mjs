@@ -266,6 +266,17 @@ const checks = [
     const m = out.match(/GROUNDTEST \w+ points (\d+) fell (\d+) worst (-?[\d.]+) m, through it caught after (-?[\d.]+) s/)
     return [Boolean(m) && Number(m[1]) > 40 && m[2] === '0' && Number(m[4]) >= 0 && Number(m[4]) < 1.0, (out.match(/GROUNDTEST[^\n]*/) ?? ['no result'])[0]]
   }]),
+  ['the Reach: the Rim Run: through the first ring the clock starts, every ring counts in order, the finish keeps the best, no ring is blocked', async () => {
+    const out = await run('reach', ['--racetest'], /RACETEST/, 300000)
+    const m = out.match(/RACETEST started (\w+), rings (\d+), splits (\d+), finished (\w+), best ([\d.]+) s, learned (\w+)/)
+    const blocked = (out.match(/RACE blocked: \[([^\]]*)\]/) ?? [null, 'x'])[1]
+    return [Boolean(m) && m[1] === 'true' && m[2] === m[3] && m[4] === 'true' && Number(m[5]) > 0 && m[6] === 'true' && blocked === '', (m ? m[0] : 'no result') + ` blocked [${blocked}]`]
+  }],
+  ['the Reach: the morning\'s falling stones come down, leave glowing craters and a starstone to take', async () => {
+    const out = await run('reach', ['--meteortest'], /METEORTEST/, 300000)
+    const m = out.match(/METEORTEST impacts (\d+), craters (\d+), starstone taken (\w+), learned (\w+), explorer alive (\w+)/)
+    return [Boolean(m) && Number(m[1]) >= 4 && m[3] === 'true' && m[4] === 'true' && m[5] === 'true', m ? m[0] : 'no result']
+  }],
   ['the Reach: L opens the ship log', async () => {
     const out = await run('reach', ['--logtest'], /LOGTEST/)
     return [/LOGTEST open true/.test(out), (out.match(/LOGTEST[^\n]*/) ?? ['no result'])[0]]
