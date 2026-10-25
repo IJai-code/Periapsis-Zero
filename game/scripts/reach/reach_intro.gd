@@ -153,7 +153,15 @@ func _shot(shot: Array) -> void:
 	else:
 		sys.switch("lantern")
 	sys.place()
+	# The camera there first: the frame follows the focus, and left where the
+	# last shot was it would pull the frame back to that world.
+	reach.system.focus = _cam
+	_cam.global_position = _point(key, String(shot[2]))
+	await get_tree().physics_frame
 	await get_tree().process_frame
+	if key != "lantern" and sys.ref != key:
+		sys.switch(key)
+		sys.place()
 	var a := _point(key, String(shot[2]))
 	var b := _point(key, String(shot[3])) if String(shot[3]) != "" else a + (_point(key, "system_end") - a)
 	var look := _point(key, String(shot[4])) if String(shot[4]) != "" else _point(key, "lantern_c")
