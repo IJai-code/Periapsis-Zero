@@ -177,15 +177,16 @@ function HowToPlay({ onClose }) {
       <h3>Your first few minutes</h3>
       <ol>
         <li>Follow the marker to Mara by the fire, look at her and press <kbd>E</kbd>. (A marker always shows where to go next.)</li>
-        <li>Walk to the glass-domed observatory and get your ship&rsquo;s launch codes from Okafor.</li>
+        <li>Mara gives you the launch codes. (Every morning after the first, you wake already in the ship&rsquo;s seat.)</li>
         <li>Ride the lift up the launch tower, and climb into your ship through the hatch underneath (<kbd>E</kbd>).</li>
         <li>Hold <kbd>Space</kbd> to lift off. Look at a world, press <kbd>T</kbd> to lock onto it and <kbd>G</kbd> to fly there by autopilot.</li>
         <li>Near a world, let go of everything and the ship holds still. Hold <kbd>Shift</kbd> to land gently. <kbd>E</kbd> steps out.</li>
+        <li>Find out what the Aster carried, take it from her vault on Ashfall, and bring it to the Engine on the comet when its door opens (about 20:30). Rook will be waiting with an offer.</li>
       </ol>
       <h3>Keys</h3>
       <div className="lp-help-keys">
         <p><kbd>W A S D</kbd> walk or fly · <kbd>Mouse</kbd> look and steer · <kbd>Space</kbd> jump (hold for higher) / lift off · <kbd>Shift</kbd> run / sink and land</p>
-        <p><kbd>E</kbd> talk, use, read · <kbd>X</kbd> signalscope · <kbd>L</kbd> ship log · <kbd>M</kbd> map · <kbd>P</kbd> photograph · <kbd>F</kbd> torch · <kbd>V</kbd> first or third person · <kbd>H</kbd> help in the game · <kbd>Esc</kbd> pause and every key</p>
+        <p><kbd>E</kbd> talk, use, read · <kbd>X</kbd> signalscope · <kbd>L</kbd> ship log · <kbd>M</kbd> map · <kbd>T</kbd> lock a world · <kbd>G</kbd> autopilot · <kbd>P</kbd> photograph · <kbd>F</kbd> torch · <kbd>V</kbd> first or third person · <kbd>H</kbd> help in the game · <kbd>Esc</kbd> pause and every key</p>
       </div>
       <h3>Words you will meet</h3>
       <dl>
@@ -193,8 +194,11 @@ function HowToPlay({ onClose }) {
         <dt>The star</dt><dd>the Lantern. The five worlds go round it. It is dying.</dd>
         <dt>The Reach</dt><dd>this little solar system: Hearthstone (home), Verdance (jungle), Ashfall (a volcanic moon), the Phantom (a moon that moves) and the Wanderer (a comet).</dd>
         <dt>Ship log</dt><dd>your notebook (<kbd>L</kbd>): everything you have learned, and where it points next.</dd>
-        <dt>Signalscope</dt><dd>listens for music and signals (<kbd>X</kbd>). Turn toward the loudest and follow it.</dd>
-        <dt>The Choir</dt><dd>the people who lived here long ago. They wrote in spirals called songlines: look at one and press <kbd>E</kbd> to read it.</dd>
+        <dt>Signalscope</dt><dd>hears beacons, old recordings and the drones (<kbd>X</kbd>). Turn toward the loudest and follow it.</dd>
+        <dt>The Founders</dt><dd>Hearth&rsquo;s first settlers, a century ago. They left recorders all over the Reach: look at one and press <kbd>E</kbd> to play it.</dd>
+        <dt>Rook</dt><dd>whose drones brought the Aster down. He remembers the mornings too, and he wants the core.</dd>
+        <dt>The core</dt><dd>what the Aster carried. Once you take it, it stays with you through every morning.</dd>
+        <dt>The Phantom</dt><dd>a moon that jumps when nobody watches it. Lock onto it with <kbd>T</kbd> and it holds still.</dd>
       </dl>
     </div>
   </div>

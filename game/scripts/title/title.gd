@@ -272,10 +272,11 @@ func _toggle_help() -> void:
 const HELP_GOAL := "You are a pilot who crashed on a little world called Hearthstone while escorting a freighter, the Aster. Every twenty-two minutes the star at the middle of the Reach dies and the same morning comes back. Nobody remembers it but you, and Rook, whose drones brought the Aster down. What you learn is the only thing you keep: find out what the Aster carried, reach the Engine on the comet, and decide what the morning becomes."
 const HELP_STEPS := [
 	"Talk to Mara by the fire: look at her and press E.",
-	"Get your ship's launch codes from Okafor, in the glass-domed observatory.",
+	"Mara gives you the Kestrel's launch codes. Every morning after the first, you wake already in her seat.",
 	"Ride the lift up the launch tower, and climb into your ship through the hatch underneath (E).",
 	"Hold Space to lift off. Look at a world, press T to lock onto it, then G to fly there.",
 	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
+	"Take the core from the Aster's vault on Ashfall to the Engine on the Wanderer when its door opens (about 20:30). Rook will be waiting.",
 ]
 const HELP_KEYS := [
 	["W A S D", "walk, or fly"], ["Mouse", "look and steer"],
@@ -286,9 +287,11 @@ const HELP_KEYS := [
 const HELP_WORDS := [
 	["Your ship", "the Kestrel, a small two-engine craft on the launch tower"],
 	["The star", "the Lantern, which the five worlds go round. It is dying"],
-	["The loop", "every 22 minutes the star goes out and you wake at the fire again"],
+	["The loop", "every 22 minutes the star goes out and the morning starts again; only you and Rook remember"],
+	["Rook", "whose drones brought the Aster down; he remembers the mornings too, and wants the core"],
+	["The core", "what the Aster carried; once you take it, it stays with you through every morning"],
 	["Ship log (L)", "your notebook: what you have learned, and where it points"],
-	["Signalscope (X)", "hears music and signals; turn toward the loudest and follow it"],
+	["Signalscope (X)", "hears beacons, old recordings and the drones; turn toward the loudest and follow it"],
 	["The Founders", "Hearth's first settlers, a century ago; they left recordings all over the Reach"],
 	["Recording", "a Founders' recorder; look at it and press E to play it"],
 	["Hearthstone", "home: the village, the lake, the observatory, the tower"],
