@@ -135,6 +135,8 @@ func _ready() -> void:
 	var gt := args.find("--groundtest")
 	if gt >= 0 and gt + 1 < args.size():
 		_ground_test(args[gt + 1])
+	if "--cockpitwaketest" in args:
+		_cockpit_wake_test()
 	if "--crewtest" in args:
 		_crew_test()
 	var wt := args.find("--wandertest")
@@ -163,7 +165,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--crewtest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--crewtest", "--cockpitwaketest"]:
 			return true
 	return false
 
@@ -822,11 +824,11 @@ func _signals() -> void:
 	scope.add_source(hs.node, "mara", "Mara's banjo", -1, load("res://audio/reach/banjo.wav"), fire.origin + fire.basis.y * 1.2, 14.0)
 	var obs := Worlds.place(hs, "observatory")
 	scope.add_source(hs.node, "okafor", "Okafor's flute", -1, load("res://audio/reach/flute.wav"), obs.origin + obs.basis.y * 2.0, 14.0)
-	scope.add_source(hs.node, "choir_mine", "Songline: the old mine", 2, load("res://audio/reach/choir.wav"), Worlds.place(hs, "cave").origin, 10.0)
+	scope.add_source(hs.node, "choir_mine", "Recording: the old mine", 2, load("res://audio/reach/choir.wav"), Worlds.place(hs, "cave").origin, 10.0)
 	var vd: ReachBody = B["verdance"]
 	scope.add_source(vd.node, "renn", "A harmonica", -1, load("res://audio/reach/harmonica.wav"), Worlds.place(vd, "renn").origin + Worlds.place(vd, "renn").basis.y, 16.0)
 	scope.add_source(vd.node, "pod", "Escape pod beacon", 1, ReachSounds.beacon(0.9), Worlds.place(vd, "pod").origin, 12.0)
-	scope.add_source(vd.node, "choir_pillars", "Songline: the pillar city", 2, load("res://audio/reach/choir.wav"), Worlds.place(vd, "pillars").origin, 14.0)
+	scope.add_source(vd.node, "choir_pillars", "Recording: the pillar city", 2, load("res://audio/reach/choir.wav"), Worlds.place(vd, "pillars").origin, 14.0)
 	var ash: ReachBody = B["ashfall"]
 	scope.add_source(ash.node, "vex", "Hand drums", -1, load("res://audio/reach/drums.wav"), Worlds.place(ash, "vex").origin, 14.0)
 	var rec: Vector3 = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
@@ -834,17 +836,17 @@ func _signals() -> void:
 	scope.add_source(ash.node, "drones", "Hollow drones", 3, ReachSounds.chatter(), Worlds.place(ash, "vault").origin, 16.0)
 	var ph: ReachBody = B["phantom"]
 	scope.add_source(ph.node, "phantom", "A wavering tone", 4, ReachSounds.quantum(), Vector3.ZERO, 30.0)
-	scope.add_source(ph.node, "choir_shrine", "Songline: the Phantom's shrine", 2, load("res://audio/reach/choir.wav"), Worlds.place(ph, "shrine").origin, 10.0)
+	scope.add_source(ph.node, "choir_shrine", "Recording: the Phantom's shrine", 2, load("res://audio/reach/choir.wav"), Worlds.place(ph, "shrine").origin, 10.0)
 	var wa: ReachBody = B["wanderer"]
 	scope.add_source(wa.node, "engine", "The Engine", 2, load("res://audio/reach/choir.wav"), Worlds.place(wa, "engine").origin, 20.0)
 
 ## Stepping out onto a world: what it is and what to do there, in plain
 ## words, the first time each morning.
 const GUIDES := {
-	"verdance": ["Verdance, the jungle world", "Someone here is playing a harmonica, and nobody in Hearth plays one. Press X to hold up your signalscope (it hears music and signals), turn until the sound is loudest, and walk that way.\n\nStones carved with spirals are the Choir's writing (the people who lived here long ago): look at one and press E to read it. What you learn goes into your ship log (L)."],
-	"ashfall": ["Ashfall, the volcanic moon", "The wreck of the Aster, the freighter you were escorting, lies in a crater here. Drones guard it with searchlights: stay out of their light.\n\nPress X and listen: hand drums (a salvager called Vex) and the wreck's own distress beacon. Follow either one in."],
-	"phantom": ["The Phantom, the moon that moves", "It jumps somewhere else whenever nobody is watching it, but it holds still while you are standing on it.\n\nThe Choir (the people who lived here long ago) left a shrine on it. Find their spiral writing and press E to read it."],
-	"wanderer": ["The Wanderer, the comet", "Something very old is sealed inside it. Its door only opens when the comet swings closest to the star, at about 20:30 on the clock (M, the map, shows the time).\n\nIf you are early, wait nearby; if you are late, there is always tomorrow."],
+	"verdance": ["Verdance, the jungle world", "Renn, the Aster's pilot, is somewhere here: her suit beacon is on your signalscope. Press X, turn until the ping is loudest, and walk that way.\n\nThe old recorders are the Founders' (Hearth's first settlers): look at one and press E to play it. What you learn goes into your ship log (L)."],
+	"ashfall": ["Ashfall, the volcanic moon", "The wreck of the Aster, the freighter you were escorting, lies in a crater here. Drones guard it with searchlights: stay out of their light.\n\nCaptain Hale is alive in the wreck's bridge: press X, his suit beacon is on the first frequency. A salvager called Vex camps by the wreck too."],
+	"phantom": ["The Phantom, the moon that moves", "It jumps somewhere else whenever nobody is watching it; it holds still while you stand on it, or while your ship has it locked (T).\n\nSato, the Aster's navigator, is stranded at the old shrine here. The Founders left a recording in it too."],
+	"wanderer": ["The Wanderer, the comet", "Pip, the Aster's cargo hand, is sealed inside it with the Founders' Engine. Its door only opens when the comet swings closest to the star, at about 20:30 on the clock (M, the map, shows the time).\n\nIf you are early, wait nearby; if you are late, there is always tomorrow."],
 }
 var _guided := {}
 
@@ -859,10 +861,10 @@ func _on_woke(n: int, _first: bool) -> void:
 		hud.toast("SHIP LOG UPDATED")
 		# The first time round again, said plainly: what happened and what
 		# carries over.
-		hud.plaque("The same morning", "The star (the Lantern) went out, and you woke here again, at the fire, at the start of the same day. Nobody else remembers it. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. Twenty-two minutes each time. Find out why it happens, and end it.", player.global_position)
+		hud.plaque("The same morning", "The star (the Lantern) went out, and you woke here again, at the start of the same day. Nobody else remembers it, and everyone is back where they were. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. From tomorrow you wake in your ship. Twenty-two minutes each time: bring the crew home, and end it.", player.global_position)
 	_guided.clear()
 	if n == 1 and not Lore.known("hearth_codes"):
-		hud.guide("Your goal", "You are a pilot. Three days ago your ship crashed here, on a little world called Hearthstone, while you were escorting a freighter called the Aster. The villagers pulled you out and fixed your ship.\n\nGet your ship flying, then find out what happened to the Aster and its crew. Start with Mara, by the fire: look at her and press E.", 24.0)
+		hud.guide("Your goal", "You are a pilot. Three days ago your ship crashed here, on a little world called Hearthstone, while you were escorting a freighter called the Aster. The villagers pulled you out and fixed your ship.\n\nSome of the Aster's crew are still alive out there. Get your ship flying and find them. Start with Mara, by the fire: look at her and press E.", 24.0)
 	if n <= 2:
 		hud.hint("E  talk, use, read    X  signalscope    M  map\nL  ship log    V  third person    H  help    Esc  every key", 20.0)
 
@@ -887,12 +889,12 @@ const LEADS := [
 	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its door is only open around 20:30 on the clock (the map, M, shows the time).", "wanderer", "engine", "The Engine"],
 	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
-	["verd_engine", "ash_core", "The Engine needs a core, and the Aster's cargo hummed like the Choir's writing. Search the wreck on Ashfall, the dark moon with glowing cracks.", "ashfall", "wreck", "The Aster's wreck"],
+	["verd_engine", "ash_core", "The Engine needs a core, and the Aster's cargo hummed like the Founders' recordings. Search the wreck on Ashfall, the dark moon with glowing cracks.", "ashfall", "wreck", "The Aster's wreck"],
 	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its door opens only when it is nearest the star, around 20:30 on the clock (M shows the time).", "wanderer", "engine", "The Engine's door"],
 	["verd_cargo", "ash_hale", "Find the Aster's bridge recorder on Ashfall, in the crater by the wreck: follow the marker. It is still talking; press E beside it.", "ashfall", "recorder", "The bridge recorder"],
 	["hearth_vex", "ash_vex", "Fly to Ashfall, the dark moon with glowing cracks. Vex, a salvager, camps beside the Aster's wreck: follow the marker to her and press E. (With the sound on, the signalscope, X, picks up her drums.)", "ashfall", "vex", "Vex's camp"],
 	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
-	["hearth_choir", "hearth_songline", "In the old mine past the lake, read the Choir's spiral writing on the far wall: walk up to it, look at it and press E.", "hearthstone", "cave", "The old mine"],
+	["hearth_choir", "hearth_songline", "In the old mine past the lake, play the Founders' recording on the far wall: walk up to it, look at it and press E.", "hearthstone", "cave", "The old mine"],
 	["hearth_codes", "hearth_lantern", "Okafor wants a word: set her down by the observatory, the glass dome on the hill, and press E to talk to him. (Isa's rings round the crater are there to fly any time.)", "hearthstone", "observatory", "Okafor"],
 ]
 
@@ -1373,6 +1375,28 @@ func _draw_count() -> void:
 	for k in keys.slice(0, 25):
 		print("DRAWS %4d %s" % [groups[k], k])
 	Report.line("DRAWCOUNT total surfaces %d in %d groups" % [total, keys.size()])
+	Report.finish(get_tree())
+
+## A morning after the first, with the launch codes known: you wake in the
+## Kestrel's seat on the tower, and Space lifts her off.
+func _cockpit_wake_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(2.0).timeout
+	loop.wake("")
+	await loop.woke
+	await get_tree().create_timer(1.0).timeout
+	var seated := ship.piloted and not player.visible and get_viewport().get_camera_3d() == ship.cam
+	var k := InputEventKey.new()
+	k.keycode = KEY_SPACE
+	k.physical_keycode = KEY_SPACE
+	k.pressed = true
+	Input.parse_input_event(k)
+	var h0 := ship.altitude
+	await get_tree().create_timer(3.0).timeout
+	var k2 := k.duplicate() as InputEventKey
+	k2.pressed = false
+	Input.parse_input_event(k2)
+	Report.line("COCKPITWAKE loop %d seated %s, rose %.1f m, hull %d" % [loop.loops, seated, ship.altitude - h0, int(ship.integrity)])
 	Report.finish(get_tree())
 
 ## The crew: each survivor stands on their world, talking to them boards

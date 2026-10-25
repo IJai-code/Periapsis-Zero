@@ -164,7 +164,7 @@ func _show(place: String) -> void:
 	if not known and not Lore.place_rumoured(place):
 		# Nothing written yet.
 		_detail.add_child(ReachStyle.title("Nothing yet", 26, ReachStyle.EMBER))
-		_entry("The log fills as you go: what people tell you, what the Choir left written, what you see for yourself. Rumours point the way to places you have not been.", false)
+		_entry("The log fills as you go: what people tell you, what the Founders left recorded, what you see for yourself. Rumours point the way to places you have not been.", false)
 		return
 	_detail.add_child(ReachStyle.title(Lore.PLACES[place].title, 26, ReachStyle.EMBER if known else ReachStyle.MUTE))
 	if not known:

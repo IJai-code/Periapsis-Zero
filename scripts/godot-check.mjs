@@ -277,6 +277,17 @@ const checks = [
     const m = out.match(/METEORTEST impacts (\d+), craters (\d+), starstone taken (\w+), learned (\w+), explorer alive (\w+)/)
     return [Boolean(m) && Number(m[1]) >= 4 && m[3] === 'true' && m[4] === 'true' && m[5] === 'true', m ? m[0] : 'no result']
   }],
+  ['the Reach: the Aster\'s crew: four survivors on their worlds, boarded, brought home by Hearth\'s fire, lost past their hour; the ending follows', async () => {
+    const out = await run('reach', ['--crewtest'], /CREWTEST/, 300000)
+    const m = out.match(/CREWTEST placed \[([^\]]*)\], aboard (\d+), lead home (\w+), home (\d+), renn (\w+), saved (\w+), ending lines (\d+)/)
+    const grounded = m ? m[1].split(', ').every((p) => Math.abs(Number(p.split(' ')[1])) < 1.5) && m[1].split(', ').length === 4 : false
+    return [Boolean(m) && grounded && m[2] === '2' && m[3] === 'true' && m[4] === '2' && m[5] === 'lost' && m[6] === 'true' && Number(m[7]) >= 5, m ? m[0] : 'no result']
+  }],
+  ['the Reach: a morning after the first, you wake in the Kestrel\'s seat on the tower, and Space lifts her off', async () => {
+    const out = await run('reach', ['--cockpitwaketest'], /COCKPITWAKE/, 200000)
+    const m = out.match(/COCKPITWAKE loop (\d+) seated (\w+), rose ([\d.]+) m, hull (\d+)/)
+    return [Boolean(m) && m[2] === 'true' && Number(m[3]) > 10 && m[4] === '100', m ? m[0] : 'no result']
+  }],
   ['the Reach: L opens the ship log', async () => {
     const out = await run('reach', ['--logtest'], /LOGTEST/)
     return [/LOGTEST open true/.test(out), (out.match(/LOGTEST[^\n]*/) ?? ['no result'])[0]]

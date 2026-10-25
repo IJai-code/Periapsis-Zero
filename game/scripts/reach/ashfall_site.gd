@@ -181,7 +181,7 @@ func _vault_at(mark: Transform3D) -> void:
 	glow.light_energy = 1.4
 	glow.omni_range = 4.0
 	_core.add_child(glow)
-	_core_use = Usable.sphere("Take the Choir core", 0.5)
+	_core_use = Usable.sphere("Take the Founders' core", 0.5)
 	_core.add_child(_core_use)
 	_core_use.used.connect(func(_by: Node): _take_core())
 
@@ -219,7 +219,7 @@ func reset_loop() -> void:
 	_door.position = _door_shut
 	_keypad.prompt = "Enter the vault's code"
 	_core.visible = true
-	_core_use.prompt = "Take the Choir core"
+	_core_use.prompt = "Take the Founders' core"
 	for d in drones:
 		d.reset()
 

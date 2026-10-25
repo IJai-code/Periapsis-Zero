@@ -138,5 +138,13 @@ func wake(cause := "") -> void:
 	var w := Wake.new()
 	w.reach = reach
 	reach.add_child(w)
-	await w.morning(first)
+	# The first morning is at Hearth's fire, where the story starts. Every
+	# morning after, once she is yours, you wake in the Kestrel's seat on
+	# the tower, ready to fly: the loop is a pilot's, and the walk back to
+	# her each time is the part nobody needs twice.
+	var args := OS.get_cmdline_user_args()
+	if not first and Lore.known("hearth_codes") and (not Reach._testing(args) or "--cockpitwaketest" in args):
+		await w.in_cockpit()
+	else:
+		await w.morning(first)
 	woke.emit(loops, first)

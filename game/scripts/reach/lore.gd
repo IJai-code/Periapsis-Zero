@@ -21,22 +21,22 @@ const FACTS := {
 	"hearth_rimrun": ["hearth", "Isa keeps a ring course in the crater, the Rim Run: the Kestrel through every ring, against the clock.", ""],
 	"hearth_zerog": ["hearth", "You flew the five rings in the Zero-G cave, on the crater floor. The jetpack is second nature now.", ""],
 	"hearth_lantern": ["hearth", "Okafor says the Lantern is dying: it flickered three nights ago and has been swelling since.", ""],
-	"hearth_choir": ["hearth", "The Choir lived in the Reach before anyone. Their writing spirals; Okafor's translator reads it.", ""],
+	"hearth_choir": ["hearth", "The Founders, Hearth's first settlers a century ago, left recorders all over the Reach, still playing. Okafor's player plays them.", ""],
 	"hearth_phantom": ["hearth", "Fen says the small moon nearest the Lantern won't stay put. Okafor swears it moves when nobody is looking.", "phantom"],
 	"hearth_renn": ["hearth", "A suit beacon on Verdance, at a camp under a waterfall: Renn, the Aster's pilot, alive. Rook's drones find her camp at about 15:30.", "verdance"],
 	"hearth_hale": ["hearth", "A suit beacon in the Aster's wrecked bridge on Ashfall: Captain Hale is alive, sealed in. His air runs out at about 13:00.", "ashfall"],
 	"hearth_sato": ["hearth", "A suit beacon on the Phantom, the moon by the Lantern: Navigator Sato. At 18:00 it swings too close to the star for anyone to live there.", "phantom"],
 	"hearth_pip": ["hearth", "A faint beacon from inside the Wanderer: Pip, the Aster's cargo hand, shut in the Engine's chamber. Its door opens only at the comet's closest pass.", "wanderer"],
 	"hearth_vex": ["hearth", "Vex, a salvager, works the Aster's wreck on Ashfall. She plays hand drums when she thinks no one can hear.", "ashfall"],
-	"hearth_songline": ["hearth", "A songline deep in the old mine: \"The Wanderer carries the Engine. At its nearest pass to the Lantern, its door opens.\"", "wanderer"],
+	"hearth_songline": ["hearth", "A Founders' recording deep in the old mine: \"The Wanderer carries the Engine. At its nearest pass to the Lantern, its door opens.\"", "wanderer"],
 	"verd_renn": ["verdance", "Renn Ayers is alive. Her escape pod came down on Verdance; she hides at a camp under the falls.", ""],
 	"verd_sold": ["verdance", "Renn sold the Aster's route to Rook to clear her brother's debt. Rook promised no one would be hurt.", ""],
 	"verd_cargo": ["verdance", "Renn says the Aster's \"vaccine\" crates hummed. Hale knew what was in them, and his bridge recorder will say.", "ashfall"],
-	"verd_engine": ["verdance", "The Choir's pillar city: \"The Engine sings back the last twenty-two minutes, over and over, until it is given a core.\"", "wanderer"],
-	"verd_why": ["verdance", "Another songline in the pillars: \"Those who carry the Engine's song in them remember. The rest begin again.\" Your Kestrel's recorder hums the same note.", ""],
+	"verd_engine": ["verdance", "The Founders' pillar city: \"The Engine sings back the last twenty-two minutes, over and over, until it is given a core.\"", "wanderer"],
+	"verd_why": ["verdance", "Another recording in the pillars: \"Those who carry the Engine's song in them remember. The rest begin again.\" Your Kestrel's recorder hums the same note.", ""],
 	"ash_vex": ["ashfall", "Vex salvages the Aster. Rook's drones guard the wreck and sweep it with searchlights; stay out of their light.", ""],
-	"ash_hale": ["ashfall", "Hale's recorder: the crates hold a Choir core dug from the Moon. Rook wants it. The cargo vault's code is 0412.", ""],
-	"ash_core": ["ashfall", "You took the Choir core from the Aster's vault. It hums like the songlines.", ""],
+	"ash_hale": ["ashfall", "Hale's recorder: the crates hold the Founders' core, dug back out of the Moon. Rook wants it. The cargo vault's code is 0412.", ""],
+	"ash_core": ["ashfall", "You took the Founders' core from the Aster's vault. It hums like their recordings.", ""],
 	"ash_rook": ["ashfall", "Rook, on the drones' channel: \"Let the pilot dig. They'll carry it where I can't.\"", ""],
 	"ph_moves": ["phantom", "The Phantom was not where it had been when you looked away.", ""],
 	"ph_photo": ["phantom", "Fen worked it out: lock onto the Phantom with the Kestrel (T) and it holds still while the lock holds.", ""],
@@ -55,39 +55,39 @@ const FACTS := {
 # when read ("" none)]. The translator reads them (Translator).
 
 const SONGLINES := {
-	"mine": {"title": "Songline: the old mine", "verses": [
-		["Ilu", "The Lantern is tired. We have measured its breathing for a hundred years, and every year it breathes more slowly.", -1, ""],
-		["Sae", "Then we have less time than we thought. Is the Engine ready?", 0, ""],
-		["Ilu", "Nearly. We have set it aboard the Wanderer. At the Wanderer's nearest pass to the Lantern, its door opens to us.", 1, "hearth_songline"],
-		["Oro", "Who dug this tunnel? Ilu, your small digging has come up through my garden.", 0, ""],
+	"mine": {"title": "Recording: the old mine", "verses": [
+		["Ilse", "The Lantern is tired. We have measured its breathing for a hundred years, and every year it breathes more slowly.", -1, ""],
+		["Sadie", "Then we have less time than we thought. Is the Engine ready?", 0, ""],
+		["Ilse", "Nearly. We have set it aboard the Wanderer. At the Wanderer's nearest pass to the Lantern, its door opens to us.", 1, "hearth_songline"],
+		["Orrin", "Who dug this tunnel? Ilse, your small digging has come up through my garden.", 0, ""],
 	]},
-	"pillars": {"title": "Songline: the pillar city", "verses": [
-		["Tamsa", "Today we woke the Engine for the first time. It sang the last twenty-two minutes back to us, and we lived them again.", -1, ""],
+	"pillars": {"title": "Recording: the pillar city", "verses": [
+		["Tamsin", "Today we woke the Engine for the first time. It sang the last twenty-two minutes back to us, and we lived them again.", -1, ""],
 		["Pell", "I lived them three times. I burned my bread three times. I would like to stop now.", 0, ""],
-		["Tamsa", "The Engine sings back the last twenty-two minutes, over and over, until it is given a core. Without one it can only repeat. With one, it can carry.", 0, "verd_engine"],
+		["Tamsin", "The Engine sings back the last twenty-two minutes, over and over, until it is given a core. Without one it can only repeat. With one, it can carry.", 0, "verd_engine"],
 		["Venn", "Carry what?", 2, ""],
-		["Tamsa", "Us. Out through the Fold, before the Lantern falls.", 3, ""],
+		["Tamsin", "Us. Out through the Fold, before the Lantern falls.", 3, ""],
 	]},
-	"pillar_top": {"title": "Songline: the high pillar", "verses": [
-		["Oro", "I climbed up here to be alone, and found Venn already here, being alone.", -1, ""],
+	"pillar_top": {"title": "Recording: the high pillar", "verses": [
+		["Orrin", "I climbed up here to be alone, and found Venn already here, being alone.", -1, ""],
 		["Venn", "The Engine does not wake everyone. Those who carry its song in them remember each turning. The rest begin again, and never know.", 0, "verd_why"],
-		["Oro", "Then whoever remembers must be the one to finish it.", 1, ""],
+		["Orrin", "Then whoever remembers must be the one to finish it.", 1, ""],
 	]},
-	"shrine": {"title": "Songline: the Phantom's shrine", "verses": [
-		["Sae", "The little moon will not hold still for us. Pell says it is shy. I say it is only quantum.", -1, ""],
+	"shrine": {"title": "Recording: the Phantom's shrine", "verses": [
+		["Sadie", "The little moon will not hold still for us. Pell says it is shy. I say it is only quantum.", -1, ""],
 		["Pell", "It holds still while it is seen. So we keep a picture of it, and fly.", 0, ""],
-		["Sae", "For whoever comes after us: board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.", 0, "ph_shrine"],
+		["Sadie", "For whoever comes after us: board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.", 0, "ph_shrine"],
 		["Pell", "And if no one comes?", 2, ""],
-		["Sae", "Then the Lantern falls, the morning comes back, and the song goes on without us.", 3, ""],
+		["Sadie", "Then the Lantern falls, the morning comes back, and the song goes on without us.", 3, ""],
 	]},
-	"engine_door": {"title": "Songline: the Engine's door", "verses": [
-		["Ilu", "The door stays sealed while the Wanderer is far from the Lantern, so the Engine keeps its warmth.", -1, ""],
-		["Ilu", "It opens at Periapsis Zero, the Wanderer's closest pass, about twenty and a half minutes into the song, and closes soon after. Do not be late. We were, once.", 0, "wan_door"],
+	"engine_door": {"title": "Recording: the Engine's door", "verses": [
+		["Ilse", "The door stays sealed while the Wanderer is far from the Lantern, so the Engine keeps its warmth.", -1, ""],
+		["Ilse", "It opens at Periapsis Zero, the Wanderer's closest pass, about twenty and a half minutes into the song, and closes soon after. Do not be late. We were, once.", 0, "wan_door"],
 	]},
-	"engine": {"title": "Songline: the Engine", "verses": [
-		["Tamsa", "We never found a core of our own. We made one, long ago, and lost it on a journey far beyond the Fold.", -1, ""],
-		["Sae", "Perhaps someone will bring it back.", 0, ""],
-		["Tamsa", "Then this is for them. Set the core in the Engine's heart. It will stop repeating the morning and sing the whole song once, all the way through.", 1, ""],
+	"engine": {"title": "Recording: the Engine", "verses": [
+		["Tamsin", "We never found a core of our own. We made one, long ago, and lost it on a journey far beyond the Fold.", -1, ""],
+		["Sadie", "Perhaps someone will bring it back.", 0, ""],
+		["Tamsin", "Then this is for them. Set the core in the Engine's heart. It will stop repeating the morning and sing the whole song once, all the way through.", 1, ""],
 	]},
 }
 
@@ -195,7 +195,7 @@ const TALK := {
 		], "choices": [
 			["Mara, I've lived this morning before.", "loop", "hearth_loop", ""],
 			["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""],
-			["What do you know about the Choir?", "choir", "", ""],
+			["What do you know about the Founders?", "choir", "", ""],
 			["Thanks. I'll go.", "bye", "", ""],
 		]},
 		"hale": {"lines": [
@@ -205,13 +205,13 @@ const TALK := {
 		], "choices": [["I will.", "bye", "", ""]]},
 		"loop": {"lines": [
 			["Mara Voss", "...You mean that? Every morning the same, and you the only one who knows it."],
-			["Mara Voss", "Okafor would say it's the Choir. He says that about everything. Ask him anyway. And whatever you're doing out there, do it faster."],
+			["Mara Voss", "Okafor would say it's the Founders. He says that about everything. Ask him anyway. And whatever you're doing out there, do it faster."],
 		], "choices": [["I'll try.", "bye", "", ""]]},
 		"choir": {"lines": [
-			["Mara Voss", "The ones who were here first. Spirals carved in every rock in the Reach. There's one down the old mine, past the lake."],
+			["Mara Voss", "Hearth's first settlers, a hundred years back. They left recorders all over the Reach, still playing if you knock them. There's one down the old mine, past the lake."],
 			["Mara Voss", "Okafor reads them. I just mine round them."],
 		], "choices": [["Thanks.", "bye", "", ""]]},
-		"short": {"lines": [["Mara Voss", "Okafor's up at the observatory, pilot. The lift's at the foot of the tower. The sky won't wait."]], "choices": [["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""], ["The Choir?", "choir", "", ""], ["On my way.", "bye", "", ""]]},
+		"short": {"lines": [["Mara Voss", "Okafor's up at the observatory, pilot. The lift's at the foot of the tower. The sky won't wait."]], "choices": [["Hale left a recording. The vault code was 0412.", "hale", "ash_hale", ""], ["The Founders?", "choir", "", ""], ["On my way.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Mara Voss", "Go on. The fire's here when you get back."]]},
 	},
 	"okafor": {
@@ -222,17 +222,17 @@ const TALK := {
 			["Okafor", "As for the Aster's people: some of them lived. I've been listening to their beacons for three days and I've no ship to go to them. You have."],
 		], "learn": ["hearth_codes", "hearth_lantern"], "choices": [
 			["Can you help me find anyone else?", "scope", "", ""],
-			["What are the spirals on the rocks?", "choir", "", ""],
+			["What are the old recorders I keep seeing?", "choir", "", ""],
 			["Is the Lantern going to die?", "die", "", ""],
 		]},
 		"scope": {"lines": [
 			["Okafor", "Your suit has a signalscope. Press X; the wheel, or Z and C, to change the frequency. The first one is crew beacons, and since three days ago it has four on it."],
 			["Okafor", "One in the Aster's bridge on Ashfall: the captain, Hale. One under the falls on Verdance. One on the Phantom, that little moon. And one, faint, from inside the Wanderer."],
 			["Okafor", "Four of them alive, pilot. But a beacon is only a suit, and suits run out of air. Get them home. Vex salvages the Aster on Ashfall; she knows the wreck."],
-		], "learn": ["hearth_hale", "hearth_renn", "hearth_sato", "hearth_pip", "hearth_vex"], "choices": [["The Choir?", "choir", "", ""], ["Thank you.", "bye", "", ""]]},
+		], "learn": ["hearth_hale", "hearth_renn", "hearth_sato", "hearth_pip", "hearth_vex"], "choices": [["The Founders?", "choir", "", ""], ["Thank you.", "bye", "", ""]]},
 		"choir": {"lines": [
-			["Okafor", "The Choir. They were here before the Lantern was old. They wrote in spirals, a song in every one, and they built something they called the Engine."],
-			["Okafor", "Your suit has my translator in it now: look at a songline and press E. There's one in the old mine. I've never got past its first verse."],
+			["Okafor", "The Founders. Hearth's first settlers, a century gone. They talked to recorders the way we talk to each other, left them everywhere, and they built something they called the Engine."],
+			["Okafor", "Your suit has my player in it now: look at a recorder and press E. There's one in the old mine. I've never got past its first track."],
 		], "learn": ["hearth_choir"], "choices": [["The Lantern?", "die", "", ""], ["Thank you.", "bye", "", ""]]},
 		"die": {"lines": [
 			["Okafor", "Everything dies, pilot. But this one is in a hurry. If I had to guess, a day. Maybe less."],
@@ -252,7 +252,7 @@ const TALK := {
 	"miner": {
 		"start": {"lines": [
 			["Tull", "Ice in the hills, ice in the hills. Forty years. The Lantern used to be whiter, you know. Now look at it. Gone all orange in the face."],
-			["Tull", "Old mine's past the lake, if you're the curious kind. Spiral on the far wall. Never liked the way it hums."],
+			["Tull", "Old mine's past the lake, if you're the curious kind. Old recorder on the far wall. Never liked the way it hums."],
 		], "choices": [["Thanks, Tull.", "", "", ""]]},
 	},
 	"hauler": {
@@ -274,7 +274,7 @@ const TALK := {
 		"cargo": {"lines": [
 			["Renn Ayers", "The manifest said vaccine. But I stood next to those crates for a week, and they hummed. Like singing, under the engines."],
 			["Renn Ayers", "Hale knew. He wouldn't say. If his bridge recorder survived on Ashfall, it'll say what he wouldn't."],
-			["Renn Ayers", "And the spirals in the pillars here hum the same note. Go and look."],
+			["Renn Ayers", "And the old recorder in the pillars here hums the same note. Go and listen."],
 		], "learn": ["verd_cargo"], "choices": [["Come home with me. Mara should hear it from you.", "board", "", ""], ["I'll find it.", "bye", "", ""]]},
 		"known": {"lines": [
 			["Renn Ayers", "...You look at me like you already know. You do, don't you. The route. Rook. All of it."],
@@ -288,7 +288,7 @@ const TALK := {
 	"hale": {
 		"start": {"first": [["ash_hale", "known"]], "lines": [
 			["Elias Hale", "...Who's that? Kestrel? I heard a ship and thought I'd finally gone mad. The aft bulkhead's buckled shut and the air's going stale."],
-			["Elias Hale", "Listen, in case I don't make it: the vaccine crates are a cover. One crate holds a Choir core, and Rook wants it more than he wants any of us."],
+			["Elias Hale", "Listen, in case I don't make it: the vaccine crates are a cover. One crate holds the Founders' core, and Rook wants it more than he wants any of us."],
 			["Elias Hale", "I locked it in the cargo vault. The code is zero four one two. Mara will know why."],
 		], "learn": ["ash_hale"], "choices": [["Let's get you out of here.", "board", "", ""], ["Who sold the route, captain?", "route", "", ""]]},
 		"known": {"lines": [
@@ -304,7 +304,7 @@ const TALK := {
 	"hale_rec": {
 		"start": {"lines": [
 			["Hale's recorder", "...recording. This is Elias Hale, master of the Aster. We are coming down on Ashfall. The Hollow were waiting at the Fold. Somebody sold our route."],
-			["Hale's recorder", "For whoever finds this: the vaccine crates are a cover. There is one crate that matters. It holds a Choir core, dug out of the Moon's south pole, and Rook wants it more than he wants any of us."],
+			["Hale's recorder", "For whoever finds this: the vaccine crates are a cover. There is one crate that matters. It holds the Founders' core, dug out of the Moon's south pole, and Rook wants it more than he wants any of us."],
 			["Hale's recorder", "I have locked it in the cargo vault. The code is zero four one two. Mara will know why."],
 			["Hale's recorder", "Mara, if this reaches you: I'm sorry about the wing. Keep the fire lit. ...End recording."],
 		], "learn": ["ash_hale"], "end": true},

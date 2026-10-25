@@ -11,7 +11,7 @@ extends Node
 
 ## The first frequency is the Aster's crew: their suit beacons (Crew). The
 ## villagers' and Vex's music is only heard where it is played.
-const FREQS := ["Crew beacons", "Distress", "The Choir", "Hollow chatter", "Quantum"]
+const FREQS := ["Crew beacons", "Distress", "Old recordings", "Hollow chatter", "Quantum"]
 const SONG := 41.7391
 
 var reach: Node

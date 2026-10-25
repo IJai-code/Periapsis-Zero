@@ -5,6 +5,35 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Bring them home: the Reach becomes a rescue, 24 October 2026
+
+The game had been too close to Outer Wilds in its bones. It keeps the
+loop and becomes its own: a pilot's rescue.
+
+- **Four of the Aster's crew are alive**, each in danger and each on a
+  clock: Captain Hale sealed in the wrecked bridge on Ashfall (his air
+  runs out at 13:00), Renn hiding under Verdance's falls (Rook's drones
+  find her at 15:30), Navigator Sato stranded on the Phantom (it swings too
+  near the Lantern at 18:00), and Pip, the cargo hand, shut in the Engine's
+  chamber on the Wanderer. Talk to them (and say what each needs to hear)
+  and they board the Kestrel; land by Hearth's fire and they walk home.
+  Past their hour, the ones still out there are lost, until the morning
+  puts them back. The ending tells who you brought home.
+- **The signalscope's first frequency is the crew's suit beacons**, not
+  musicians; the village's music is only heard where it is played. A
+  beacon goes silent when its survivor is aboard, home or lost.
+- **The Phantom is held by the Kestrel's target lock (T)**, not a photograph.
+- **No more spiral writing**: the Choir are now the Founders, Hearth's first
+  settlers a century ago, who left recorders all over the Reach. The
+  reading screen plays them as a branching reel of recorded tracks.
+- **Every morning after the first, you wake in the Kestrel's seat** on the
+  tower, ready to fly, instead of walking back to her from the campfire.
+- The pitch everywhere (front page, loading screen, link previews, how to
+  play) is the rescue: "Four of the Aster's crew are alive out there.
+  Every morning you have twenty-two minutes to bring them home."
+- Checks: `--crewtest`, `--cockpitwaketest`.
+
+
 ### One game on the front page, flying in two minutes, the Rim Run in the story, fewer draw calls, 24 October 2026
 
 - **The front page is the Reach**: play, download, how to play. The

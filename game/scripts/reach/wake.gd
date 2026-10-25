@@ -47,6 +47,22 @@ func _set_lid(v: float) -> void:
 	if _overlay:
 		_overlay.visible = _lid > 0.002
 
+## A later morning: in the Kestrel's seat on the launch tower. The lids
+## open twice on the cockpit's screens and the sky over the canopy.
+func in_cockpit() -> void:
+	var ship: ReachShip = reach.ship
+	ship.seat_now()
+	lid = 1.0
+	reach.hud.fade_to(Color(0, 0, 0, 0), 0.6)
+	var t := create_tween()
+	t.tween_property(self, "lid", 0.35, 1.4).set_trans(Tween.TRANS_SINE)
+	t.tween_property(self, "lid", 0.8, 0.5).set_trans(Tween.TRANS_SINE)
+	t.tween_property(self, "lid", 0.0, 1.2).set_trans(Tween.TRANS_SINE)
+	await t.finished
+	if reach.hud:
+		reach.hud.caption("The same morning. You wake in the Kestrel's seat, up on the tower. Hold Space to lift off.", 5.0)
+	queue_free()
+
 ## The morning. `first` is the true first waking, which opens slower and
 ## says the loop number afterwards; every later loop wakes the same way.
 func morning(first: bool) -> void:

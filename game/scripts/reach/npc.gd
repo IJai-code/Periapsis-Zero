@@ -32,13 +32,13 @@ const LINES := {
 	},
 	"okafor": {
 		"first": ["You are the pilot. Good. Come up to the observatory when you can — the Lantern is not well."],
-		"pass": ["The instrument is older than the village. It still works.", "I have been watching that star for thirty years. It has never done this.", "Bring me what the Choir left and I will make sense of it."],
+		"pass": ["The instrument is older than the village. It still works.", "I have been watching that star for thirty years. It has never done this.", "Bring me what the Founders left and I will make sense of it."],
 		"late": ["The readings are past the end of the scale. Go, pilot.", "I am staying. Someone has to write it down."],
 	},
 	"renn": {
 		"first": ["The pilot. I heard the lift. Sit, if you are staying."],
 		"pass": ["Quiet out here. The falls drown most of it.", "I have been listening to the Reach. It is not just us.", "You get used to the cold. Mostly."],
-		"late": ["The Choir is singing again. Can you hear it?", "Whatever you are planning — do it before the light goes."],
+		"late": ["The old recorders are playing by themselves. Can you hear them?", "Whatever you are planning — do it before the light goes."],
 	},
 	"vex": {
 		"first": ["Do not touch the drums. The drones do not like new sounds."],
@@ -81,9 +81,9 @@ const MUTTER := {
 const KNOWS := {
 	"mara": [["hearth_zerog", "Saw you in the Zero-G cave. You kept your breakfast down? Good pilot."], ["verd_renn", "Renn is alive? Bring her home, if she will come."], ["ash_core", "What is that humming in your pack? It sets my teeth on edge."]],
 	"fen": [["hearth_meteor", "You went out in the falling stones? I watch them from the porch. Brave, or foolish."], ["ph_moves", "You saw it move, did you not? I knew it. Nobody believes me."], ["ph_photo", "A photograph holds it still? Ha. I should have thought of that."]],
-	"miner": [["hearth_songline", "You read the writing down there? I have been walking past it for years."]],
+	"miner": [["hearth_songline", "You played the recording down there? I have been walking past it for years."]],
 	"hauler": [["hearth_rimrun", "You flew my Rim Run! Most pilots clip ring six. The lookout wall is closer than it looks."], ["ash_vex", "Vex? She still owes me a crate of bolts. Tell her I said so."], ["verd_renn", "Renn. Huh. Thought we had lost her with the Aster."]],
-	"okafor": [["hearth_choir", "The Choir's writing spirals in. Read from the middle out, and it makes sense."], ["verd_engine", "An Engine that sings time back? I would give my telescope to hear it."]],
+	"okafor": [["hearth_choir", "The Founders talked over each other. Play the answers after the questions and it makes sense."], ["verd_engine", "An Engine that sings time back? I would give my telescope to hear it."]],
 }
 
 ## Fen walks over to the fire twice a morning and talks with Mara: overheard

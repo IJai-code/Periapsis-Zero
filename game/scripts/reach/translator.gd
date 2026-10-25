@@ -1,17 +1,17 @@
 class_name Translator
 extends CanvasLayer
-## Okafor's translator, reading a songline (Lore.SONGLINES): the Choir's
-## spirals drawn as they are carved, each verse curling off the one it
-## answers. The verse being read lights along its strand from the outside
-## in while its words resolve out of the glyphs. Read verses stay lit.
+## Okafor's player, playing a founders' recording (Lore.SONGLINES): each
+## track's waveform on a strip, the answers hanging below the track they
+## answer like a branching reel. The track being played fills in from its
+## start while its words come up out of the static. Played tracks stay lit.
 ##
-## E, Space or a click goes on to the next verse; Z and C (or the arrows)
-## pick one; a click on a spiral reads that one. Esc or Q puts it away.
+## E, Space or a click goes on to the next track; Z and C (or the arrows)
+## pick one; a click on a track plays that one. Esc or Q puts it away.
 ## Time does not stop while you read.
 
 signal finished
 
-const GLYPHS := "~=+*:;/|<>^o"
+const GLYPHS := ".:-~·"
 
 var id := ""
 var hud: ReachHud
@@ -74,7 +74,7 @@ func _ready() -> void:
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.custom_minimum_size = Vector2(360, 120)
 	v.add_child(_text)
-	_hint = ReachStyle.label("E  next verse      Z / C  choose      Esc  put away", 12, ReachStyle.MUTE, true)
+	_hint = ReachStyle.label("E  next track      Z / C  choose      Esc  put away", 12, ReachStyle.MUTE, true)
 	v.add_child(_hint)
 	await get_tree().process_frame
 	_lay_out()
@@ -87,8 +87,8 @@ func _ready() -> void:
 	_select(_sel)
 	Sfx.play("ping", -12.0, 0.8)
 
-## Each verse a spiral; answers grow off the outer end of the verse they
-## answer, fanning to either side.
+## Each verse a track, its waveform drawn along a strip; answers hang
+## below the verse they answer, indented, like a branching reel.
 func _lay_out() -> void:
 	_layout.resize(_verses.size())
 	var kids := {}
@@ -97,50 +97,45 @@ func _lay_out() -> void:
 		if not kids.has(p):
 			kids[p] = []
 		kids[p].append(n)
-	_place(0, Vector2.ZERO, 100.0, -0.35, 1.0, kids)
-	# Fit the whole tree to the space left of the panel, centred.
+	var row := [0]
+	_place(0, 0, kids, row)
+	# Fit the reel to the space left of the panel, centred.
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
 	for L: Dictionary in _layout:
 		var c: Vector2 = L.c
 		var r: float = L.r
-		lo = lo.min(c - Vector2(r, r))
-		hi = hi.max(c + Vector2(r, r))
+		lo = lo.min(c - Vector2(r, 30.0))
+		hi = hi.max(c + Vector2(r, 30.0))
 	var room := _canvas.size * Vector2(0.86, 0.8)
-	var fit := minf(1.5, minf(room.x / maxf(hi.x - lo.x, 1.0), room.y / maxf(hi.y - lo.y, 1.0)))
+	var fit := minf(1.3, minf(room.x / maxf(hi.x - lo.x, 1.0), room.y / maxf(hi.y - lo.y, 1.0)))
 	var mid := (lo + hi) / 2.0
 	for L: Dictionary in _layout:
 		L.c = ((L.c as Vector2) - mid) * fit
 		L.end = ((L.end as Vector2) - mid) * fit
 		L.r = (L.r as float) * fit
 
-func _place(n: int, c: Vector2, r: float, grow: float, sense: float, kids: Dictionary) -> void:
-	var a0 := grow + PI * 0.15
-	var turns := 2.6
-	var a_end := a0 + sense * turns * TAU
-	var end := c + Vector2(cos(a_end), sin(a_end)) * r
-	_layout[n] = {"c": c, "r": r, "a0": a0, "sense": sense, "turns": turns, "end": end}
-	# Answers grow outward clear of the verse they answer, fanned apart.
-	var list: Array = kids.get(n, [])
-	for k in list.size():
-		var child: int = list[k]
-		# A lone answer curls off to one side, alternately, like a strand.
-		var spread := -0.6 * sense if list.size() == 1 else lerpf(-0.95, 0.95, float(k) / (list.size() - 1))
-		var g := grow + spread
-		var cr := maxf(r * 0.72, 44.0)
-		_place(child, c + Vector2(cos(g), sin(g)) * (r + cr + 30.0), cr, g, -sense, kids)
+func _place(n: int, depth: int, kids: Dictionary, row: Array) -> void:
+	var r := 190.0
+	var c := Vector2(depth * 70.0 + r, row[0] * 78.0)
+	row[0] += 1
+	# `end` is where the track starts playing: the left of its strip.
+	_layout[n] = {"c": c, "r": r, "end": c - Vector2(r, 0)}
+	for child: int in kids.get(n, []):
+		_place(child, depth + 1, kids, row)
 
+## The waveform of verse n, from its start, `frac` of the way along.
 func _points(n: int, frac := 1.0) -> PackedVector2Array:
 	var L: Dictionary = _layout[n]
 	var pts := PackedVector2Array()
-	var steps := 90
-	# Drawn from the outer end inward, as it is read.
+	var steps := 120
+	var c: Vector2 = L.c
+	var r: float = L.r
 	for i in int(steps * clampf(frac, 0.0, 1.0)) + 1:
-		var t := 1.0 - float(i) / steps
-		var a: float = L.a0 + L.sense * t * L.turns * TAU
-		var r: float = L.r * (0.08 + 0.92 * t)
-		var wob := sin(t * 37.0 + n) * 1.2
-		pts.append(L.c + Vector2(cos(a), sin(a)) * (r + wob))
+		var t := float(i) / steps
+		var env := sin(t * PI) * (0.55 + 0.45 * sin(t * 9.0 + n * 1.7))
+		var y := (sin(i * 2.3 + n) * 0.6 + sin(i * 0.71 + n * 3.0) * 0.4) * 17.0 * env
+		pts.append(c + Vector2(-r + 2.0 * r * t, y))
 	return pts
 
 func _origin() -> Vector2:
@@ -156,9 +151,12 @@ func _paint() -> void:
 		var read := Lore.read(id, n)
 		var lit := Color(0.85, 0.93, 1.0) if read else Color(0.45, 0.62, 0.8, 0.35)
 		if p >= 0:
-			var a: Vector2 = o + (_layout[p] as Dictionary).end
+			var a: Vector2 = o + (_layout[p] as Dictionary).end + Vector2(12, 0)
 			var b: Vector2 = o + L.end
-			_canvas.draw_line(a, b, Color(lit, lit.a * 0.6), 2.0, true)
+			var knee := Vector2(a.x, b.y)
+			_canvas.draw_polyline(PackedVector2Array([a, knee, b]), Color(lit, lit.a * 0.6), 2.0, true)
+		# The strip it plays along.
+		_canvas.draw_line(o + L.c - Vector2(L.r, 0), o + L.c + Vector2(L.r, 0), Color(lit, lit.a * 0.25), 1.0, true)
 		var all := _points(n)
 		for i in all.size():
 			all[i] += o
@@ -218,7 +216,7 @@ func _finish_verse() -> void:
 		hud.toast("SHIP LOG UPDATED")
 		Sfx.play("objective", -10.0, 1.2)
 	if _next_unread() < 0:
-		_hint.text = "All read.      Z / C  read again      Esc  put away"
+		_hint.text = "All played.      Z / C  play again      Esc  put away"
 	Report.line("TRANSLATE %s verse %d" % [id, _sel])
 
 func _next_unread() -> int:
@@ -249,7 +247,9 @@ func _click(e: InputEvent) -> void:
 			var L: Dictionary = _layout[n]
 			var c: Vector2 = L.c
 			var r: float = L.r
-			var d := ((e as InputEventMouseButton).position - (o + c)).length() - r * 0.6
+			# Distance to the strip (a track is long and thin).
+			var q := (e as InputEventMouseButton).position - (o + c)
+			var d := Vector2(maxf(absf(q.x) - r, 0.0), q.y).length()
 			if d < best_d:
 				best_d = d
 				best = n

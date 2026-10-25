@@ -269,7 +269,7 @@ func _toggle_help() -> void:
 ## The game in plain words, on the title screen: the goal, the first few
 ## minutes, the keys, and the words the Reach uses. The pause menu's help
 ## says the same in game; this is what a new pilot reads before starting.
-const HELP_GOAL := "You are a pilot who crashed on a little world called Hearthstone. Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Every twenty-two minutes the star at the middle of the Reach goes out, and you wake by the campfire again. Nobody else remembers. What you learn is the only thing you keep."
+const HELP_GOAL := "You are a pilot who crashed on a little world called Hearthstone while escorting a freighter, the Aster. Four of her crew are still alive out there, each running out of time. Every twenty-two minutes the star at the middle of the Reach dies and the same morning comes back. Nobody else remembers. What you learn is the only thing you keep: where they are, and what each one needs, so each morning you can bring more of them home."
 const HELP_STEPS := [
 	"Talk to Mara by the fire: look at her and press E.",
 	"Get your ship's launch codes from Okafor, in the glass-domed observatory.",
@@ -289,8 +289,8 @@ const HELP_WORDS := [
 	["The loop", "every 22 minutes the star goes out and you wake at the fire again"],
 	["Ship log (L)", "your notebook: what you have learned, and where it points"],
 	["Signalscope (X)", "hears music and signals; turn toward the loudest and follow it"],
-	["The Choir", "the people who lived here long ago; they wrote in spirals"],
-	["Songline", "a spiral of the Choir's writing; look at it and press E"],
+	["The Founders", "Hearth's first settlers, a century ago; they left recordings all over the Reach"],
+	["Recording", "a Founders' recorder; look at it and press E to play it"],
 	["Hearthstone", "home: the village, the lake, the observatory, the tower"],
 	["Verdance, Ashfall", "the jungle world, and the volcanic moon"],
 	["The Phantom, the Wanderer", "the moon that moves, and the comet"],

@@ -72,7 +72,7 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
         {tab === 'career' && <>
           <section className="tt-hero" style={{ backgroundImage: `url(${BASE}game/keyart-reach.jpg)` }}>
             <div className="tt-hero-copy"><span className="tt-eyebrow">A mystery in the Reach / 3091</span><h1>Periapsis<br /><em>Zero</em></h1>
-              <p className="tt-hook">Twenty-two minutes. Then the star goes out, and you wake by the campfire again.</p>
+              <p className="tt-hook">Four of the Aster&rsquo;s crew are alive out there. Every morning you have twenty-two minutes to bring them home.</p>
               <p>A tiny solar system on real orbits. Fly the Kestrel between five small worlds, listen for signals, read what the Choir left behind, and find out why the morning keeps coming back. What you learn is all you keep. In your browser, or downloaded at full quality.</p>
               {isPhone ? <><p className="tt-device-note">The game and its prologue need a computer with a keyboard and mouse. Flight school and surface exploration work on this device.</p><button className="tt-primary control" onClick={() => setTab('training')}>Enter flight school →</button></> : <>
                 <div className="tt-actions">
@@ -173,7 +173,7 @@ function HowToPlay({ onClose }) {
       <button ref={close} className="lp-help-x" onClick={onClose} aria-label="Close">×</button>
       <h2 id="lp-help-title">How to play</h2>
       <h3>The goal</h3>
-      <p>You are a pilot who crashed on a little world called Hearthstone. Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Every twenty-two minutes the star at the middle of this tiny solar system goes out, and you wake by the campfire again. Nobody else remembers. What you learn is the only thing you keep, so each day you get a little further.</p>
+      <p>You are a pilot who crashed on a little world called Hearthstone while escorting a freighter, the Aster. Four of her crew are still alive, scattered across the worlds around you, and each is running out of time. Every twenty-two minutes the star at the middle of this tiny solar system dies and the same morning comes back. Nobody else remembers. What you learn (where they are, what each one needs) is the only thing you keep, so each morning you can save more of them.</p>
       <h3>Your first few minutes</h3>
       <ol>
         <li>Follow the marker to Mara by the fire, look at her and press <kbd>E</kbd>. (A marker always shows where to go next.)</li>
@@ -212,8 +212,8 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
       </nav>
       <div className="lp-left">
         <Logo />
-        <p className="lp-tag">Twenty-two minutes. Then the star goes out, and you wake by the campfire again.</p>
-        <p className="lp-goal">Fly a little ship between five tiny worlds and find out why the day keeps repeating. <button onClick={() => setHelp(true)}>How to play</button></p>
+        <p className="lp-tag">Four of the Aster&rsquo;s crew are alive out there. Every morning you have twenty-two minutes to bring them home.</p>
+        <p className="lp-goal">A rescue across five tiny worlds on real orbits, against a star that dies every twenty-two minutes. <button onClick={() => setHelp(true)}>How to play</button></p>
         <ul className="lp-menu">
           {/* One game on the front page: the Reach. The older projects are a
               line at the bottom ("More from this project"). */}

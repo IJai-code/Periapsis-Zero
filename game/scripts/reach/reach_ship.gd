@@ -1328,6 +1328,26 @@ func board() -> void:
 	boarded.emit()
 	_blink(false)
 
+## In the seat at once (a morning that begins there, Wake.in_cockpit): the
+## end of board() without the climb.
+func seat_now() -> void:
+	explorer.enabled = false
+	cockpit.visible = true
+	cam.position = EYE
+	cam.rotation = Vector3.ZERO
+	cam.make_current()
+	_seat = Vector3.ZERO
+	explorer.visible = false
+	explorer.process_mode = Node.PROCESS_MODE_DISABLED
+	explorer.remove_from_group("reach_dynamic")
+	piloted = true
+	_moving = false
+	freeze = false
+	sleeping = false
+	system.focus = self
+	_cameras()
+	boarded.emit()
+
 ## Out of the seat, back past the log's terminal, down the ladder and the
 ## ramp, and out onto the ground under her.
 func leave() -> void:
