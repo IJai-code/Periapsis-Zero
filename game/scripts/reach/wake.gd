@@ -52,6 +52,9 @@ func _set_lid(v: float) -> void:
 func in_cockpit() -> void:
 	var ship: ReachShip = reach.ship
 	ship.seat_now()
+	var v: Village = (reach.planets["hearthstone"] as Planet).sites[0]
+	if v.lift:
+		v.lift.park_top()
 	lid = 1.0
 	reach.hud.fade_to(Color(0, 0, 0, 0), 0.6)
 	var t := create_tween()

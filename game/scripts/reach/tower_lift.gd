@@ -62,6 +62,15 @@ func reset() -> void:
 	_use.prompt = "Ride the lift up"
 	_gate.set_deferred("disabled", false)
 
+## Waiting at the top (a morning that begins in the Kestrel's seat: the way
+## down is right there when you get out).
+func park_top() -> void:
+	_at_top = true
+	_moving = false
+	car.position = SHAFT + Vector3(0, TOP, 0)
+	_use.prompt = "Ride the lift down"
+	_gate.set_deferred("disabled", true)
+
 func at_top() -> bool:
 	return _at_top
 

@@ -5,6 +5,24 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Out of the Kestrel on the tower, one How to play, outfits as made, no stall at the start, 25 October 2026
+
+- **Waking in the Kestrel, then getting out, stranded you**: the lift had
+  gone back to the foot of the tower with the morning, so on the deck there
+  was no way down, and you came out under her belly facing her nose gear and
+  the rail. Now the lift waits at the top on those mornings, you step out
+  beside her facing it, and a caption says to walk on and ride it down.
+  `--cockpitwaketest --walkout` checks the whole way to the ground.
+- **The front page had two How to play buttons**: one now, top right.
+- **The people's outfits are as Quaternius made them**: no colour washed
+  over the cloth and leather; only the hair is tinted to each person.
+- **No stall the moment the morning starts** (130 ms, measured, every time
+  in the browser): the people round the fire are drawn once behind the
+  black, so their skinned bodies' shaders are compiled before they are
+  seen. Lift-off and arriving at Ashfall and Verdance hold 60 fps with no
+  hitches.
+
+
 ### Rook remembers, real people, the core keeps, and a film to begin, 25 October 2026
 
 - **The story is the pilot's again, with its own twist.** The rescue

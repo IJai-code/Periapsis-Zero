@@ -212,6 +212,13 @@ func _prewarm() -> void:
 		[xf.origin + up * 55.0 + side * 6.0, xf.origin + side * 160.0, up],
 		[xf.origin + up * 150.0 - side * 80.0, xf.origin, fwd],
 	]
+	# The fire and the people round it, near (their skinned bodies and hair
+	# compile their own shaders: drawn here, not at the first sight of Mara).
+	var hb: ReachBody = system.bodies["hearthstone"]
+	var fire := Worlds.place(hb, "village")
+	var fup := fire.basis.y
+	views.append([fire.origin + fire.basis.x * 4.0 + fire.basis.z * 3.0 + fup * 1.7, fire.origin + fup * 1.0, fup])
+	views.append([fire.origin - fire.basis.x * 4.0 - fire.basis.z * 3.0 + fup * 1.7, fire.origin + fup * 1.0, fup])
 	for view in views:
 		cam.global_transform = Transform3D(Basis.looking_at((view[1] as Vector3) - (view[0] as Vector3), view[2] as Vector3), view[0] as Vector3)
 		for i in 2:
@@ -774,6 +781,11 @@ func _start_player() -> void:
 			var at := zc.global_transform * Vector3(0, 3.5, 7.5)
 			var upz := (at - system.world("hearthstone")).normalized()
 			player.place(Transform3D(Site.upright(upz, -zc.global_basis.z), at), -zc.global_basis.z)
+		elif beat == "cockpitwake":
+			# A later morning, as a returning player has it: awake in the seat.
+			Lore.learn("hearth_codes")
+			loop.loops = maxi(loop.loops, 1)
+			loop.wake("")
 		elif beat.begins_with("deck"):
 			# On the tower's deck by the Kestrel (deck:<loop s> for the hour),
 			# looking at her from her left side, ahead of the wing.
@@ -1437,6 +1449,29 @@ func _cockpit_wake_test() -> void:
 	k2.pressed = false
 	Input.parse_input_event(k2)
 	Report.line("COCKPITWAKE loop %d seated %s, rose %.1f m, hull %d" % [loop.loops, seated, ship.altitude - h0, int(ship.integrity)])
+	if "--walkout" in OS.get_cmdline_user_args():
+		# Back down, out of the seat, a few steps on the deck, the lift down.
+		ship.reset_to((planets["hearthstone"] as Planet).sites[0].ship_rest)
+		await get_tree().create_timer(0.5).timeout
+		loop.wake("")
+		await loop.woke
+		await get_tree().create_timer(1.0).timeout
+		ship.leave()
+		await ship.left_ship
+		await get_tree().create_timer(1.0).timeout
+		var p0 := player.global_position
+		Input.action_press("forward")
+		await get_tree().create_timer(1.5).timeout
+		Input.action_release("forward")
+		var walked := player.global_position.distance_to(p0)
+		var vl: Village = (planets["hearthstone"] as Planet).sites[0]
+		var top := vl.lift.at_top()
+		vl.lift._ride(player)
+		await get_tree().create_timer(TowerLift.SECONDS + 2.5).timeout
+		var hb: ReachBody = system.bodies["hearthstone"]
+		var off := player.global_position - system.world("hearthstone")
+		var over := off.length() - hb.radius - Worlds.height("hearthstone", off.normalized(), hb.radius)
+		Report.line("WALKOUTTEST walked %.1f m on the deck, lift waiting at the top %s, down to %.1f m over the ground, enabled %s" % [walked, top, over, player.enabled])
 	Report.finish(get_tree())
 
 

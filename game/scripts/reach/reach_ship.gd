@@ -1382,11 +1382,56 @@ func leave() -> void:
 	# a slope under the hatch) that point can be inside a rise. Find the
 	# floor under it and stand on that; failing a hit, never below the
 	# world's own surface.
+	# Out from under her: the first clear spot beside her (port, starboard,
+	# then behind the tail), on whatever floor is there (the tower's deck,
+	# the ground). At the hatch's foot you stood under her belly facing the
+	# nose gear, hemmed in by it and the deck rail.
 	var stand := foot
-	var query := PhysicsRayQueryParameters3D.create(foot + up * 5.0, foot - up * 5.0, 1, [get_rid(), explorer.get_rid()])
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit and (hit.position - foot).length() < 2.2:
-		stand = hit.position
+	var space := get_world_3d().direct_space_state
+	var probe := PhysicsShapeQueryParameters3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.4
+	cap.height = 1.7
+	probe.shape = cap
+	probe.collision_mask = 1
+	probe.exclude = [explorer.get_rid()]
+	var side := (xf.basis.x - up * xf.basis.x.dot(up)).normalized()
+	var back := (xf.basis.z - up * xf.basis.z.dot(up)).normalized()
+	var found := false
+	# On the tower's deck: toward the lift's car, the way down.
+	var lift_at := Vector3.INF
+	var r := get_tree().get_first_node_in_group("reach_root")
+	if r and system.ruling().key == "hearthstone":
+		var v: Village = (r.planets["hearthstone"] as Planet).sites[0]
+		if v.lift and v.lift.at_top():
+			var car: Vector3 = v.lift.global_transform * (TowerLift.SHAFT + Vector3(0, TowerLift.TOP, 0))
+			if car.distance_to(global_position) < 25.0:
+				lift_at = car
+	var tries: Array = [side * 8.5, -side * 8.5, back * 10.0, side * 6.0 + back * 6.0, -side * 6.0 + back * 6.0, side * 11.0, -side * 11.0]
+	if lift_at != Vector3.INF:
+		var to_lift := lift_at - xf.origin
+		to_lift -= up * to_lift.dot(up)
+		tries.push_front(to_lift.normalized() * minf(to_lift.length() - 2.5, 9.0))
+	for off: Vector3 in tries:
+		var at := xf.origin + off
+		var q := PhysicsRayQueryParameters3D.create(at + up * 4.0, at - up * 8.0, 1, [get_rid(), explorer.get_rid()])
+		var h := space.intersect_ray(q)
+		if h.is_empty():
+			continue
+		probe.transform = Transform3D(_upright(up), h.position + up * 1.0)
+		if space.intersect_shape(probe, 1).is_empty():
+			stand = h.position
+			away = (off - up * off.dot(up)).normalized()
+			if lift_at != Vector3.INF:
+				var tl := lift_at - stand
+				away = (tl - up * tl.dot(up)).normalized()
+			found = true
+			break
+	if not found:
+		var query := PhysicsRayQueryParameters3D.create(foot + up * 5.0, foot - up * 5.0, 1, [get_rid(), explorer.get_rid()])
+		var hit := space.intersect_ray(query)
+		if hit and (hit.position - foot).length() < 2.2:
+			stand = hit.position
 	var b: ReachBody = system.ruling()
 	if b.key != "lantern":
 		var c := b.node.global_position
@@ -1401,6 +1446,8 @@ func leave() -> void:
 	_hatch_to(0.0, 0.7)
 	left_ship.emit()
 	_blink(false)
+	if lift_at != Vector3.INF and r and r.hud:
+		r.hud.caption("You're on top of the launch tower. Walk onto the lift ahead (W) and press E to ride down.", 5.0)
 
 ## The screen to black (true) or back (false) over a third of a second,
 ## for climbing in and out; awaitable. Without a HUD (some checks) it only

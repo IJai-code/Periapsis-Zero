@@ -34,7 +34,7 @@ var gesture_t := 0.0
 var gesture_len := 0.0
 
 ## The Reach's people are Quaternius's (art/godot/crew_people.py): who is
-## built from which, and the colour of their flight suit.
+## built from which (the colour is unused, kept for the old dressing).
 const QUAT := {
 	"mara": ["mara", Color(0.62, 0.3, 0.18)], "okafor": ["okafor", Color(0.18, 0.26, 0.42)],
 	"crowd2": ["fen", Color(0.35, 0.5, 0.32)], "crowd3": ["tull", Color(0.55, 0.45, 0.28)],
@@ -79,7 +79,7 @@ func _ready() -> void:
 		sb.add_child(cs)
 		add_child(sb)
 	if _quat:
-		_suit(body)
+		_dress_quat(body)
 	else:
 		_dress(body)
 	# The small parts of a face (eyes, lashes, brows, teeth, tongue) are each
@@ -159,11 +159,9 @@ func _dress(body: Node3D) -> void:
 					m.albedo_color = suit_tint
 			mi.set_surface_override_material(i, m)
 
-## Quaternius's people: their own materials (the outfit's scanned cloth and
-## leather, a little of each person's colour over it), the hair tinted and
-## cut out.
-func _suit(body: Node3D) -> void:
-	var colour: Color = QUAT[who][1]
+## Quaternius's people: their own materials as made (the outfits' cloth,
+## leather and buckles untouched), the hair tinted to the person and cut out.
+func _dress_quat(body: Node3D) -> void:
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		for i in mi.mesh.get_surface_count():
@@ -179,10 +177,6 @@ func _suit(body: Node3D) -> void:
 				h.cull_mode = BaseMaterial3D.CULL_DISABLED
 				h.roughness = 0.55
 				mi.set_surface_override_material(i, h)
-			elif n.contains("peasant") or n.contains("ranger"):
-				var o := src.duplicate() as StandardMaterial3D
-				o.albedo_color = Color(1, 1, 1).lerp(colour * 1.6, 0.3)
-				mi.set_surface_override_material(i, o)
 
 static func _is_hair(part: String) -> bool:
 	for h in ["short0", "ponytail", "braid", "bob0", "long0", "afro"]:

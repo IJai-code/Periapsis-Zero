@@ -213,7 +213,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
       <div className="lp-left">
         <Logo />
         <p className="lp-tag">Every twenty-two minutes the star dies and the same morning comes back. Only you remember. And Rook.</p>
-        <p className="lp-goal">Fly a little ship between five tiny worlds on real orbits, and reach the Engine before Rook does. <button onClick={() => setHelp(true)}>How to play</button></p>
+        <p className="lp-goal">Fly a little ship between five tiny worlds on real orbits, and reach the Engine before Rook does.</p>
         <ul className="lp-menu">
           {/* One game on the front page: the Reach. The older projects are a
               line at the bottom ("More from this project"). */}
@@ -224,7 +224,6 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
               <li><a href={`${BASE}play/index.html#reach`}>Play in your browser</a></li>
               <li><a href={`${DESKTOP}${download.file}`}>Download for {download.name}</a></li>
             </>}
-          <li><button onClick={() => setHelp(true)}>How to Play</button></li>
         </ul>
       </div>
       <div className="lp-links">

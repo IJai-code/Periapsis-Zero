@@ -287,6 +287,11 @@ const checks = [
     const m = out.match(/COCKPITWAKE loop (\d+) seated (\w+), rose ([\d.]+) m, hull (\d+)/)
     return [Boolean(m) && m[2] === 'true' && Number(m[3]) > 10 && m[4] === '100', m ? m[0] : 'no result']
   }],
+  ['the Reach: woken in the Kestrel on the tower, you get out beside her, walk, and the lift is waiting to take you down', async () => {
+    const out = await run('reach', ['--cockpitwaketest', '--walkout'], /WALKOUTTEST/, 300000)
+    const m = out.match(/WALKOUTTEST walked ([\d.]+) m on the deck, lift waiting at the top (\w+), down to (-?[\d.]+) m over the ground, enabled (\w+)/)
+    return [Boolean(m) && Number(m[1]) > 1.5 && m[2] === 'true' && Math.abs(Number(m[3])) < 3 && m[4] === 'true', m ? m[0] : 'no result']
+  }],
   ['the Reach: L opens the ship log', async () => {
     const out = await run('reach', ['--logtest'], /LOGTEST/)
     return [/LOGTEST open true/.test(out), (out.match(/LOGTEST[^\n]*/) ?? ['no result'])[0]]
