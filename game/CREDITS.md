@@ -48,3 +48,11 @@ crater wall is its scanned rock_face_01 and rock_face_02 (stratified
 sandstone), with namaqualand_boulder_03 at the foot, on the Zero-G cave's
 dome, as Verdance's floating stones and as the root of the crystal
 clusters (art/godot/crystals.py, made for the game).
+
+## Quaternius
+
+The people of the Reach are built from Quaternius's Universal Base
+Characters, Modular Character Outfits (Fantasy) and Universal Animation
+Library (CC0, quaternius.com): heads and hair from the base characters,
+peasant and ranger outfits, the animation library's idle, talk, walk, run,
+sit and the rest retargeted onto them (art/godot/crew_people.py).

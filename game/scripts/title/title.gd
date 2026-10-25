@@ -269,7 +269,7 @@ func _toggle_help() -> void:
 ## The game in plain words, on the title screen: the goal, the first few
 ## minutes, the keys, and the words the Reach uses. The pause menu's help
 ## says the same in game; this is what a new pilot reads before starting.
-const HELP_GOAL := "You are a pilot who crashed on a little world called Hearthstone while escorting a freighter, the Aster. Four of her crew are still alive out there, each running out of time. Every twenty-two minutes the star at the middle of the Reach dies and the same morning comes back. Nobody else remembers. What you learn is the only thing you keep: where they are, and what each one needs, so each morning you can bring more of them home."
+const HELP_GOAL := "You are a pilot who crashed on a little world called Hearthstone while escorting a freighter, the Aster. Every twenty-two minutes the star at the middle of the Reach dies and the same morning comes back. Nobody remembers it but you, and Rook, whose drones brought the Aster down. What you learn is the only thing you keep: find out what the Aster carried, reach the Engine on the comet, and decide what the morning becomes."
 const HELP_STEPS := [
 	"Talk to Mara by the fire: look at her and press E.",
 	"Get your ship's launch codes from Okafor, in the glass-domed observatory.",

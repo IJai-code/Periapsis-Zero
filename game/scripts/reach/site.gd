@@ -148,7 +148,7 @@ func person(key: String, model: String, at: Vector2, look: Vector2, sit := false
 	return n
 
 ## Standing at (east, north), facing a point: what person() uses, for
-## people placed by others (Crew's survivors).
+## people placed by others.
 func stand_at(at: Vector2, look: Vector2) -> Transform3D:
 	var xf := ground(at)
 	return Transform3D(upright(xf.basis.y, ground(look).origin - xf.origin), xf.origin)

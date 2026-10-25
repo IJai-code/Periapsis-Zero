@@ -9,9 +9,10 @@ extends Node
 ## Every Traveller plays a part of the same song in step with the loop's
 ## clock, so two heard together harmonise.
 
-## The first frequency is the Aster's crew: their suit beacons (Crew). The
-## villagers' and Vex's music is only heard where it is played.
-const FREQS := ["Crew beacons", "Distress", "Old recordings", "Hollow chatter", "Quantum"]
+## Beacons and what is left of the Aster on Distress; the Founders'
+## recorders; the Hollow drones' channel (Rook talks on it); the Phantom.
+## The villagers' and Vex's music is only heard where it is played.
+const FREQS := ["Distress", "Old recordings", "Hollow chatter", "Quantum"]
 const SONG := 41.7391
 
 var reach: Node

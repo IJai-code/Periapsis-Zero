@@ -33,6 +33,9 @@ func _ready() -> void:
 	var sk := get_skeleton()
 	for n in ["pelvis", "spine_02", "spine_03", "neck_01", "head", "clavicle_l", "clavicle_r", "upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r"]:
 		var i := sk.find_bone(n)
+		# (Quaternius's rig names its head "Head".)
+		if i < 0:
+			i = sk.find_bone(n.capitalize())
 		if i >= 0:
 			_b[n] = i
 	if _b.has("upperarm_r"):

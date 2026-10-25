@@ -15,7 +15,7 @@ var _core: Node3D
 var _core_use: Usable
 var drones: Array[HollowDrone] = []
 var recorder_at := Vector3.ZERO
-## The bridge room's transform (site space): Captain Hale is in it (Crew).
+## The bridge room's transform (site space).
 var bridge_xf: Transform3D
 var _fires: Array[OmniLight3D] = []
 var _t := 0.0
@@ -222,6 +222,14 @@ func reset_loop() -> void:
 	_core_use.prompt = "Take the Founders' core"
 	for d in drones:
 		d.reset()
+
+## A morning after the core was taken: the cradle stays empty (the core
+## came back through the loop with the pilot), the vault open.
+func core_gone() -> void:
+	_core.visible = false
+	_core_use.prompt = ""
+	_keypad.prompt = ""
+	_door.position = _door_shut + Vector3(2.0, 0, 0)
 
 func _vex() -> void:
 	center = Worlds.place(body, "vex")

@@ -10,9 +10,9 @@ signal finished
 static var this_loop := {}
 
 var who := ""
-## The conversation reached a node marked "board": the one talked to comes
-## aboard the Kestrel (Crew).
-var boarded := false
+## The conversation reached a node with an "outcome" (the choice at the
+## Engine): which.
+var outcome := ""
 var person: Person
 var hud: ReachHud
 var _box: PanelContainer
@@ -90,8 +90,8 @@ func _run() -> void:
 		if new and hud:
 			hud.toast("SHIP LOG UPDATED")
 			Sfx.play("objective", -10.0, 1.2)
-		if n.get("board", false):
-			boarded = true
+		if n.has("outcome"):
+			outcome = n.outcome
 		if n.get("end", false) or not n.has("choices"):
 			break
 		node = await _choose(n["choices"])

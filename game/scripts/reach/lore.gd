@@ -23,10 +23,7 @@ const FACTS := {
 	"hearth_lantern": ["hearth", "Okafor says the Lantern is dying: it flickered three nights ago and has been swelling since.", ""],
 	"hearth_choir": ["hearth", "The Founders, Hearth's first settlers a century ago, left recorders all over the Reach, still playing. Okafor's player plays them.", ""],
 	"hearth_phantom": ["hearth", "Fen says the small moon nearest the Lantern won't stay put. Okafor swears it moves when nobody is looking.", "phantom"],
-	"hearth_renn": ["hearth", "A suit beacon on Verdance, at a camp under a waterfall: Renn, the Aster's pilot, alive. Rook's drones find her camp at about 15:30.", "verdance"],
-	"hearth_hale": ["hearth", "A suit beacon in the Aster's wrecked bridge on Ashfall: Captain Hale is alive, sealed in. His air runs out at about 13:00.", "ashfall"],
-	"hearth_sato": ["hearth", "A suit beacon on the Phantom, the moon by the Lantern: Navigator Sato. At 18:00 it swings too close to the star for anyone to live there.", "phantom"],
-	"hearth_pip": ["hearth", "A faint beacon from inside the Wanderer: Pip, the Aster's cargo hand, shut in the Engine's chamber. Its door opens only at the comet's closest pass.", "wanderer"],
+	"hearth_renn": ["hearth", "A suit beacon on Verdance, at a camp under a waterfall: someone from the Aster is alive down there.", "verdance"],
 	"hearth_vex": ["hearth", "Vex, a salvager, works the Aster's wreck on Ashfall. She plays hand drums when she thinks no one can hear.", "ashfall"],
 	"hearth_songline": ["hearth", "A Founders' recording deep in the old mine: \"The Wanderer carries the Engine. At its nearest pass to the Lantern, its door opens.\"", "wanderer"],
 	"verd_renn": ["verdance", "Renn Ayers is alive. Her escape pod came down on Verdance; she hides at a camp under the falls.", ""],
@@ -40,10 +37,9 @@ const FACTS := {
 	"ash_rook": ["ashfall", "Rook, on the drones' channel: \"Let the pilot dig. They'll carry it where I can't.\"", ""],
 	"ph_moves": ["phantom", "The Phantom was not where it had been when you looked away.", ""],
 	"ph_photo": ["phantom", "Fen worked it out: lock onto the Phantom with the Kestrel (T) and it holds still while the lock holds.", ""],
-	"ph_shrine": ["phantom", "Sato: Hale's real orders were to take the core to the Engine aboard the Wanderer at its closest pass, Periapsis Zero. Give the Engine the core and the morning stops coming back.", "wanderer"],
-	"saved_hale": ["ashfall", "You got Captain Hale out of the Aster's bridge and home to Hearth's fire.", ""],
-	"saved_renn": ["verdance", "Renn came home with you. Mara heard it from her.", ""],
-	"saved_sato": ["phantom", "You took Sato off the Phantom before it swung into the Lantern's heat.", ""],
+	"ph_shrine": ["phantom", "The Phantom's recording: \"Board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.\"", "wanderer"],
+	"ash_rook_loops": ["ashfall", "Rook remembers. He has been living this morning longer than you have, and every morning he waits for someone to open the vault for him.", ""],
+	"wan_rook": ["wanderer", "At the Engine, Rook made his offer: the core for a place on his carrier through the Fold, for you and for Hearth. He has never been known to keep one.", ""],
 	"wan_door": ["wanderer", "The Engine's door on the Wanderer is sealed. It opens only at Periapsis Zero, the Wanderer's closest pass to the Lantern, at about 20:30.", ""],
 	"wan_end": ["wanderer", "You gave the Engine the core.", ""],
 }
@@ -219,17 +215,16 @@ const TALK := {
 			["Okafor", "Ah, the pilot who fell out of the sky. Come in, mind the telescope. Your launch codes: there, keyed into your suit. The Kestrel will answer to you now."],
 			["Okafor", "Have a look round the stands before you go; they'll tell you more about the Reach than I can in a morning. I've been watching the Lantern, our star."],
 			["Okafor", "Three nights ago it flickered. It's been swelling ever since. Stars don't do that, not on any clock we'd notice."],
-			["Okafor", "As for the Aster's people: some of them lived. I've been listening to their beacons for three days and I've no ship to go to them. You have."],
+			["Okafor", "As for the Aster's people: listen before you look. Your suit's signalscope, X. Start there."],
 		], "learn": ["hearth_codes", "hearth_lantern"], "choices": [
 			["Can you help me find anyone else?", "scope", "", ""],
 			["What are the old recorders I keep seeing?", "choir", "", ""],
 			["Is the Lantern going to die?", "die", "", ""],
 		]},
 		"scope": {"lines": [
-			["Okafor", "Your suit has a signalscope. Press X; the wheel, or Z and C, to change the frequency. The first one is crew beacons, and since three days ago it has four on it."],
-			["Okafor", "One in the Aster's bridge on Ashfall: the captain, Hale. One under the falls on Verdance. One on the Phantom, that little moon. And one, faint, from inside the Wanderer."],
-			["Okafor", "Four of them alive, pilot. But a beacon is only a suit, and suits run out of air. Get them home. Vex salvages the Aster on Ashfall; she knows the wreck."],
-		], "learn": ["hearth_hale", "hearth_renn", "hearth_sato", "hearth_pip", "hearth_vex"], "choices": [["The Founders?", "choir", "", ""], ["Thank you.", "bye", "", ""]]},
+			["Okafor", "Your suit has a signalscope. Press X; the wheel, or Z and C, to change the frequency. On Distress you'll hear what's left of the Aster."],
+			["Okafor", "Her bridge recorder on Ashfall, still talking. Vex salvages the wreck there: she knows it. And since three days ago, a suit beacon on Verdance. Somebody lived."],
+		], "learn": ["hearth_renn", "hearth_vex"], "choices": [["The Founders?", "choir", "", ""], ["Thank you.", "bye", "", ""]]},
 		"choir": {"lines": [
 			["Okafor", "The Founders. Hearth's first settlers, a century gone. They talked to recorders the way we talk to each other, left them everywhere, and they built something they called the Engine."],
 			["Okafor", "Your suit has my player in it now: look at a recorder and press E. There's one in the old mine. I've never got past its first track."],
@@ -275,31 +270,15 @@ const TALK := {
 			["Renn Ayers", "The manifest said vaccine. But I stood next to those crates for a week, and they hummed. Like singing, under the engines."],
 			["Renn Ayers", "Hale knew. He wouldn't say. If his bridge recorder survived on Ashfall, it'll say what he wouldn't."],
 			["Renn Ayers", "And the old recorder in the pillars here hums the same note. Go and listen."],
-		], "learn": ["verd_cargo"], "choices": [["Come home with me. Mara should hear it from you.", "board", "", ""], ["I'll find it.", "bye", "", ""]]},
+		], "learn": ["verd_cargo"], "choices": [["I'll find it.", "bye", "", ""]]},
 		"known": {"lines": [
 			["Renn Ayers", "...You look at me like you already know. You do, don't you. The route. Rook. All of it."],
-		], "choices": [["I know. Come home anyway.", "board", "", ""], ["Tell me again what Rook wanted.", "cargo", "", ""], ["Not yet.", "bye", "", ""]]},
-		"board": {"board": true, "end": true, "lines": [
-			["Renn Ayers", "Home. To Mara's fire, after what I did. ...Alright. If she throws me in the lake, I'll have earned it."],
-			["Renn Ayers", "Go. Before Rook's drones come sniffing at half past three. I'll be right behind you."],
-		]},
+		], "choices": [["Tell me again what Rook wanted.", "cargo", "", ""], ["Does Rook remember too?", "rook", "ash_rook_loops", ""], ["Not now.", "bye", "", ""]]},
+		"rook": {"lines": [
+			["Renn Ayers", "...He called me. Three mornings ago, the first time, he said: 'Again, Ayers.' I didn't know what he meant. I do now."],
+			["Renn Ayers", "He touched it, Kestrel. When the Hollow boarded, before Hale got it into the vault. Whatever's in that core sang to him too. He's been doing this longer than you."],
+		], "choices": [["Then I'll be faster.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Renn Ayers", "I'm not going anywhere. I don't think any of us are."]]},
-	},
-	"hale": {
-		"start": {"first": [["ash_hale", "known"]], "lines": [
-			["Elias Hale", "...Who's that? Kestrel? I heard a ship and thought I'd finally gone mad. The aft bulkhead's buckled shut and the air's going stale."],
-			["Elias Hale", "Listen, in case I don't make it: the vaccine crates are a cover. One crate holds the Founders' core, and Rook wants it more than he wants any of us."],
-			["Elias Hale", "I locked it in the cargo vault. The code is zero four one two. Mara will know why."],
-		], "learn": ["ash_hale"], "choices": [["Let's get you out of here.", "board", "", ""], ["Who sold the route, captain?", "route", "", ""]]},
-		"known": {"lines": [
-			["Elias Hale", "Kestrel. You came back for me. ...You've done this before, haven't you. You've got that look."],
-		], "choices": [["Every morning, captain. Come on.", "board", "", ""]]},
-		"route": {"lines": [
-			["Elias Hale", "I have my guesses and I'm not proud of them. Find Renn. Ask her yourself. Then bring her home; whatever she did, she's crew."],
-		], "choices": [["Let's go.", "board", "", ""]]},
-		"board": {"board": true, "end": true, "lines": [
-			["Elias Hale", "Lead the way, pilot. Slowly: the leg's done. And get me to Mara. I owe her eleven years of apology."],
-		]},
 	},
 	"hale_rec": {
 		"start": {"lines": [
@@ -309,31 +288,27 @@ const TALK := {
 			["Hale's recorder", "Mara, if this reaches you: I'm sorry about the wing. Keep the fire lit. ...End recording."],
 		], "learn": ["ash_hale"], "end": true},
 	},
-	"sato": {
-		"start": {"first": [["ph_shrine", "known"]], "lines": [
-			["Yui Sato", "Pilot? Pilot! Oh, thank every star. My lifeboat came down on this thing and it will NOT sit still. I've watched the sky jump about for three days."],
-			["Yui Sato", "I navigated the Aster. Hale's real orders weren't Hearth. We were to take the core to the Wanderer at its closest pass, Periapsis Zero, and give it to the Engine aboard."],
-			["Yui Sato", "Pip went ahead in the other lifeboat to open the Engine's door. He never called back. And this moon swings too near the Lantern at six o'clock. I'd rather not be here for that."],
-		], "learn": ["ph_shrine", "hearth_pip"], "choices": [["Get in. We're leaving.", "board", "", ""]]},
-		"known": {"lines": [["Yui Sato", "You knew exactly where to land. You've been here before, haven't you. Never mind. Take me home."]], "choices": [["Get in.", "board", "", ""]]},
-		"board": {"board": true, "end": true, "lines": [["Yui Sato", "Hearth, then the Wanderer. And pilot: twenty and a half minutes. Don't be late. We were, once."]]},
-	},
-	"pip": {
+	"engine_choice": {
 		"start": {"lines": [
-			["Pip Okoro", "You came! The door only opens when the comet's closest to the star. I got in, it shut behind me, and I've been talking to an engine ever since."],
-			["Pip Okoro", "That socket in the middle is waiting for something. Is that the core? Put it in. I'll hold on to you."],
-		], "learn": ["wan_door"], "end": true},
+			["Rook", "Pilot. Before you put it in. Hear me, once. I've listened to you every morning; you can listen to me this one."],
+			["Rook", "That machine stops the morning. Fine. It also sends Hearth through the Fold in barges built for ice, behind a star going out. Half of them won't make it."],
+			["Rook", "Give the core to my drone, and my carrier takes the whole village through, and you. Clean. You'd never have to see this morning again."],
+		], "learn": ["wan_rook"], "choices": [
+			["Give the Engine the core.", "engine", "", ""],
+			["Take Rook's offer.", "rook", "", ""],
+			["Not yet.", "wait", "", ""],
+		]},
+		"engine": {"outcome": "engine", "end": true, "lines": [["You", "Mara's barges have made it through worse. Goodbye, Rook."]]},
+		"rook": {"outcome": "rook", "end": true, "lines": [["Rook", "Sensible. I always knew you would be, eventually. Hold it up."]]},
+		"wait": {"end": true, "lines": [["Rook", "Take your time. You and I have nothing else."]]},
 	},
-	"hale_home": {"start": {"end": true, "lines": [["Elias Hale", "Mara hasn't stopped talking at me. I've never been so glad to be shouted at. Go on, pilot. The others are still out there."]]}},
-	"renn_home": {"start": {"end": true, "lines": [["Renn Ayers", "She didn't throw me in the lake. She made me tea. I think that's worse. ...Thank you, Kestrel."]]}},
-	"sato_home": {"start": {"end": true, "lines": [["Yui Sato", "Ground that stays where it's put. I'd forgotten. Twenty and a half minutes, pilot. The Wanderer."]]}},
 	"vex": {
 		"start": {"lines": [
 			["Vex", "Careful where you put your feet, pilot. Rook's drones sweep this wreck every couple of minutes. Get caught in their light and they shoot."],
 			["Vex", "I'm Vex. I take what nobody's using. The Aster has a lot nobody's using now."],
 		], "learn": ["ash_vex"], "choices": [["Hale's recorder. Where is it?", "core", "", ""], ["Rook's drones?", "rook", "", ""]]},
 		"core": {"lines": [
-			["Vex", "The bridge section is down in the crater, past the cargo spine. Somebody's alive in there: I hear tapping on the bulkhead. The captain, I'd bet. Not for long, with that air."],
+			["Vex", "Hear that ping? Tune your scope to Distress. The bridge section is down in the crater, past the cargo spine. The captain's recorder is still talking."],
 			["Vex", "The vault's in the cargo spine too. Sealed tight. I've been at it for days. Needs a code, and the captain took it with him."],
 		], "choices": [["Rook's drones?", "rook", "", ""], ["Thanks.", "bye", "", ""]]},
 		"rook": {"lines": [["Vex", "They came the day the Aster fell. They don't take anything. They just watch the vault. Like they're waiting for someone to open it for them."]], "choices": [["Thanks.", "bye", "", ""]]},

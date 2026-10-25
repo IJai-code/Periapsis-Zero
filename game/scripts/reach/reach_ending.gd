@@ -6,35 +6,24 @@ extends CanvasLayer
 ## told a line at a time. Any key or a click, after the last line, goes back
 ## to the title.
 
-## What is told depends on who you brought home that last morning (Crew).
-static func lines(home: Array) -> Array:
-	var out := [
+## What is told depends on the choice at the Engine.
+static func lines(choice: String) -> Array:
+	if choice == "rook":
+		return [
+			"You held the core up, and Rook's drone took it.",
+			"Rook kept his word the way he keeps it. His carrier went through the Fold that morning with the core aboard, and nobody else.",
+			"The Engine sat silent. The Lantern fell at twenty-two minutes, as it always had.",
+			"And the morning did not come back. Not for Hearth, not for Mara's fire, not for you.",
+			"Somewhere past the Fold, a man who remembers everything is trying to forget one pilot.",
+		]
+	return [
 		"The Engine took the core, and sang.",
 		"For the first time in three days, the morning did not come back.",
 		"The Lantern fell at twenty-two minutes, as it always had. This time the Fold was open.",
+		"Hearth's barges went through first, Mara at the head of them. Renn flew her pod. Vex towed the Aster's bridge, because nobody was using it.",
+		"Behind them, on the drones' channel, Rook was shouting, and then he wasn't. He would never have another morning.",
+		"You were the last one through, and the only one who remembered why.",
 	]
-	var all := home.has("hale") and home.has("renn") and home.has("sato")
-	if all:
-		out.append("Hearth's barges went through first, Mara at the head of them, Hale beside her. Renn flew the pod. Sato called the course.")
-		out.append("Pip rode with you, talking the whole way. Every one of the Aster's crew who lived through the Fold, lived through this.")
-	else:
-		var said := []
-		if home.has("hale"):
-			said.append("Hale rode the first barge, beside Mara.")
-		if home.has("renn"):
-			said.append("Renn flew the pod, and did not look back.")
-		if home.has("sato"):
-			said.append("Sato called the course.")
-		if said.is_empty():
-			said.append("Hearth's barges went through first, Mara at the head of them.")
-		out.append(" ".join(said))
-		var left := []
-		for id in ["hale", "renn", "sato"]:
-			if not home.has(id):
-				left.append(Crew.ROSTER[id].name)
-		out.append("Pip rode with you. But %s did not come home that morning." % " and ".join(left))
-	out.append("You were the last one through, and the only one who remembered why.")
-	return out
 
 var _players: Array[AudioStreamPlayer] = []
 var _veil: ColorRect
@@ -93,8 +82,8 @@ func _run() -> void:
 	t.tween_property(_veil, "color", Color(0.07, 0.06, 0.05, 1.0), 3.0)
 	await t.finished
 	var auto := "--talkauto" in OS.get_cmdline_user_args()
-	var r := get_tree().get_first_node_in_group("reach_root")
-	for text in lines(r.crew.home() if r and r.crew else []):
+	var r = get_tree().get_first_node_in_group("reach_root")
+	for text in lines(r.ending_choice if r else "engine"):
 		_line.text = text
 		Report.line("ENDING " + text.substr(0, 48))
 		var a := create_tween()

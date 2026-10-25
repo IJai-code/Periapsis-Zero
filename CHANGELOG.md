@@ -5,34 +5,36 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
-### Bring them home: the Reach becomes a rescue, 24 October 2026
+### Rook remembers, real people, the core keeps, and a film to begin, 25 October 2026
 
-The game had been too close to Outer Wilds in its bones. It keeps the
-loop and becomes its own: a pilot's rescue.
-
-- **Four of the Aster's crew are alive**, each in danger and each on a
-  clock: Captain Hale sealed in the wrecked bridge on Ashfall (his air
-  runs out at 13:00), Renn hiding under Verdance's falls (Rook's drones
-  find her at 15:30), Navigator Sato stranded on the Phantom (it swings too
-  near the Lantern at 18:00), and Pip, the cargo hand, shut in the Engine's
-  chamber on the Wanderer. Talk to them (and say what each needs to hear)
-  and they board the Kestrel; land by Hearth's fire and they walk home.
-  Past their hour, the ones still out there are lost, until the morning
-  puts them back. The ending tells who you brought home.
-- **The signalscope's first frequency is the crew's suit beacons**, not
-  musicians; the village's music is only heard where it is played. A
-  beacon goes silent when its survivor is aboard, home or lost.
-- **The Phantom is held by the Kestrel's target lock (T)**, not a photograph.
-- **No more spiral writing**: the Choir are now the Founders, Hearth's first
-  settlers a century ago, who left recorders all over the Reach. The
-  reading screen plays them as a branching reel of recorded tracks.
-- **Every morning after the first, you wake in the Kestrel's seat** on the
-  tower, ready to fly, instead of walking back to her from the campfire.
-- The pitch everywhere (front page, loading screen, link previews, how to
-  play) is the rescue: "Four of the Aster's crew are alive out there.
-  Every morning you have twenty-two minutes to bring them home."
-- Checks: `--crewtest`, `--cockpitwaketest`.
-
+- **The story is the pilot's again, with its own twist.** The rescue
+  experiment is gone. What makes the Reach its own: Rook, whose drones
+  brought the Aster down, touched the Founders' core and remembers every
+  morning too. He has lived it longer than you; once you have carried the
+  core, he greets you on the drones' channel each morning, and at the
+  Engine he makes his offer: the core for his carrier, a clean way through
+  the Fold for you and Hearth. Give it to the Engine, or to Rook: two
+  endings.
+- **The core keeps.** It is the Engine's heart and sits outside the
+  morning: once taken from the vault it comes back through a death with
+  you (it used to go back to the vault, and the lead still said to carry
+  it; a player was stuck). The vault stays empty after.
+- **Real people.** Every person in the game is Quaternius's (CC0):
+  heads and hair from his Universal Base Characters, his peasant and
+  ranger outfits, and seventeen animations from his Universal Animation
+  Library retargeted onto them. The old generated people are gone from the
+  browser build.
+- **The Engine** is a machine now: ribs of light up its chamber, two rings
+  turning over the socket, waking as the door opens. The door no longer
+  shuts on someone inside.
+- **A film the first time**: a minute of the game itself, live in the
+  engine (the Reach from afar, the Aster burning on Ashfall, the Kestrel on
+  her tower, the dying star, the fire at night, Rook's drones, the comet
+  and its Engine, the crater and the Rim Run), letterboxed, captioned,
+  under the whole song. Any key skips it.
+- The Founders' recordings, waking in the Kestrel, the Phantom held by the
+  target lock: kept.
+- Checks: `--corelooptest`; `--intro` films it.
 
 ### One game on the front page, flying in two minutes, the Rim Run in the story, fewer draw calls, 24 October 2026
 

@@ -33,6 +33,22 @@ var gesture_name := ""
 var gesture_t := 0.0
 var gesture_len := 0.0
 
+## The Reach's people are Quaternius's (art/godot/crew_people.py): who is
+## built from which, and the colour of their flight suit.
+const QUAT := {
+	"mara": ["mara", Color(0.62, 0.3, 0.18)], "okafor": ["okafor", Color(0.18, 0.26, 0.42)],
+	"crowd2": ["fen", Color(0.35, 0.5, 0.32)], "crowd3": ["tull", Color(0.55, 0.45, 0.28)],
+	"crowd1": ["isa", Color(0.75, 0.48, 0.16)], "renn": ["renn", Color(0.72, 0.38, 0.2)],
+	"vex": ["vex", Color(0.28, 0.3, 0.32)], "pilot": ["pilot", Color(0.2, 0.32, 0.5)],
+	"fen": ["fen", Color(0.35, 0.5, 0.32)], "tull": ["tull", Color(0.55, 0.45, 0.28)], "isa": ["isa", Color(0.75, 0.48, 0.16)],
+	"hale": ["hale", Color(0.3, 0.32, 0.4)], "warden": ["warden", Color(0.4, 0.3, 0.25)],
+}
+var _quat := false
+## Hair colour, by who (Quaternius's hair is a grey texture to be tinted).
+const HAIR := {"mara": Color(0.22, 0.14, 0.1), "okafor": Color(0.08, 0.07, 0.07), "fen": Color(0.78, 0.6, 0.35),
+	"tull": Color(0.45, 0.42, 0.4), "isa": Color(0.12, 0.09, 0.08), "renn": Color(0.55, 0.25, 0.12),
+	"vex": Color(0.75, 0.75, 0.78), "pilot": Color(0.25, 0.17, 0.11), "hale": Color(0.5, 0.48, 0.46), "warden": Color(0.1, 0.08, 0.07)}
+
 static func make(name: String) -> Person:
 	var p := Person.new()
 	p.who = name
@@ -46,6 +62,9 @@ func _ready() -> void:
 	# Desktop gets the subdivided body; the browser the plain one.
 	var hd := "res://art/person-%s_hd.glb" % who
 	var path := hd if Flow.high_quality() and ResourceLoader.exists(hd) and not "--nohd" in OS.get_cmdline_user_args() else "res://art/person-%s.glb" % who
+	if QUAT.has(who) and ResourceLoader.exists("res://art/people/q-%s.gltf" % QUAT[who][0]):
+		path = "res://art/people/q-%s.gltf" % QUAT[who][0]
+		_quat = true
 	var body: Node3D = load(path).instantiate()
 	add_child(body)
 	if solid:
@@ -59,7 +78,10 @@ func _ready() -> void:
 		cs.position.y = 0.85
 		sb.add_child(cs)
 		add_child(sb)
-	_dress(body)
+	if _quat:
+		_suit(body)
+	else:
+		_dress(body)
 	# The small parts of a face (eyes, lashes, brows, teeth, tongue) are each
 	# their own draw, and a pixel or two past 25 m: drawn only near.
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
@@ -79,7 +101,7 @@ func _ready() -> void:
 	var players := body.find_children("*", "AnimationPlayer", true, false)
 	if players.size() > 0:
 		_anim = players[0]
-		for a in ["idle", "talk", "walk", "run", "crouch", "crouch_walk", "sit", "climb"]:
+		for a in ["idle", "talk", "walk", "run", "sprint", "crouch", "crouch_walk", "sit", "sit_talk", "climb", "swim", "swim_idle", "work", "dance"]:
 			if _anim.has_animation(a):
 				_anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_anim.play("idle")
@@ -136,6 +158,31 @@ func _dress(body: Node3D) -> void:
 				if part.contains("worksuit"):
 					m.albedo_color = suit_tint
 			mi.set_surface_override_material(i, m)
+
+## Quaternius's people: their own materials (the outfit's scanned cloth and
+## leather, a little of each person's colour over it), the hair tinted and
+## cut out.
+func _suit(body: Node3D) -> void:
+	var colour: Color = QUAT[who][1]
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		for i in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(i) as StandardMaterial3D
+			if not src:
+				continue
+			var n := String(src.resource_name).to_lower()
+			if n.contains("hair") or n.contains("brow") or n.contains("beard"):
+				var h := src.duplicate() as StandardMaterial3D
+				h.albedo_color = HAIR.get(QUAT[who][0], Color(0.2, 0.15, 0.1)) * 2.2
+				h.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				h.alpha_scissor_threshold = 0.4
+				h.cull_mode = BaseMaterial3D.CULL_DISABLED
+				h.roughness = 0.55
+				mi.set_surface_override_material(i, h)
+			elif n.contains("peasant") or n.contains("ranger"):
+				var o := src.duplicate() as StandardMaterial3D
+				o.albedo_color = Color(1, 1, 1).lerp(colour * 1.6, 0.3)
+				mi.set_surface_override_material(i, o)
 
 static func _is_hair(part: String) -> bool:
 	for h in ["short0", "ponytail", "braid", "bob0", "long0", "afro"]:
