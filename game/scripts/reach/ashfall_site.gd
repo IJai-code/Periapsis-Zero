@@ -15,6 +15,8 @@ var _core: Node3D
 var _core_use: Usable
 var drones: Array[HollowDrone] = []
 var recorder_at := Vector3.ZERO
+## The bridge room's transform (site space): Captain Hale is in it (Crew).
+var bridge_xf: Transform3D
 var _fires: Array[OmniLight3D] = []
 var _t := 0.0
 var reach: Node
@@ -121,6 +123,7 @@ func _bridge(away: Vector3, along: Vector3) -> void:
 	Surfaces.apply(room)
 	add_child(room)
 	room.transform = xf
+	bridge_xf = xf
 	Surfaces.collide(room)
 	piece("site-bridge_shell", xf, true, 1.0, 0.0)
 	# Emergency light, and the recorder on the captain's chair.
@@ -150,7 +153,7 @@ func _play_recorder(ex: Explorer) -> void:
 		return
 	ex.enabled = false
 	reach.talking = true
-	var t := Talk.open(reach, "hale", null, reach.hud)
+	var t := Talk.open(reach, "hale_rec", null, reach.hud)
 	await t.finished
 	reach.talking = false
 	ex.enabled = true

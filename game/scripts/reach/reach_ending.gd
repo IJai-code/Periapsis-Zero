@@ -6,14 +6,35 @@ extends CanvasLayer
 ## told a line at a time. Any key or a click, after the last line, goes back
 ## to the title.
 
-const LINES := [
-	"The Engine took the core, and sang.",
-	"For the first time in three days, the morning did not come back.",
-	"The Lantern fell at twenty-two minutes, as it always had. This time the Fold was open.",
-	"Hearth's barges went through first, Mara at the head of them. Renn flew her pod. Vex towed the Aster's bridge, because nobody was using it.",
-	"Rook's drones stayed behind. So did the Choir: every songline, still singing.",
-	"You were the last one through, and the only one who remembered why.",
-]
+## What is told depends on who you brought home that last morning (Crew).
+static func lines(home: Array) -> Array:
+	var out := [
+		"The Engine took the core, and sang.",
+		"For the first time in three days, the morning did not come back.",
+		"The Lantern fell at twenty-two minutes, as it always had. This time the Fold was open.",
+	]
+	var all := home.has("hale") and home.has("renn") and home.has("sato")
+	if all:
+		out.append("Hearth's barges went through first, Mara at the head of them, Hale beside her. Renn flew the pod. Sato called the course.")
+		out.append("Pip rode with you, talking the whole way. Every one of the Aster's crew who lived through the Fold, lived through this.")
+	else:
+		var said := []
+		if home.has("hale"):
+			said.append("Hale rode the first barge, beside Mara.")
+		if home.has("renn"):
+			said.append("Renn flew the pod, and did not look back.")
+		if home.has("sato"):
+			said.append("Sato called the course.")
+		if said.is_empty():
+			said.append("Hearth's barges went through first, Mara at the head of them.")
+		out.append(" ".join(said))
+		var left := []
+		for id in ["hale", "renn", "sato"]:
+			if not home.has(id):
+				left.append(Crew.ROSTER[id].name)
+		out.append("Pip rode with you. But %s did not come home that morning." % " and ".join(left))
+	out.append("You were the last one through, and the only one who remembered why.")
+	return out
 
 var _players: Array[AudioStreamPlayer] = []
 var _veil: ColorRect
@@ -72,7 +93,8 @@ func _run() -> void:
 	t.tween_property(_veil, "color", Color(0.07, 0.06, 0.05, 1.0), 3.0)
 	await t.finished
 	var auto := "--talkauto" in OS.get_cmdline_user_args()
-	for text in LINES:
+	var r := get_tree().get_first_node_in_group("reach_root")
+	for text in lines(r.crew.home() if r and r.crew else []):
 		_line.text = text
 		Report.line("ENDING " + text.substr(0, 48))
 		var a := create_tween()

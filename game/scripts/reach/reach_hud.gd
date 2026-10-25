@@ -384,7 +384,7 @@ func show_photo(tex: Texture2D, holds := false) -> void:
 	_photo.texture = tex
 	if tex:
 		var t: float = reach.system.t
-		_photo_note.text = "PHOTO  %02d:%02d%s" % [int(t) / 60, int(t) % 60, "   THE PHANTOM" if holds else ""]
+		_photo_note.text = "PHOTO  %02d:%02d" % [int(t) / 60, int(t) % 60]
 		_flash.color = Color(1, 1, 1, 0.7)
 		create_tween().tween_property(_flash, "color", Color(1, 1, 1, 0), 0.35)
 

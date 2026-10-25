@@ -2,9 +2,9 @@ class_name QuantumMoon
 extends Node
 ## The Phantom moves when no one is looking. Each time it goes from seen to
 ## unseen (out of view, or behind another body), it is somewhere else on
-## its orbit: a quarter, a half or three quarters round. A photograph with
-## it in the frame holds it (Reach's photo, `locked`) until the next
-## photograph or the next morning. Close by (half a kilometre) or standing
+## its orbit: a quarter, a half or three quarters round. The Kestrel's
+## target lock (T) holds it: a ship's radar keeps it measured, so it stays
+## put while it is locked. Close by (half a kilometre) or standing
 ## on it, it is always seen.
 
 var reach: Node
@@ -28,6 +28,8 @@ func reset() -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	_cool -= dt
+	var ship: ReachShip = reach.ship
+	locked = ship != null and ship.target == "phantom"
 	if reach.system.ref == "phantom":
 		_was_seen = true
 		return

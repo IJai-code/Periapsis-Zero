@@ -147,6 +147,12 @@ func person(key: String, model: String, at: Vector2, look: Vector2, sit := false
 	n.transform = Transform3D(upright(xf.basis.y, ground(look).origin - xf.origin), xf.origin)
 	return n
 
+## Standing at (east, north), facing a point: what person() uses, for
+## people placed by others (Crew's survivors).
+func stand_at(at: Vector2, look: Vector2) -> Transform3D:
+	var xf := ground(at)
+	return Transform3D(upright(xf.basis.y, ground(look).origin - xf.origin), xf.origin)
+
 ## Where grass must not grow on this site: under every piece and person,
 ## as [body-space point, radius].
 func footprints() -> Array:

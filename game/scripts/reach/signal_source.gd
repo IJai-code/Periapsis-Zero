@@ -33,7 +33,16 @@ func sync_to(t: float) -> void:
 	_here.play(at)
 	_scope.play(at)
 
+## Off (a survivor aboard, home or lost): nothing to hear, here or far.
+var silent := false
+func silence(on: bool) -> void:
+	silent = on
+	_here.volume_db = -80.0 if on else -6.0 + Flow.music_db()
+
 func scope_level(k: float) -> void:
+	if silent:
+		_scope.volume_db = -80.0
+		return
 	_scope.volume_db = linear_to_db(maxf(k, 0.0001)) - 2.0 + Flow.music_db() if k > 0.002 else -80.0
 
 static var _known: Array = []

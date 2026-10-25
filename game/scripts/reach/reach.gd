@@ -22,6 +22,8 @@ var talking := false
 ## The Rim Run's next ring, while a run is on: {at, label} (RimRun).
 var race_at := {}
 var scope: Signalscope
+## The Aster's survivors (Crew).
+var crew: Crew
 var _log: ShipLog
 var _music: AudioStreamPlayer
 var quantum: QuantumMoon
@@ -133,6 +135,8 @@ func _ready() -> void:
 	var gt := args.find("--groundtest")
 	if gt >= 0 and gt + 1 < args.size():
 		_ground_test(args[gt + 1])
+	if "--crewtest" in args:
+		_crew_test()
 	var wt := args.find("--wandertest")
 	if wt >= 0:
 		# --wandertest [loop seconds]: at the door's hour by default; 100 is
@@ -159,7 +163,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--crewtest"]:
 			return true
 	return false
 
@@ -680,6 +684,9 @@ func _start_player() -> void:
 	scope.reach = self
 	add_child(scope)
 	_signals()
+	if not has_meta("backdrop"):
+		crew = Crew.new()
+		add_child(crew)
 	_music = AudioStreamPlayer.new()
 	add_child(_music)
 	loop.collapsing.connect(func():
@@ -810,16 +817,18 @@ func _signals() -> void:
 	var B := system.bodies
 	var hs: ReachBody = B["hearthstone"]
 	var fire := Worlds.place(hs, "village")
-	scope.add_source(hs.node, "mara", "Mara's banjo", 0, load("res://audio/reach/banjo.wav"), fire.origin + fire.basis.y * 1.2, 14.0)
+	# The music is the village's and Vex's own, heard only near (frequency
+	# -1 is on no dial); the first frequency is the crew's beacons (Crew).
+	scope.add_source(hs.node, "mara", "Mara's banjo", -1, load("res://audio/reach/banjo.wav"), fire.origin + fire.basis.y * 1.2, 14.0)
 	var obs := Worlds.place(hs, "observatory")
-	scope.add_source(hs.node, "okafor", "Okafor's flute", 0, load("res://audio/reach/flute.wav"), obs.origin + obs.basis.y * 2.0, 14.0)
+	scope.add_source(hs.node, "okafor", "Okafor's flute", -1, load("res://audio/reach/flute.wav"), obs.origin + obs.basis.y * 2.0, 14.0)
 	scope.add_source(hs.node, "choir_mine", "Songline: the old mine", 2, load("res://audio/reach/choir.wav"), Worlds.place(hs, "cave").origin, 10.0)
 	var vd: ReachBody = B["verdance"]
-	scope.add_source(vd.node, "renn", "A harmonica", 0, load("res://audio/reach/harmonica.wav"), Worlds.place(vd, "renn").origin + Worlds.place(vd, "renn").basis.y, 16.0)
+	scope.add_source(vd.node, "renn", "A harmonica", -1, load("res://audio/reach/harmonica.wav"), Worlds.place(vd, "renn").origin + Worlds.place(vd, "renn").basis.y, 16.0)
 	scope.add_source(vd.node, "pod", "Escape pod beacon", 1, ReachSounds.beacon(0.9), Worlds.place(vd, "pod").origin, 12.0)
 	scope.add_source(vd.node, "choir_pillars", "Songline: the pillar city", 2, load("res://audio/reach/choir.wav"), Worlds.place(vd, "pillars").origin, 14.0)
 	var ash: ReachBody = B["ashfall"]
-	scope.add_source(ash.node, "vex", "Hand drums", 0, load("res://audio/reach/drums.wav"), Worlds.place(ash, "vex").origin, 14.0)
+	scope.add_source(ash.node, "vex", "Hand drums", -1, load("res://audio/reach/drums.wav"), Worlds.place(ash, "vex").origin, 14.0)
 	var rec: Vector3 = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
 	scope.add_source(ash.node, "hale", "The Aster's bridge recorder", 1, ReachSounds.beacon(1.6), rec, 14.0)
 	scope.add_source(ash.node, "drones", "Hollow drones", 3, ReachSounds.chatter(), Worlds.place(ash, "vault").origin, 16.0)
@@ -870,6 +879,11 @@ func _on_boarded() -> void:
 ## [known, not yet known, what to do (plain words, and enough to go on with
 ## the sound off), world, landmark (or "recorder"), what the marker says].
 const LEADS := [
+	# The crew first, in the order their time runs out (the seventh field:
+	# skipped while that survivor is not out there waiting this morning).
+	["hearth_hale", "saved_hale", "Captain Hale is alive in the Aster's wrecked bridge on Ashfall, and his air runs out at about 13:00 on the clock (M shows the time). Fly to Ashfall, find him and bring him home to Hearth.", "ashfall", "crew:hale", "Captain Hale", "hale"],
+	["hearth_renn", "saved_renn", "Renn's beacon is on Verdance, at a camp under a waterfall. Rook's drones find her at about 15:30. Bring her home to Hearth; she may need to hear that you know what she did.", "verdance", "crew:renn", "Renn", "renn"],
+	["hearth_sato", "saved_sato", "Navigator Sato is stranded on the Phantom, the purple moon by the star. Lock onto it (T) and it holds still. Get her off before 18:00.", "phantom", "crew:sato", "Sato", "sato"],
 	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its door is only open around 20:30 on the clock (the map, M, shows the time).", "wanderer", "engine", "The Engine"],
 	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
@@ -877,14 +891,21 @@ const LEADS := [
 	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its door opens only when it is nearest the star, around 20:30 on the clock (M shows the time).", "wanderer", "engine", "The Engine's door"],
 	["verd_cargo", "ash_hale", "Find the Aster's bridge recorder on Ashfall, in the crater by the wreck: follow the marker. It is still talking; press E beside it.", "ashfall", "recorder", "The bridge recorder"],
 	["hearth_vex", "ash_vex", "Fly to Ashfall, the dark moon with glowing cracks. Vex, a salvager, camps beside the Aster's wreck: follow the marker to her and press E. (With the sound on, the signalscope, X, picks up her drums.)", "ashfall", "vex", "Vex's camp"],
-	["hearth_renn", "verd_renn", "Fly to Verdance, the green world wrapped in clouds. Someone is hiding at a camp under a waterfall: follow the marker. (With the sound on, the signalscope, X, picks up their harmonica.)", "verdance", "renn", "A hidden camp"],
 	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
 	["hearth_choir", "hearth_songline", "In the old mine past the lake, read the Choir's spiral writing on the far wall: walk up to it, look at it and press E.", "hearthstone", "cave", "The old mine"],
 	["hearth_codes", "hearth_lantern", "Okafor wants a word: set her down by the observatory, the glass dome on the hill, and press E to talk to him. (Isa's rings round the crater are there to fly any time.)", "hearthstone", "observatory", "Okafor"],
 ]
 
 func _lead_row() -> Array:
+	# Someone aboard: home first.
+	if crew and not crew.aboard().is_empty():
+		var names := []
+		for id in crew.aboard():
+			names.append(Crew.ROSTER[id].name)
+		return ["", "", "Fly %s home: land by Hearth's fire." % " and ".join(names), "hearthstone", "village", "Hearth's fire"]
 	for l in LEADS:
+		if l.size() > 6 and (crew == null or crew.state.get(l[6], "") != "waiting"):
+			continue
 		if Lore.known(l[0]) and not Lore.known(l[1]):
 			return l
 	return []
@@ -930,6 +951,10 @@ func goal_target() -> Dictionary:
 	var local := Vector3.ZERO
 	if l[4] == "recorder":
 		local = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
+	elif String(l[4]).begins_with("crew:") and crew:
+		var sv: Survivor = crew._people.get(String(l[4]).trim_prefix("crew:"))
+		if sv:
+			local = sv.global_position + sv.global_basis.y * 2.2 - system.world(key)
 	else:
 		var xf := Worlds.place(b, l[4])
 		local = xf.origin + xf.basis.y * 2.0
@@ -961,8 +986,9 @@ func _unhandled_input(e: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
-## A photograph (P): the view as it is, kept in the corner of the visor.
-## With the Phantom in it, the Phantom holds still (QuantumMoon).
+## A photograph (P): the view as it is, kept in the corner of the visor
+## and in the memories at the loop's end. (The Phantom is held by the
+## Kestrel's target lock now, QuantumMoon.)
 func _photo() -> void:
 	if loop.ending:
 		return
@@ -975,7 +1001,6 @@ func _photo() -> void:
 	hud.show_photo(tex, holds)
 	if memories:
 		memories.add(tex)
-	quantum.locked = holds
 
 ## The core taken from the vault: carried, glowing at the edge of the view,
 ## for the rest of this loop.
@@ -1012,6 +1037,8 @@ func finish(site: WandererSite) -> void:
 	finished = true
 	loop.ending = true
 	carrying_core = false
+	if crew:
+		crew.at_engine()
 	player.enabled = false
 	Flow.set_progress("reach_finished", true)
 	# The core leaves your hands for the socket.
@@ -1346,6 +1373,42 @@ func _draw_count() -> void:
 	for k in keys.slice(0, 25):
 		print("DRAWS %4d %s" % [groups[k], k])
 	Report.line("DRAWCOUNT total surfaces %d in %d groups" % [total, keys.size()])
+	Report.finish(get_tree())
+
+## The crew: each survivor stands on their world, talking to them boards
+## them (the board choice taken), landing by Hearth's fire brings them home,
+## and past their hour the ones left out there are lost.
+func _crew_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(2.0).timeout
+	var placed := []
+	for id in Crew.ROSTER:
+		var sv: Survivor = crew._people.get(id)
+		if sv and sv.is_inside_tree():
+			var b: ReachBody = system.bodies[Crew.ROSTER[id].world]
+			var off := sv.global_position - b.node.global_position
+			var ground := b.radius + Worlds.height(b.key, off.normalized(), b.radius)
+			placed.append("%s %.1f" % [id, off.length() - ground])
+	# Board two, bring them home.
+	crew.board("hale")
+	crew.board("sato")
+	var aboard := crew.aboard().size()
+	var lead_home := _lead().contains("home")
+	system.switch("hearthstone")
+	var v: Village = (planets["hearthstone"] as Planet).sites[0]
+	ship.freeze = true
+	ship.global_transform = Transform3D(ship.global_basis, v.center.origin + v.center.basis.y * 2.0 + v.center.basis.x * 30.0 + system.world("hearthstone"))
+	ship.landed = true
+	var t := 0.0
+	while t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		ship.landed = true
+	var home := crew.home().size()
+	# Renn left out there past her hour.
+	system.t = 940.0
+	await get_tree().create_timer(0.5).timeout
+	Report.line("CREWTEST placed [%s], aboard %d, lead home %s, home %d, renn %s, saved %s, ending lines %d" % [", ".join(placed), aboard, lead_home, home, crew.state["renn"], Lore.known("saved_hale") and Lore.known("saved_sato"), ReachEnding.lines(crew.home()).size()])
 	Report.finish(get_tree())
 
 ## The Rim Run, flown ring by ring (the ship carried through each, a few
@@ -2508,6 +2571,29 @@ func _place_view() -> void:
 	if system.ref == key and planets.has(key):
 		(planets[key] as Planet).set_ref(true)
 	system.place()
+	if parts.size() > 2 and parts[1] == "crew":
+		# view:<body>:crew:<id>[:<loop s>]: three metres in front of a survivor.
+		if parts.size() > 3:
+			system.t = float(parts[3])
+			system.running = false
+		# Views are placed before the world is finished: wait for the crew,
+		# then into that world's frame again (the camera rules the frame).
+		# (A view skips the playing setup, crew and all: made here.)
+		if crew == null:
+			crew = Crew.new()
+			add_child(crew)
+		while not crew._people.has(parts[2]):
+			await get_tree().process_frame
+		system.switch(key)
+		system.place()
+		var sv: Survivor = crew._people.get(parts[2])
+		if sv:
+			var up := (sv.global_position - b.node.global_position).normalized()
+			var fwd := sv.global_basis.z - up * sv.global_basis.z.dot(up)
+			var eye := sv.global_position + fwd.normalized() * 2.6 + up * 1.6
+			_view_cam.global_position = eye
+			_view_cam.look_at(sv.global_position + up * 1.3, up)
+		return
 	if parts.size() > 2 and parts[1] == "deco":
 		# view:<body>:deco:<kind>[:<loop s>[:<metres>[:<which>]]]: a few
 		# metres from one of its plants or rocks of that kind.
