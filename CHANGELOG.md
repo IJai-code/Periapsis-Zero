@@ -5,6 +5,34 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### A new opening at first light, no aurora over Hearth, 25 October 2026
+
+- **The northern lights are gone from Hearthstone.** The night was four
+  additive curtains of aurora standing over the crater, which at a low
+  angle read as rings of light hanging in the sky (and cost four draws and
+  a shader write a frame). Hearth's night is now its own: black, the sky's
+  hard stars, and the stones that come down through them. `aurora.gdshader`
+  is deleted; `--skytest` now checks the night, the falling stone and the
+  lamp budget without it.
+- **The opening is a new scene.** The blinking wake is as it was — the
+  lids crack, blink twice and open — but the eyes now open on the launch
+  tower with the Kestrel on top of it, the village's windows and string
+  lights still burning, and the crater's rim catching the Lantern's first
+  light. The fire is behind you until you sit up and turn to it; then Mara
+  by it, and you stand. The campfire is no longer the first thing the game
+  shows.
+- **The first morning begins at first light.** `Wake.FIRST_LIGHT` starts
+  the true first morning 44 s into the loop (the loop is no longer; it
+  begins a little into the day), so the sky has colour when the lids open
+  instead of the black of midnight. Later mornings are unchanged.
+- **The Rim Run's rings, numbers and beam are drawn from the seat** (or
+  mid-run), not on foot: the village's sky is the village's own when you
+  wake in it, instead of a dozen gold hoops and a floating "START".
+- Checks: `--waketest` (the first frame holds the Kestrel and not the
+  fire, the morning begins at first light, and it hands over standing by
+  the fire) and the rewritten `--skytest`; both ran in the browser build,
+  which held 60 fps through the new opening.
+
 ### Out of the Kestrel on the tower, one How to play, outfits as made, no stall at the start, 25 October 2026
 
 - **Waking in the Kestrel, then getting out, stranded you**: the lift had

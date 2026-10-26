@@ -127,7 +127,15 @@ The Kestrel rests on the tower (Village.ship_rest); Okafor gives the codes.
 ## Night, fire and the end
 
 - Hearth wakes before dawn (the village is where the Lantern is 12
-  degrees below the horizon at t = 0). `Wake` plays the eyes opening.
+  degrees below the horizon at t = 0). `Wake` plays the eyes opening. The
+  true first morning begins 44 s into the loop (`Wake.FIRST_LIGHT`), when
+  the Lantern is just over the rim: the eyes open on the launch tower and
+  the Kestrel on top of it, the village's lamps and string lights still
+  lit, and only then turn to the fire and Mara. The crater's own wall
+  keeps the village floor in shadow until the star is high, so the first
+  light lands on the rim above it.
+- The Rim Run's rings, numbers and beam are drawn from the Kestrel's seat
+  (or during a run), never on foot: the waking sky is the village's own.
 - `FireRest`: sit at any `Campfire`; marshmallows; sleep runs
   `ReachSystem.warp` at 30 until a key or 20:50.
 - `ReachLoop._collapse`: `Lantern.nova()` (a shell, nova.gdshader, drawn
@@ -138,10 +146,10 @@ The Kestrel rests on the tower (Village.ship_rest); Okafor gives the codes.
   `Reach._air` tints the space inside it.
 - The sky is art/sky/space-hearth.jpg in shaders/reach/sky.gdshader
   (no TIME: a sky using it is relit every frame).
-- `NightSky` (on Hearth's planet): four curtains of aurora
-  (aurora.gdshader, additive, `night` fades them) and a falling stone now
-  and then. Drawn only at night and only while Hearthstone is the frame's
-  body. `-- --noaurora` leaves it dark, for measuring.
+- `NightSky` (on Hearth's planet): a falling stone now and then through
+  the sky's own stars — no aurora, so the night is black and the stones
+  show. Drawn only at night and only while Hearthstone is the frame's
+  body.
 - `Lamp`: a village of 29 lights would be 29 lights on everything in the
   valley. Up close the OmniLight3D burns; further off it is a soft halo.
   `Reach._process` pumps the register five times a second and breathes the

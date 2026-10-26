@@ -1,13 +1,21 @@
 class_name Wake
 extends Node
-## The morning: you are lying on the ground beside Hearth's fire with your
-## eyes shut. The lids open slowly, twice, on a sky full of stars and the
-## Lantern low over the pines. Then you sit up, the fire and Mara come into
-## the world, and you stand.
+## The first morning of a loop: you are lying on the ground on the edge of
+## Hearth's square with your eyes shut. The lids open slowly, twice, on the
+## launch tower and the Kestrel on top of it, the village's lamps and
+## string lights still burning, the crater's rim in the Lantern's first
+## light. Then you sit up, turn, and the fire and Mara come into the world,
+## and you stand.
 
 ## Metres: the eye while lying, while sitting, and standing (the suit's own).
 const LIE := 0.30
 const SIT := 0.95
+## Seconds into the loop at which the first morning begins: the Lantern is
+## just clear of the rim, the sky has its colour back, and the crater's
+## wall still keeps the village floor in shadow — so the village is lit by
+## its own lamps and windows. (The loop is no longer; it starts a little
+## into the day.)
+const FIRST_LIGHT := 44.0
 
 var reach: Node
 var cam: Camera3D
@@ -29,6 +37,7 @@ var _done := false
 var _saved_exposure := 1.0
 
 func _ready() -> void:
+	add_to_group("wake")
 	var layer := CanvasLayer.new()
 	layer.layer = 9
 	add_child(layer)
@@ -74,12 +83,25 @@ func morning(first: bool) -> void:
 	var fire := Worlds.place(home, "village")
 	_up = fire.basis.y
 	var pad := fire.basis.x
-	# Where you were lying: a couple of paces from the fire, head toward it.
+	# The true first morning begins at first light, not at midnight.
+	if first:
+		var sys: ReachSystem = reach.system
+		if sys.t < FIRST_LIGHT:
+			sys.t = FIRST_LIGHT
+			sys.place()
+	# Where you were lying: a couple of paces from the fire, head away from
+	# it, so the fire is behind you until you turn.
 	var lie_at := fire.origin + pad * 2.15 + _up * LIE
 	var sit_at := fire.origin + pad * 1.55 + _up * SIT
 	var stand_at := fire.origin + pad * 2.4 + _up * 0.0
-	# Look directions, in the order you find them.
-	var up_sky := (_up * 0.86 - pad * 0.34 + fire.basis.z * 0.18).normalized()
+	# What the eyes open on: the launch tower with the Kestrel on top of it,
+	# the square's string lights and cabins round the foot, the crater's rim
+	# and the sky behind — not the fire. The fire is behind you, its light
+	# in the grass, its smoke drifting across.
+	var village: Village = (reach.planets["hearthstone"] as Planet).sites[0]
+	var tower_at: Vector3 = village.tower.global_position + _up * 10.0
+	var up_sky := (tower_at - lie_at).normalized()
+	# The turn, in the order you find it: the fire, then Mara by it.
 	var to_fire := (-pad * 0.94 - _up * 0.20).normalized()
 	var to_mara := (-pad * 0.62 - fire.basis.z * 0.72 - _up * 0.14).normalized()
 	# Stand first (hidden), so the final pose is the player's own camera and
@@ -89,13 +111,15 @@ func morning(first: bool) -> void:
 	await get_tree().process_frame
 	var stand_eye := ex.camera.global_transform
 	var stand_look := -stand_eye.basis.z
+	# Held on the tower and the sky while the lids open, then the turn to the
+	# fire: the view is not the campfire until you have sat up to it.
 	_keys = [
 		[0.00, _pose(lie_at, up_sky, 0.0)],
-		[0.07, _pose(lie_at, up_sky, 0.10)],
-		[0.33, _pose(sit_at, to_fire, -0.05)],
-		[0.50, _pose(sit_at, to_fire, 0.02)],
-		[0.62, _pose(sit_at, to_mara, 0.0)],
-		[0.86, _pose(stand_at + _up * 1.62, stand_look, 0.0)],
+		[0.26, _pose(lie_at, up_sky, 0.10)],
+		[0.55, _pose(sit_at, to_fire, -0.05)],
+		[0.67, _pose(sit_at, to_fire, 0.02)],
+		[0.77, _pose(sit_at, to_mara, 0.0)],
+		[0.93, _pose(stand_at + _up * 1.62, stand_look, 0.0)],
 		[1.00, stand_eye],
 	]
 	# The camera you wake through.

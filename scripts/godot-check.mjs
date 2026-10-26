@@ -174,14 +174,26 @@ const checks = [
       && m[4] === 'true' && Number(m[5]) < 75
     return [ok, m ? m[0] : (out.match(/NPCTEST[^\n]*/) ?? ['no result'])[0]]
   }],
-  ['the Reach: night brings the aurora, and only near lamps burn', async () => {
+  ['the Reach: night brings a falling stone, and only near lamps burn', async () => {
     const out = await run('reach', ['--skytest'], /SKYTEST/)
-    const m = out.match(/SKYTEST night ([\d.]+) aurora (\w+) stars (\w+) day ([\d.]+) lamps near (\d+)\/(\d+) far (\d+)\/(\d+)/)
+    const m = out.match(/SKYTEST night ([\d.]+) stars (\w+) day ([\d.]+) lamps near (\d+)\/(\d+) far (\d+)\/(\d+)/)
     if (!m) return [false, (out.match(/SKYTEST[^\n]*/) ?? ['no result'])[0]]
-    // Dark brings the curtains and a falling stone; day takes them away;
-    // a lamp burns near the camera and none three kilometres up.
-    const ok = Number(m[1]) > 0.6 && m[2] === 'true' && m[3] === 'true' && Number(m[4]) < 0.15
-      && Number(m[5]) > 0 && Number(m[7]) === 0
+    // Dark brings a falling stone; day takes it away; a lamp burns near the
+    // camera and none three kilometres up. (No aurora: Hearth's night is
+    // the sky's own stars and the stones that come down through them.)
+    const ok = Number(m[1]) > 0.6 && m[2] === 'true' && Number(m[3]) < 0.15
+      && Number(m[4]) > 0 && Number(m[6]) === 0
+    return [ok, m[0]]
+  }],
+  ['the Reach: the first morning opens on the Kestrel on her tower, then hands over by the fire', async () => {
+    const out = await run('reach', ['--waketest'], /WAKETEST/, 200000)
+    const m = out.match(/WAKETEST star (\d+) ship (\d+) fire (\d+) at ([\d.]+) s, star above ([-\d.]+) blocked (\w+), handed (\w+), stood ([\d.]+) m from the fire/)
+    if (!m) return [false, (out.match(/WAKETEST[^\n]*/) ?? ['no result'])[0]]
+    // The eyes open on the ship on her tower, not the fire: she is in the
+    // middle of the shot and the fire is behind you. The morning begins at
+    // first light and ends standing by the fire, in control.
+    const ok = Number(m[2]) < 34 && Number(m[3]) > 60 && Number(m[4]) >= 40
+      && m[7] === 'true' && Number(m[8]) < 5
     return [ok, m[0]]
   }],
   ['the Reach: nothing in the village can be walked through (with a control)', async () => {

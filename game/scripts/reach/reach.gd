@@ -137,6 +137,8 @@ func _ready() -> void:
 		_core_loop_test()
 	if "--cockpitwaketest" in args:
 		_cockpit_wake_test()
+	if "--waketest" in args:
+		_wake_test()
 	var wt := args.find("--wandertest")
 	if wt >= 0:
 		# --wandertest [loop seconds]: at the door's hour by default; 100 is
@@ -163,7 +165,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest"]:
 			return true
 	return false
 
@@ -447,7 +449,7 @@ func _build_sites(backdrop := false) -> void:
 	# on Verdance, dust out on the cold ones.
 	for key in planets:
 		Ambience.attach(planets[key] as Planet, key)
-	# After dark, Hearth's sky: the aurora, and stones falling through it.
+	# After dark, Hearth's sky: stones falling through it.
 	night = NightSky.new()
 	night.reach = self
 	(planets["hearthstone"] as Planet).add_child(night)
@@ -726,7 +728,8 @@ func _start_player() -> void:
 	# needs the world answering at once, so it starts already awake.
 	if not _testing(args) or "--intro" in args:
 		# The first time ever (or asked for): the film of the Reach first.
-		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0) or "--intro" in args or Flow.beat == "intro":
+		# `#reach/open` is the first morning without it, for looking at it.
+		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0 and Flow.beat != "open") or "--intro" in args or Flow.beat == "intro":
 			if Flow.beat == "intro":
 				Flow.beat = ""
 			var film := ReachIntro.new()
@@ -1474,6 +1477,50 @@ func _cockpit_wake_test() -> void:
 		Report.line("WALKOUTTEST walked %.1f m on the deck, lift waiting at the top %s, down to %.1f m over the ground, enabled %s" % [walked, top, over, player.enabled])
 	Report.finish(get_tree())
 
+## The first morning as a new player has it: the lids open on the Lantern
+## over the rim and the Kestrel on her tower, the fire behind you; the
+## morning hands over to a standing pilot by the fire; and it began at
+## first light, not at midnight.
+func _wake_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	loop.loops = 0
+	loop.wake("")
+	await get_tree().create_timer(1.2).timeout
+	var w := get_tree().get_first_node_in_group("wake") as Wake
+	if not w or not w.cam:
+		Report.line("WAKETEST no morning")
+		Report.finish(get_tree())
+		return
+	var cam := w.cam
+	var eye := cam.global_position
+	var fwd := -cam.global_basis.z
+	var up := eye.normalized()
+	var off := func(p: Vector3) -> int:
+		return int(round(rad_to_deg(acos(clampf((p - eye).normalized().dot(fwd), -1.0, 1.0)))))
+	var star: Vector3 = system.world("lantern")
+	var ship_at: Vector3 = ship.global_position
+	var fire_at: Vector3 = campfire.global_position
+	var star_up := rad_to_deg(asin(clampf(up.dot((star - eye).normalized()), -1.0, 1.0)))
+	# Whether the crater's own wall stands between the eye and the star (a
+	# star eight degrees up can still be behind a forty-six metre rim).
+	var blocked := false
+	var home: ReachBody = system.bodies["hearthstone"]
+	var to_star := (star - eye).normalized()
+	for i in 240:
+		var p := eye + to_star * (float(i) * 2.0)
+		var d := p.normalized()
+		if p.length() < home.radius + Worlds.height("hearthstone", d, home.radius):
+			blocked = true
+			break
+	var began := system.t
+	var star_off: int = off.call(star)
+	var ship_off: int = off.call(ship_at)
+	var fire_off: int = off.call(fire_at)
+	await get_tree().create_timer(9.4).timeout
+	var handed := player.enabled and not is_instance_valid(w)
+	var stood := player.global_position.distance_to(campfire.global_position)
+	Report.line("WAKETEST star %d ship %d fire %d at %.0f s, star above %.1f blocked %s, handed %s, stood %.1f m from the fire" % [star_off, ship_off, fire_off, began, star_up, blocked, handed, stood])
+	Report.finish(get_tree())
 
 ## The Rim Run, flown ring by ring (the ship carried through each, a few
 ## metres a tick): the clock starts at the first, every ring counts in
@@ -2173,7 +2220,7 @@ func _autopilot_test(to: String) -> void:
 	Report.line("APTEST to %s arrived %s in %.0f s, %.0f m over it, %.1f m/s, then %.1f m/s held, frame %s, nearest the Lantern %.0f m, hull %d" % [to, not ship.autopilot and not ship._dead, system.t - t0, alt, rel, rel2, system.ref, star, int(ship.integrity)])
 	Report.finish(get_tree())
 
-## Night over Hearth: the aurora comes up as the Lantern sets, a stone falls
+## Night over Hearth: the sky goes dark as the Lantern sets, a stone falls
 ## through it, and the lamps burn only where they are worth burning.
 func _sky_test() -> void:
 	await get_tree().create_timer(1.0).timeout
@@ -2202,8 +2249,7 @@ func _sky_test() -> void:
 	var near := Lamp.pump(cam)
 	night.shoot()
 	await get_tree().process_frame
-	var aurora := night.visible and night.night > 0.6
-	var stars := night.star_shown() and night._streak.visible
+	var stars := night.visible and night.star_shown() and night._streak.visible
 	var dark := night.night
 	# Three kilometres up: not one lamp is lit.
 	var away := Camera3D.new()
@@ -2215,7 +2261,7 @@ func _sky_test() -> void:
 	system.place()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	Report.line("SKYTEST night %.2f aurora %s stars %s day %.2f lamps near %d/%d far %d/%d at %.0f s" % [dark, aurora, stars, night.night, near.lit, near.lit + near.dark, far.lit, far.lit + far.dark, dark_at])
+	Report.line("SKYTEST night %.2f stars %s day %.2f lamps near %d/%d far %d/%d at %.0f s" % [dark, stars, night.night, near.lit, near.lit + near.dark, far.lit, far.lit + far.dark, dark_at])
 	Report.finish(get_tree())
 
 ## Codes known: ride the lift up the tower, walk to the Kestrel, board her;

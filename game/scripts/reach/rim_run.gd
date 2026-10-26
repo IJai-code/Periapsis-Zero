@@ -34,7 +34,11 @@ var _gates: Array[Node3D] = []
 ## The twelve rings, one draw: a multimesh whose instance colours say
 ## which is next, which are done.
 var _rings: MultiMesh
+var _rings_vis: MultiMeshInstance3D
 var _beam: MeshInstance3D
+## The course is drawn only from the seat (or mid-run): on foot the sky is
+## the village's own.
+var _shown := true
 var _running := false
 var _next := 0
 var _t := 0.0
@@ -113,6 +117,7 @@ func _ready() -> void:
 	rmi.multimesh = _rings
 	rmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(rmi)
+	_rings_vis = rmi
 	# A pillar of light over the next ring, to find it from anywhere.
 	_beam = MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -129,6 +134,22 @@ func _ready() -> void:
 	_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_beam)
 	_paint()
+	_show_course(false)
+
+## The rings, their numbers and the beam: drawn from the seat, hidden on
+## foot, so waking in the village is not a sky full of hoops.
+func _show_course(on: bool) -> void:
+	if on == _shown:
+		return
+	_shown = on
+	if _rings_vis:
+		_rings_vis.visible = on
+	if _beam:
+		_beam.visible = on
+	for g in _gates:
+		for c in g.get_children():
+			if c is Node3D:
+				(c as Node3D).visible = on
 
 func _paint() -> void:
 	for i in _gates.size():
@@ -145,6 +166,7 @@ func _process(dt: float) -> void:
 	_share_t = maxf(_share_t - dt, 0.0)
 	var ship: ReachShip = reach.ship
 	var flying: bool = ship != null and ship.piloted and not ship.landed and reach.system.ref == body.key
+	_show_course((ship != null and ship.piloted and reach.system.ref == body.key) or _running)
 	# A new morning: Isa will call again.
 	if reach.system.t < _last_t - 5.0:
 		_called = false
