@@ -158,6 +158,7 @@ func prepare() -> void:
 			_shapes.append(cs)
 	_solid_build()
 
+
 func _solid_on(on: bool) -> void:
 	if _solids.is_empty() or not is_inside_tree():
 		return
@@ -166,7 +167,7 @@ func _solid_on(on: bool) -> void:
 		PhysicsServer3D.body_set_space(_solid_body, get_world_3d().space if on else RID())
 		PhysicsServer3D.body_set_state(_solid_body, PhysicsServer3D.BODY_STATE_TRANSFORM, global_transform)
 
-func _solid_build() -> void:
+func _solid_build(per_frame := 0) -> void:
 	if _solids.is_empty() or _solid_body.is_valid():
 		return
 	_solid_body = PhysicsServer3D.body_create()
@@ -175,7 +176,11 @@ func _solid_build() -> void:
 	PhysicsServer3D.body_set_collision_mask(_solid_body, 0)
 	# Shapes shared by size (scale quantised to a tenth).
 	var shared := {}
+	var done := 0
 	for item in _solids:
+		done += 1
+		if per_frame > 0 and done % per_frame == 0 and is_inside_tree():
+			await get_tree().process_frame
 		var kind: String = item[0]
 		var xf: Transform3D = item[1]
 		var spec: Array = SOLID[kind]

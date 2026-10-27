@@ -415,6 +415,18 @@ func go(scene: String) -> void:
 
 ## A scene that builds itself a piece at a time says when it is done
 ## (Reach does): the loading screen can go and control can pass.
+## Timing marks for finding what blocks loading: `?steps` in the browser's
+## address (or `-- --steps`) prints "STEP <name> <ms>" at each.
+var _steps := -1
+var _step_last := 0
+func step(name: String) -> void:
+	if _steps < 0:
+		_steps = 1 if "--steps" in OS.get_cmdline_user_args() or (OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("steps")) else 0
+	if _steps == 1:
+		var now := Time.get_ticks_msec()
+		print("STEP %s +%d ms (at %d)" % [name, now - _step_last, now])
+		_step_last = now
+
 func scene_ready() -> void:
 	_busy = false
 	Hud.loading(false)

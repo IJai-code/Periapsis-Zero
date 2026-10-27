@@ -50,10 +50,16 @@ func _build() -> void:
 		put("valley-logbench", Vector2(cos(a), sin(a)) * 3.3, Vector2.ZERO, true, 1.0, 0.04)
 	put("ph/ph-Rockingchair_01", Vector2(-3.1, -1.5), Vector2.ZERO, true, 1.05)
 	# The houses, their porches toward the fire; Mara's beside it.
-	put("valley-house_b", Vector2(-15.0, 3.0))
-	put("valley-house_a", Vector2(4.0, 18.0))
-	put("valley-house_a", Vector2(14.0, -14.0))
+	for house in [["valley-house_b", Vector2(-15.0, 3.0)], ["valley-house_a", Vector2(4.0, 18.0)], ["valley-house_a", Vector2(14.0, -14.0)]]:
+		if chunk:
+			await get_tree().process_frame
+		put(house[0], house[1])
 	put("valley-woodpile", Vector2(-9.5, -2.5), Vector2(-15.0, 3.0))
+	# (A frame between the pieces of work: a browser builds the village on
+	# its only thread, and a second without one is "page unresponsive" on a
+	# slower PC.)
+	if chunk:
+		await get_tree().process_frame
 	for spec in [["crate", Vector2(10.0, -8.0)], ["crate", Vector2(10.8, -8.6)], ["barrel", Vector2(-5.5, -13.0)],
 			]:
 		put("village-" + spec[0], spec[1])
@@ -63,6 +69,7 @@ func _build() -> void:
 	# porches. [model, (east, north), scale, solid]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 41
+	var placed := 0
 	for spec in [["WoodenTable_01", Vector2(-6.0, 9.0), 1.0, true], ["Barrel_01", Vector2(11.6, -9.4), 1.15, true],
 			["Barrel_01", Vector2(-17.6, -0.6), 1.15, true], ["Barrel_01", Vector2(-18.4, 0.3), 1.1, true],
 			["tree_stump_01", Vector2(-30.0, 14.0), 1.5, true], ["tree_stump_02", Vector2(26.0, -24.0), 1.4, true],
@@ -76,6 +83,9 @@ func _build() -> void:
 		var a := rng.randf() * TAU
 		var at: Vector2 = spec[1]
 		put("ph/ph-" + spec[0], at, at + Vector2(cos(a), sin(a)) * 5.0, spec[3], spec[2], 0.05)
+		placed += 1
+		if chunk and placed % 4 == 0:
+			await get_tree().process_frame
 	# The well on the square; Mara's garden behind her house, fenced; an ore
 	# cart on its rails on the way to the mine.
 	put("valley-well", Vector2(9.5, 5.5), Vector2.ZERO)
@@ -84,6 +94,8 @@ func _build() -> void:
 			[Vector2(-26.6, -2.0), Vector2(-40.0, -2.0)], [Vector2(-26.6, -6.0), Vector2(-40.0, -6.0)]]:
 		put("valley-fence", spec[0], spec[1], true, 1.0, 0.1)
 	put("valley-orecart", cave * 0.62 + cave.orthogonal().normalized() * 3.2, cave * 0.9, true, 1.0, 0.04)
+	if chunk:
+		await get_tree().process_frame
 	# Paths from the fire, lanterns along them, a signpost where they part.
 	_find_pier()
 	var routes := {"tower": pad * 0.86, "observatory": obs * 0.88, "pond": pier_shore_flat, "mine": cave * 0.9}
@@ -104,20 +116,36 @@ func _build() -> void:
 		for k in range(1, lamps + 1):
 			var p: Vector2 = start.lerp(to, float(k) / (lamps + 1)) + to.normalized().orthogonal() * (2.4 if k % 2 == 0 else -2.4)
 			lamp(put("valley-lamp2", p, p + to.normalized().orthogonal() * (-1.0 if k % 2 == 0 else 1.0)), Vector3(0, 2.25, 0.72), Color(1.0, 0.7, 0.4), 1.4, 8.0)
+		if chunk:
+			await get_tree().process_frame
 	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond, "Zero-G cave": _flat("zerog")})
 	# The Zero-G cave (ZeroGCave), its dome on the crater floor.
+	if chunk:
+		await get_tree().process_frame
 	var zm := put_near("valley-zerog_cave", Worlds.place(body, "zerog"), Vector3.ZERO, center.origin, true, 1.0, 0.0)
 	zerog = ZeroGCave.new()
 	zm.add_child(zerog)
+	if chunk:
+		await get_tree().process_frame
 	_dress_dome(zm)
+	Flow.step("village: houses, paths, lamps, dome")
 	if chunk:
 		await get_tree().process_frame
 	_tower()
+	Flow.step("village: tower")
+	if chunk:
+		await get_tree().process_frame
 	_observatory()
+	Flow.step("village: observatory")
 	_lake()
 	put_near("village-lookout", Worlds.place(body, "lookout"), Vector3.ZERO, center.origin)
+	Flow.step("village: lake, lookout")
 	_mine()
-	_crater()
+	Flow.step("village: mine")
+	if chunk:
+		await get_tree().process_frame
+	await _crater()
+	Flow.step("village: crater")
 	if chunk:
 		await get_tree().process_frame
 	# The people: Mara by the fire, Fen by a porch, Tull on the mine path,
@@ -138,6 +166,7 @@ func _build() -> void:
 		[tull, tull - mine_dir * 3.2 + mine_side * 0.7, tull - mine_dir * 6.4 - mine_side * 0.5, tull + mine_dir * 1.6])
 	person("hauler", "crowd1", isa, pad, false,
 		[isa, isa + pad_side * 2.2, isa - pad_side * 1.8])
+	Flow.step("village: people")
 
 	if chunk:
 		await get_tree().process_frame
@@ -151,6 +180,7 @@ func _build() -> void:
 	# backdrop the camera is 26 m out on the pier and never moves: a fifth
 	# of the tufts is indistinguishable from all of them there, and it is
 	# most of the seconds the title takes to build on a small machine.
+	Flow.step("village: strings, chimneys")
 	clear.append_array(footprints())
 	clear.append([center.origin, 4.4])
 	if chunk:
@@ -161,8 +191,11 @@ func _build() -> void:
 	# pieces (lamps, cliffs, benches, houses of a kind) as a handful of
 	# multimeshes rather than a hundred submissions.
 	# `-- --nomerge` draws every piece as itself, for an A/B of the merge.
+	Flow.step("village: grass")
 	var saved := 0 if "--nomerge" in OS.get_cmdline_user_args() else merge_pieces()
+	Flow.step("village: merge")
 	var culled := cull_small()
+	Flow.step("village: cull")
 	if "--count" in OS.get_cmdline_user_args():
 		print("MERGE village saved %d draws, %d small things drawn only near" % [saved, culled])
 	done = true
@@ -439,6 +472,9 @@ func _crater() -> void:
 		var space: float = room.call(a)
 		if space > hw * 0.3:
 			place_face.call(f, a, h, minf(1.0, space / hw), rng.randf_range(-0.22, 0.22) if space > hw else 0.0)
+			# (Each face is a scanned rock made solid: a few a frame.)
+			if chunk and i % 3 == 0:
+				await get_tree().process_frame
 		# On round the ring, each overlapping the last by two fifths.
 		at += rad_to_deg(width * 0.6 / 112.5) if space > hw else 2.5
 		i += 1
@@ -450,6 +486,10 @@ func _crater() -> void:
 		var bd := Worlds.crater_dir(a2, rng.randf_range(95.0, 100.0))
 		var boulder := put_dir("ph/ph-namaqualand_boulder_03", bd, center.origin, true, rng.randf_range(2.2, 4.2), 0.5)
 		boulder.rotate_object_local(Vector3.UP, rng.randf() * TAU)
+		if chunk and b % 4 == 0:
+			await get_tree().process_frame
+	if chunk:
+		await get_tree().process_frame
 	var gorge := put_dir("valley-cliff_falls", Worlds.crater_dir(40.0, 112.5), center.origin, true, 1.0, 0.6)
 	# Where the gorge's lip and foot are, read off the rock itself.
 	var lip := Vector3(0.0, 39.0, 0.0)
@@ -478,6 +518,8 @@ func _crater() -> void:
 	mist.emission_box_extents = Vector3(4.0, 0.3, 2.0)
 	add_child(mist)
 	mist.global_transform = Transform3D(Site.upright(up, out), foot + up * 0.6)
+	if chunk:
+		await get_tree().process_frame
 	var roar := AudioStreamPlayer3D.new()
 	roar.stream = ReachSounds.falls()
 	roar.unit_size = 10.0

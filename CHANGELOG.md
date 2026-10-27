@@ -5,6 +5,30 @@ but not yet fixed is under *Known limitations* rather than left out.
 
 ## Unreleased, targeting 1.0.0
 
+### Loading without freezing the browser, 27 October 2026
+
+A browser runs the game on one thread, so a long piece of loading work with
+no frame in between freezes the page, and on a slower PC ("page
+unresponsive" on Windows) for several seconds. Measured on a fast Mac:
+the worst freeze while the Reach loaded was 2.6 s, with three more around
+a second; now the game's own worst is 0.46 s, everything broken into
+frames. The title screen's worst went from 1.3 s to 0.39 s.
+
+- The materials are compiled a few a frame with the camera on empty space
+  before the village is first drawn (the first view used to compile them
+  all at once), on the title screen too.
+- A camera looks at empty space while the worlds are built, so the
+  explorer's camera no longer draws the half-built village mid-load.
+- The village is built awake (switching it from asleep to awake was half
+  a second), its houses, scanned pieces, paths, crater faces and boulders
+  a few at a time, the grass in sixteen batches and filled in one buffer,
+  the signalscope's sounds one a frame.
+- The two ~0.9 s stalls left come from the engine starting up, before
+  any of the game's code runs.
+- `?steps` in the browser's address prints how long each loading step
+  takes.
+
+
 ### A new opening at first light, no aurora over Hearth, 25 October 2026
 
 - **The northern lights are gone from Hearthstone.** The night was four

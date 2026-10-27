@@ -22,6 +22,7 @@ var talking := false
 ## The Rim Run's next ring, while a run is on: {at, label} (RimRun).
 var race_at := {}
 var scope: Signalscope
+var _load_cam: Camera3D
 var _log: ShipLog
 var _music: AudioStreamPlayer
 var quantum: QuantumMoon
@@ -48,6 +49,17 @@ func _ready() -> void:
 	chunk = OS.has_feature("web") and not _testing(OS.get_cmdline_user_args())
 	system = ReachSystem.new()
 	add_child(system)
+	# While a browser builds the worlds, a camera looking out at empty space:
+	# the first camera to appear is the one drawn, and the explorer's, at the
+	# fire, drew the whole village (every shader compiled at once) in the
+	# middle of loading. _prewarm compiles them a few at a time instead.
+	if chunk:
+		_load_cam = Camera3D.new()
+		_load_cam.far = 100.0
+		add_child(_load_cam)
+		_load_cam.global_position = Vector3(0, 90000, 0)
+		_load_cam.look_at(Vector3(0, 200000, 1), Vector3.FORWARD)
+		_load_cam.make_current()
 	for key in system.order:
 		var b: ReachBody = system.bodies[key]
 		if key == "lantern":
@@ -58,20 +70,30 @@ func _ready() -> void:
 			continue
 		if backdrop and key != "hearthstone":
 			continue
+		Flow.step("before planet " + key)
 		var p := Planet.make(b)
 		b.node.add_child(p)
 		planets[key] = p
+		Flow.step("planet " + key)
 		if chunk:
 			await get_tree().process_frame
 	_environment()
+	Flow.step("environment")
 	if chunk:
 		await get_tree().process_frame
 	await _build_sites(backdrop)
+	Flow.step("sites")
 	if "--count" in OS.get_cmdline_user_args():
 		_count_soon()
 	system.frame_changed.connect(_on_frame)
 	var args := OS.get_cmdline_user_args()
 	if backdrop:
+		# The title's view of the village: its materials compiled a few a
+		# frame first, out of sight (drawn all at once, a second's freeze).
+		if _load_cam:
+			await _material_zoo(_load_cam)
+			_load_cam.queue_free()
+			_load_cam = null
 		_backdrop()
 		return
 	var i := args.find("--view")
@@ -221,16 +243,29 @@ func _prewarm() -> void:
 	var fup := fire.basis.y
 	views.append([fire.origin + fire.basis.x * 4.0 + fire.basis.z * 3.0 + fup * 1.7, fire.origin + fup * 1.0, fup])
 	views.append([fire.origin - fire.basis.x * 4.0 - fire.basis.z * 3.0 + fup * 1.7, fire.origin + fup * 1.0, fup])
+	# The materials first, a few a frame, with nothing else in view (the
+	# camera out over the crater, looking up at the empty sky): the first
+	# view of the whole village used to compile every one of them in a
+	# single frame, a two-and-a-half-second freeze (more on a slow PC, and a
+	# browser calls that page unresponsive).
+	var sky_up := (xf.origin - system.world("hearthstone")).normalized()
+	cam.global_transform = Transform3D(Basis.looking_at(sky_up, sky_up.cross(Vector3.RIGHT).normalized() if absf(sky_up.x) < 0.9 else sky_up.cross(Vector3.UP).normalized()), xf.origin + sky_up * 400.0)
+	await get_tree().process_frame
+	Flow.step("prewarm: setup")
+	await _material_zoo(cam)
+	Flow.step("prewarm: zoo")
 	for view in views:
 		cam.global_transform = Transform3D(Basis.looking_at((view[1] as Vector3) - (view[0] as Vector3), view[2] as Vector3), view[0] as Vector3)
 		for i in 2:
 			await get_tree().process_frame
-	await _material_zoo(cam)
 	for key in planets:
 		(planets[key] as Planet).prepare()
 	ship.rehearse(false)
 	fx.queue_free()
 	cam.queue_free()
+	if _load_cam:
+		_load_cam.queue_free()
+		_load_cam = null
 
 ## Every material on every world, drawn once on a fleck in front of the
 ## camera behind the black: a browser compiles a material the first time it
@@ -277,6 +312,17 @@ func _material_zoo(cam: Camera3D) -> void:
 		var k: int = n.i
 		n.i = k + 1
 		return cam.global_transform * Transform3D(Basis(), Vector3(-0.6 + (k % 24) * 0.05, -0.4 + (k / 24) * 0.05, -2.0))
+	# Lit by two lamps from the start (a lamp's light is another version of
+	# each shader): each material compiles lit with the rest of its batch.
+	var lamps: Array[OmniLight3D] = []
+	for k in 2:
+		var l := OmniLight3D.new()
+		l.omni_range = 6.0
+		l.light_energy = 1.0
+		l.shadow_enabled = false
+		zoo.add_child(l)
+		l.global_position = cam.global_transform * Vector3(-0.3 + k * 0.6, 0.0, -1.6)
+		lamps.append(l)
 	var made := 0
 	for m in plain:
 		var mi := MeshInstance3D.new()
@@ -285,7 +331,7 @@ func _material_zoo(cam: Camera3D) -> void:
 		zoo.add_child(mi)
 		mi.global_transform = place.call()
 		made += 1
-		if chunk and made % 20 == 0:
+		if chunk and made % 6 == 0:
 			await get_tree().process_frame
 	for m in multi:
 		var mm := MultiMesh.new()
@@ -299,19 +345,9 @@ func _material_zoo(cam: Camera3D) -> void:
 		zoo.add_child(mmi)
 		mmi.global_transform = place.call()
 		made += 1
-		if chunk and made % 20 == 0:
+		if chunk and made % 6 == 0:
 			await get_tree().process_frame
-	# Lit by lamps too (a lamp's light is another version of each shader):
-	# one, then two, then none.
-	var lamps: Array[OmniLight3D] = []
-	for k in 2:
-		var l := OmniLight3D.new()
-		l.omni_range = 6.0
-		l.light_energy = 1.0
-		l.shadow_enabled = false
-		zoo.add_child(l)
-		l.global_position = cam.global_transform * Vector3(-0.3 + k * 0.6, 0.0, -1.6)
-		lamps.append(l)
+	# Then with one lamp, and none.
 	for f in 2:
 		await get_tree().process_frame
 	lamps[1].visible = false
@@ -422,6 +458,10 @@ func _build_sites(backdrop := false) -> void:
 	var v := Village.make(home)
 	v.backdrop = backdrop
 	v.chunk = chunk
+	# Built awake: the morning starts here, and the village switched from
+	# asleep to awake later (thousands of nodes at once) was half a second
+	# with no frame in a browser.
+	(planets["hearthstone"] as Planet).is_ref = true
 	(planets["hearthstone"] as Planet).add_site(v)
 	if chunk:
 		while not v.done:
@@ -431,14 +471,18 @@ func _build_sites(backdrop := false) -> void:
 	# The morning's falling stones, and Isa's ring course in the crater.
 	(planets["hearthstone"] as Planet).add_child(MeteorStorm.new())
 	v.add_child(RimRun.make(home))
+	Flow.step("village done")
 	(planets["verdance"] as Planet).add_site(VerdanceSite.make(system.bodies["verdance"]))
+	Flow.step("verdance site")
 	if chunk:
 		await get_tree().process_frame
 	(planets["ashfall"] as Planet).add_site(AshfallSite.make(system.bodies["ashfall"]))
+	Flow.step("ashfall site")
 	if chunk:
 		await get_tree().process_frame
 	(planets["phantom"] as Planet).add_site(PhantomSite.make(system.bodies["phantom"]))
 	(planets["wanderer"] as Planet).add_site(WandererSite.make(system.bodies["wanderer"]))
+	Flow.step("phantom+wanderer sites")
 	if chunk:
 		await get_tree().process_frame
 	# Small things on every world drawn only near (Site.cull_small).
@@ -668,6 +712,7 @@ func _muffle(on: bool) -> void:
 	AudioServer.set_bus_effect_enabled(bus, at, on)
 
 func _start_player() -> void:
+	Flow.step("start player")
 	hud = ReachHud.new()
 	hud.reach = self
 	add_child(hud)
@@ -692,7 +737,13 @@ func _start_player() -> void:
 	scope = Signalscope.new()
 	scope.reach = self
 	add_child(scope)
-	_signals()
+	Flow.step("ship")
+	if chunk:
+		await get_tree().process_frame
+	await _signals()
+	Flow.step("signals")
+	if chunk:
+		await get_tree().process_frame
 	_music = AudioStreamPlayer.new()
 	add_child(_music)
 	loop.collapsing.connect(func():
@@ -708,7 +759,12 @@ func _start_player() -> void:
 	Flow.music(false)
 	var args := OS.get_cmdline_user_args()
 	loop.woke.connect(_on_woke)
+	if chunk:
+		# Every world's solid trunks and rocks, a few hundred a frame, before
+		# the morning wakes them.
+		await get_tree().process_frame
 	reset_loop()
+	Flow.step("reset_loop")
 	# Compile what a lift-off needs while the morning is still dark: the
 	# ship on the tower (her plume, her cockpit), the wide view from it (the
 	# valley, the sky, the air of the other worlds) and the dust at the
@@ -720,7 +776,9 @@ func _start_player() -> void:
 		# material) is drawn behind it, and nothing can be used yet.
 		hud.blackout()
 		player.enabled = false
+		Flow.step("before prewarm")
 		await _prewarm()
+		Flow.step("prewarm")
 	# The world is made: the browser's loading screen can give way to the
 	# morning (the black behind it is the eyelids opening).
 	Flow.scene_ready()
@@ -841,24 +899,56 @@ func _signals() -> void:
 	# The music is the village's and Vex's own, heard only near (frequency
 	# -1 is on no dial); the beacons are on Distress.
 	scope.add_source(hs.node, "mara", "Mara's banjo", -1, load("res://audio/reach/banjo.wav"), fire.origin + fire.basis.y * 1.2, 14.0)
+	if chunk:
+		await get_tree().process_frame
 	var obs := Worlds.place(hs, "observatory")
 	scope.add_source(hs.node, "okafor", "Okafor's flute", -1, load("res://audio/reach/flute.wav"), obs.origin + obs.basis.y * 2.0, 14.0)
+	if chunk:
+		await get_tree().process_frame
 	scope.add_source(hs.node, "choir_mine", "Recording: the old mine", 1, load("res://audio/reach/choir.wav"), Worlds.place(hs, "cave").origin, 10.0)
+	if chunk:
+		await get_tree().process_frame
+	if chunk:
+		await get_tree().process_frame
 	var vd: ReachBody = B["verdance"]
 	scope.add_source(vd.node, "renn", "A harmonica", -1, load("res://audio/reach/harmonica.wav"), Worlds.place(vd, "renn").origin + Worlds.place(vd, "renn").basis.y, 16.0)
+	if chunk:
+		await get_tree().process_frame
 	scope.add_source(vd.node, "renn_beacon", "A suit beacon", 0, ReachSounds.beacon(1.2), Worlds.place(vd, "renn").origin + Worlds.place(vd, "renn").basis.y * 1.5, 14.0)
+	if chunk:
+		await get_tree().process_frame
 	scope.add_source(vd.node, "pod", "Escape pod beacon", 0, ReachSounds.beacon(0.9), Worlds.place(vd, "pod").origin, 12.0)
+	if chunk:
+		await get_tree().process_frame
 	scope.add_source(vd.node, "choir_pillars", "Recording: the pillar city", 1, load("res://audio/reach/choir.wav"), Worlds.place(vd, "pillars").origin, 14.0)
+	if chunk:
+		await get_tree().process_frame
+	if chunk:
+		await get_tree().process_frame
 	var ash: ReachBody = B["ashfall"]
 	scope.add_source(ash.node, "vex", "Hand drums", -1, load("res://audio/reach/drums.wav"), Worlds.place(ash, "vex").origin, 14.0)
+	if chunk:
+		await get_tree().process_frame
 	var rec: Vector3 = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
 	scope.add_source(ash.node, "hale", "The Aster's bridge recorder", 0, ReachSounds.beacon(1.6), rec, 14.0)
+	if chunk:
+		await get_tree().process_frame
 	scope.add_source(ash.node, "drones", "Hollow drones", 2, ReachSounds.chatter(), Worlds.place(ash, "vault").origin, 16.0)
+	if chunk:
+		await get_tree().process_frame
+	if chunk:
+		await get_tree().process_frame
 	var ph: ReachBody = B["phantom"]
 	scope.add_source(ph.node, "phantom", "A wavering tone", 3, ReachSounds.quantum(), Vector3.ZERO, 30.0)
+	if chunk:
+		await get_tree().process_frame
 	scope.add_source(ph.node, "choir_shrine", "Recording: the Phantom's shrine", 1, load("res://audio/reach/choir.wav"), Worlds.place(ph, "shrine").origin, 10.0)
+	if chunk:
+		await get_tree().process_frame
 	var wa: ReachBody = B["wanderer"]
 	scope.add_source(wa.node, "engine", "The Engine", 1, load("res://audio/reach/choir.wav"), Worlds.place(wa, "engine").origin, 20.0)
+	if chunk:
+		await get_tree().process_frame
 
 ## Stepping out onto a world: what it is and what to do there, in plain
 ## words, the first time each morning.

@@ -104,7 +104,8 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 	var list: Array[Transform3D] = []
 	var tiles: PackedInt32Array = []
 	var tries := 0
-	var batch := maxi(1, count / 4)
+	# Sixteen batches: four made a third of a second each without a frame.
+	var batch := maxi(1, count / 16)
 	while list.size() < count and tries < count * 3:
 		tries += 1
 		if chunked and tries % batch == 0:
@@ -141,10 +142,20 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 	mm.use_custom_data = true
 	mm.mesh = _mesh
 	mm.instance_count = list.size()
+	# All at once through the buffer (12 floats of transform, 4 of custom
+	# data an instance): one call a tuft took half a second for a field.
+	var buf := PackedFloat32Array()
+	buf.resize(list.size() * 16)
 	for i in list.size():
 		var xf: Transform3D = list[i]
-		mm.set_instance_transform(i, Transform3D(xf.basis, xf.origin - mid))
-		mm.set_instance_custom_data(i, Color(tiles[i] / 255.0, rng.randf(), 0, 0))
+		var b := xf.basis
+		var o := xf.origin - mid
+		var k := i * 16
+		buf[k] = b.x.x; buf[k + 1] = b.y.x; buf[k + 2] = b.z.x; buf[k + 3] = o.x
+		buf[k + 4] = b.x.y; buf[k + 5] = b.y.y; buf[k + 6] = b.z.y; buf[k + 7] = o.y
+		buf[k + 8] = b.x.z; buf[k + 9] = b.y.z; buf[k + 10] = b.z.z; buf[k + 11] = o.z
+		buf[k + 12] = tiles[i] / 255.0; buf[k + 13] = rng.randf(); buf[k + 14] = 0.0; buf[k + 15] = 0.0
+	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = material()
