@@ -216,6 +216,7 @@ func _next_goal() -> String:
 ## material the lift-off will show (the valley, the sky, the air of the
 ## other worlds, the dust on the deck) is compiled before it matters.
 func _prewarm() -> void:
+	var t_warm := Time.get_ticks_msec()
 	var v: Village = (planets["hearthstone"] as Planet).sites[0]
 	var xf := v.ship_rest
 	var up := xf.basis.y.normalized()
@@ -254,18 +255,34 @@ func _prewarm() -> void:
 	Flow.step("prewarm: setup")
 	await _material_zoo(cam)
 	Flow.step("prewarm: zoo")
+	Flow.load_note("Last touches…")
 	for view in views:
+		# A machine this slow keeps the rest for first sight: a small stutter
+		# in play beats another minute behind a loading screen.
+		if Time.get_ticks_msec() - t_warm > WARM_BUDGET_MS:
+			break
 		cam.global_transform = Transform3D(Basis.looking_at((view[1] as Vector3) - (view[0] as Vector3), view[2] as Vector3), view[0] as Vector3)
 		for i in 2:
 			await get_tree().process_frame
+		Flow.step("prewarm: view")
 	for key in planets:
 		(planets[key] as Planet).prepare()
 	ship.rehearse(false)
-	fx.queue_free()
+	# Its own timer may have freed it already: the load can outlast its life
+	# on a slow machine, and in a release build touching it then kills the
+	# engine outright (the page sits frozen on a full bar).
+	if is_instance_valid(fx):
+		fx.queue_free()
 	cam.queue_free()
 	if _load_cam:
 		_load_cam.queue_free()
 		_load_cam = null
+
+const ZOO_BUDGET_MS := 25000
+const WARM_BUDGET_MS := 45000
+## Past this long since the page started, the machine is too slow for the
+## film: straight to the morning.
+const FILM_SLOW_MS := 90000
 
 ## Every material on every world, drawn once on a fleck in front of the
 ## camera behind the black: a browser compiles a material the first time it
@@ -307,7 +324,7 @@ func _material_zoo(cam: Camera3D) -> void:
 	var fleck := BoxMesh.new()
 	fleck.size = Vector3.ONE * 0.04
 	# (A dictionary: lambdas capture locals by value.)
-	var n := {"i": 0}
+	var n := {"i": 0, "slow": false}
 	var place := func() -> Transform3D:
 		var k: int = n.i
 		n.i = k + 1
@@ -324,16 +341,29 @@ func _material_zoo(cam: Camera3D) -> void:
 		l.global_position = cam.global_transform * Vector3(-0.3 + k * 0.6, 0.0, -1.6)
 		lamps.append(l)
 	var made := 0
+	var total := plain.size() + multi.size()
+	var t0 := Time.get_ticks_msec()
+	# Slow frames mean one at a time, so the page keeps painting; past the
+	# budget the rest compile on first sight.
+	var breathe := func() -> void:
+		var t := Time.get_ticks_msec()
+		await get_tree().process_frame
+		n.slow = Time.get_ticks_msec() - t > 200
+		Flow.load_note("Warming the shaders… %d of %d" % [n.i, total])
 	for m in plain:
+		if Time.get_ticks_msec() - t0 > ZOO_BUDGET_MS:
+			break
 		var mi := MeshInstance3D.new()
 		mi.mesh = fleck
 		mi.material_override = m
 		zoo.add_child(mi)
 		mi.global_transform = place.call()
 		made += 1
-		if chunk and made % 6 == 0:
-			await get_tree().process_frame
+		if chunk and (n.slow or made % 6 == 0):
+			await breathe.call()
 	for m in multi:
+		if Time.get_ticks_msec() - t0 > ZOO_BUDGET_MS:
+			break
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.mesh = fleck
@@ -345,8 +375,8 @@ func _material_zoo(cam: Camera3D) -> void:
 		zoo.add_child(mmi)
 		mmi.global_transform = place.call()
 		made += 1
-		if chunk and made % 6 == 0:
-			await get_tree().process_frame
+		if chunk and (n.slow or made % 6 == 0):
+			await breathe.call()
 	# Then with one lamp, and none.
 	for f in 2:
 		await get_tree().process_frame
@@ -787,7 +817,7 @@ func _start_player() -> void:
 	if not _testing(args) or "--intro" in args:
 		# The first time ever (or asked for): the film of the Reach first.
 		# `#reach/open` is the first morning without it, for looking at it.
-		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0 and Flow.beat != "open") or "--intro" in args or Flow.beat == "intro":
+		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0 and Flow.beat != "open" and Time.get_ticks_msec() < FILM_SLOW_MS) or "--intro" in args or Flow.beat == "intro":
 			if Flow.beat == "intro":
 				Flow.beat = ""
 			var film := ReachIntro.new()

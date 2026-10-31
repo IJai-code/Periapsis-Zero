@@ -28,6 +28,9 @@ body { color: var(--cream); background: #0b0d16; overflow: hidden; touch-action:
 #status p { color: var(--cream); font: 500 clamp(17px, 1.8vw, 21px)/1.4 'Fredoka', sans-serif; margin: 14px 0 30px 6px; max-width: 32ch; text-shadow: 0 2px 8px rgba(0,0,0,.75); }
 #status-progress { display: none; width: min(440px, 100%); height: 14px; margin-left: 6px; background: rgba(58, 38, 24, 0.75); border: 3px solid var(--ink); border-radius: 10px; overflow: hidden; box-sizing: border-box; box-shadow: 3px 4px 0 rgba(0,0,0,.25); }
 #status-progress::after { content: ''; display: block; height: 100%; width: var(--p, 4%); background: linear-gradient(180deg, #ffd9a0, var(--ember)); border-radius: 6px; transition: width 0.25s; }
+#status-progress { position: relative; }
+#status-progress.busy::before { content: ''; position: absolute; inset: 0; width: 35%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent); will-change: transform; animation: pz-sweep 1.5s linear infinite; }
+@keyframes pz-sweep { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 #status-mb { font: 500 16px/1 'Fredoka', sans-serif; color: var(--mute); margin: 12px 0 0 8px; min-height: 16px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
 #status .tips { position: absolute; left: clamp(16px, 7vw, 110px); bottom: 26px; font: 400 15px/1.6 'Fredoka', sans-serif; color: var(--mute); text-shadow: 0 2px 6px rgba(0,0,0,.7); }
 #status .tips a { color: var(--warm); }
@@ -72,6 +75,18 @@ const engine = new Engine(GODOT_CONFIG);
 	// loading screen stays up, even after the engine has started: building
 	// the first scene (the title's lake, or the village) is the long part
 	// on a small machine, and a black canvas looks like a hang.
+	window.pzStep = function (text) {
+		const label = document.getElementById('status-mb');
+		if (label && !ready) label.textContent = text;
+	};
+	// The engine died: say so, rather than leave a frozen page.
+	window.addEventListener('error', function (e) {
+		if (e.error instanceof WebAssembly.RuntimeError) {
+			if (!statusOverlay.isConnected) document.body.appendChild(statusOverlay);
+			initializing = true;
+			displayFailureNotice('The game hit a problem and stopped. Reload the page to try again, or download the desktop version from the front page.');
+		}
+	});
 	window.pzReady = function () {
 		ready = true;
 		if (!started) return;
@@ -182,6 +197,9 @@ const engine = new Engine(GODOT_CONFIG);
 				if (total > 0 && current >= total) {
 					statusProgress.style.setProperty('--p', '100%');
 					label.textContent = 'Lighting the campfire…';
+					// Runs on the compositor: it keeps moving through a long
+					// stall, so the page never looks dead.
+					statusProgress.classList.add('busy');
 				}
 			},
 		}).then(() => {
@@ -191,9 +209,13 @@ const engine = new Engine(GODOT_CONFIG);
 			if (ready) setStatusMode('hidden');
 			// Never hold the page hostage to a scene that failed to say it
 			// was ready: after a while, show whatever there is.
-			// Two minutes: the Reach can take a while to build on a small
+			// Five minutes: the Reach can take a while to build on a small
 			// machine, and a black canvas is worse than a loading screen.
-			fallback = setTimeout(() => setStatusMode('hidden'), 120000);
+			setTimeout(() => {
+				const l = document.getElementById('status-mb');
+				if (l && !ready) l.textContent = 'Still building. A slower computer can take a few minutes…';
+			}, 90000);
+			fallback = setTimeout(() => setStatusMode('hidden'), 300000);
 		}, displayFailureNotice);
 	}
 }());

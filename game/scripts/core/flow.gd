@@ -255,6 +255,7 @@ var tier := 0
 var _floor_tier := 0
 var _fails := {}
 var _low_t := 0.0
+var _crawl_t := 0.0
 var _high_t := 0.0
 var _cool := 0.0
 
@@ -345,6 +346,16 @@ func _adapt(dt: float) -> void:
 	var floor_fps := 46.0
 	_low_t = _low_t + span if fps < floor_fps else 0.0
 	_high_t = _high_t + span if fps > 57.0 else 0.0
+	# A real crawl on the web (not a load): straight to the lightest, rather
+	# than half a minute a step while the game is unplayable.
+	_crawl_t = _crawl_t + span if fps < 20.0 and not _busy and lite() else 0.0
+	if _crawl_t >= 4.0 and tier < _tiers().size() - 1:
+		set_tier(_tiers().size() - 1)
+		settings[_tier_key()] = tier
+		apply_settings()
+		_crawl_t = 0.0
+		_low_t = 0.0
+		_cool = 20.0
 	# Three seconds under the floor is a slideshow, not a moment: relieve it
 	# then, and not again for twenty (each step is itself a hitch, so steps
 	# must be rare), and only climb back after thirty smooth ones.
@@ -418,8 +429,17 @@ func go(scene: String) -> void:
 ## Timing marks for finding what blocks loading: `?steps` in the browser's
 ## address (or `-- --steps`) prints "STEP <name> <ms>" at each.
 var _steps := -1
+const LOAD_NOTES := {"planet": "Shaping the worlds…", "village": "Building the village…", "ship": "Fuelling the Kestrel…", "signals": "Tuning the signals…"}
 var _step_last := 0
+## What the loading page says it is doing, while the game builds itself.
+func load_note(text: String) -> void:
+	if on_web():
+		JavaScriptBridge.eval("window.pzStep&&pzStep(%s)" % JSON.stringify(text), true)
+
 func step(name: String) -> void:
+	for k: String in LOAD_NOTES:
+		if name.begins_with(k):
+			load_note(LOAD_NOTES[k])
 	if _steps < 0:
 		_steps = 1 if "--steps" in OS.get_cmdline_user_args() or (OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("steps")) else 0
 	if _steps == 1:
