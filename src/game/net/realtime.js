@@ -20,7 +20,7 @@ export function connectRoom({ url, key, room, id, meta = {}, track = true, onMes
   const status = (s, why) => onStatus?.(s, why)
   ws.onopen = () => {
     const r = next()
-    send({ topic, event: 'phx_join', payload: { config: { broadcast: { self: false, ack: false }, presence: { key: id }, private: false } }, ref: r, join_ref: r })
+    send({ topic, event: 'phx_join', payload: { config: { broadcast: { self: false, ack: false }, presence: { key: id, enabled: true }, private: false } }, ref: r, join_ref: r })
     while (queue.length) ws.send(JSON.stringify(queue.shift()))
     beat = setInterval(() => send({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: next() }), 25000)
   }

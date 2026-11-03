@@ -71,7 +71,7 @@ func _send(topic: String, event: String, payload: Dictionary, join := false) -> 
 	_ws.send_text(JSON.stringify(m))
 
 func _join(topic: String, presence: bool) -> void:
-	_send(topic, "phx_join", {"config": {"broadcast": {"self": false, "ack": false}, "presence": {"key": _id if presence else ""}, "private": false}}, true)
+	_send(topic, "phx_join", {"config": {"broadcast": {"self": false, "ack": false}, "presence": {"key": _id if presence else "", "enabled": presence}, "private": false}}, true)
 	_joined[topic] = "joined" if presence else "room"
 
 func _leave(topic: String) -> void:
