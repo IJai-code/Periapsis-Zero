@@ -19,6 +19,8 @@ const SETTLE_AT := 0.58
 
 var far_k := 1.0
 var _light: OmniLight3D
+var _tint_light := Color.WHITE
+var _ramps := {}
 var _solid: CollisionShape3D
 
 ## Solid only while its world is the frame's (it moves with the world when
@@ -175,6 +177,7 @@ static func _tint_of(m: ShaderMaterial) -> Color:
 ## and a hotter heart inside it, sparks, and the light it throws on the
 ## ground as a soft disc: fire is a lamp.
 func _flames() -> void:
+	_flames_made.call_deferred()
 	Fx._materials()
 	_outer = _flame_emitter(22, 0.9, Vector2(0.42, 0.62))
 	_outer.color_ramp = Fx._ramp([Color(0.95, 0.44, 0.13, 0.85), Color(0.8, 0.26, 0.05, 0.7),
@@ -314,7 +317,7 @@ func _process(dt: float) -> void:
 	if lit:
 		# A gentle breathing, not a flicker that lights the whole village.
 		_light.light_energy = (0.25 + 1.95 * heat) * far_k * (1.0 + 0.07 * sin(_t * 4.1) * sin(_t * 1.7 + 1.0) + 0.03 * sin(_t * 9.0))
-		_light.light_color = Color(1.0, 0.62, 0.32).lerp(Color(1.0, 0.27, 0.1), 1.0 - heat)
+		_light.light_color = Color(1.0, 0.62, 0.32).lerp(Color(1.0, 0.27, 0.1), 1.0 - heat) * _tint_light
 		_light.omni_range = 4.0 + 5.0 * heat
 	if _crackle:
 		_crackle.volume_db = -60.0 if heat <= 0.02 else -8.0 + 9.0 * log(heat)
@@ -417,3 +420,28 @@ static func _crackle_stream() -> AudioStreamWAV:
 	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	s.loop_end = n
 	return s
+
+func _flames_made() -> void:
+	add_to_group("season_watch")
+	season_changed()
+
+## The season's flame colours (Season.FLAMES): the fire's own ramps turned
+## round the colour wheel to the chosen hue, its light tinted to match.
+func season_changed() -> void:
+	var want: Color = Season.FLAMES[Season.equipped("flame")][1]
+	var base: Color = Season.FLAMES["campfire"][1]
+	var shift := want.h - base.h
+	var pale := want.s < 0.3
+	for p: CPUParticles3D in [_outer, _core, _sparks]:
+		if not p or not p.color_ramp:
+			continue
+		if not _ramps.has(p):
+			_ramps[p] = p.color_ramp.colors.duplicate()
+		var src: PackedColorArray = _ramps[p]
+		var out := PackedColorArray()
+		for c in src:
+			var v := maxf(c.r, maxf(c.g, c.b))
+			out.append(Color.from_hsv(fposmod(c.h + shift, 1.0), c.s * (0.25 if pale else 1.0), v, c.a))
+		p.color_ramp = p.color_ramp.duplicate()
+		p.color_ramp.colors = out
+	_tint_light = Color.WHITE if shift == 0.0 and not pale else Color.from_hsv(want.h, want.s * 0.6, 1.0) / Color(1.0, 0.62, 0.32).lerp(Color.WHITE, 0.4)

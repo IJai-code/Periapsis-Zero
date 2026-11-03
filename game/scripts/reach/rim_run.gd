@@ -244,6 +244,9 @@ func _finish() -> void:
 		Flow.set_progress("rimrun_best", _t)
 	var medal := "Gold" if _t < GOLD else ("Silver" if _t < SILVER else ("Bronze" if _t < BRONZE else ""))
 	Flow.set_progress("rimrun_runs", int(Flow.progress("rimrun_runs", 0)) + 1)
+	Season.note("rimrun")
+	if medal == "Gold":
+		Season.note("rimrun_gold")
 	# A better medal than ever: the next notch of the limiter.
 	var tier := {"Gold": 3, "Silver": 2, "Bronze": 1}.get(medal, 0) as int
 	var had := int(Flow.progress("rimrun_medal", 0))

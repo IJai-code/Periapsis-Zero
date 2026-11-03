@@ -71,6 +71,8 @@ func _process(_dt: float) -> void:
 func _collapse() -> void:
 	ending = true
 	var sys: ReachSystem = reach.system
+	if sys.ref != "hearthstone":
+		Season.note("supernova_away")
 	var hud: ReachHud = reach.hud
 	var lan: Lantern = reach.lantern
 	Sfx.play("big", 0.0, 0.5)
@@ -129,6 +131,8 @@ func wake(cause := "") -> void:
 	loops += 1
 	Flow.set_progress("reach_loops", loops)
 	var first := loops == 1 and cause == ""
+	if not first:
+		Season.note("loop")
 	ending = false
 	_song_started = false
 	var hud: ReachHud = reach.hud

@@ -40,6 +40,7 @@ var _hint_t := 0.0
 ## The overlay's canvas is rebuilt this often, not every frame.
 var _paint_t := 0.0
 var _help: Button
+var season: SeasonToast
 
 func _ready() -> void:
 	layer = 6
@@ -61,6 +62,8 @@ func _ready() -> void:
 	_draw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_draw.draw.connect(_paint)
 	root.add_child(_draw)
+	season = SeasonToast.new()
+	root.add_child(season)
 	# What E would do: a key, and the words.
 	_prompt_box = HBoxContainer.new()
 	_prompt_box.set_anchors_preset(Control.PRESET_CENTER)
@@ -272,6 +275,14 @@ var _race: Label
 func race(text: String) -> void:
 	if _race:
 		_race.text = text
+
+func starlight(gain: int, words: String, tier: int, frac: float) -> void:
+	if season:
+		season.starlight(gain, words, tier, frac)
+
+func tier_up(tier: int, reward: String) -> void:
+	if season:
+		season.tier_up(tier, reward)
 
 func toast(text: String, seconds := 3.0) -> void:
 	_card_text.text = text.capitalize() if text == text.to_upper() and text.length() > 3 else text

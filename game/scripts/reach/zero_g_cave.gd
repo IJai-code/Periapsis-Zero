@@ -151,5 +151,6 @@ func _process(dt: float) -> void:
 			Sfx.play("objective", -6.0)
 			if reach.hud:
 				reach.hud.caption("Suit training complete. The jetpack is yours.", 4.0)
+			Season.note("zerog")
 			if Lore.learn("hearth_zerog") and reach.hud:
 				reach.hud.toast("SHIP LOG UPDATED")

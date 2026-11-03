@@ -32,7 +32,7 @@ const FACTS := {
 	"verd_engine": ["verdance", "The Founders' pillar city: \"The Engine sings back the last twenty-two minutes, over and over, until it is given a core.\"", "wanderer"],
 	"verd_why": ["verdance", "Another recording in the pillars: \"Those who carry the Engine's song in them remember. The rest begin again.\" Your Kestrel's recorder hums the same note.", ""],
 	"ash_vex": ["ashfall", "Vex salvages the Aster. Rook's drones guard the wreck and sweep it with searchlights; stay out of their light.", ""],
-	"ash_hale": ["ashfall", "Hale's recorder: the crates hold the Founders' core, dug back out of the Moon. Rook wants it. The cargo vault's code is 0412.", ""],
+	"ash_hale": ["ashfall", "Hale's recorder: the crates hold the Founders' core, lost beyond the Fold a century ago and bought back by Hale to bring it home. Rook wants it. The cargo vault's code is 0412.", ""],
 	"ash_core": ["ashfall", "You took the Founders' core from the Aster's vault. It hums like their recordings.", ""],
 	"ash_rook": ["ashfall", "Rook, on the drones' channel: \"Let the pilot dig. They'll carry it where I can't.\"", ""],
 	"ph_moves": ["phantom", "The Phantom was not where it had been when you looked away.", ""],
@@ -103,6 +103,7 @@ static func mark_read(id: String, n: int) -> void:
 		return
 	_read.append("%s:%d" % [id, n])
 	Flow.set_progress("reach_read", _read)
+	Season.note("verse")
 
 static func all_read(id: String) -> bool:
 	for n in (SONGLINES[id].verses as Array).size():
@@ -130,6 +131,9 @@ static func learn(id: String) -> bool:
 		return false
 	_facts().append(id)
 	Flow.set_progress("reach_facts", _cache)
+	Season.note("fact")
+	if id == "wan_end":
+		Season.note("ending", "ending")
 	return true
 
 static func place_known(place: String) -> bool:

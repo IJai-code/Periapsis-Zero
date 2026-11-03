@@ -219,16 +219,24 @@ func _ready() -> void:
 ## Hearth repainted her when they patched her up: cream panels where she
 ## was gunmetal, rust-brown where she was dark, her bone stripes kept. A
 ## village ship, not a convoy's fighter.
+## The season's paints (Season.LIVERIES) go on the same two.
 func _hearth_livery() -> void:
+	add_to_group("season_watch")
+	var paint: Array = Season.LIVERIES[Season.equipped("livery")]
 	var swap := {
-		"paint_grey": Surfaces._pbr("MetalPlates013", 1.4, Color(0.86, 0.8, 0.7), true),
-		"paint_dark": Surfaces._pbr("MetalPlates013", 1.4, Color(0.44, 0.27, 0.19), true),
+		"paint_grey": Surfaces._pbr("MetalPlates013", 1.4, paint[1], true),
+		"paint_dark": Surfaces._pbr("MetalPlates013", 1.4, paint[2], true),
 	}
 	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 		for i in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(i)
 			if src and swap.has(src.resource_name):
 				mi.set_surface_override_material(i, swap[src.resource_name])
+
+func season_changed() -> void:
+	_hearth_livery()
+	# World-mapped paint must ride with her (Surfaces.pin), as at first.
+	Surfaces.pin(self)
 
 func wants_mouse() -> bool:
 	return piloted and not _moving

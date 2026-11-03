@@ -259,6 +259,7 @@ func _burst(at: Vector3, up: Vector3) -> void:
 func _take(root: Node3D, take: Usable) -> void:
 	var n := int(Flow.progress("starstones", 0)) + 1
 	Flow.set_progress("starstones", n)
+	Season.note("starstone")
 	Sfx.play("objective", -6.0, 1.2)
 	take.queue_free()
 	for c: Array in _craters:

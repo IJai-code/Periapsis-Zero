@@ -136,6 +136,7 @@ func _sleep() -> void:
 	if _sleeping or reach.system.t >= WAKE_BEFORE - 10.0:
 		return
 	_sleeping = true
+	Season.note("rest")
 	_lids.visible = true
 	var t := create_tween()
 	t.tween_method(func(v: float): _lid_mat.set_shader_parameter("lid", v), 0.0, 1.0, 1.4).set_trans(Tween.TRANS_SINE)

@@ -3,6 +3,7 @@ import { AccountButton } from './Account.jsx'
 import { Mark } from './Mark.jsx'
 import { logbookLine } from '../sim/logbook.js'
 import { LICENCES, earnedLicences } from '../game/core/pilot.js'
+import { SeasonBadge } from './Season.jsx'
 import './title.css'
 
 export const FEEDBACK_URL = 'https://github.com/IJai-code/Periapsis-Zero/issues/new?template=feedback.md'
@@ -198,6 +199,8 @@ function HowToPlay({ onClose }) {
         <dt>The Founders</dt><dd>Hearth&rsquo;s first settlers, a century ago. They left recorders all over the Reach: look at one and press <kbd>E</kbd> to play it.</dd>
         <dt>Rook</dt><dd>whose drones brought the Aster down. He remembers the mornings too, and he wants the core.</dd>
         <dt>The core</dt><dd>what the Aster carried. Once you take it, it stays with you through every morning.</dd>
+        <dt>Seasons</dt><dd>the Reach changes on the real calendar. Esc, then Season: your tier, the week&rsquo;s three challenges, your paints and the Fold&rsquo;s transmissions.</dd>
+        <dt>Echoes</dt><dd>the faint lights are other people playing right now. <kbd>K</kbd> waves to them.</dd>
         <dt>The Phantom</dt><dd>a moon that jumps when nobody watches it. Lock onto it with <kbd>T</kbd> and it holds still.</dd>
       </dl>
     </div>
@@ -235,7 +238,18 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
         <p className="lp-more">More from this project: <button onClick={onSimulator}>the orbital simulator</button> · <button onClick={() => setTab('training')}>Apollo flight school</button> · <button onClick={onSquadron}>Squadron</button> · {save ? <>your career in the original flight game (<button onClick={onPlay}>continue</button>)</> : <button onClick={newGame}>the original flight game</button>}{flown ? ` · Flight log: ${flown}` : ''}</p>
         {confirm && <p className="lp-confirm" role="alert">Replace your saved career with a new pilot? <button onClick={onNew}>Replace it</button> <button onClick={() => setConfirm(false)}>Keep my pilot</button></p>}
       </div>
+      {!isPhone && <SeasonBadge href={`${BASE}play/index.html#reach`} />}
       <div className="lp-version">Periapsis Zero · The Reach · early build</div>
+    </section>
+    <section className="lp-worlds lp-seasons" aria-labelledby="lp-seasons-title">
+      <h2 id="lp-seasons-title">The Reach has seasons</h2>
+      <p className="lp-lede">The game changes on the real calendar, the same for everyone. Everything you do earns starlight, and starlight climbs the season&rsquo;s thirty tiers: paints for the Kestrel, colours for the campfire, a title for your echo.</p>
+      <ol>
+        <li><strong>Weekly challenges</strong>Three new ones every Monday, the same three for every traveller: starstones, ring runs, far worlds.</li>
+        <li><strong>Transmissions</strong>Each week a new message comes through the Fold, and the season&rsquo;s story arrives a piece at a time.</li>
+        <li><strong>Echoes</strong>The faint lights you see on the worlds are other people, playing right now in their own mornings. Press <kbd>K</kbd> to wave.</li>
+        <li><strong>The live event</strong>Season 1 ends with the Homecoming on Saturday 23 January, 19:00 UTC. It happens once, for everyone at the same moment, and the Reach is different afterwards.</li>
+      </ol>
     </section>
     <section className="lp-worlds" aria-labelledby="lp-worlds-title">
       <h2 id="lp-worlds-title">Five small worlds, one loop</h2>

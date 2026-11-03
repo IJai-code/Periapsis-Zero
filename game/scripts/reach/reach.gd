@@ -33,6 +33,8 @@ var fold: Fold
 var carrying_core := false
 var _core_vis: Node3D
 var _map: ReachMap
+var homecoming: Homecoming
+var echoes: Echoes
 var finished := false
 ## Made a piece at a time with a frame between, so a browser stays
 ## answerable while the Reach is built (checks and desktop build in one go).
@@ -67,6 +69,9 @@ func _ready() -> void:
 			b.node.add_child(lantern)
 			fold = Fold.new()
 			b.node.add_child(fold)
+			homecoming = Homecoming.new()
+			homecoming.reach = self
+			fold.add_child(homecoming)
 			continue
 		if backdrop and key != "hearthstone":
 			continue
@@ -175,6 +180,8 @@ func _ready() -> void:
 		_sky_test()
 	if "--reachwalk" in args:
 		_walk_test()
+	if "--seasontest" in args:
+		_season_test()
 	if "--reachfly" in args:
 		_fly_test()
 	if "--storytest" in args:
@@ -187,7 +194,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest"]:
 			return true
 	return false
 
@@ -614,6 +621,7 @@ func _on_frame(from: String, to: String) -> void:
 		if hud and not _arrived.has(to) and loop and not loop.ending:
 			_arrived[to] = true
 			hud.place((system.bodies[to] as ReachBody).title, PLACE_WORDS.get(to, ""))
+			Season.note("arrive:" + to)
 			if memories:
 				memories.later(3.0)
 
@@ -688,6 +696,7 @@ func _air(cam: Camera3D) -> void:
 			if hud and deep > 0.15 and not _arrived.has("fold") and loop and not loop.ending:
 				_arrived["fold"] = true
 				hud.place("The Fold", "where the Reach opens")
+				Season.note("fold")
 				if memories:
 					memories.later(2.0)
 		return
@@ -817,7 +826,7 @@ func _start_player() -> void:
 	if not _testing(args) or "--intro" in args:
 		# The first time ever (or asked for): the film of the Reach first.
 		# `#reach/open` is the first morning without it, for looking at it.
-		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0 and Flow.beat != "open" and Time.get_ticks_msec() < FILM_SLOW_MS) or "--intro" in args or Flow.beat == "intro":
+		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0 and Flow.beat == "" and Time.get_ticks_msec() < FILM_SLOW_MS) or "--intro" in args or Flow.beat == "intro":
 			if Flow.beat == "intro":
 				Flow.beat = ""
 			var film := ReachIntro.new()
@@ -826,6 +835,12 @@ func _start_player() -> void:
 			await film.play()
 			reset_loop()
 		loop.wake("")
+	# Other travellers, live (not for checks, which must not touch the net).
+	if not _testing(args):
+		echoes = Echoes.new()
+		echoes.reach = self
+		add_child(echoes)
+	loop.woke.connect(_season_news, CONNECT_ONE_SHOT)
 	# For looking at things from a browser link, once awake: #reach/map,
 	# #reach/songline:<id>, or #reach/at:<loop seconds>.
 	var bi := args.find("--beat")
@@ -844,6 +859,19 @@ func _start_player() -> void:
 				Lore.learn(id)
 			_log = ShipLog.open(self)
 			_log.closed.connect(func(): _log = null)
+		elif beat.begins_with("homecoming"):
+			if beat.ends_with(":watch"):
+				homecoming.watch = Camera3D.new()
+				homecoming.watch.far = 60000.0
+				homecoming.watch.fov = 60.0
+				add_child(homecoming.watch)
+				homecoming.watch.make_current()
+			homecoming.play()
+		elif beat == "season":
+			Hud.pause(true)
+			var pause: ReachPause = Hud._reach_pause
+			if pause:
+				pause._show(pause._season)
 		elif beat == "cockpit":
 			Lore.learn("hearth_codes")
 			ship.board()
@@ -1121,9 +1149,59 @@ func _unhandled_input(e: InputEvent) -> void:
 			_photo()
 		KEY_H:
 			Hud.pause(true)
+		KEY_K:
+			if echoes:
+				echoes.wave()
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+## The season: starlight to tier five gives its rewards, the week's three
+## challenges complete, a paint goes on the Kestrel, and the Homecoming runs
+## to its end and leaves the ark parked and the clock running.
+func _season_test() -> void:
+	await get_tree().create_timer(3.0).timeout
+	# From nothing (the check's own save keeps what earlier runs won).
+	Flow.set_progress(Season._key("xp"), 0)
+	Flow.set_progress(Season._week_key(), {})
+	for kind in ["livery", "flame", "title"]:
+		Flow.set_progress("season_owned_" + kind, [])
+	Season.add(Season.TIER_XP * 4)
+	var tier := Season.tier()
+	var owned := "%s/%s/%s" % [",".join(Season.owned("livery")), ",".join(Season.owned("flame")), ",".join(Season.owned("title"))]
+	var week := Season.this_week()
+	var done := 0
+	for id: String in week:
+		var ch: Array = Season.CHALLENGES[id]
+		for i in int(ch[1]):
+			Season.note(ch[0])
+		if Season.progress_of(id) >= int(ch[1]):
+			done += 1
+	Season.wear("livery", "pine")
+	var painted := false
+	for mi: MeshInstance3D in ship.model.find_children("*", "MeshInstance3D", true, false):
+		for i in mi.get_surface_override_material_count():
+			var m := mi.get_surface_override_material(i) as ShaderMaterial
+			var c = m.get_shader_parameter("tint") if m else null
+			if c is Color and (c as Color).is_equal_approx(Season.LIVERIES["pine"][1]):
+				painted = true
+	homecoming.play()
+	await get_tree().create_timer(1.0).timeout
+	var paused := not system.running
+	homecoming._run(Homecoming.RUN)
+	var parked: bool = homecoming._ark.position.distance_to(homecoming.PARK) < 1.0
+	print("SEASONTEST tier %d owned %s week %d/%d painted %s paused %s parked %s running %s transmissions %d" % [tier, owned, done, week.size(), painted, paused, parked, system.running, Season.transmissions().size()])
+	get_tree().quit()
+
+## Once a session, after the first waking: a transmission come in.
+func _season_news(_loop: int, _first: bool) -> void:
+	var trs := Season.transmissions()
+	if trs.is_empty() or Season.heard(trs.size()) or not hud:
+		return
+	await get_tree().create_timer(14.0).timeout
+	if hud:
+		hud.caption("A transmission from the Fold has come in (week %d: %s). Read it on the Season page: Esc." % [trs[-1][0], trs[-1][1]], 8.0)
+		Sfx.play("comm", -6.0)
 
 ## A photograph (P): the view as it is, kept in the corner of the visor
 ## and in the memories at the loop's end. (The Phantom is held by the
@@ -1133,6 +1211,7 @@ func _photo() -> void:
 		return
 	var holds := quantum.observed() and get_viewport().get_camera_3d().global_position.distance_to(quantum.body.node.global_position) < 9000.0
 	Sfx.play("shutter", -4.0)
+	Season.note("photo")
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.resize(int(img.get_width() * 180.0 / img.get_height()), 180, Image.INTERPOLATE_BILINEAR)

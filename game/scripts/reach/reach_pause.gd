@@ -18,13 +18,14 @@ var _keys: Control
 var _help: Control
 var _help_goal: Label
 var _settings: Control
+var _season: Control
 var _t := 0.0
 
 const KEYS := [
 	["On foot", [["W A S D", "walk"], ["Shift", "run"], ["Space", "hold to crouch, let go to jump"], ["Space (in the air)", "jetpack up"], ["E", "use, talk, read"], ["F", "torch"], ["V", "first or third person"]]],
 	["In the water", [["W A S D", "swim"], ["Space", "up"], ["Shift", "dive"]]],
 	["Your ship", [["W S", "forward, back"], ["A D", "sideways"], ["Space", "lift off, climb"], ["Shift", "sink and land"], ["let go", "she holds still near a world"], ["Mouse", "turn"], ["Q E", "roll"], ["T", "lock the world you look at"], ["G", "autopilot to it"], ["F (held)", "match its speed"], ["R", "flight assist on or off"], ["V", "view from outside"], ["Right mouse", "look about the cockpit"], ["E (landed)", "leave the seat"]]],
-	["Anywhere", [["X", "signalscope (Z C or wheel to tune)"], ["M", "map"], ["L", "ship log"], ["P", "photograph"], ["T", "lock a world (holds the Phantom still)"], ["H", "help: the goal and what to do next"], ["Esc", "pause"]]],
+	["Anywhere", [["X", "signalscope (Z C or wheel to tune)"], ["M", "map"], ["L", "ship log"], ["P", "photograph"], ["T", "lock a world (holds the Phantom still)"], ["K", "wave to the echoes near you"], ["H", "help: the goal and what to do next"], ["Esc", "pause"]]],
 ]
 
 func _init() -> void:
@@ -57,6 +58,7 @@ func _ready() -> void:
 	_menu.add_theme_constant_override("separation", 4)
 	left.add_child(_menu)
 	_button("Resume", func(): resume.emit())
+	_button("Season %d" % Season.current().n, func(): _show(_season))
 	_button("How to play", func(): _show(_help))
 	_button("Controls", func(): _show(_keys))
 	_button("Settings", func(): _show(_settings))
@@ -72,6 +74,8 @@ func _ready() -> void:
 	add_child(_help)
 	_settings = _settings_panel()
 	add_child(_settings)
+	_season = SeasonPanel.make(self)
+	add_child(_season)
 	_show(_keys)
 
 func open() -> void:
@@ -92,6 +96,9 @@ func _show(panel: Control) -> void:
 	_keys.visible = panel == _keys
 	_settings.visible = panel == _settings
 	_help.visible = panel == _help
+	_season.visible = panel == _season
+	if panel == _season:
+		(_season.get_meta("fill") as Callable).call()
 
 ## A menu line, as on the title: big rounded words, cream on a dark outline.
 func _button(text: String, action: Callable) -> Button:
@@ -167,6 +174,8 @@ const WORDS := [
 	["Signalscope (X)", "hears beacons, old recordings and the drones; turn toward the loudest"],
 	["The Founders", "Hearth's first settlers, a century ago; they left recordings all over the Reach"],
 	["Recording", "a Founders' recorder; look at it and press E to play it"],
+	["Echoes", "the faint lights: other travellers, playing right now in their own mornings; K waves to them"],
+	["Seasons", "the Reach changes with the real calendar; the pause menu's Season page has the tiers, the week's challenges and the Fold's transmissions"],
 	["Hearthstone", "home: the village, the lake, the observatory, the tower"],
 	["Verdance, Ashfall", "the jungle world and the volcanic moon"],
 	["The Phantom, the Wanderer", "the moon that moves, and the comet"],
@@ -292,4 +301,14 @@ func _settings_panel() -> Control:
 		Flow.settings.invert = on
 		Flow.apply_settings())
 	v.add_child(inv)
+	var echo := CheckBox.new()
+	echo.text = "Echoes: see other travellers"
+	echo.add_theme_font_override("font", ReachStyle.round)
+	echo.add_theme_font_size_override("font_size", 19)
+	echo.button_pressed = bool(Flow.settings.get("echoes", true))
+	echo.toggled.connect(func(on):
+		Flow.settings.echoes = on
+		Flow.apply_settings()
+		get_tree().call_group("echoes", "set_enabled", on))
+	v.add_child(echo)
 	return p

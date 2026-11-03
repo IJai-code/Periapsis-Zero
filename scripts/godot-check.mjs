@@ -115,6 +115,11 @@ const checks = [
     const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
     return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
   }],
+  ['the Reach: the season pays its tiers, counts the week and runs the Homecoming', async () => {
+    const out = await run('reach', ['--seasontest'], /SEASONTEST/)
+    const m = out.match(/SEASONTEST tier (\d+) owned (\S+) week (\d+)\/(\d+) painted (\w+) paused (\w+) parked (\w+) running (\w+)/)
+    return [Boolean(m) && m[1] === '5' && m[2] === 'hearth,ember,pine/campfire,copper/traveller,rememberer' && m[3] === m[4] && m[5] === 'true' && m[6] === 'true' && m[7] === 'true' && m[8] === 'true', m ? m[0] : 'no result']
+  }],
   ['the Reach: the map marks sphere-of-influence crossings', async () => {
     const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
     const near = out.match(/MAPTEST path (\d+) crossings (\d+) inside '(\w*)'/)

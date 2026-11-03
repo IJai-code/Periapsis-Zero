@@ -200,3 +200,15 @@
   .lp-logo { -webkit-text-stroke-width: 9px; }
 }
 .lp-links p.lp-more { font-size: 14px; opacity: .82; }
+
+.lp-season { position: absolute; z-index: 2; right: 28px; bottom: 58px; display: grid; gap: 3px; min-width: 250px; padding: 14px 18px 14px 20px; border-radius: 16px; background: rgba(20,15,11,.78); border: 3px solid var(--lp-ink); box-shadow: 0 0 0 2px #5a3d27, 4px 6px 0 rgba(0,0,0,.3); color: var(--lp-cream); text-decoration: none; font-family: 'Fredoka', sans-serif; backdrop-filter: blur(4px); transition: transform .15s; }
+.lp-season:hover { transform: translateY(-2px); }
+.lp-season-kicker { font: 600 12px/1 'Fredoka', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #e8853d; }
+.lp-season strong { font: 400 30px/1.05 'Lilita One', sans-serif; color: var(--lp-warm); }
+.lp-season-count { font: 500 15px/1.3 'Fredoka', sans-serif; color: #bfe3ff; font-variant-numeric: tabular-nums; }
+.lp-season-live { display: flex; align-items: center; gap: 8px; font: 400 14px/1.3 'Fredoka', sans-serif; opacity: .9; }
+.lp-season-live i { width: 8px; height: 8px; border-radius: 50%; background: #7fae74; box-shadow: 0 0 0 0 rgba(127,174,116,.7); animation: lp-pulse 2s infinite; }
+.lp-season.live { border-color: #bfe3ff; }
+@keyframes lp-pulse { 0% { box-shadow: 0 0 0 0 rgba(127,174,116,.7); } 70% { box-shadow: 0 0 0 9px rgba(127,174,116,0); } 100% { box-shadow: 0 0 0 0 rgba(127,174,116,0); } }
+.lp-seasons kbd { padding: 0 6px; border-radius: 4px; background: var(--lp-cream); color: var(--lp-ink); font-size: .85em; }
+@media (max-width: 720px) { .lp-season { position: relative; right: auto; bottom: auto; margin: 0 16px 16px; } }
