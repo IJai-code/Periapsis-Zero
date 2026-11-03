@@ -25,12 +25,13 @@ function span(ms) {
   return d > 0 ? `${d}d ${h}h ${String(m).padStart(2, '0')}m` : `${h}h ${String(m).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s`
 }
 
-/** How many are in the Reach now: null until the room answers. */
+/** How many are in the Reach now: null until the room answers (an empty
+ * room sends no presence at all, so joining it means nobody is there). */
 function useTravellers() {
   const [n, setN] = useState(null)
   useEffect(() => {
     if (!URL_ || !KEY || typeof WebSocket === 'undefined') return
-    const room = connectRoom({ url: URL_, key: KEY, room: 'pz-reach', id: `web-${Math.random().toString(36).slice(2)}`, track: false, onPresence: (r) => setN(r.size) })
+    const room = connectRoom({ url: URL_, key: KEY, room: 'pz-reach', id: `web-${Math.random().toString(36).slice(2)}`, track: false, onPresence: (r) => setN(r.size), onStatus: (st) => { if (st === 'joined') setN((x) => x ?? 0) } })
     return () => room.close()
   }, [])
   return n
