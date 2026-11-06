@@ -11,6 +11,7 @@ const Simulator = lazy(() => import('./App.jsx'))
 const isTouch = () => Boolean(window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 1 && !window.matchMedia?.('(pointer: fine)').matches)
 const Game = lazy(() => import('./game/GameApp.jsx'))
 const Squadron = lazy(() => import('./game/SquadronApp.jsx'))
+const Terminal = lazy(() => import('./ui/TerminalView.jsx'))
 const NEW_GAME = 'pz-game-new'
 
 /**
@@ -62,13 +63,16 @@ export default function ExperienceApp() {
   if (experience.mode === 'play') {
     return <Suspense fallback={<div className="mode-loading">Periapsis Zero</div>}><Game fresh={sessionStorage.getItem(NEW_GAME) === '1'} onFresh={() => sessionStorage.removeItem(NEW_GAME)} onExit={() => navigate('')} /></Suspense>
   }
+  if (experience.mode === 'terminal') {
+    return <Suspense fallback={<div className="mode-loading">Initializing Terminal 3091…</div>}><Terminal onExit={() => navigate('')} /></Suspense>
+  }
   if (experience.mode === 'squadron') {
     return <Suspense fallback={<div className="mode-loading">Squadron</div>}><Squadron joinCode={experience.code} onExit={() => navigate('')} /></Suspense>
   }
   if (experience.mode !== 'home') {
     return <Suspense fallback={<div className="mode-loading">Preparing the solar system…</div>}><Simulator /></Suspense>
   }
-  return <Title key={experience.training ? 'training' : 'home'} training={experience.training} onPlay={() => navigate('#play')} onNew={() => { sessionStorage.setItem(NEW_GAME, '1'); navigate('#play') }} onSimulator={() => navigate('#sim')} onSquadron={() => navigate('#squadron')} onLand={(id) => navigate(`#land/${id}`)} />
+  return <Title key={experience.training ? 'training' : 'home'} training={experience.training} onPlay={() => navigate('#play')} onNew={() => { sessionStorage.setItem(NEW_GAME, '1'); navigate('#play') }} onSimulator={() => navigate('#sim')} onSquadron={() => navigate('#squadron')} onLand={(id) => navigate(`#land/${id}`)} onTerminal={() => navigate('#terminal')} />
 }
 
 function DesktopOnly({ onHome, onSchool }) {

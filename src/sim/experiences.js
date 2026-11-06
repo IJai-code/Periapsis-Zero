@@ -13,6 +13,7 @@ import { isLandable } from './worlds.js'
  * and an expedition link is a landing on the same world.
  */
 export function experienceFromHash(hash) {
+  if (hash === '#terminal' || hash === '#reach-terminal' || hash === '#observatory' || hash === '#orrery') return { mode: 'terminal' }
   if (hash === '#play' || hash === '#campaign' || hash === '#story') return { mode: 'play' }
   if (hash === '#training') return { mode: 'home', training: true }
   if (hash === '#sim' || hash === '#flight') return { mode: 'simulator' }
