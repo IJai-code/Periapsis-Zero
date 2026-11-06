@@ -204,8 +204,13 @@ func _next_goal() -> String:
 	if not player or not ship or loop.ending:
 		return ""
 	if system.ref != "hearthstone" or (ship.piloted and ship.global_position.length() > 420.0):
+		if not _launched:
+			hud.end_guide("In the Kestrel, on the tower")
 		_launched = true
 	if _launched or (Lore.known("hearth_loop") and Lore.known("hearth_codes")):
+		# Still sitting on the tower: lift-off first, then the lead.
+		if not _launched and ship.piloted and ship.landed:
+			return "Hold Space to lift off. Then follow the marker: " + _lead().trim_prefix("Lead: ")
 		# Off the ground, or any morning after the first: the log's lead.
 		return _lead()
 	if not Lore.known("hearth_codes"):
@@ -331,7 +336,7 @@ func _material_zoo(cam: Camera3D) -> void:
 	var fleck := BoxMesh.new()
 	fleck.size = Vector3.ONE * 0.04
 	# (A dictionary: lambdas capture locals by value.)
-	var n := {"i": 0, "slow": false}
+	var n := {"i": 0, "batch": 6, "since": 0}
 	var place := func() -> Transform3D:
 		var k: int = n.i
 		n.i = k + 1
@@ -355,7 +360,12 @@ func _material_zoo(cam: Camera3D) -> void:
 	var breathe := func() -> void:
 		var t := Time.get_ticks_msec()
 		await get_tree().process_frame
-		n.slow = Time.get_ticks_msec() - t > 200
+		# The batch follows the frame: halved after a slow one (the page
+		# must keep painting), doubled after a quick one (a fast GPU should
+		# not wait a frame per material).
+		var took := Time.get_ticks_msec() - t
+		n.batch = maxi(1, n.batch / 2) if took > 250 else (mini(24, n.batch * 2) if took < 80 else n.batch)
+		n.since = 0
 		Flow.load_note("Warming the shaders… %d of %d" % [n.i, total])
 	for m in plain:
 		if Time.get_ticks_msec() - t0 > ZOO_BUDGET_MS:
@@ -366,7 +376,8 @@ func _material_zoo(cam: Camera3D) -> void:
 		zoo.add_child(mi)
 		mi.global_transform = place.call()
 		made += 1
-		if chunk and (n.slow or made % 6 == 0):
+		n.since += 1
+		if chunk and n.since >= n.batch:
 			await breathe.call()
 	for m in multi:
 		if Time.get_ticks_msec() - t0 > ZOO_BUDGET_MS:
@@ -382,7 +393,8 @@ func _material_zoo(cam: Camera3D) -> void:
 		zoo.add_child(mmi)
 		mmi.global_transform = place.call()
 		made += 1
-		if chunk and (n.slow or made % 6 == 0):
+		n.since += 1
+		if chunk and n.since >= n.batch:
 			await breathe.call()
 	# Then with one lamp, and none.
 	for f in 2:
@@ -1040,12 +1052,27 @@ func _on_woke(n: int, _first: bool) -> void:
 		hud.toast("SHIP LOG UPDATED")
 		# The first time round again, said plainly: what happened and what
 		# carries over.
-		hud.plaque("The same morning", "The star (the Lantern) went out, and you woke here again, at the start of the same day. Nobody else remembers it, and everyone is back where they were. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. From now on you wake in your ship. Twenty-two minutes each time: find out why it happens, and end it.", player.global_position)
+		if not ship.piloted:
+			hud.plaque("The same morning", "The star (the Lantern) went out, and you woke here again, at the start of the same day. Nobody else remembers it, and everyone is back where they were. Only what you learned carries over: your ship's log (L) keeps it, and its leads point where to go next. From now on you wake in your ship. Twenty-two minutes each time: find out why it happens, and end it.", player.global_position)
 	_guided.clear()
 	if n == 1 and not Lore.known("hearth_codes"):
 		hud.guide("Your goal", "You are a pilot. Three days ago your ship crashed here, on a little world called Hearthstone, while you were escorting a freighter called the Aster. The villagers pulled you out and fixed your ship.\n\nGet your ship flying, then find out what happened to the Aster and her crew. Start with Mara, by the fire: look at her and press E.", 24.0)
 	if n <= 2:
 		hud.hint("E  talk, use, read    X  signalscope    M  map\nL  ship log    V  third person    H  help    Esc  every key", 20.0)
+
+## Waking in the seat: where you are, what to press, where to go, in one
+## card that stays until you are off the ground (or Tab), with the ship's
+## keys under it the first few mornings. A caption came and went in five
+## seconds and left new pilots sitting on the tower not knowing what next.
+var _cockpit_wakes := 0
+func cockpit_guide() -> void:
+	_cockpit_wakes += 1
+	var lead := _lead().trim_prefix("Lead: ")
+	# The first time, what the loop is: only what you learned carries over.
+	var why := " Nobody else remembers; only what you learned carries over, in your ship's log (L)." if _cockpit_wakes == 1 else ""
+	hud.guide("In the Kestrel, on the tower", "The star went out and the morning began again. You woke in your ship's seat, on top of the launch tower: 22 minutes on the clock.%s\n\n1.  Hold Space to lift off.\n2.  Find the marker on screen: it points where to go. Look at that world and press T to lock it.\n3.  Press G and the autopilot flies you there. Let go of everything to hold still; Shift sets her down.\n\nWhere to go: %s\n\nLanded, E leaves the seat." % [why, lead], 40.0)
+	if _cockpit_wakes <= 3:
+		hud.hint("Space  lift off, climb    Shift  sink, land    W S  forward, back    A D  sideways\nMouse  turn    Q E  roll    T  lock a world    G  autopilot    let go  hold still\nR  flight assist    V  outside view    Right mouse  look about", 30.0)
 
 ## The ship's keys, the first times you sit in her.
 var _ship_hints := 0
@@ -1190,6 +1217,15 @@ func _season_test() -> void:
 	var paused := not system.running
 	homecoming._run(Homecoming.RUN)
 	var parked: bool = homecoming._ark.position.distance_to(homecoming.PARK) < 1.0
+	# Every sound stopped and let go before quitting: the chimes and the
+	# event's music still playing at exit are reported as leaks.
+	await get_tree().create_timer(6.5).timeout
+	for p in get_tree().root.find_children("*", "", true, false):
+		if p is AudioStreamPlayer or p is AudioStreamPlayer3D or p is AudioStreamPlayer2D:
+			p.stop()
+			p.stream = null
+	# The mixer lets go of a stopped playback on its own thread.
+	await get_tree().create_timer(1.0).timeout
 	print("SEASONTEST tier %d owned %s week %d/%d painted %s paused %s parked %s running %s transmissions %d" % [tier, owned, done, week.size(), painted, paused, parked, system.running, Season.transmissions().size()])
 	get_tree().quit()
 
@@ -1199,6 +1235,12 @@ func _season_news(_loop: int, _first: bool) -> void:
 	if trs.is_empty() or Season.heard(trs.size()) or not hud:
 		return
 	await get_tree().create_timer(14.0).timeout
+	# Not over the start of the morning: once off the ground and settled.
+	var waited := 0.0
+	while hud and not _launched and waited < 240.0:
+		await get_tree().create_timer(2.0).timeout
+		waited += 2.0
+	await get_tree().create_timer(20.0).timeout
 	if hud:
 		hud.caption("A transmission from the Fold has come in (week %d: %s). Read it on the Season page: Esc." % [trs[-1][0], trs[-1][1]], 8.0)
 		Sfx.play("comm", -6.0)

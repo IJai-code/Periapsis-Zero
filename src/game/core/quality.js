@@ -44,6 +44,8 @@
  */
 
 /** The player's choice ('high' | 'low'), written by Settings. */
+import { weakGpu } from '../../sim/device.js'
+
 export const CHOICE_KEY = 'pz-game-quality'
 /** What the frames taught us ('high' | 'low'), written by the learners below. */
 export const TIER_KEY = 'pz-game-tier'
@@ -180,6 +182,9 @@ export function probeDevice(gl) {
 export function deviceTier(probe) {
   if (!probe) return 'high'
   if (probe.software) return 'low'
+  // Graphics built into the processor (most Windows laptops): the fast tier
+  // first; the film's learner can still ask for more on a machine that keeps up.
+  if (weakGpu(probe.renderer)) return 'low'
   if (probe.cores && probe.cores <= 4) return 'low'
   if (probe.memory && probe.memory <= 4) return 'low'
   if (probe.coarse && probe.screenPixels >= 2.0e6) return 'low'

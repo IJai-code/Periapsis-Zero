@@ -32,7 +32,7 @@ const TRAINING = [
 const WORLDS = ['moon', 'mars', 'europa', 'titan', 'io', 'mercury', 'venus', 'ganymede', 'callisto', 'phobos', 'deimos', 'pluto', 'halley']
 const worldName = (id) => id === 'moon' ? 'The Moon' : id === 'halley' ? "Halley's Comet" : id[0].toUpperCase() + id.slice(1)
 
-export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training = false }) {
+export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, onTerminal, training = false }) {
   const save = useMemo(readSave, [])
   const earned = useMemo(() => earnedLicences(), [])
   const isPhone = useMemo(phone, [])
@@ -48,12 +48,13 @@ export function Title({ onPlay, onNew, onSimulator, onSquadron, onLand, training
   }, [])
   const next = TRAINING.find((t) => !earned.has(t.id)) ?? TRAINING[0]
   const newGame = () => save && !confirm ? setConfirm(true) : onNew()
-  if (tab === 'career') return <Landing {...{ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, setTab }} />
+  if (tab === 'career') return <Landing {...{ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, onTerminal, setTab }} />
   return <main className="tt-root">
     <header className="tt-bar">
       <a className="tt-brand" href="#" aria-label="Periapsis Zero home"><Mark size={26} /><span>PERIAPSIS ZERO<small>FLIGHT OPERATIONS</small></span></a>
       <nav aria-label="Flight operations">
         <button className={tab === 'career' ? 'on' : ''} onClick={() => setTab('career')}>Career</button>
+        <button onClick={() => onTerminal ? onTerminal() : (window.location.hash = '#terminal')}>Terminal</button>
         <button className={tab === 'training' ? 'on' : ''} onClick={() => setTab('training')}>Flight school</button>
         <button className={tab === 'worlds' ? 'on' : ''} onClick={() => setTab('worlds')}>Explore</button>
         <AccountButton />
@@ -207,7 +208,7 @@ function HowToPlay({ onClose }) {
   </div>
 }
 
-function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, setTab }) {
+function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame, onPlay, onNew, onSimulator, onSquadron, onTerminal, setTab }) {
   const toInstall = (e) => { e.preventDefault(); document.getElementById('install')?.scrollIntoView({ behavior: 'smooth' }) }
   const [help, setHelp] = useState(false)
   return <main className="tt-root lp-root">
@@ -235,7 +236,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
       </div>
       <div className="lp-links">
         {!isPhone && <p>Free in your browser, about 105 MB the first time · also for <a href={`${DESKTOP}PeriapsisZero-mac.zip`}>Mac</a>, <a href={`${DESKTOP}PeriapsisZero-windows.zip`}>Windows</a> and <a href={`${DESKTOP}PeriapsisZero-linux.tar.gz`}>Linux</a> · <a href="#install" onClick={toInstall}>how to open the download</a></p>}
-        <p className="lp-more">More from this project: <button onClick={onSimulator}>the orbital simulator</button> · <button onClick={() => setTab('training')}>Apollo flight school</button> · <button onClick={onSquadron}>Squadron</button> · {save ? <>your career in the original flight game (<button onClick={onPlay}>continue</button>)</> : <button onClick={newGame}>the original flight game</button>}{flown ? ` · Flight log: ${flown}` : ''}</p>
+        <p className="lp-more">More from this project: <button onClick={() => onTerminal ? onTerminal() : (window.location.hash = '#terminal')}>the observatory terminal</button> · <button onClick={onSimulator}>the orbital simulator</button> · <button onClick={() => setTab('training')}>Apollo flight school</button> · <button onClick={onSquadron}>Squadron</button> · {save ? <>your career in the original flight game (<button onClick={onPlay}>continue</button>)</> : <button onClick={newGame}>the original flight game</button>}{flown ? ` · Flight log: ${flown}` : ''}</p>
         {confirm && <p className="lp-confirm" role="alert">Replace your saved career with a new pilot? <button onClick={onNew}>Replace it</button> <button onClick={() => setConfirm(false)}>Keep my pilot</button></p>}
       </div>
       {!isPhone && <SeasonBadge href={`${BASE}play/index.html#reach`} />}

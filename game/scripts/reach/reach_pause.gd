@@ -311,4 +311,13 @@ func _settings_panel() -> Control:
 		Flow.apply_settings()
 		get_tree().call_group("echoes", "set_enabled", on))
 	v.add_child(echo)
+	# What this machine is drawing with, for a report when it runs badly.
+	var gfx := ReachStyle.label("", 15, ReachStyle.MUTE)
+	gfx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	gfx.custom_minimum_size = Vector2(420, 0)
+	v.add_child(gfx)
+	var info := func():
+		gfx.text = "Graphics: %s\nQuality %d of %d, %d fps" % [RenderingServer.get_video_adapter_name(), Flow.tier + 1, Flow._tiers().size(), Engine.get_frames_per_second()]
+	info.call()
+	p.visibility_changed.connect(info)
 	return p

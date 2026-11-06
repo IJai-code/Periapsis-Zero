@@ -17,6 +17,7 @@
  * "auto" (the default) lets the frames decide.
  */
 import { SLOW_MS, FAST_MS } from './frameStats.js'
+import { GPU, weakGpu } from '../sim/device.js'
 
 export const TIERS = [
   { name: 'High', dpr: 1.5, shadow: 2048, shadows: true, relief: true, reflections: true, rocks: 1 },
@@ -26,6 +27,7 @@ export const TIERS = [
 ]
 
 const MODE_KEY = 'pz-surface-quality'
+const firstTier = () => (/swiftshader|llvmpipe|basic render|software/i.test(GPU) ? TIERS.length - 1 : weakGpu() ? 1 : 0)
 const TIER_KEY = 'pz-surface-tier'
 
 const read = (key, fallback) => { try { return localStorage.getItem(key) ?? fallback } catch { return fallback } }
@@ -33,7 +35,9 @@ const write = (key, value) => { try { localStorage.setItem(key, String(value)) }
 
 const state = {
   mode: ['auto', 'high', 'low'].includes(read(MODE_KEY, 'auto')) ? read(MODE_KEY, 'auto') : 'auto',
-  learned: Math.min(TIERS.length - 1, Math.max(0, Number(read(TIER_KEY, 0)) || 0)),
+  // A first visit on graphics built into the processor starts at Medium (in
+  // software, Lowest) rather than finding out the hard way.
+  learned: Math.min(TIERS.length - 1, Math.max(0, Number(read(TIER_KEY, firstTier())) || 0)),
 }
 const listeners = new Set()
 let snapshot = null

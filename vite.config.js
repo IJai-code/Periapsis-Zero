@@ -18,10 +18,13 @@ import JsConfuser from 'js-confuser'
 /**
  * The site's own code is obfuscated in the build (js-confuser): names
  * mangled and strings hidden, so what a visitor can read in the browser is
- * not our source. The libraries (react, three and the rest) and the web
+ * not our source (the names; the strings are left, see below). The libraries (react, three and the rest) and the web
  * workers have their names scrambled but their strings kept (hiding the
  * workers' strings stalled the simulator's loading). The HTML's comments
  * are taken out. Control-flow flattening is left off: it costs frame rate.
+ * So is string concealing, now for the site's code too: every string read
+ * went through a decoder, and the simulator froze for eleven seconds at a
+ * time loading (seven unconcealed) and ran at a third of the frame rate.
  * PZ_NO_OBFUSCATE=1 builds without it (faster, for local checks).
  */
 function obfuscate() {
@@ -38,7 +41,7 @@ function obfuscate() {
       // Its names start __pz, which no minified name does, so they never
       // collide with the chunk's imported bindings.
       let n = 0
-      const options = { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, identifierGenerator: () => '__pz' + (n++).toString(36), hexadecimalNumbers: true, stringConcealing: true }
+      const options = { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, identifierGenerator: () => '__pz' + (n++).toString(36), hexadecimalNumbers: true, stringConcealing: false }
       // The libraries and the workers: names scrambled, strings left (the
       // workers stall with their strings hidden; three's are its API).
       const light = { ...options, stringConcealing: false, renameLabels: false }

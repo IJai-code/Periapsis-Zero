@@ -297,6 +297,16 @@ func _start_tier() -> void:
 		vp.size_changed.connect(_on_resize)
 	var px := float(vp.size.x * vp.size.y) * _hidpi_k() * _hidpi_k()
 	var guess := 1 if px > 2_400_000.0 else 0
+	# The browser's graphics: a built-in chip (Intel, AMD's APUs) starts two
+	# notches down, software drawing at the bottom; climbing back after
+	# thirty smooth seconds costs a hitch, starting too high costs minutes
+	# of slideshow first.
+	if on_web():
+		var gpu := RenderingServer.get_video_adapter_name().to_lower()
+		if "swiftshader" in gpu or "llvmpipe" in gpu or "basic render" in gpu or "software" in gpu:
+			guess = _tiers().size() - 1
+		elif "intel" in gpu or "uhd" in gpu or "iris" in gpu or "radeon(tm) graphics" in gpu or "vega" in gpu or "mali" in gpu or "adreno" in gpu:
+			guess = maxi(guess, 2)
 	var saved := int(settings.get(key, -1))
 	set_tier(saved if saved >= 0 else guess)
 

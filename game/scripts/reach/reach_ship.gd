@@ -124,7 +124,7 @@ var _auto_lift := 0.0
 ## The mouse as a turn rate (rad/s, x yaw y pitch), smoothed per frame.
 var _stick := Vector2.ZERO
 const TURN_ACCEL := 7.5
-const TURN_MAX := 2.4
+const TURN_MAX := 2.0
 ## Thrust as the engines are giving it (spooling toward what is asked).
 var _acc := Vector3.ZERO
 ## Ground ahead: 0 clear, up to 1 when she cannot stop in time; where.
@@ -516,7 +516,16 @@ func _physics_process(dt: float) -> void:
 			if assist and roll == 0.0:
 				want += inv * _level(dt)
 			var lav := inv * angular_velocity
-			lav = lav.move_toward(want, TURN_ACCEL * dt)
+			# Pitch and yaw follow the hand within a few hundredths of a
+			# second: at a fixed angular acceleration she went on turning a
+			# third of a second after the mouse stopped (more at a low frame
+			# rate), which read as drift and lag. Roll and the leveling keep
+			# their weight.
+			var hand := absf(_stick.x) + absf(_stick.y) > 0.001
+			var eased := lav.move_toward(want, TURN_ACCEL * dt)
+			var direct := lav.lerp(want, 1.0 - exp(-dt / 0.035))
+			lav = Vector3(direct.x if hand or absf(want.x) < absf(lav.x) else eased.x,
+				direct.y if hand or absf(want.y) < absf(lav.y) else eased.y, eased.z)
 			angular_velocity = global_basis * lav
 		# The engines spool: a tenth of a second up and down, never a switch.
 		_terrain(dt)

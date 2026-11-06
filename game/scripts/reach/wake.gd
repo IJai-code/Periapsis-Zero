@@ -72,7 +72,7 @@ func in_cockpit() -> void:
 	t.tween_property(self, "lid", 0.0, 1.2).set_trans(Tween.TRANS_SINE)
 	await t.finished
 	if reach.hud:
-		reach.hud.caption("The same morning. You wake in the Kestrel's seat, up on the tower. Hold Space to lift off.", 5.0)
+		reach.cockpit_guide()
 	queue_free()
 
 ## The morning. `first` is the true first waking, which opens slower and

@@ -19,8 +19,14 @@ import { underSky } from '../gfx/instruments.js'
  * interleaved buffers on every call, which is not something to do per frame.
  */
 const MIN_SAMPLES_PER_ORBIT = 16
-/** Milliseconds of backwards integration a trail may spend per frame while it seeds. */
-const SEED_BUDGET_MS = 3
+/**
+ * Milliseconds of backwards integration all the trails together may spend in
+ * a frame while they seed. Each had three of its own, and with a dozen trails
+ * seeding at once that was forty milliseconds a frame for the first seconds:
+ * the simulator opened at a stutter on any machine slower than a new Mac.
+ */
+const SEED_BUDGET_MS = 4
+const shared = { until: 0 }
 
 export function Trail({
   body,
@@ -143,7 +149,11 @@ export function Trail({
       seeding.t0 = live.sim.t
     }
     const { clone, a, b } = seeding
-    const until = performance.now() + SEED_BUDGET_MS
+    // A gap since the last trail's turn means a new frame, and a new budget.
+    const now = performance.now()
+    if (now > shared.until + 6) shared.until = now + SEED_BUDGET_MS
+    const until = shared.until
+    if (now >= until) return false
     while (seeding.i >= 0) {
       const i = seeding.i
       readPosition(clone.state, INDEX[body], a)

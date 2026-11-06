@@ -309,6 +309,13 @@ func guide(title: String, text: String, seconds := 18.0) -> void:
 	_guide_t = seconds
 	_plaque.visible = true
 
+## A guide put away by the game (its moment has passed).
+func end_guide(title: String) -> void:
+	if _guide_t > 0.0 and _plaque_title.text == title:
+		_guide_t = 0.0
+		_plaque_t = 0.0
+		_plaque.visible = false
+
 ## Tab alone puts a guide away: Enter and Space already mean "go on" in
 ## conversations and the Choir's verses, and must keep meaning that.
 func _unhandled_key_input(e: InputEvent) -> void:

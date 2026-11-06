@@ -156,8 +156,35 @@ export const storedDevice = read
  */
 export let DEVICE = read() ?? guessDevice()
 
+/**
+ * The graphics chip, as the browser names it ('' when it will not say).
+ * Read once: a throwaway context, released at once.
+ */
+export const GPU = (() => {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2')
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info')
+    const name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+    return name
+  } catch {
+    return ''
+  }
+})()
+
+/**
+ * A computer whose graphics are built into the processor (Intel's, AMD's
+ * APUs) or drawn in software: the desktop layout, the tablet's detail. Most
+ * Windows laptops are one, and the full desktop tier (36,000 trees, 4K
+ * shadows, twice the pixels) ran them at a crawl. Apple's chips are built
+ * in too but run the full tier well.
+ */
+export const weakGpu = (name = GPU) => !/apple/i.test(name) && /intel|uhd|iris|radeon\(tm\) graphics|radeon graphics|vega|swiftshader|llvmpipe|basic render|software|mali|adreno/i.test(name)
+
+const tierFor = (id) => TIERS[id === 'desktop' && weakGpu() ? 'tablet' : id]
+
 /** The tier in force, mutated in place so every importer sees the answer. */
-export const QUALITY = { ...TIERS[DEVICE] }
+export const QUALITY = { ...tierFor(DEVICE) }
 
 /** Whether the layout is a touch one. */
 export const isTouchLayout = () => DEVICE !== 'desktop'
@@ -175,7 +202,7 @@ export function chooseDevice(id, { built = false } = {}) {
   }
   const changed = id !== DEVICE
   DEVICE = id
-  Object.assign(QUALITY, TIERS[id])
+  Object.assign(QUALITY, tierFor(id))
   return built && changed
 }
 
