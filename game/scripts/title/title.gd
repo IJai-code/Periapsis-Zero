@@ -276,7 +276,7 @@ const HELP_STEPS := [
 	"Ride the lift up the launch tower, and climb into your ship through the hatch underneath (E).",
 	"Hold Space to lift off. Look at a world, press T to lock onto it, then G to fly there.",
 	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
-	"Take the core from the Aster's vault on Ashfall to the Engine on the Wanderer when its door opens (about 20:30). Rook will be waiting.",
+	"Take the core from the Aster's vault on Ashfall to the Engine on the Wanderer while its door is open (20:00 to 21:15). Rook will be waiting.",
 ]
 const HELP_KEYS := [
 	["W A S D", "walk, or fly"], ["Mouse", "look and steer"],

@@ -120,6 +120,12 @@ const checks = [
     const m = out.match(/SEASONTEST tier (\d+) owned (\S+) week (\d+)\/(\d+) painted (\w+) paused (\w+) parked (\w+) running (\w+)/)
     return [Boolean(m) && m[1] === '5' && m[2] === 'hearth,ember,pine/campfire,copper/traveller,rememberer' && m[3] === m[4] && m[5] === 'true' && m[6] === 'true' && m[7] === 'true' && m[8] === 'true', m ? m[0] : 'no result']
   }],
+  ['the Reach: H on a later morning shows the seat steps, the clock and when the Engine door opens', async () => {
+    const out = await run('reach', ['--helptest'], /HELPTEST/)
+    const m = out.match(/HELPTEST head ([^|]+)\| steps (\d+) \| now [^|]+\| clock ([^|]+)\| door (.+)/)
+    const ok = m && m[1].trim() === 'EVERY MORNING FROM NOW ON' && +m[2] >= 4 && /opens at 20:00/.test(m[3]) && /sealed/.test(m[4]) && /open until/.test(m[4]) && /shut for this morning/.test(m[4])
+    return [!!ok, m ? m[0].slice(0, 160) : 'no HELPTEST line']
+  }],
   ['the Reach: the map marks sphere-of-influence crossings', async () => {
     const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
     const near = out.match(/MAPTEST path (\d+) crossings (\d+) inside '(\w*)'/)

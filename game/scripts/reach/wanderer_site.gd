@@ -14,6 +14,8 @@ var engine: Node3D
 var _door: Node3D
 var _open := 0.0
 var _socket: Usable
+var _door_use: Usable
+var _told := ""   # what the arrival caption last said: "shut", "open", "late"
 var socket_at: Transform3D
 
 static func make(b: ReachBody) -> WandererSite:
@@ -39,6 +41,26 @@ func _ready() -> void:
 	engine.add_child(_socket)
 	_socket.position = Vector3(0, 1.3, 0)
 	_socket.used.connect(_use_socket)
+	# The slab itself answers when you look at it: shut, open, or shut for
+	# the morning, and when. Without it the door looks like a wall.
+	_door_use = Usable.box("", Vector3(4.4, 4.0, 1.2))
+	_door_use.reach = 6.0
+	engine.add_child(_door_use)
+	_door_use.position = Vector3(0, 2.0, 8.4)
+	_door_use.used.connect(func(_by): reach.hud.caption(_door_words(), 7.0))
+
+static func _mmss(t: float) -> String:
+	return "%d:%02d" % [int(t) / 60, int(t) % 60]
+
+## What the door says now, by the clock.
+func _door_words() -> String:
+	var t: float = reach.system.t
+	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, so bring that."
+	if t < OPEN_FROM:
+		return "The Engine's door is sealed. It sinks open at 20:00 on the clock, when the Wanderer is nearest the star; it is %s now. Wait here or come back.%s" % [_mmss(t), core]
+	if t <= OPEN_TO:
+		return "The door is open until 21:15. Walk inside.%s" % core
+	return "The door has shut for this morning (it is open 20:00 to 21:15). Come back next morning, before 21:15.%s" % core
 
 ## Open while the Wanderer is near its periapsis; the slab sinks and rises.
 func _physics_process(dt: float) -> void:
@@ -56,6 +78,19 @@ func _physics_process(dt: float) -> void:
 		_open = move_toward(_open, want, dt / 3.0)
 		_door.position = Vector3(0, -4.2 * smoothstep(0.0, 1.0, _open), 7.5)
 	_socket.prompt = "Give the Engine the core" if reach.carrying_core else "An empty socket"
+	if _open < 0.5:
+		_door_use.prompt = "Sealed door: opens at 20:00 (it is %s)" % _mmss(t) if t < OPEN_FROM else "Sealed door: shut for this morning"
+	else:
+		_door_use.prompt = ""
+	_door_use.collision_layer = 8 if _open < 0.5 else 0
+	# Arriving on foot near the door: say once what it is and when it opens.
+	if ex and ex.is_inside_tree() and ex.global_position.distance_to(engine.global_position) < 30.0:
+		var now := "shut" if t < OPEN_FROM else ("open" if t <= OPEN_TO else "late")
+		if now != _told:
+			_told = now
+			reach.hud.caption(_door_words(), 8.0)
+	elif ex and ex.is_inside_tree() and ex.global_position.distance_to(engine.global_position) > 60.0:
+		_told = ""
 
 ## The Engine itself: ribs of light up the chamber's walls, two rings
 ## turning over the socket, a light that wakes when the door opens and
@@ -133,4 +168,5 @@ func _use_socket(_by: Node) -> void:
 
 func reset_loop() -> void:
 	_open = 0.0
+	_told = ""
 	_door.position = Vector3(0, 0, 7.5)

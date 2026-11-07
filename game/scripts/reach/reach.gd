@@ -182,6 +182,8 @@ func _ready() -> void:
 		_walk_test()
 	if "--seasontest" in args:
 		_season_test()
+	if "--helptest" in args:
+		_help_test()
 	if "--reachfly" in args:
 		_fly_test()
 	if "--storytest" in args:
@@ -194,7 +196,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest"]:
 			return true
 	return false
 
@@ -1026,7 +1028,7 @@ const GUIDES := {
 	"verdance": ["Verdance, the jungle world", "Someone from the Aster is alive here: a suit beacon, on your signalscope's Distress frequency. Press X, turn until the ping is loudest, and walk that way.\n\nThe old recorders are the Founders' (Hearth's first settlers): look at one and press E to play it. What you learn goes into your ship log (L)."],
 	"ashfall": ["Ashfall, the volcanic moon", "The wreck of the Aster, the freighter you were escorting, lies in a crater here. Drones guard it with searchlights: stay out of their light.\n\nHer bridge recorder still talks: press X, it is on Distress. A salvager called Vex camps by the wreck. Whoever sent the drones talks on their channel."],
 	"phantom": ["The Phantom, the moon that moves", "It jumps somewhere else whenever nobody is watching it; it holds still while you stand on it, or while your ship has it locked (T).\n\nThe Founders left a shrine on it, with a recording inside."],
-	"wanderer": ["The Wanderer, the comet", "The Founders' Engine is sealed inside it. Its door only opens when the comet swings closest to the star, at about 20:30 on the clock (M, the map, shows the time).\n\nIf you are early, wait nearby; if you are late, there is always tomorrow."],
+	"wanderer": ["The Wanderer, the comet", "The Founders' Engine is sealed inside it. Its door only opens when the comet swings closest to the star, between 20:00 and 21:15 on the clock (H or M shows the time).\n\nIf you are early, wait nearby; if you are late, there is always tomorrow."],
 }
 var _guided := {}
 
@@ -1087,11 +1089,11 @@ func _on_boarded() -> void:
 ## [known, not yet known, what to do (plain words, and enough to go on with
 ## the sound off), world, landmark (or "recorder"), what the marker says].
 const LEADS := [
-	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its door is only open around 20:30 on the clock (the map, M, shows the time).", "wanderer", "engine", "The Engine"],
+	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its stone door only opens between 20:00 and 21:15 on the clock (H or the map, M, shows the time); before that it is sealed.", "wanderer", "engine", "The Engine"],
 	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["verd_engine", "ash_core", "The Engine needs a core, and the Aster's cargo hummed like the Founders' recordings. Search the wreck on Ashfall, the dark moon with glowing cracks.", "ashfall", "wreck", "The Aster's wreck"],
-	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its door opens only when it is nearest the star, around 20:30 on the clock (M shows the time).", "wanderer", "engine", "The Engine's door"],
+	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its stone door opens only when it is nearest the star, between 20:00 and 21:15 on the clock (H or M shows the time); before that it is sealed.", "wanderer", "engine", "The Engine's door"],
 	["verd_cargo", "ash_hale", "Find the Aster's bridge recorder on Ashfall, in the crater by the wreck: follow the marker. It is still talking; press E beside it.", "ashfall", "recorder", "The bridge recorder"],
 	["hearth_vex", "ash_vex", "Fly to Ashfall, the dark moon with glowing cracks. Vex, a salvager, camps beside the Aster's wreck: follow the marker to her and press E. (With the sound on, the signalscope, X, picks up her drums.)", "ashfall", "vex", "Vex's camp"],
 	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
@@ -1102,7 +1104,7 @@ const LEADS := [
 func _lead_row() -> Array:
 	# The core in hand: the Engine, whatever else is known.
 	if carrying_core and not Lore.known("wan_end"):
-		return ["", "", "The core came back through the morning with you: it is the Engine's, and outside time. Carry it to the Engine inside the Wanderer, the comet with two tails, when its door opens around 20:30 (M shows the time).", "wanderer", "engine", "The Engine"]
+		return ["", "", "The core came back through the morning with you: it is the Engine's, and outside time. Carry it to the Engine inside the Wanderer, the comet with two tails, while its door is open, 20:00 to 21:15 on the clock (H or M shows the time).", "wanderer", "engine", "The Engine"]
 	for l in LEADS:
 		if Lore.known(l[0]) and not Lore.known(l[1]):
 			return l
@@ -1182,6 +1184,24 @@ func _unhandled_input(e: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+## H, a later morning: the help page leads with what to do now and the
+## seat's steps, not the first morning's walk; the Engine's door says when.
+func _help_test() -> void:
+	await get_tree().create_timer(3.0).timeout
+	for f in ["hearth_codes", "hearth_loop", "hearth_songline"]:
+		Lore.learn(f)
+	Hud.pause(true)
+	await get_tree().process_frame
+	var pz: ReachPause = Hud._reach_pause
+	var w: WandererSite = (planets["wanderer"] as Planet).sites[0]
+	var words := []
+	for t in [600.0, 1230.0, 1300.0]:
+		system.t = t
+		words.append(w._door_words().substr(0, 40))
+	Report.line("HELPTEST head %s | steps %d | now %s | clock %s | door %s" % [pz._help_steps_head.text, pz._help_steps.get_child_count(), pz._help_goal.text.substr(0, 50), pz._help_clock.text, " / ".join(words)])
+	Hud.pause(false)
+	get_tree().quit()
 
 ## The season: starlight to tier five gives its rewards, the week's three
 ## challenges complete, a paint goes on the Kestrel, and the Homecoming runs

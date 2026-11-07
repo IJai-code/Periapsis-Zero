@@ -17,6 +17,9 @@ var _marker: Control
 var _keys: Control
 var _help: Control
 var _help_goal: Label
+var _help_clock: Label
+var _help_steps_head: Label
+var _help_steps: VBoxContainer
 var _settings: Control
 var _season: Control
 var _t := 0.0
@@ -84,6 +87,7 @@ func open() -> void:
 	if r and _help_goal:
 		var g: String = r._next_goal()
 		_help_goal.text = g.trim_prefix("Lead: ") if g != "" else "Explore. Your ship log (L) lists every lead you have found."
+		_fill_steps(r)
 	_show(_help)
 	if not _items.is_empty():
 		_items[0].grab_focus()
@@ -187,8 +191,48 @@ const STEPS := [
 	"Ride the lift up the launch tower, and climb into your ship through the hatch underneath (E).",
 	"Hold Space to lift off. Look at a world, press T to lock onto it, then G to fly there.",
 	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
-	"Take the core from the Aster's vault on Ashfall to the Engine on the Wanderer when its door opens (about 20:30). Rook will be waiting.",
+	"Take the core from the Aster's vault on Ashfall to the Engine on the Wanderer while its door is open (20:00 to 21:15). Rook will be waiting.",
 ]
+
+const STEPS_LATER := [
+	"You wake in the Kestrel's seat on the launch tower. Hold Space to lift off.",
+	"Follow the marker: it points at your lead. Look at that world, press T to lock it, then G for the autopilot.",
+	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
+	"On foot, walk to the marker and press E on what it shows. L opens your ship log, with every lead so far.",
+	"The Engine is inside the Wanderer, the comet with two tails. Its stone door only sinks open between 20:00 and 21:15 on the clock; before that there is no way in. Bring the core from the vault on Ashfall.",
+]
+
+## The steps that fit where you are: the first morning's walk to the ship,
+## or, once Mara has given you the codes, the morning in the seat; and the
+## clock, with the Engine's door when the core is the lead.
+func _fill_steps(r: Node) -> void:
+	for c in _help_steps.get_children():
+		c.queue_free()
+	var first: bool = not (Lore.known("hearth_codes") and Lore.known("hearth_loop"))
+	var steps: Array = STEPS if first else STEPS_LATER
+	_help_steps_head.text = "YOUR FIRST MORNING" if first else "EVERY MORNING FROM NOW ON"
+	for i in steps.size():
+		var step := ReachStyle.label("%d.  %s" % [i + 1, steps[i]], 16, ReachStyle.BONE)
+		step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		step.custom_minimum_size = Vector2(560, 0)
+		_help_steps.add_child(step)
+	var t: float = r.system.t if r.get("system") else 0.0
+	var line := "The clock: %s of 22:00. At 22:00 the star goes out and the morning starts again." % _mmss(t)
+	if r.get("carrying_core") or Lore.known("ash_core") or Lore.known("hearth_songline"):
+		if t < WandererSite.OPEN_FROM:
+			line += " The Engine's door on the Wanderer opens at 20:00, in %s, and shuts at 21:15." % _span(WandererSite.OPEN_FROM - t)
+		elif t <= WandererSite.OPEN_TO:
+			line += " The Engine's door on the Wanderer is open now, until 21:15."
+		else:
+			line += " The Engine's door has shut for this morning; it opens again at 20:00 next morning."
+	_help_clock.text = line
+
+static func _mmss(t: float) -> String:
+	return "%d:%02d" % [int(t) / 60, int(t) % 60]
+
+static func _span(s: float) -> String:
+	var m := int(s) / 60
+	return ("%d min" % m) if m >= 1 else ("%d s" % int(s))
 
 ## The goal, the first few minutes, what to do next, and the words the game
 ## uses. Scrolled: the words do not fit on a laptop's screen all at once.
@@ -203,6 +247,24 @@ func _help_panel() -> Control:
 	v.custom_minimum_size = Vector2(560, 0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(v)
+	# What to do now first, in the biggest words: it is what H is for.
+	var nh := ReachStyle.label("WHAT TO DO NOW", 15, ReachStyle.EMBER)
+	nh.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(nh)
+	_help_goal = ReachStyle.label("", 20, Color("#ffd9a0"))
+	_help_goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_help_goal.custom_minimum_size = Vector2(560, 0)
+	v.add_child(_help_goal)
+	_help_clock = ReachStyle.label("", 16, Color(0.75, 0.9, 1.0))
+	_help_clock.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_help_clock.custom_minimum_size = Vector2(560, 0)
+	v.add_child(_help_clock)
+	_help_steps_head = ReachStyle.label("", 15, ReachStyle.EMBER)
+	_help_steps_head.add_theme_font_override("font", ReachStyle.round_bold)
+	v.add_child(_help_steps_head)
+	_help_steps = VBoxContainer.new()
+	_help_steps.add_theme_constant_override("separation", 8)
+	v.add_child(_help_steps)
 	var head := ReachStyle.label("THE GOAL", 15, ReachStyle.EMBER)
 	head.add_theme_font_override("font", ReachStyle.round_bold)
 	v.add_child(head)
@@ -210,21 +272,6 @@ func _help_panel() -> Control:
 	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	goal.custom_minimum_size = Vector2(560, 0)
 	v.add_child(goal)
-	var sh := ReachStyle.label("YOUR FIRST FEW MINUTES", 15, ReachStyle.EMBER)
-	sh.add_theme_font_override("font", ReachStyle.round_bold)
-	v.add_child(sh)
-	for i in STEPS.size():
-		var step := ReachStyle.label("%d.  %s" % [i + 1, STEPS[i]], 16, ReachStyle.BONE)
-		step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		step.custom_minimum_size = Vector2(560, 0)
-		v.add_child(step)
-	var nh := ReachStyle.label("WHAT TO DO NEXT", 15, ReachStyle.EMBER)
-	nh.add_theme_font_override("font", ReachStyle.round_bold)
-	v.add_child(nh)
-	_help_goal = ReachStyle.label("", 18, ReachStyle.BONE)
-	_help_goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_help_goal.custom_minimum_size = Vector2(560, 0)
-	v.add_child(_help_goal)
 	var wh := ReachStyle.label("WORDS", 15, ReachStyle.EMBER)
 	wh.add_theme_font_override("font", ReachStyle.round_bold)
 	v.add_child(wh)

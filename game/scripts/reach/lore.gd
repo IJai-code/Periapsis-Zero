@@ -40,7 +40,7 @@ const FACTS := {
 	"ph_shrine": ["phantom", "The Phantom's recording: \"Board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.\"", "wanderer"],
 	"ash_rook_loops": ["ashfall", "Rook remembers. He has been living this morning longer than you have, and every morning he waits for someone to open the vault for him.", ""],
 	"wan_rook": ["wanderer", "At the Engine, Rook made his offer: the core for a place on his carrier through the Fold, for you and for Hearth. He has never been known to keep one.", ""],
-	"wan_door": ["wanderer", "The Engine's door on the Wanderer is sealed. It opens only at Periapsis Zero, the Wanderer's closest pass to the Lantern, at about 20:30.", ""],
+	"wan_door": ["wanderer", "The Engine's door on the Wanderer is sealed. It opens only around Periapsis Zero, the Wanderer's closest pass to the Lantern: from 20:00 to 21:15 on the clock.", ""],
 	"wan_end": ["wanderer", "You gave the Engine the core.", ""],
 }
 
