@@ -199,7 +199,7 @@ const STEPS_LATER := [
 	"Follow the marker: it points at your lead. Look at that world, press T to lock it, then G for the autopilot.",
 	"Near a world, let go and the ship holds still. Hold Shift to set her down. E steps out.",
 	"On foot, walk to the marker and press E on what it shows. L opens your ship log, with every lead so far.",
-	"The Engine is inside the Wanderer, the comet with two tails. Its stone door only sinks open between 20:00 and 21:15 on the clock; before that there is no way in. Bring the core from the vault on Ashfall.",
+	"The Engine is inside the Wanderer, the comet with two tails. Its stone door only sinks open between 20:00 and 21:15 on the clock. Arrive early and press E at the door to wait: the time runs fast until it opens. Bring the core from the vault on Ashfall.",
 ]
 
 ## The steps that fit where you are: the first morning's walk to the ship,
@@ -220,7 +220,7 @@ func _fill_steps(r: Node) -> void:
 	var line := "The clock: %s of 22:00. At 22:00 the star goes out and the morning starts again." % _mmss(t)
 	if r.get("carrying_core") or Lore.known("ash_core") or Lore.known("hearth_songline"):
 		if t < WandererSite.OPEN_FROM:
-			line += " The Engine's door on the Wanderer opens at 20:00, in %s, and shuts at 21:15." % _span(WandererSite.OPEN_FROM - t)
+			line += " The Engine's door on the Wanderer opens at 20:00, in %s, and shuts at 21:15. Early? Press E at the door to wait for it." % _span(WandererSite.OPEN_FROM - t)
 		elif t <= WandererSite.OPEN_TO:
 			line += " The Engine's door on the Wanderer is open now, until 21:15."
 		else:

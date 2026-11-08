@@ -15,6 +15,9 @@ var _door: Node3D
 var _open := 0.0
 var _socket: Usable
 var _door_use: Usable
+var _waiting := false
+var _wait_from := 0
+const WAIT_WARP := 45.0   # 17 minutes of the morning in about 23 seconds
 var _told := ""   # what the arrival caption last said: "shut", "open", "late"
 var socket_at: Transform3D
 
@@ -47,7 +50,31 @@ func _ready() -> void:
 	_door_use.reach = 6.0
 	engine.add_child(_door_use)
 	_door_use.position = Vector3(0, 2.0, 8.4)
-	_door_use.used.connect(func(_by): reach.hud.caption(_door_words(), 7.0))
+	_door_use.used.connect(_use_door)
+
+## E at the sealed door, before 20:00: wait for it. The clock runs fast
+## (as sleeping by a fire does) until the slab sinks; any key stops it.
+func _use_door(_by: Node) -> void:
+	if reach.system.t < OPEN_FROM - 2.0 and not _waiting:
+		_waiting = true
+		_wait_from = Time.get_ticks_msec()
+		reach.system.warp = WAIT_WARP
+		Season.note("rest")
+	else:
+		reach.hud.caption(_door_words(), 7.0)
+
+func _stop_wait(opened: bool) -> void:
+	if not _waiting:
+		return
+	_waiting = false
+	reach.system.warp = 1.0
+	if reach.scope:
+		reach.scope.resync()
+	reach.hud.caption("20:00. The Wanderer swings close to the star, and the slab sinks into the ice. Walk inside." if opened else "You stop waiting. It is %s." % _mmss(reach.system.t), 6.0)
+
+func _input(e: InputEvent) -> void:
+	if _waiting and Time.get_ticks_msec() - _wait_from > 600 and ((e is InputEventKey and e.pressed and not e.echo) or (e is InputEventMouseButton and e.pressed)):
+		_stop_wait(false)
 
 static func _mmss(t: float) -> String:
 	return "%d:%02d" % [int(t) / 60, int(t) % 60]
@@ -57,7 +84,7 @@ func _door_words() -> String:
 	var t: float = reach.system.t
 	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, so bring that."
 	if t < OPEN_FROM:
-		return "The Engine's door is sealed. It sinks open at 20:00 on the clock, when the Wanderer is nearest the star; it is %s now. Wait here or come back.%s" % [_mmss(t), core]
+		return "The Engine's door is sealed. It sinks open at 20:00 on the clock, when the Wanderer is nearest the star; it is %s now. Press E at the door to wait for it (the time runs fast; any key stops).%s" % [_mmss(t), core]
 	if t <= OPEN_TO:
 		return "The door is open until 21:15. Walk inside.%s" % core
 	return "The door has shut for this morning (it is open 20:00 to 21:15). Come back next morning, before 21:15.%s" % core
@@ -79,9 +106,15 @@ func _physics_process(dt: float) -> void:
 		_door.position = Vector3(0, -4.2 * smoothstep(0.0, 1.0, _open), 7.5)
 	_socket.prompt = "Give the Engine the core" if reach.carrying_core else "An empty socket"
 	if _open < 0.5:
-		_door_use.prompt = "Sealed door: opens at 20:00 (it is %s)" % _mmss(t) if t < OPEN_FROM else "Sealed door: shut for this morning"
+		_door_use.prompt = ("Wait for the door (opens at 20:00, it is %s)" % _mmss(t)) if t < OPEN_FROM else "Sealed door: shut for this morning"
 	else:
 		_door_use.prompt = ""
+	if _waiting:
+		reach.hud.caption("Waiting for the door   %s of 20:00\nany key stops" % _mmss(t), 0.5)
+		if t >= OPEN_FROM + 1.0:
+			_stop_wait(true)
+		elif ex and ex.is_inside_tree() and ex.global_position.distance_to(engine.global_position) > 40.0:
+			_stop_wait(false)
 	_door_use.collision_layer = 8 if _open < 0.5 else 0
 	# Arriving on foot near the door: say once what it is and when it opens.
 	if ex and ex.is_inside_tree() and ex.global_position.distance_to(engine.global_position) < 30.0:
@@ -167,6 +200,9 @@ func _use_socket(_by: Node) -> void:
 		reach.hud.caption("A socket in the Engine's heart, a hand's width across. Empty.", 3.0)
 
 func reset_loop() -> void:
+	if _waiting:
+		_waiting = false
+		reach.system.warp = 1.0
 	_open = 0.0
 	_told = ""
 	_door.position = Vector3(0, 0, 7.5)

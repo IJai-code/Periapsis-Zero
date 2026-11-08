@@ -123,8 +123,10 @@ const checks = [
   ['the Reach: H on a later morning shows the seat steps, the clock and when the Engine door opens', async () => {
     const out = await run('reach', ['--helptest'], /HELPTEST/)
     const m = out.match(/HELPTEST head ([^|]+)\| steps (\d+) \| now [^|]+\| clock ([^|]+)\| door (.+)/)
-    const ok = m && m[1].trim() === 'EVERY MORNING FROM NOW ON' && +m[2] >= 4 && /opens at 20:00/.test(m[3]) && /sealed/.test(m[4]) && /open until/.test(m[4]) && /shut for this morning/.test(m[4])
-    return [!!ok, m ? m[0].slice(0, 160) : 'no HELPTEST line']
+    const ok = m && m[1].trim() === 'EVERY MORNING FROM NOW ON' && +m[2] >= 4 && /opens at 20:00|open now/.test(m[3]) && /sealed/.test(m[4]) && /open until/.test(m[4]) && /shut for this morning/.test(m[4])
+    const d = out.match(/DOORWAIT waited (\w+) took (\d+) s, t (\d+), open ([\d.]+), warp (\d+), ([\d.]+) m from the Engine, alive (\w+)/)
+    const wait = d && d[1] === 'true' && +d[2] < 45 && +d[3] >= 1200 && +d[3] < 1275 && +d[4] > 0.9 && d[5] === '1' && +d[6] < 20 && d[7] === 'true'
+    return [!!ok && !!wait, (d ? d[0] : 'no DOORWAIT line') + ' | ' + (m ? m[0].slice(0, 100) : 'no HELPTEST line')]
   }],
   ['the Reach: the map marks sphere-of-influence crossings', async () => {
     const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
