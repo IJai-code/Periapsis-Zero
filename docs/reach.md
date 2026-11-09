@@ -245,6 +245,34 @@ hand-drawn ink and pulse at periapsis. Music made in code: one tune played
 by banjo, flute, harmonica and drums in sync with the loop, so travellers'
 signals harmonise when heard together.
 
+## The Nadir
+
+A black hole past the Wanderer's farthest swing (ReachSystem `nadir`, orbit
+16.5 km, horizon 36 m, sphere 2.6 km), with the gleam (a river of living light
+drinking the Lantern) pouring into it. Its own story, side by side with the
+Engine's: Tock, the Ferreira family's robot, has kept a relay buoy lit at the
+lip for 104 years; the Tern holds station 300 m over the horizon where Pip
+(11) keeps watch and, for her, the Founders left Hearth this morning; Abe's
+log says the gleam is why the Lantern dims, and that it flees the Engine's
+song. Carry Tock's count down and Pip's "come home" back up, and he falls to
+them. Facts `hearth_nadir` (Okafor), `nad_*`; leads in `NADIR_LEADS`, shown
+first while you are there.
+
+- **Time runs slow:** `ReachSystem.dilation` = 1 + 5 (300 / r)^2 near it (1.4
+  at the buoy, 6 at the Tern, hundreds at the edge), multiplied into the loop
+  clock; the HUD shows the clock and the factor. Inside 45 m: `loop.die("nadir")`.
+- **Decks:** the Tern and buoy face away from the hole; `ReachSystem.decks`
+  sets gravity there to 6 m/s^2 (direction kept). The Tern's cabin has air
+  (`Nadir.air_at`). The autopilot to the Nadir stops over the buoy.
+- **Graphics:** `black_hole.gdshader` on a 1250 m sphere: Schwarzschild ray
+  march near the hole (steps by tier, 72 to 28), weak-field bend further out,
+  the disk with Keplerian shear and beaming, the background read from the
+  screen texture where the bent ray points; drawn last (`render_priority`).
+  `gleam.gdshader`: camera-facing ribbons, additive.
+- **Models:** `art/godot/nadir_sites.py` (tern, buoy, tock_body, tock_head).
+- **Looking:** `#reach/nadir` (buoy), `nadir:tern`, `nadir:ternview`,
+  `nadir:far`, `nadir:sky`. Check: `--nadirtest --talkauto`.
+
 ## Performance
 
 Built for the browser's Compatibility renderer first: one sun light, the

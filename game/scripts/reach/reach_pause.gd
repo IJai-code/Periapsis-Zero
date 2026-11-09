@@ -183,6 +183,8 @@ const WORDS := [
 	["Hearthstone", "home: the village, the lake, the observatory, the tower"],
 	["Verdance, Ashfall", "the jungle world and the volcanic moon"],
 	["The Phantom, the Wanderer", "the moon that moves, and the comet"],
+	["The Nadir", "a black hole at the Reach's edge; near it time runs slow, so the clock races. Tock keeps a buoy at its lip"],
+	["The gleam", "the river of gold light running out of the Lantern into the Nadir"],
 ]
 
 const STEPS := [

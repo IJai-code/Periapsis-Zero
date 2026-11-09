@@ -128,6 +128,21 @@ const checks = [
     const wait = d && d[1] === 'true' && +d[2] < 45 && +d[3] >= 1200 && +d[3] < 1275 && +d[4] > 0.9 && d[5] === '1' && +d[6] < 20 && d[7] === 'true'
     return [!!ok && !!wait, (d ? d[0] : 'no DOORWAIT line') + ' | ' + (m ? m[0].slice(0, 100) : 'no HELPTEST line')]
   }],
+  ['the Reach: the Nadir, by teleport: the buoy and Tock, the Tern at six to one, Pip, the log, Tock goes home, and the edge kills', async () => {
+    const out = await run('reach', ['--nadirtest', '--talkauto'], /NADIRTEST/, 180000)
+    const m = out.match(/NADIRTEST .*/)
+    const t = m ? m[0] : ''
+    const ok = /buoy stand true/.test(t) && /tock true/.test(t) && /tern stand true/.test(t) && /clock x(5\.[5-9]|6\.[0-4])/.test(t) && /pip true gleam true message true/.test(t) && /together true falling true/.test(t) && /edge true/.test(t)
+    return [ok, t.slice(0, 200) || 'no NADIRTEST line']
+  }],
+  ['the Reach: the Kestrel sets down on the Nadir buoy and on the Tern, held then Shift, unhurt', async () => {
+    const out = await run('reach', ['--nadirland'], /NADIRLAND/, 200000)
+    const m = out.match(/NADIRLAND .*/)
+    const t = m ? m[0] : ''
+    const parts = [...t.matchAll(/held ([\d.]+) m\/s landed (\w+) ([-\d.]+) m over the deck hull (\d+) to (\d+)/g)]
+    const ok = parts.length === 2 && parts.every((p) => +p[1] < 1 && p[2] === 'true' && +p[3] > 1 && +p[3] < 3 && +p[5] >= +p[4] - 5)
+    return [ok, t.slice(0, 220) || 'no NADIRLAND line']
+  }],
   ['the Reach: the map marks sphere-of-influence crossings', async () => {
     const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
     const near = out.match(/MAPTEST path (\d+) crossings (\d+) inside '(\w*)'/)

@@ -34,6 +34,7 @@ var carrying_core := false
 var _core_vis: Node3D
 var _map: ReachMap
 var homecoming: Homecoming
+var nadir: Nadir
 var echoes: Echoes
 var finished := false
 ## Made a piece at a time with a frame between, so a browser stays
@@ -74,6 +75,10 @@ func _ready() -> void:
 			fold.add_child(homecoming)
 			continue
 		if backdrop and key != "hearthstone":
+			continue
+		if key == "nadir":
+			nadir = Nadir.new()
+			b.node.add_child(nadir)
 			continue
 		Flow.step("before planet " + key)
 		var p := Planet.make(b)
@@ -184,6 +189,10 @@ func _ready() -> void:
 		_season_test()
 	if "--helptest" in args:
 		_help_test()
+	if "--nadirtest" in args:
+		_nadir_test()
+	if "--nadirland" in args:
+		_nadir_land_test()
 	if "--reachfly" in args:
 		_fly_test()
 	if "--storytest" in args:
@@ -196,7 +205,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--nadirtest", "--nadirland"]:
 			return true
 	return false
 
@@ -622,13 +631,15 @@ var _light_t := 0.0
 ## Lamps are recollected on a timer; the lit ones breathe every frame.
 var _lamp_t := 0.0
 const PLACE_WORDS := {"verdance": "the jungle world", "ashfall": "where the Aster fell", "phantom": "the moon that moves",
-	"wanderer": "the comet", "hearthstone": "home"}
+	"wanderer": "the comet", "hearthstone": "home", "nadir": "where time runs slow"}
 
 func _on_frame(from: String, to: String) -> void:
 	if campfire:
 		campfire.solid(to == "hearthstone")
 	if planets.has(from):
 		(planets[from] as Planet).set_ref(false)
+	if to == "nadir" and hud and loop and not loop.ending:
+		_arrive_nadir()
 	if planets.has(to):
 		(planets[to] as Planet).set_ref(true)
 		# A world's name, the first time you reach it in a loop.
@@ -914,6 +925,11 @@ func _start_player() -> void:
 			var at := zc.global_transform * Vector3(0, 3.5, 7.5)
 			var upz := (at - system.world("hearthstone")).normalized()
 			player.place(Transform3D(Site.upright(upz, -zc.global_basis.z), at), -zc.global_basis.z)
+		elif beat.begins_with("nadir"):
+			# At the Nadir: nadir (the buoy's deck), nadir:tern (the Tern's),
+			# nadir:far[:<metres>] (out from it, looking at it).
+			var where := beat.trim_prefix("nadir:").replace("/", ":") if beat.begins_with("nadir:") else "buoy"
+			await _at_nadir(where)
 		elif beat == "cockpitwake":
 			# A later morning, as a returning player has it: awake in the seat.
 			Lore.learn("hearth_codes")
@@ -1101,14 +1117,43 @@ const LEADS := [
 	["hearth_codes", "hearth_lantern", "Okafor wants a word: set her down by the observatory, the glass dome on the hill, and press E to talk to him. (Isa's rings round the crater are there to fly any time.)", "hearthstone", "observatory", "Okafor"],
 ]
 
+## The Nadir's own leads: shown first while you are there, else after
+## every lead of the main story.
+const NADIR_LEADS := [
+	["nad_message", "nad_together", "Fly back up to the relay buoy and give Tock Pip's message. Climb gently: the Nadir pulls hard under the Tern.", "nadir", "tock", "Tock"],
+	["nad_tern", "nad_gleam", "Abe's log is on the Tern's console, beside Pip, under the glass. Walk in through the doorway and press E on it. Be quick: six minutes pass outside for each one here.", "nadir", "abe", "Abe's log"],
+	["nad_tock", "nad_tern", "Fly down to the Tern, the small light 300 m over the Nadir, and set her down on the deck in front of the glass cabin. Each minute there costs six outside. Never go below her.", "nadir", "tern", "The Tern"],
+	["nad_well", "nad_tock", "Land on the relay buoy at the Nadir's lip (follow the marker) and talk to whoever keeps its beacon lit.", "nadir", "buoy", "The relay buoy"],
+	["hearth_nadir", "nad_well", "Fly out to the ring of bent starlight at the Reach's edge, where the thread of gold from the Lantern ends: the Nadir. Follow the marker, look at it and press T to lock it, then G: the autopilot stops over the relay buoy.", "nadir", "buoy", "The relay buoy"],
+]
+
 func _lead_row() -> Array:
+	if system and system.ref == "nadir":
+		for l in NADIR_LEADS:
+			if Lore.known(l[0]) and not Lore.known(l[1]):
+				return l
 	# The core in hand: the Engine, whatever else is known.
 	if carrying_core and not Lore.known("wan_end"):
 		return ["", "", "The core came back through the morning with you: it is the Engine's, and outside time. Carry it to the Engine inside the Wanderer, the comet with two tails, while its door is open, 20:00 to 21:15 on the clock (H or M shows the time). Early? Press E at the door to wait for it.", "wanderer", "engine", "The Engine"]
 	for l in LEADS:
 		if Lore.known(l[0]) and not Lore.known(l[1]):
 			return l
+	for l in NADIR_LEADS:
+		if Lore.known(l[0]) and not Lore.known(l[1]):
+			return l
 	return []
+
+## Into the Nadir's sphere: what it is, the first time, and that the clock
+## outside now runs fast.
+var _nadir_told := false
+func _arrive_nadir() -> void:
+	var first := Lore.learn("nad_well")
+	if first:
+		hud.toast("SHIP LOG UPDATED")
+	if _nadir_told:
+		return
+	_nadir_told = true
+	hud.guide("The Nadir", "A black hole: the Lantern's light runs into it along the gold thread, and bends round it.\n\nNear it, time runs slow. At the relay buoy a minute here is a minute and a half outside; at the Tern, 300 m over it, six. Watch the clock at the top.\n\nBelow the Tern it pulls harder than the Kestrel can push. Nothing comes back from there.", 22.0)
 
 func _lead() -> String:
 	var l := _lead_row()
@@ -1149,6 +1194,13 @@ func goal_target() -> Dictionary:
 	var key: String = l[3]
 	var b: ReachBody = system.bodies[key]
 	var local := Vector3.ZERO
+	if key == "nadir":
+		if not nadir:
+			return {}
+		var cam0 := get_viewport().get_camera_3d()
+		if cam0 and cam0.global_position.distance_to(system.world(key)) > 2400.0:
+			return {"at": system.world(key), "label": b.title}
+		return {"at": nadir.spot(l[4]), "label": l[5]}
 	if l[4] == "recorder":
 		local = ((planets["ashfall"] as Planet).sites[0] as AshfallSite).recorder_at
 	else:
@@ -1406,6 +1458,9 @@ func reset_loop() -> void:
 	for key in planets:
 		for site: Site in (planets[key] as Planet).sites:
 			site.reset_loop()
+	if nadir:
+		nadir.reset_loop()
+	_nadir_told = false
 	if Lore.known("ash_core") and not finished:
 		take_core()
 		var ash: AshfallSite = (planets["ashfall"] as Planet).sites[0]
@@ -1437,6 +1492,15 @@ func _physics_process(_dt: float) -> void:
 	# Too close to the Lantern: nothing survives that.
 	if system.focus.global_position.distance_to(system.world("lantern")) < ReachSystem.STAR_RADIUS * 1.04:
 		loop.die("lantern")
+	# Past the Nadir's edge: nor that.
+	if system.ref == "nadir":
+		var dn := system.focus.global_position.distance_to(system.world("nadir"))
+		if dn < ReachSystem.NADIR_RS * 1.25:
+			loop.die("nadir")
+		elif dn < 170.0 and hud:
+			hud.caption("Too deep. The Nadir is pulling harder than the Kestrel can push.", 0.5)
+	if hud:
+		hud.dilation(system.dilation, system.t)
 
 # --- For checks --------------------------------------------------------------
 
@@ -1898,6 +1962,160 @@ func _meteor_test() -> void:
 	Report.finish(get_tree())
 
 ## Into a body's frame, standing at its first landmark.
+## Stand at the Nadir: on the buoy's deck, on the Tern's, or (far) out at
+## its sphere's edge looking in, for looking at it and for its check.
+func _at_nadir(where: String) -> void:
+	if ship.piloted:
+		await ship.leave()
+		await get_tree().create_timer(1.5).timeout
+		hud.end_guide("In the Kestrel, on the tower")
+	if where != "sky":
+		system.switch("nadir")
+	system.place()
+	await get_tree().physics_frame
+	var hole := system.world("nadir")
+	if where.begins_with("far"):
+		var dist := float(where.trim_prefix("far:")) if where.begins_with("far:") else 1000.0
+		var at := hole + nadir.global_basis * Vector3(0.0, 0.26, 1.0).normalized() * dist
+		var up := nadir.global_basis.y
+		player.place(Transform3D(Site.upright((at - hole).normalized(), up), at), up)
+		await get_tree().physics_frame
+		player.process_mode = Node.PROCESS_MODE_DISABLED
+		# A camera of its own, held on the hole (the explorer's would turn
+		# feet-down to it).
+		var cam := Camera3D.new()
+		cam.far = 60000.0
+		cam.fov = 60.0
+		add_child(cam)
+		cam.global_transform = Transform3D(Basis.looking_at(hole - at, up), at)
+		cam.make_current()
+		return
+	if where == "sky":
+		# From high over Hearthstone: the gold thread out of the Lantern,
+		# across the Reach, down into the Nadir.
+		system.switch("hearthstone")
+		system.place()
+		var hs := system.world("hearthstone")
+		var lan := system.world("lantern")
+		var nd := system.world("nadir")
+		var side := (nd - lan).cross(Vector3.UP).normalized()
+		var at := (lan + nd) * 0.5 + side * 9000.0 + Vector3.UP * 3500.0
+		var cam := Camera3D.new()
+		cam.far = 60000.0
+		cam.fov = 70.0
+		add_child(cam)
+		system.focus = cam
+		cam.global_transform = Transform3D(Basis.looking_at((lan + nd) * 0.5 - at, Vector3.UP), at)
+		cam.make_current()
+		return
+	if where == "ternview":
+		# Off the Tern's beam, the hole and its disk under her.
+		var tn: Node3D = nadir.tern
+		var tup := tn.global_basis.y
+		var at := tn.global_position + tup * 30.0 + tn.global_basis.x * 95.0 + tn.global_basis.z * 30.0
+		player.place(Transform3D(Site.upright(tup, tn.global_basis.z), tn.global_transform * Vector3(0, 0.2, 3.0)), tn.global_basis.z)
+		await get_tree().physics_frame
+		var cam := Camera3D.new()
+		cam.far = 60000.0
+		cam.fov = 62.0
+		add_child(cam)
+		cam.global_transform = Transform3D(Basis.looking_at(tn.global_position - tup * 55.0 - at, tup), at)
+		cam.make_current()
+		return
+	var deck: Node3D = nadir.tern if where == "tern" else nadir.buoy
+	var up := deck.global_basis.y
+	var spot := deck.global_transform * (Vector3(2.0, 0.15, -3.0) if where == "tern" else Vector3(-6.0, 0.15, 3.0))
+	# Off the bow on the Tern (the hole's disk spread out below); toward
+	# the hole's side on the buoy.
+	var look := deck.global_basis.z if where == "tern" else nadir.tock.global_position - spot
+	look = (look - up * look.dot(up)).normalized()
+	player.place(Transform3D(Site.upright(up, look), spot), look)
+	player.set_pitch(-0.45 if where == "tern" else -0.05)
+
+## The Nadir by teleport: the buoy and Tock, the Tern and Pip and Abe's log,
+## Tock's fall, the clock at six to one, and the edge.
+func _nadir_test() -> void:
+	await get_tree().create_timer(3.0).timeout
+	var out := []
+	system.t = 60.0
+	await _at_nadir("buoy")
+	await get_tree().create_timer(3.0).timeout
+	var bd := player.global_position.distance_to(nadir.buoy.global_position)
+	out.append("buoy stand %s (%.1f m, floor %s) slow %.2f" % [bd < 11.0 and player.is_on_floor(), bd, player.is_on_floor(), system.dilation])
+	await nadir._talk("tock", null, player)
+	out.append("tock %s" % Lore.known("nad_tock"))
+	await _at_nadir("tern")
+	await get_tree().create_timer(2.0).timeout
+	var t0 := system.t
+	var w0 := Time.get_ticks_msec()
+	await get_tree().create_timer(2.0).timeout
+	var rate := (system.t - t0) / ((Time.get_ticks_msec() - w0) / 1000.0)
+	var td := player.global_position.distance_to(nadir.tern.global_position)
+	out.append("tern stand %s (%.1f m) slow %.1f clock x%.1f" % [td < 6.0 and player.is_on_floor(), td, system.dilation, rate])
+	await nadir._talk("pip", nadir.pip, player)
+	await nadir._talk("abe_log", null, player)
+	out.append("pip %s gleam %s message %s" % [Lore.known("nad_tern"), Lore.known("nad_gleam"), Lore.known("nad_message")])
+	await _at_nadir("buoy")
+	await get_tree().create_timer(1.0).timeout
+	await nadir._talk("tock", null, player)
+	await get_tree().create_timer(6.0).timeout
+	out.append("together %s falling %s" % [Lore.known("nad_together"), nadir._falling > 0.0 or nadir._falling == -2.0])
+	# Over the edge.
+	var hole := system.world("nadir")
+	player.place(Transform3D(Basis(), hole + Vector3(0, 60.0, 0)), Vector3.FORWARD)
+	var w1 := Time.get_ticks_msec()
+	while not loop.ending and Time.get_ticks_msec() - w1 < 15000:
+		await get_tree().physics_frame
+	out.append("edge %s" % loop.ending)
+	Report.line("NADIRTEST " + " | ".join(out))
+	await _hush()
+	get_tree().quit()
+
+## Set the Kestrel down on the buoy's deck and on the Tern's, by the
+## assist: forty metres over each, held, then Shift until she sits.
+func _nadir_land_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	await get_tree().create_timer(0.5).timeout
+	var out := []
+	for where in ["buoy", "tern"]:
+		system.switch("nadir")
+		system.place()
+		var deck: Node3D = nadir.buoy if where == "buoy" else nadir.tern
+		var up := deck.global_basis.y
+		var spot := deck.global_transform * (Vector3(0, 0, 0) if where == "buoy" else Vector3(0, 0, 5.5))
+		ship.freeze = true
+		ship.global_transform = Transform3D(Site.upright(up, deck.global_basis.z), spot + up * 40.0)
+		ship.reset_physics_interpolation()
+		ship.freeze = false
+		ship.linear_velocity = Vector3.ZERO
+		ship.landed = false
+		# Torn off the tower by the teleport: that knock is not the landing's.
+		await get_tree().create_timer(0.5).timeout
+		ship.integrity = 100.0
+		await get_tree().create_timer(3.5).timeout
+		var held := absf(ship.linear_velocity.dot(up))
+		var hull0 := int(ship.integrity)
+		var k := InputEventKey.new()
+		k.keycode = KEY_SHIFT
+		k.physical_keycode = KEY_SHIFT
+		k.pressed = true
+		Input.parse_input_event(k)
+		var start := Time.get_ticks_msec()
+		while Time.get_ticks_msec() - start < 40000 and not ship.landed and not loop.ending:
+			await get_tree().physics_frame
+		k = k.duplicate()
+		k.pressed = false
+		Input.parse_input_event(k)
+		await get_tree().create_timer(2.0).timeout
+		var off := (ship.global_position - spot).dot(up)
+		out.append("%s held %.1f m/s landed %s %.1f m over the deck hull %d to %d" % [where, held, ship.landed, off, hull0, int(ship.integrity)])
+	Report.line("NADIRLAND " + " | ".join(out))
+	await _hush()
+	get_tree().quit()
+
 func _go(key: String) -> void:
 	system.switch(key)
 	var b: ReachBody = system.bodies[key]

@@ -12,7 +12,7 @@ extends CanvasLayer
 
 signal closed
 
-const SPAN := 14500.0   # metres from the Lantern to the frame's edge, at zoom 1
+const SPAN := 17500.0   # metres from the Lantern to the frame's edge, at zoom 1
 const PREDICT := 600.0
 const STEP := 4.0
 

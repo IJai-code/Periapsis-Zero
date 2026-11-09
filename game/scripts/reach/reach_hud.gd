@@ -225,6 +225,15 @@ func _ready() -> void:
 	_race.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shadow(_race)
 	root.add_child(_race)
+	# Near the Nadir: the loop's clock racing, and by how much (dilation).
+	_slow = ReachStyle.title("", 26, Color("#ffd9a0"))
+	_slow.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_slow.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_slow.offset_top = 112
+	_slow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shadow(_slow)
+	_slow.visible = false
+	root.add_child(_slow)
 	# The last photograph, top right (P).
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", ReachStyle.panel(4))
@@ -271,6 +280,20 @@ func _shadow(l: Label) -> void:
 
 ## A notice for a few seconds ("Ship log updated"): a card from the right.
 var _race: Label
+var _slow: Label
+var _slow_shown := 1.0
+## Time near the Nadir: the clock, and how many outside seconds each of
+## yours is worth; hidden when it is near one to one.
+func dilation(k: float, t: float) -> void:
+	if not _slow:
+		return
+	_slow_shown = lerpf(_slow_shown, k, 0.08)
+	_slow.visible = k > 1.15
+	if _slow.visible:
+		var left := maxf(ReachSystem.LOOP - t, 0.0)
+		_slow.text = "%d:%02d    time outside x%.1f    %d:%02d to the end" % [int(t) / 60, int(t) % 60, _slow_shown, int(left) / 60, int(left) % 60]
+		_slow.add_theme_color_override("font_color", Color("#ffd9a0").lerp(Color(1.0, 0.45, 0.35), clampf((_slow_shown - 2.0) / 10.0, 0.0, 1.0)))
+
 ## The run's clock and splits; "" hides it.
 func race(text: String) -> void:
 	if _race:

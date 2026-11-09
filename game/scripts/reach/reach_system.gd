@@ -67,7 +67,28 @@ static func define() -> Array:
 	var comet := ReachBody.make("wanderer", "The Wanderer", 90.0, 1.5, 750.0, Orbit.make(STAR_GM, a, e, -n * 1230.0, 2.2, 0.12, 0.4))
 	comet.tint = Color(0.7, 0.88, 1.0)
 	out.append(comet)
+	# The Nadir: a black hole past the Wanderer's farthest swing, the gleam
+	# pouring into it out of the Lantern. Its radius is its horizon; the
+	# Tern holds 300 m over it (5 m/s^2 there), the relay buoy at 1100 m.
+	var nadir := ReachBody.make("nadir", "The Nadir", NADIR_RS, NADIR_GM / (NADIR_RS * NADIR_RS), 2600.0, Orbit.make(STAR_GM, 16500.0, 0.0, 5.75, 0.0, 0.06))
+	nadir.tint = Color(1.0, 0.62, 0.3)
+	out.append(nadir)
 	return out
+
+const NADIR_RS := 36.0
+const NADIR_GM := 450000.0
+## How slow time runs at 300 m from the Nadir (the Tern): six to one.
+const DILATE_AT := 300.0
+const DILATE_K := 5.0
+
+## How many seconds pass outside for each of yours, where the focus is
+## (1 everywhere but near the Nadir; six at the Tern; hundreds at the edge).
+var dilation := 1.0
+
+## Decks with their own pull: [node, radius, m/s^2]. Inside one, gravity
+## keeps its direction (toward the body) but has this strength, so a deck
+## over the Nadir can be walked like ground.
+var decks: Array = []
 
 func _init() -> void:
 	for b: ReachBody in define():
@@ -105,8 +126,12 @@ func world_vel(key: String) -> Vector3:
 var warp := 1.0
 
 func _physics_process(dt: float) -> void:
+	dilation = 1.0
+	if ref == "nadir" and focus and is_instance_valid(focus):
+		var r := maxf(focus.global_position.distance_to(world("nadir")), NADIR_RS)
+		dilation = minf(1.0 + DILATE_K * pow(DILATE_AT / r, 2.0), 300.0)
 	if running:
-		t += dt * warp
+		t += dt * warp * dilation
 	place()
 	_check_frame()
 
@@ -121,6 +146,11 @@ func gravity(at: Vector3) -> Vector3:
 	var r := at - b.node.position
 	var d := maxf(r.length(), b.radius * 0.5)
 	var g := -r / maxf(r.length(), 0.001) * b.gm / (d * d)
+	for dk: Array in decks:
+		var n: Node3D = dk[0]
+		if is_instance_valid(n) and n.is_inside_tree() and at.distance_to(n.global_position) < float(dk[1]):
+			g = g.normalized() * float(dk[2])
+			break
 	if pull > 0.0:
 		var s := world("lantern") - at
 		g += s / maxf(s.length(), 1.0) * pull
@@ -194,6 +224,7 @@ func switch(to: String) -> void:
 func reset(home: String) -> void:
 	t = 0.0
 	pull = 0.0
+	dilation = 1.0
 	running = true
 	ref = home
 	place()

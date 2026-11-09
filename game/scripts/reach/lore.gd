@@ -10,6 +10,7 @@ const PLACES := {
 	"ashfall": {"title": "The Aster's Wreck", "body": "ashfall", "pos": Vector2(1.05, 0.55)},
 	"phantom": {"title": "The Phantom", "body": "phantom", "pos": Vector2(-0.95, -0.55)},
 	"wanderer": {"title": "The Wanderer", "body": "wanderer", "pos": Vector2(-0.95, 0.55)},
+	"nadir": {"title": "The Nadir", "body": "nadir", "pos": Vector2(0.0, 1.05)},
 }
 
 ## id: [place, text, leads to (a place this is a rumour of, or "")]
@@ -42,6 +43,13 @@ const FACTS := {
 	"wan_rook": ["wanderer", "At the Engine, Rook made his offer: the core for a place on his carrier through the Fold, for you and for Hearth. He has never been known to keep one.", ""],
 	"wan_door": ["wanderer", "The Engine's door on the Wanderer is sealed. It opens only around Periapsis Zero, the Wanderer's closest pass to the Lantern: from 20:00 to 21:15 on the clock.", ""],
 	"wan_end": ["wanderer", "You gave the Engine the core.", ""],
+	"hearth_nadir": ["hearth", "Okafor's telescope keeps finding a ring of bent starlight at the Reach's edge, where a thread of gold runs out of the Lantern. Something there is heavier than a star.", "nadir"],
+	"nad_well": ["nadir", "The Nadir: a black hole at the edge of the Reach, the Lantern's light pouring into it. Near it time runs slow. Every minute down there, the clock outside races on.", ""],
+	"nad_tock": ["nadir", "Tock, the Ferreiras' robot, keeps a relay buoy at the Nadir's lip. He has counted a hundred and four years since the Tern went down. For the family, it has been eleven hours.", ""],
+	"nad_tern": ["nadir", "The Tern holds still three hundred metres over the Nadir, on the last of her fuel. Pip Ferreira, eleven, keeps watch while her parents sleep. For her, the Founders left Hearth this morning.", ""],
+	"nad_gleam": ["nadir", "Abe Ferreira's log: the Lantern is not old, it is being drunk. The gleam, motes of living light, feed on it and carry its light down into the Nadir. The one thing they flee is the Engine's song.", ""],
+	"nad_message": ["nadir", "Pip heard Tock's count, all of it. She gave you three words to carry back up to him: come home, Tock.", ""],
+	"nad_together": ["nadir", "Tock left the buoy and let the Nadir take him down to the Tern. For him it was a long fall. For the Ferreiras, he was home in a minute.", ""],
 }
 
 # --- The Choir's songlines --------------------------------------------------
@@ -220,7 +228,7 @@ const TALK := {
 			["Okafor", "Have a look round the stands before you go; they'll tell you more about the Reach than I can in a morning. I've been watching the Lantern, our star."],
 			["Okafor", "Three nights ago it flickered. It's been swelling ever since. Stars don't do that, not on any clock we'd notice."],
 			["Okafor", "As for the Aster's people: listen before you look. Your suit's signalscope, X. Start there."],
-		], "learn": ["hearth_codes", "hearth_lantern"], "choices": [
+		], "learn": ["hearth_codes", "hearth_lantern", "hearth_nadir"], "choices": [
 			["Can you help me find anyone else?", "scope", "", ""],
 			["What are the old recorders I keep seeing?", "choir", "", ""],
 			["Is the Lantern going to die?", "die", "", ""],
@@ -317,5 +325,66 @@ const TALK := {
 		], "choices": [["Rook's drones?", "rook", "", ""], ["Thanks.", "bye", "", ""]]},
 		"rook": {"lines": [["Vex", "They came the day the Aster fell. They don't take anything. They just watch the vault. Like they're waiting for someone to open it for them."]], "choices": [["Thanks.", "bye", "", ""]]},
 		"bye": {"end": true, "lines": [["Vex", "Stay out of the light."]]},
+	},
+	"tock": {
+		"start": {"first": [["nad_together", "again"], ["nad_message", "message"], ["@tock", "short"]], "lines": [
+			["Tock", "A visitor. A visitor! Hello. Forgive me: I have not said hello in one hundred and four years, two hundred and nine days and eleven hours. I kept count. Counting is what I am for."],
+			["Tock", "I am Tock. I belong to the Ferreiras. Their skiff, the Tern, is down there, three hundred metres over the Nadir. Look down. The small light, holding still."],
+			["Tock", "Abe took her down after the gleam. He said: Tock, stay at the lip and keep the relay lit. We will be an hour."],
+		], "learn": ["nad_well"], "choices": [["An hour?", "hour", "", ""], ["What is the gleam?", "gleam", "", ""]]},
+		"gleam": {"lines": [
+			["Tock", "The lights in the river, there: running out of the Lantern, all the way here, and down. Abe called them the gleam. He said they are why the Lantern is dimming, and that he would find out how."],
+		], "choices": [["An hour, you said?", "hour", "", ""]]},
+		"hour": {"lines": [
+			["Tock", "Near the Nadir, time goes slowly. They went deep, nearly to the edge, and their one hour was all of my hundred years. Now they hold higher, on the last of their fuel. Each of their minutes is six of mine."],
+			["Tock", "For them it is still the morning the Founders left Hearth. Pip will be twelve tomorrow. I made her a present. It took me forty years."],
+		], "learn": ["nad_tock"], "choices": [["I'll go down to them.", "go", "", ""], ["Why don't you go?", "why", "", ""]]},
+		"why": {"lines": [["Tock", "Abe told me to stay. I am very good at being told to stay."]], "choices": [["I'll go down to them.", "go", "", ""]]},
+		"go": {"end": true, "lines": [
+			["Tock", "Then take my count down with you. All of it. Tell Pip I kept it."],
+			["Tock", "And land on her deck, not past it. Under the Tern the Nadir does not give anything back. Not light. Not you."],
+		]},
+		"short": {"end": true, "lines": [["Tock", "The Tern is the small light under us. Every minute down there is six up here. Go carefully."]]},
+		"message": {"lines": [
+			["Tock", "You went down. You are back already: for you, minutes. For them, less than one. ...Did she hear it? The count?"],
+			["You", "All of it. She said: come home, Tock."],
+			["Tock", "...Come home."],
+			["Tock", "I would fall slowly, the whole way, and for me it would take a long time. For them I would arrive in a minute. That is the best arithmetic I have ever done."],
+		], "choices": [["Go home, Tock.", "fall", "", ""], ["Wait. Not yet.", "wait", "", ""]]},
+		"fall": {"end": true, "learn": ["nad_together"], "outcome": "tock_falls", "lines": [["Tock", "Keep the relay lit for me. It is the only thing I was ever told to do that I am stopping."]]},
+		"wait": {"end": true, "lines": [["Tock", "I have waited a hundred years. I can wait while you decide."]]},
+		"again": {"lines": [
+			["Tock", "You look at me as though you know me. Strange: I feel I have just been told something wonderful, and I cannot remember what."],
+		], "choices": [["Pip says: come home, Tock.", "fall", "", ""]]},
+	},
+	"pip": {
+		"start": {"first": [["nad_message", "after"], ["@pip", "short"]], "lines": [
+			["Pip", "Who's there? Who are you? You're not from the ark. Is that a ship? Nobody has a ship like that."],
+			["Pip", "I'm Pip. I'm on watch. Mum and Dad are asleep; they've been awake since we left Hearth this morning. Dad says we can go home as soon as he's finished counting the gleam."],
+			["Pip", "Did Gran send you? Tell her the Lantern's light all goes into the hole. Dad worked it out. He's put it in his log, there on the console."],
+		], "learn": ["nad_tern"], "choices": [["Pip, how long do you think you've been down here?", "time", "", ""], ["Tock sent me.", "tock", "nad_tock", ""]]},
+		"time": {"lines": [
+			["Pip", "Eleven hours. Dad's clock says so. Why?"],
+			["You", "Up there, it's been a hundred and four years."],
+			["Pip", "...That isn't funny."],
+			["Pip", "That isn't funny. Gran's at home. Gran was waving. I saw her waving."],
+		], "choices": [["Tock sent me.", "tock", "nad_tock", ""], ["I'm sorry.", "sorry", "", ""]]},
+		"sorry": {"end": true, "lines": [["Pip", "Go away. Go and tell Gran we're coming. Go and tell her."]]},
+		"tock": {"lines": [
+			["Pip", "Tock? Tock's at the buoy. He's keeping the light on. Is he all right?"],
+			["You", "He kept count for you. One hundred and four years, two hundred and nine days, eleven hours. He made you a present. It took him forty years."],
+			["Pip", "...He's been on his own all that time? Just waiting? Because Dad told him to?"],
+			["Pip", "Tell him to come home. Tell him: come home, Tock. We'll make room. Dad can fix anything with Tock helping."],
+		], "learn": ["nad_message"], "end": true},
+		"after": {"end": true, "lines": [["Pip", "Did you tell him? Is he coming? I'm watching the window. I'll see him first, I always do."]]},
+		"short": {"end": true, "lines": [["Pip", "Dad's log is on the console. He'd want somebody to read it."]]},
+	},
+	"abe_log": {
+		"start": {"lines": [
+			["Abe's log", "Ferreira, Abe. Survey skiff Tern. Eleventh hour. We've followed the gleam from the Lantern all the way down. Nell's flying; Pip's on the scope and won't sleep."],
+			["Abe's log", "My mother has measured the Lantern's breathing all her life and thinks it is ageing. It isn't. It's being drunk. The gleam are alive: a bloom, feeding on its light, carrying it here, and spending it in the Nadir."],
+			["Abe's log", "We can't kill them. There are more of them than stars. But they scatter from one sound, every time: the note the Founders' Engine sings. If the Engine ever sang for good, they'd go, and the Lantern would breathe again."],
+			["Abe's log", "We went too deep to get a clean count. Something's wrong with the clock. Climbing back now, on what fuel we have. Tock will have kept the relay lit. He always does. ...End log."],
+		], "learn": ["nad_gleam"], "end": true},
 	},
 }

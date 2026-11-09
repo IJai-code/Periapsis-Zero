@@ -673,7 +673,8 @@ func _measure() -> void:
 	var up := r.normalized()
 	altitude = r.length() - b.radius - Worlds.height(b.key, up, b.radius) - 1.9
 	sink = -(linear_velocity - system.world_vel(near_key)).dot(up)
-	if altitude < 160.0:
+	# Over the Nadir the ground is a deck, wherever it is: always look down.
+	if altitude < 160.0 or near_key == "nadir":
 		if _ray == null:
 			_ray = PhysicsRayQueryParameters3D.new()
 			_ray.collision_mask = 1
@@ -870,15 +871,19 @@ func _autopilot_step(dt: float, g: Vector3) -> Vector3:
 	var c := system.world(target)
 	var stand := clampf(tb.radius * 0.5, 120.0, 220.0)
 	var p := c + (global_position - c).normalized() * (tb.radius + stand)
+	# The Nadir: never at the hole itself; over the relay buoy at its lip.
+	var rr := get_tree().get_first_node_in_group("reach_root")
+	if target == "nadir" and rr and rr.nadir:
+		p = rr.nadir.spot("approach")
 	var aim := p
 	var far := false
 	# Anything in the way (the Lantern, or a world): go round it.
 	for key in system.order:
-		if key == target:
+		if key == target and key != "nadir":
 			continue
 		var ob: ReachBody = system.bodies[key]
 		var oc := system.world(key)
-		var clear := 1700.0 if key == "lantern" else ob.radius + 260.0
+		var clear := 1700.0 if key == "lantern" else (600.0 if key == "nadir" else ob.radius + 260.0)
 		var seg := p - global_position
 		var k := clampf((oc - global_position).dot(seg) / maxf(seg.length_squared(), 1.0), 0.0, 1.0)
 		var q := global_position + seg * k

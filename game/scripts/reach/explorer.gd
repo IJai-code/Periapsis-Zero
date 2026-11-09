@@ -480,7 +480,7 @@ func _landing() -> void:
 func _suit(dt: float) -> void:
 	_hurt_t -= dt
 	var b := system.ruling()
-	breathing = b.air and global_position.distance_to(b.node.position) < b.atmo
+	breathing = (b.air and global_position.distance_to(b.node.position) < b.atmo) or (b.key == "nadir" and Nadir.air_at(global_position))
 	if breathing:
 		oxygen = minf(OXY_MAX, oxygen + 60.0 * dt)
 		if is_on_floor():

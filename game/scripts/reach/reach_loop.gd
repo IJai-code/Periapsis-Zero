@@ -108,7 +108,8 @@ func die(cause: String) -> void:
 	Report.line("LOOP ended: %s at %.0f s" % [cause, (reach.system as ReachSystem).t])
 	var hud: ReachHud = reach.hud
 	var words := {"impact": "You hit the ground too hard.", "suffocation": "Your air ran out.", "crash": "Your ship broke apart.",
-		"lantern": "You flew into the star.", "drones": "Rook's drones found you.", "meteor": "A falling stone found you."}
+		"lantern": "You flew into the star.", "drones": "Rook's drones found you.", "meteor": "A falling stone found you.",
+		"nadir": "Past the Nadir's edge, time stopped for you. The whole morning went by in a heartbeat."}
 	Sfx.play("big", -6.0, 0.8)
 	await hud.fade_to(Color(1.0, 1.0, 1.0, 1.0), 1.4)
 	hud.caption(words.get(cause, ""), 2.5)
