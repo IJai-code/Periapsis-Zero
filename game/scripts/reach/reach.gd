@@ -811,6 +811,7 @@ func _start_player() -> void:
 	_music = AudioStreamPlayer.new()
 	add_child(_music)
 	loop.collapsing.connect(func():
+		Flow.music(false)
 		_music.stream = load("res://audio/reach/end.wav")
 		_music.volume_db = -4.0 + Flow.music_db()
 		_music.play())
@@ -1444,6 +1445,7 @@ func reset_loop() -> void:
 	if scope:
 		scope.active = false
 		scope.resync.call_deferred()
+	Flow.music(false)
 	if _music:
 		_music.stream = load("res://audio/reach/wake.wav")
 		_music.volume_db = -6.0 + Flow.music_db()

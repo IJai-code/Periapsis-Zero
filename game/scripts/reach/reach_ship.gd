@@ -1008,11 +1008,12 @@ func _ignite() -> void:
 	_shake = 0.75
 	cam.fov = FOV + 6.0
 	create_tween().tween_property(cam, "fov", FOV, 2.2).set_trans(Tween.TRANS_SINE)
-	# The first lift-off of a morning has its tune (once through, fading
-	# as it ends; the next morning it plays again).
-	if _ride_ready:
-		_ride_ready = false
-		_theme()
+	# Flying has its own music: the pilot's space track (Flow's, the one
+	# the earlier chapters fly to), looping, faded in at every lift-off and
+	# out when you step down. Not the village's banjo tune, which belongs
+	# to the fire.
+	_ride_ready = false
+	Flow.music(true)
 	launched.emit()
 
 var _theme_player: AudioStreamPlayer
@@ -1375,6 +1376,7 @@ func seat_now() -> void:
 func leave() -> void:
 	if not piloted or _moving:
 		return
+	Flow.music(false)
 	_moving = true
 	piloted = false
 	autopilot = false

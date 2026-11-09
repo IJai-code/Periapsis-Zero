@@ -76,6 +76,10 @@ func _input(e: InputEvent) -> void:
 	if _waiting and Time.get_ticks_msec() - _wait_from > 600 and ((e is InputEventKey and e.pressed and not e.echo) or (e is InputEventMouseButton and e.pressed)):
 		_stop_wait(false)
 
+## Real seconds the wait at the door takes from loop time `t`.
+static func _wait_secs(t: float) -> int:
+	return maxi(1, int(ceil((OPEN_FROM - t) / WAIT_WARP)))
+
 static func _mmss(t: float) -> String:
 	return "%d:%02d" % [int(t) / 60, int(t) % 60]
 
@@ -84,7 +88,7 @@ func _door_words() -> String:
 	var t: float = reach.system.t
 	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, so bring that."
 	if t < OPEN_FROM:
-		return "The Engine's door is sealed. It sinks open at 20:00 on the clock, when the Wanderer is nearest the star; it is %s now. Press E at the door to wait for it (the time runs fast; any key stops).%s" % [_mmss(t), core]
+		return "The Engine's door is sealed until 20:00, when the Wanderer swings nearest the star; it is %s now. You don't have to wait 17 minutes: press E at the door and the clock races, and it opens in about %d seconds (any key stops). Or explore and come back before 21:15.%s" % [_mmss(t), _wait_secs(t), core]
 	if t <= OPEN_TO:
 		return "The door is open until 21:15. Walk inside.%s" % core
 	return "The door has shut for this morning (it is open 20:00 to 21:15). Come back next morning, before 21:15.%s" % core
@@ -106,7 +110,7 @@ func _physics_process(dt: float) -> void:
 		_door.position = Vector3(0, -4.2 * smoothstep(0.0, 1.0, _open), 7.5)
 	_socket.prompt = "Give the Engine the core" if reach.carrying_core else "An empty socket"
 	if _open < 0.5:
-		_door_use.prompt = ("Wait for the door (opens at 20:00, it is %s)" % _mmss(t)) if t < OPEN_FROM else "Sealed door: shut for this morning"
+		_door_use.prompt = ("Skip ahead to 20:00, when it opens (it is %s; about %d s)" % [_mmss(t), _wait_secs(t)]) if t < OPEN_FROM else "Sealed door: shut for this morning"
 	else:
 		_door_use.prompt = ""
 	if _waiting:
