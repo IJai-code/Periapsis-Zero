@@ -26,7 +26,7 @@ signal finished
 
 ## Seen once per player: the key is this film's (the first film's was
 ## "intro_seen").
-const SEEN := "film_seen_v2"
+const SEEN := "film_seen_v3"   # v3: the score in tune (2026-11-09)
 
 const LENGTH := 70.0
 ## When the shell of the nova goes out (the score's boom).
