@@ -141,6 +141,10 @@ func _fill_menu() -> void:
 				_fill_menu())
 		else:
 			_button("New Game", func(): Flow.go("reach"))
+		# The opening film, any time (it plays by itself only once).
+		_button("Opening Film", func():
+			Flow.beat = "intro"
+			Flow.go("reach"))
 		var done: bool = Flow.progress("prologue_done", false)
 		var seen: bool = Flow.progress("intro_seen", false)
 		var chapter: String = Flow.progress("chapter", "hearth" if done else ("corridor" if seen else "intro"))

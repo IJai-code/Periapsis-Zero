@@ -1242,6 +1242,17 @@ func _unhandled_input(e: InputEvent) -> void:
 			return
 	get_viewport().set_input_as_handled()
 
+## The village's instruments (the campfire's banjo, the signal sources
+## near you) held while you fly: the flight has its own music, and the two
+## at once were a muddle at every lift-off.
+func village_music(on: bool) -> void:
+	if campfire and campfire._song:
+		campfire._song.stream_paused = not on
+	if scope:
+		for s in scope.sources:
+			if s._here:
+				s._here.stream_paused = not on
+
 ## The opening film again, from the pause menu. It takes over the clock
 ## and the star, so a fresh morning follows it.
 func replay_film() -> void:
@@ -1487,6 +1498,7 @@ func reset_loop() -> void:
 		scope.active = false
 		scope.resync.call_deferred()
 	Flow.music(false)
+	village_music(true)
 	if _music:
 		_music.stream = load("res://audio/reach/wake.wav")
 		_music.volume_db = -6.0 + Flow.music_db()

@@ -1014,6 +1014,9 @@ func _ignite() -> void:
 	# to the fire.
 	_ride_ready = false
 	Flow.music(true)
+	var rr := get_tree().get_first_node_in_group("reach_root")
+	if rr:
+		rr.village_music(false)
 	launched.emit()
 
 var _theme_player: AudioStreamPlayer
@@ -1377,6 +1380,9 @@ func leave() -> void:
 	if not piloted or _moving:
 		return
 	Flow.music(false)
+	var rv := get_tree().get_first_node_in_group("reach_root")
+	if rv:
+		rv.village_music(true)
 	_moving = true
 	piloted = false
 	autopilot = false
