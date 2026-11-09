@@ -93,7 +93,7 @@ if (target === 'web') {
   {
     const JsConfuser = (await import('js-confuser')).default
     const page = join(out, 'index.html')
-    let html = readFileSync(page, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+    let html = readFileSync(page, 'utf8').replace(/<!--[\s\S]*?-->/g, '').replaceAll('__PZ_BUILD__', String(stamp))
     const parts = html.split(/(<script>[\s\S]*?<\/script>)/)
     for (let i = 0; i < parts.length; i++) {
       const m = parts[i].match(/^<script>([\s\S]*)<\/script>$/)

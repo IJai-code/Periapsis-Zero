@@ -57,6 +57,30 @@ body { color: var(--cream); background: #0b0d16; overflow: hidden; touch-action:
 		<script src="$GODOT_URL"></script>
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;
+// Always this build's game, never a cached older one. The build number is
+// stamped in by scripts/godot-build.mjs; the pack is asked for under it, so
+// no cache (the browser's or the CDN's, ten minutes each) can hand back an
+// older one. And if a newer build has gone live since this page was
+// cached, load that page instead, once.
+const PZ_BUILD = '__PZ_BUILD__';
+if (/^\d+$/.test(PZ_BUILD)) {
+	// The engine still calls it index.pck; only the request carries the build.
+	const pzFetch = window.fetch.bind(window);
+	window.fetch = function (input, init) {
+		if (typeof input === 'string' && /(^|\/)index\.pck$/.test(input)) {
+			input = input + '?v=' + PZ_BUILD;
+		}
+		return pzFetch(input, init);
+	};
+	fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((v) => {
+		const live = String(v.build);
+		const here = new URL(location.href);
+		if (live !== PZ_BUILD && here.searchParams.get('v') !== live) {
+			here.searchParams.set('v', live);
+			location.replace(here.toString());
+		}
+	}).catch(() => {});
+}
 // Laptops with two graphics chips (most Windows gaming laptops) hand a
 // page the weak built-in one unless it asks for the other: ask, for every
 // WebGL context the engine makes.
