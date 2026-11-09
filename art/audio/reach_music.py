@@ -328,13 +328,19 @@ def intro():
                 f = 62.0 * math.exp(-t * 6.0) + 38.0
                 out[j] += math.sin(2 * math.pi * f * t) * math.exp(-t * 9.0) * amp * g
 
-    def tick(t0, amp, f=2400.0):
-        for i in range(int(0.05 * RATE)):
+    def tick(t0, amp):
+        # A dry click: noise, differenced to take its body out, and a
+        # trace of a D (D7) so it sits in the key instead of whining.
+        last = 0.0
+        f = freq(48)
+        for i in range(int(0.04 * RATE)):
             j = at(t0) + i
             if j >= n:
                 break
             t = i / RATE
-            out[j] += (math.sin(2 * math.pi * f * t) * 0.6 + rng.uniform(-1, 1) * 0.4) * math.exp(-t * 140.0) * amp
+            x = rng.uniform(-1, 1)
+            out[j] += ((x - last) * 0.5 + math.sin(2 * math.pi * f * t) * 0.12) * math.exp(-t * 170.0) * amp
+            last = x
 
     def pad_at(t0, roots, dur, a0, a1, gain, bright=0.6, glide=0.0):
         p = pad(roots, dur, a0, a1, bright)
@@ -358,13 +364,18 @@ def intro():
         tick(t, 0.10 + 0.08 * (t / 14.0))
         t += 0.8
     # B. The gleam (14-30): chords rising, a slow arpeggio.
-    for k, (roots, t0) in enumerate((([-12, -5, 3], 14.0), ([-14, -7, 2], 18.0), ([-19, -12, 0], 22.0), ([-17, -10, 2], 26.0))):
-        pad_at(t0, roots, 4.6, 0.3 + k * 0.15, 0.5 + k * 0.15, 0.24)
-    arp = [0, 3, 7, 12, 15, 12, 7, 3]
+    # D minor, B flat, F, C: each pad a true triad, each arpeggio on the
+    # same chord's notes (a minor arpeggio over a major chord, as it was,
+    # sounds out of tune).
+    river = [([-12, -5, 3], 0, True), ([-16, -12, -9], -4, False), ([-9, -5, -2], 3, False), ([-14, -10, -7], -2, False)]
+    for k, (roots, _b, _m) in enumerate(river):
+        pad_at(14.0 + k * 4.0, roots, 4.6, 0.3 + k * 0.15, 0.5 + k * 0.15, 0.24)
     t = 14.0
     k = 0
     while t < 30.0:
-        base = [0, -2, -7, -5][min(3, int((t - 14.0) / 4.0))]
+        _r, base, minor = river[min(3, int((t - 14.0) / 4.0))]
+        third = 3 if minor else 4
+        arp = [0, third, 7, 12, 12 + third, 12, 7, third]
         f = freq(arp[k % 8] + base, D3 * 2)
         for i, v in enumerate(pluck(f, 0.9, 0.5)):
             j = at(t) + i
@@ -373,7 +384,11 @@ def intro():
         t += BEAT / 2
         k += 1
     # C. Hearthstone (30-44): the major chord opens, and the tune.
-    pad_at(30.0, [-12, -5, 4, 7], 14.5, 0.6, 1.0, 0.13, 0.8)
+    bar_s = 4 * BEAT
+    for bar in range(6):
+        root, minor = CHORDS[bar]
+        third = 3 if minor else 4
+        pad_at(30.0 + bar * bar_s, [root - 12, root - 5, root + third - 12], bar_s + 0.5, 0.7, 0.8, 0.13, 0.8)
     fl = flute()
     for i in range(min(len(fl), at(14.0))):
         j = at(30.0) + i
@@ -384,10 +399,13 @@ def intro():
     t = 44.0
     while t < 55.6:
         k = (t - 44.0) / 11.6
-        tick(t, 0.16 + 0.35 * k, 2400.0 + 1600.0 * k)
+        tick(t, 0.16 + 0.35 * k)
         t += 0.55 * (1.0 - k) ** 1.6 + 0.035
-    for k, t0 in enumerate((44.0, 47.0, 50.0, 53.0)):
-        pad_at(t0, [-12 + k, -5 + k, 0 + k], 3.4, 0.4 + k * 0.2, 0.6 + k * 0.25, 0.22, 0.9)
+    # G, A, B minor, then A held and swelling: it wants to land on D, and
+    # does, with the nova.
+    for k, (root, minor, t0) in enumerate(((5, False, 44.0), (7, False, 47.0), (9, True, 50.0), (7, False, 53.0))):
+        third = 3 if minor else 4
+        pad_at(t0, [root - 12, root - 5, root + third - 12, root], 3.4 if k < 3 else 4.2, 0.4 + k * 0.2, 0.6 + k * 0.25, 0.22, 0.9)
     t = 46.0
     while t < 56.0:
         beat(t, 0.8)
@@ -396,7 +414,7 @@ def intro():
     for i in range(at(1.4)):
         j = at(55.9) + i
         tt = i / RATE
-        f = 1760.0 * (1.0 + tt * 0.35)
+        f = freq(31)
         out[j] += math.sin(2 * math.pi * f * tt) * 0.05 * min(1.0, tt / 0.3)
     # The nova (57.2): a boom and the whole chord, all octaves.
     for i in range(at(6.0)):
