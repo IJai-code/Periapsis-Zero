@@ -8,15 +8,18 @@ import { connectRoom } from '../game/net/realtime.js'
  * joining its count). The dates match game/scripts/reach/season.gd.
  */
 export const SEASONS = [
-  { n: 1, name: 'Embers', start: Date.UTC(2026, 10, 2), event: Date.UTC(2027, 0, 23, 19), eventName: 'The Homecoming' },
-  { n: 2, name: 'Homecoming', start: Date.UTC(2027, 0, 23, 19), event: Date.UTC(2027, 3, 24, 19), eventName: 'the season finale' },
+  // event: null is not scheduled yet. Season 1 runs until there are
+  // travellers enough for the Homecoming; then it (and Season 2's start)
+  // get dates, here and in game/scripts/reach/season.gd together.
+  { n: 1, name: 'Embers', start: Date.UTC(2026, 10, 2), event: null, eventName: 'The Homecoming' },
+  { n: 2, name: 'Homecoming', start: null, event: null, eventName: 'the season finale' },
 ]
 
 const URL_ = ((import.meta.env?.VITE_SUPABASE_URL ?? '').match(/https:\/\/[^\s\])]+/)?.[0] ?? '').replace(/[./]+$/, '')
 const KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
 
 export function currentSeason(now = Date.now()) {
-  return SEASONS.reduce((pick, s) => (now >= s.start ? s : pick), SEASONS[0])
+  return SEASONS.reduce((pick, s) => (s.start !== null && now >= s.start ? s : pick), SEASONS[0])
 }
 
 function span(ms) {
@@ -42,13 +45,13 @@ export function SeasonBadge({ href }) {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   const s = currentSeason(now)
   const left = s.event - now
-  const live = now >= SEASONS[0].event && now < SEASONS[0].event + 20 * 60 * 1000
+  const live = SEASONS[0].event !== null && now >= SEASONS[0].event && now < SEASONS[0].event + 20 * 60 * 1000
   const n = useTravellers()
   const week = Math.floor((now - s.start) / (7 * 86400 * 1000)) + 1
   return <a className={`lp-season${live ? ' live' : ''}`} href={href}>
     <span className="lp-season-kicker">Season {s.n} · week {week}</span>
     <strong>{s.name}</strong>
-    <span className="lp-season-count">{live ? 'The Homecoming is happening now. Get in.' : `${s.eventName[0].toUpperCase() + s.eventName.slice(1)} in ${span(left)}`}</span>
+    <span className="lp-season-count">{live ? 'The Homecoming is happening now. Get in.' : s.event === null ? 'New challenges every week. The Fold is stirring.' : `${s.eventName[0].toUpperCase() + s.eventName.slice(1)} in ${span(left)}`}</span>
     {n !== null && <span className="lp-season-live"><i aria-hidden />{n === 0 ? 'Nobody in the Reach right now. Be the first.' : `${n} ${n === 1 ? 'traveller' : 'travellers'} in the Reach right now`}</span>}
   </a>
 }

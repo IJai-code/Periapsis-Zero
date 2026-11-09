@@ -249,7 +249,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
         <li><strong>Weekly challenges</strong>Three new ones every Monday, the same three for every traveller: starstones, ring runs, far worlds.</li>
         <li><strong>Transmissions</strong>Each week a new message comes through the Fold, and the season&rsquo;s story arrives a piece at a time.</li>
         <li><strong>Echoes</strong>The faint lights you see on the worlds are other people, playing right now in their own mornings. Press <kbd>K</kbd> to wave.</li>
-        <li><strong>The live event</strong>Season 1 ends with the Homecoming on Saturday 23 January, 19:00 UTC. It happens once, for everyone at the same moment, and the Reach is different afterwards.</li>
+        <li><strong>The live event</strong>Season 1 will end with the Homecoming, on a day announced well ahead. It happens once, for everyone at the same moment, and the Reach is different afterwards.</li>
       </ol>
     </section>
     <section className="lp-worlds" aria-labelledby="lp-worlds-title">

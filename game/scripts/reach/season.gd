@@ -16,10 +16,13 @@ const TIERS := 30
 const WEEK := 604800
 
 ## id, name, start (UTC), the live event that ends it (UTC), its words.
+## "" is not scheduled: Season 1 runs until the Reach has travellers enough
+## for the Homecoming to mean something, and only then gets its date (and
+## Season 2 its start). Set both here and in src/ui/Season.jsx together.
 const SEASONS := [
-	{"id": "s1", "n": 1, "name": "Embers", "start": "2026-11-02T00:00:00", "event": "2027-01-23T19:00:00",
+	{"id": "s1", "n": 1, "name": "Embers", "start": "2026-11-02T00:00:00", "event": "",
 		"line": "The Lantern is dying, the morning keeps coming back, and something is calling from inside the Fold."},
-	{"id": "s2", "n": 2, "name": "Homecoming", "start": "2027-01-23T19:00:00", "event": "2027-04-24T19:00:00",
+	{"id": "s2", "n": 2, "name": "Homecoming", "start": "", "event": "",
 		"line": "The Long Song has come home after a hundred years. The Founders are back, and they are not who the recordings said."},
 ]
 
@@ -130,7 +133,13 @@ static func now() -> float:
 	return Time.get_unix_time_from_system() + _offset
 
 static func unix(iso: String) -> float:
+	if iso == "":
+		return INF
 	return float(Time.get_unix_time_from_datetime_string(iso))
+
+## Whether the season's ending event has a date yet.
+static func scheduled() -> bool:
+	return current().event != ""
 
 ## The season running now (the last one if they have all begun).
 static func current() -> Dictionary:

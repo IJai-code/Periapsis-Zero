@@ -39,8 +39,10 @@ static func _fill(v: VBoxContainer, pause: ReachPause) -> void:
 	_para(v, s.line, 17, ReachStyle.MUTE)
 	var left := Season.event_at() - Season.now()
 	var when := "Week %d.  " % Season.week()
-	if s.id == "s1":
-		when += "The live event, the Homecoming: in %s (Saturday 23 January, 19:00 UTC). Be in the Reach when it happens." % Season.span(left) if left > 0 else "The Homecoming has happened."
+	if not Season.scheduled():
+		when += "The season has no end yet. Something in the Fold is coming home; its day will be announced here, a good while ahead. Until then, every week brings new challenges and a new transmission."
+	elif s.id == "s1":
+		when += "The live event, the Homecoming: in %s. Be in the Reach when it happens." % Season.span(left) if left > 0 else "The Homecoming has happened."
 	else:
 		when += "Season %d ends in %s." % [s.n, Season.span(left)]
 	_para(v, when, 17, Color(0.75, 0.9, 1.0))
