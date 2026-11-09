@@ -119,9 +119,10 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 			if g.origin.distance_to(c[0]) < float(c[1]):
 				ok = false
 				break
-		# Not in the water, not on bare rock.
-		var d := g.origin.normalized()
-		if Worlds.height(site.body.key, d, site.body.radius) < site.body.sea + 0.4:
+		# Not in the water. (The ground's point already sits at the
+		# height there: asking the terrain again doubled the cost of the
+		# whole field, over a second of the load.)
+		if g.origin.length() - site.body.radius < site.body.sea + 0.4:
 			ok = false
 		if not ok:
 			continue

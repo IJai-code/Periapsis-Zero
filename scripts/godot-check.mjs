@@ -143,6 +143,12 @@ const checks = [
     const ok = parts.length === 2 && parts.every((p) => +p[1] < 1 && p[2] === 'true' && +p[3] > 1 && +p[3] < 3 && +p[5] >= +p[4] - 5)
     return [ok, t.slice(0, 220) || 'no NADIRLAND line']
   }],
+  ['the Reach: the opening film from the pause menu, mid-flight, plays through and a fresh morning follows', async () => {
+    const out = await run('reach', ['--filmreplay'], /FILMREPLAY/, 200000)
+    const m = out.match(/FILMREPLAY played (\d+) s, woke (\w+), ship home (\w+), clock (\d+), star ([\d.]+)/)
+    const ok = m && +m[1] > 60 && m[2] === 'true' && m[3] === 'true' && +m[4] < 60 && +m[5] === 0
+    return [!!ok, m ? m[0] : 'no FILMREPLAY line']
+  }],
   ['the Reach: the map marks sphere-of-influence crossings', async () => {
     const out = await run('reach', ['--maptest'], /MAPTEST approaches/)
     const near = out.match(/MAPTEST path (\d+) crossings (\d+) inside '(\w*)'/)

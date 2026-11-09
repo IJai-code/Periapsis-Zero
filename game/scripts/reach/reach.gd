@@ -193,6 +193,8 @@ func _ready() -> void:
 		_nadir_test()
 	if "--nadirland" in args:
 		_nadir_land_test()
+	if "--filmreplay" in args:
+		_film_replay_test()
 	if "--reachfly" in args:
 		_fly_test()
 	if "--storytest" in args:
@@ -205,7 +207,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--nadirtest", "--nadirland"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--nadirtest", "--nadirland", "--filmreplay"]:
 			return true
 	return false
 
@@ -852,7 +854,9 @@ func _start_player() -> void:
 	if not _testing(args) or "--intro" in args:
 		# The first time ever (or asked for): the film of the Reach first.
 		# `#reach/open` is the first morning without it, for looking at it.
-		if (not bool(Flow.progress("intro_seen", false)) and int(Flow.progress("reach_loops", 0)) == 0 and Flow.beat == "" and Time.get_ticks_msec() < FILM_SLOW_MS) or "--intro" in args or Flow.beat == "intro":
+		# The film is new (2026-11-09): everyone who has not seen this one
+		# sees it once, returning pilots too.
+		if (not bool(Flow.progress(ReachIntro.SEEN, false)) and Flow.beat == "" and Time.get_ticks_msec() < FILM_SLOW_MS) or "--intro" in args or Flow.beat == "intro":
 			if Flow.beat == "intro":
 				Flow.beat = ""
 			var film := ReachIntro.new()
@@ -1237,6 +1241,43 @@ func _unhandled_input(e: InputEvent) -> void:
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+## The opening film again, from the pause menu. It takes over the clock
+## and the star, so a fresh morning follows it.
+func replay_film() -> void:
+	if not loop or loop.ending or talking:
+		return
+	# The ship held where she is (a new morning puts her back on the
+	# tower), the flight's music off.
+	if ship:
+		ship.freeze = true
+	Flow.music(false)
+	var film := ReachIntro.new()
+	film.reach = self
+	add_child(film)
+	await film.play()
+	reset_loop()
+	loop.wake("")
+
+## The pause menu's film, mid-flight: it plays to its end and a fresh
+## morning follows, the Kestrel back on the tower.
+func _film_replay_test() -> void:
+	Lore.learn("hearth_codes")
+	await get_tree().create_timer(1.0).timeout
+	ship.board()
+	await ship.boarded
+	ship.launch()
+	await get_tree().create_timer(6.0).timeout
+	var t0 := Time.get_ticks_msec()
+	var woke := [false]
+	loop.woke.connect(func(_l, _f): woke[0] = true, CONNECT_ONE_SHOT)
+	await replay_film()
+	while not woke[0] and Time.get_ticks_msec() - t0 < 120000:
+		await get_tree().process_frame
+	var v: Village = (planets["hearthstone"] as Planet).sites[0]
+	Report.line("FILMREPLAY played %.0f s, woke %s, ship home %s, clock %.0f, star %.2f" % [(Time.get_ticks_msec() - t0) / 1000.0, woke[0], ship.global_position.distance_to(v.ship_rest.origin) < 3.0, system.t, lantern.collapse])
+	await _hush()
+	get_tree().quit()
 
 ## H, a later morning: the help page leads with what to do now and the
 ## seat's steps, not the first morning's walk; the Engine's door says when.

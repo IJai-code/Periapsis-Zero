@@ -64,6 +64,11 @@ func _ready() -> void:
 	_button("Season %d" % Season.current().n, func(): _show(_season))
 	_button("How to play", func(): _show(_help))
 	_button("Controls", func(): _show(_keys))
+	_button("Opening film", func():
+		var r := get_tree().get_first_node_in_group("reach_root")
+		if r:
+			resume.emit()
+			r.replay_film())
 	_button("Settings", func(): _show(_settings))
 	_button("Back to the title", func(): leave.emit())
 	_marker = Control.new()

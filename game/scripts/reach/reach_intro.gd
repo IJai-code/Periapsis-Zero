@@ -24,6 +24,10 @@ extends Node
 
 signal finished
 
+## Seen once per player: the key is this film's (the first film's was
+## "intro_seen").
+const SEEN := "film_seen_v2"
+
 const LENGTH := 70.0
 ## When the shell of the nova goes out (the score's boom).
 const NOVA_AT := 57.2
@@ -242,6 +246,7 @@ func play() -> void:
 		await tf.finished
 	await get_tree().create_timer(0.3).timeout
 	Flow.set_progress("intro_seen", true)
+	Flow.set_progress(SEEN, true)
 	_gleam_power(1.0)
 	for n in storms:
 		n.process_mode = Node.PROCESS_MODE_INHERIT
