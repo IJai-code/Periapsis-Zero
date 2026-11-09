@@ -273,6 +273,27 @@ first while you are there.
 - **Looking:** `#reach/nadir` (buoy), `nadir:tern`, `nadir:ternview`,
   `nadir:far`, `nadir:sky`. Check: `--nadirtest --talkauto`.
 
+## The first-run film
+
+`ReachIntro` (game/scripts/reach/reach_intro.gd), 70 s, live in the engine,
+one unbroken camera: the Nadir and its disk, down the gleam toward the
+Lantern, round Hearthstone's night side as the star rises over the limb and
+into the crater, the morning raced through, the collapse and nova, the
+title, then the eyes open by the fire. Its score is `intro` in
+art/audio/reach_music.py, cut to the film's times; the film runs on the
+music's clock (the wall clock if the browser holds the sound back).
+
+- The camera is a time-parameterised Catmull-Rom spline through keys that
+  are a body and an offset from it (`_build`), turned into the current
+  frame each drawn frame. The frame is pinned to Hearthstone (focus on the
+  sleeping explorer) so no world wakes mid-flight.
+- The flight's hour is the first of `T0S` whose path stays 5 km clear of
+  every other world (a far world's coarse mesh shows its facets up close).
+- Anti-lag: the nova shell is built at load (the zoo compiles it), the
+  meteor storm rests during the film, and `--introprof` prints any frame
+  over 40 ms with its film time. Plays once (Flow progress `intro_seen`),
+  never after a load slower than `FILM_SLOW_MS`; `#reach/intro` replays it.
+
 ## Performance
 
 Built for the browser's Compatibility renderer first: one sun light, the
