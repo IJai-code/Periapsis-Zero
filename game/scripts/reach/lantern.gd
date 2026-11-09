@@ -44,10 +44,14 @@ func _ready() -> void:
 	corona.mesh = q
 	corona.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(corona)
+	_make_nova()
 
 ## The end of the end: from the point the Lantern fell into, a shell of
 ## light racing outward through the Reach.
-func nova() -> void:
+## The shell built at once (hidden), so the material zoo compiles its
+## shader during loading: built at the moment of the nova, it was a hitch
+## at the one moment that must not have one.
+func _make_nova() -> void:
 	if not _nova:
 		_nova = MeshInstance3D.new()
 		var s := SphereMesh.new()
@@ -63,6 +67,10 @@ func nova() -> void:
 		_nova.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_nova.extra_cull_margin = 16384.0
 		add_child(_nova)
+		_nova.visible = false
+
+func nova() -> void:
+	_make_nova()
 	_nova_t = 0.0
 	_nova.visible = true
 

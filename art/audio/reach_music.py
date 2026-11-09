@@ -13,6 +13,11 @@ Writes 22,050 Hz mono WAVs:
   end.wav       the last minute of a loop: the hum rising, a music box
   wake.wav      a soft chime as the eyes open
   launch.wav    the first lift-off of a morning: the banjo and the tune
+  intro.wav     the first-run film (ReachIntro), 70 s, cut to its shots:
+                a heartbeat and a clock at the Nadir, chords rising along
+                the gleam, the tune at Hearthstone, the clock racing through
+                the morning, a held breath, the nova, a music box under the
+                title
                 together over a choir that swells, once through
 
 The song is in D, 92 beats a minute, sixteen bars of four, about 41.7 s.
@@ -292,8 +297,139 @@ def launch():
     return out
 
 
+def intro():
+    """The film's score; its times are ReachIntro's (keep them together)."""
+    seconds = 70.0
+    n = int(seconds * RATE)
+    out = [0.0] * n
+    rng = random.Random(21)
+
+    def at(t):
+        return int(t * RATE)
+
+    def tone(t0, dur, f, amp, decay=0.0, attack=0.01, harm=0.0):
+        for i in range(int(dur * RATE)):
+            j = at(t0) + i
+            if j >= n:
+                break
+            t = i / RATE
+            env = min(1.0, t / attack) * (math.exp(-t * decay) if decay > 0 else min(1.0, (dur - t) / 0.4))
+            ph = 2 * math.pi * f * t
+            out[j] += (math.sin(ph) + harm * math.sin(2 * ph)) * amp * env
+
+    def beat(t0, amp):
+        # A heartbeat: a pitched-down thump, twice.
+        for k, (dt, g) in enumerate(((0.0, 1.0), (0.28, 0.7))):
+            for i in range(int(0.5 * RATE)):
+                j = at(t0 + dt) + i
+                if j >= n:
+                    break
+                t = i / RATE
+                f = 62.0 * math.exp(-t * 6.0) + 38.0
+                out[j] += math.sin(2 * math.pi * f * t) * math.exp(-t * 9.0) * amp * g
+
+    def tick(t0, amp, f=2400.0):
+        for i in range(int(0.05 * RATE)):
+            j = at(t0) + i
+            if j >= n:
+                break
+            t = i / RATE
+            out[j] += (math.sin(2 * math.pi * f * t) * 0.6 + rng.uniform(-1, 1) * 0.4) * math.exp(-t * 140.0) * amp
+
+    def pad_at(t0, roots, dur, a0, a1, gain, bright=0.6, glide=0.0):
+        p = pad(roots, dur, a0, a1, bright)
+        m = len(p)
+        for i in range(m):
+            j = at(t0) + i
+            if j >= n:
+                break
+            fade = min(1.0, i / (RATE * 1.2)) * min(1.0, (m - i) / (RATE * 1.5))
+            out[j] += p[i] * fade * gain
+
+    # A. The Nadir (0-14): a sub drone, a heartbeat, a clock.
+    tone(0.0, 15.0, freq(-24), 0.32, attack=4.0)
+    tone(0.0, 15.0, freq(-17), 0.25, attack=6.0)
+    t = 1.2
+    while t < 14.0:
+        beat(t, 0.9)
+        t += 1.6
+    t = 0.6
+    while t < 14.0:
+        tick(t, 0.10 + 0.08 * (t / 14.0))
+        t += 0.8
+    # B. The gleam (14-30): chords rising, a slow arpeggio.
+    for k, (roots, t0) in enumerate((([-12, -5, 3], 14.0), ([-14, -7, 2], 18.0), ([-19, -12, 0], 22.0), ([-17, -10, 2], 26.0))):
+        pad_at(t0, roots, 4.6, 0.3 + k * 0.15, 0.5 + k * 0.15, 0.24)
+    arp = [0, 3, 7, 12, 15, 12, 7, 3]
+    t = 14.0
+    k = 0
+    while t < 30.0:
+        base = [0, -2, -7, -5][min(3, int((t - 14.0) / 4.0))]
+        f = freq(arp[k % 8] + base, D3 * 2)
+        for i, v in enumerate(pluck(f, 0.9, 0.5)):
+            j = at(t) + i
+            if j < n:
+                out[j] += v * (0.55 + 0.5 * (t - 14.0) / 16.0)
+        t += BEAT / 2
+        k += 1
+    # C. Hearthstone (30-44): the major chord opens, and the tune.
+    pad_at(30.0, [-12, -5, 4, 7], 14.5, 0.6, 1.0, 0.13, 0.8)
+    fl = flute()
+    for i in range(min(len(fl), at(14.0))):
+        j = at(30.0) + i
+        if j < n:
+            out[j] += fl[i] * 0.9 * min(1.0, i / (RATE * 1.0)) * min(1.0, (at(14.0) - i) / (RATE * 1.5))
+    # D. The morning racing past (44-56): the clock faster and faster, the
+    # choir rising, the heartbeat back.
+    t = 44.0
+    while t < 55.6:
+        k = (t - 44.0) / 11.6
+        tick(t, 0.16 + 0.35 * k, 2400.0 + 1600.0 * k)
+        t += 0.55 * (1.0 - k) ** 1.6 + 0.035
+    for k, t0 in enumerate((44.0, 47.0, 50.0, 53.0)):
+        pad_at(t0, [-12 + k, -5 + k, 0 + k], 3.4, 0.4 + k * 0.2, 0.6 + k * 0.25, 0.22, 0.9)
+    t = 46.0
+    while t < 56.0:
+        beat(t, 0.8)
+        t += 1.2 - 0.6 * (t - 46.0) / 10.0
+    # The held breath (56-57.2): one thin tone, rising.
+    for i in range(at(1.4)):
+        j = at(55.9) + i
+        tt = i / RATE
+        f = 1760.0 * (1.0 + tt * 0.35)
+        out[j] += math.sin(2 * math.pi * f * tt) * 0.05 * min(1.0, tt / 0.3)
+    # The nova (57.2): a boom and the whole chord, all octaves.
+    for i in range(at(6.0)):
+        j = at(57.2) + i
+        if j >= n:
+            break
+        tt = i / RATE
+        f = 48.0 * math.exp(-tt * 1.4) + 22.0
+        out[j] += math.sin(2 * math.pi * f * tt) * math.exp(-tt * 1.1) * 1.6
+        out[j] += rng.uniform(-1, 1) * math.exp(-tt * 3.5) * 0.5
+    for semi in (-24, -12, -5, 0, 4, 7, 12, 16, 19, 24):
+        tone(57.2, 9.0, freq(semi), 0.11, decay=0.35, attack=0.02, harm=0.2)
+    # The title (59-70): a music box on the tune's first notes, a last chime.
+    notes = [14, 9, 7, 4, 2, 7, 4, 2, 0]
+    t = 59.5
+    for semi in notes:
+        tone(t, 1.8, freq(semi, D3 * 4), 0.32, decay=2.6, attack=0.005, harm=0.15)
+        t += 0.62
+    pad_at(59.0, [-12, -5, 0], 10.5, 0.5, 0.0, 0.14, 0.4)
+    for k, semi in enumerate([0, 7, 12, 16, 19]):
+        tone(66.5 + k * 0.22, 3.4, freq(semi, D3 * 2), 0.16, decay=1.6, attack=0.005)
+    # The whole of it, its ends soft.
+    for i in range(n):
+        tt = i / RATE
+        out[i] *= min(1.0, tt / 1.5) * min(1.0, (seconds - tt) / 2.0)
+    return out
+
+
 if __name__ == '__main__':
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
-    for name, fn in (('banjo', banjo), ('flute', flute), ('harmonica', harmonica), ('drums', drums), ('choir', choir), ('end', end), ('wake', wake), ('launch', launch)):
+    only = sys.argv[2:]
+    for name, fn in (('banjo', banjo), ('flute', flute), ('harmonica', harmonica), ('drums', drums), ('choir', choir), ('end', end), ('wake', wake), ('launch', launch), ('intro', intro)):
+        if only and name not in only:
+            continue
         write(os.path.join(out, f'{name}.wav'), fn())
