@@ -54,6 +54,14 @@ var _hurt_t := 0.0
 var _dead := false
 var _ladder: Node3D
 var _jet_sound: AudioStreamPlayer
+var _wind_sound: AudioStreamPlayer
+var _breath_sound: AudioStreamPlayer
+## How hard the air is blowing past (0..1) and how loud the pilot's own
+## breath is (0 in air): what the two loops are playing, for checks.
+var wind := 0.0
+var breath := 0.0
+var _gust := 0.0
+var _foot := false
 ## The jump being charged (seconds held, -1 not crouching); whether Space
 ## has been let go since leaving the ground (a second press is the jetpack).
 var _charge := -1.0
@@ -63,6 +71,7 @@ var _crouch := 0.0
 var _dip := 0.0
 var _dip_v := 0.0
 var _bob := 0.0
+var _idle := 0.0
 ## What E would use is looked for a dozen times a second, with one query
 ## object reused, rather than sixty times a second with a new one each time.
 var _look_t := 0.0
@@ -124,6 +133,17 @@ func _ready() -> void:
 	_jet_sound.volume_db = -80.0
 	add_child(_jet_sound)
 	_jet_sound.play()
+	var t0 := Time.get_ticks_usec()
+	_wind_sound = AudioStreamPlayer.new()
+	_wind_sound.stream = _air_stream(false)
+	_breath_sound = AudioStreamPlayer.new()
+	_breath_sound.stream = _air_stream(true)
+	for snd: AudioStreamPlayer in [_wind_sound, _breath_sound]:
+		snd.volume_db = -80.0
+		add_child(snd)
+		snd.play()
+	if "--steps" in OS.get_cmdline_user_args():
+		print("AIR loops made in %.1f ms" % ((Time.get_ticks_usec() - t0) / 1000.0))
 
 func _unhandled_input(e: InputEvent) -> void:
 	if not enabled or _dead:
@@ -498,7 +518,77 @@ func _sounds(dt: float, jet_on: bool) -> void:
 		_step += speed * dt
 		if _step > (0.8 if speed < 4.5 else 1.15):
 			_step = 0.0
-			Sfx.play("step", -18.0 if speed < 4.5 else -14.0, randf_range(0.85, 1.1))
+			_foot = not _foot
+			# Left and right never quite alike.
+			Sfx.play(footing(), (-18.0 if speed < 4.5 else -14.0) + randf_range(-1.5, 1.0), randf_range(0.86, 1.08) * (0.94 if _foot else 1.0))
+	_air_sounds(dt)
+
+## What the boots are on: "step_grass", "step_grit", "step_wood" or
+## "step_metal". The land itself is grass on the green worlds and grit on
+## the rest; anything built is planks where people live and plate elsewhere.
+func footing() -> String:
+	var b := system.ruling()
+	var built := false
+	for i in get_slide_collision_count():
+		var c := get_slide_collision(i)
+		if c.get_normal().dot(up_direction) > 0.6:
+			var on := c.get_collider() as Node
+			built = on != null and not (on.get_parent() is Planet)
+	if built:
+		return "step_wood" if b.key in ["hearthstone", "verdance"] else "step_metal"
+	return "step_grass" if b.key in ["hearthstone", "verdance"] else "step_grit"
+
+## The air past the helmet, and the pilot's own breath. Wind only where
+## there is air: a little always, more with speed, in slow gusts. Out of
+## the air there is nothing to hear but breathing, quicker as the tank
+## runs down.
+func _air_sounds(dt: float) -> void:
+	_gust += dt
+	var b := system.ruling()
+	var thick := 0.0
+	if b.air:
+		thick = clampf(1.0 - (global_position.distance_to(b.node.position) - b.radius) / maxf(b.atmo - b.radius, 1.0), 0.0, 1.0)
+	var blow := 0.16 + 0.1 * sin(_gust * 0.31) + 0.07 * sin(_gust * 0.83 + 1.7)
+	wind = thick * clampf(blow + velocity.length() / 45.0, 0.0, 1.0)
+	_wind_sound.volume_db = lerpf(_wind_sound.volume_db, linear_to_db(maxf(wind, 0.0001)) - 16.0 + Flow.sfx_db(), minf(1.0, dt * 3.0))
+	_wind_sound.pitch_scale = lerpf(_wind_sound.pitch_scale, 0.8 + wind * 0.6, minf(1.0, dt * 2.0))
+	var low := 1.0 - clampf(oxygen / (OXY_MAX * 0.5), 0.0, 1.0)
+	breath = 0.0 if breathing else 0.45 + 0.55 * low
+	_breath_sound.volume_db = lerpf(_breath_sound.volume_db, linear_to_db(maxf(breath, 0.0001)) - 20.0 + Flow.sfx_db(), minf(1.0, dt * 2.0))
+	_breath_sound.pitch_scale = lerpf(_breath_sound.pitch_scale, 1.0 + low * 0.7, minf(1.0, dt))
+
+## Looping air: noise through a soft filter. `breath` shapes it into an
+## in and an out, four seconds a cycle.
+static func _air_stream(as_breath: bool) -> AudioStreamWAV:
+	# Half the usual rate: it is all soft noise, and half the work to make.
+	var rate := 11025
+	var n := rate * 4
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var lp := 0.0
+	var lp2 := 0.0
+	for i in n:
+		var t := float(i) / rate
+		var x := randf() * 2.0 - 1.0
+		lp += (x - lp) * (0.4 if as_breath else 0.12)
+		lp2 += (lp - lp2) * (0.8 if as_breath else 0.24)
+		var v := lp2 * 5.0
+		if as_breath:
+			# In for 1.6 s (higher, thinner), a rest, out for 1.9 s.
+			var into := maxf(sin(PI * clampf(t / 1.6, 0.0, 1.0)), 0.0)
+			var out := maxf(sin(PI * clampf((t - 1.9) / 1.9, 0.0, 1.0)), 0.0)
+			v = lp * 2.2 * into * 0.7 + lp2 * 3.0 * out
+		else:
+			# Whole turns of a slow swell, so the loop has no seam.
+			v *= 0.75 + 0.25 * sin(TAU * t / 4.0)
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 24000.0))
+	var s := AudioStreamWAV.new()
+	s.format = AudioStreamWAV.FORMAT_16_BITS
+	s.mix_rate = rate
+	s.data = data
+	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	s.loop_end = n
+	return s
 
 ## Grit at the boots: a low ring of puffs, thrown out and settling. The
 ## dust stays where it was thrown rather than following the suit.
@@ -581,7 +671,11 @@ func _process(dt: float) -> void:
 	var speed := (velocity - up_direction * velocity.dot(up_direction)).length() if is_on_floor() else 0.0
 	_bob += dt * speed * 1.9
 	var bob := sin(_bob * 2.0) * 0.022 * clampf(speed / WALK, 0.0, 1.4)
+	# Standing, the view breathes: a few millimetres, slow.
+	_idle += dt
+	bob += sin(_idle * 1.57) * 0.004 * (1.0 - clampf(speed / WALK, 0.0, 1.0))
 	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch + _dip + (0.0 if third else bob)))
+	Grass.walker(at)
 	if third:
 		_third_cam(dt, speed)
 

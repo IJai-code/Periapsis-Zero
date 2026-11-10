@@ -23,6 +23,12 @@ func _ready() -> void:
 	_streams.objective = _make(0.5, func(t, n): return (sin(TAU * 587.33 * t) * (1.0 if t < 0.12 else 0.0) + sin(TAU * 880.0 * t) * (1.0 if t >= 0.12 else 0.0)) * exp(-t * 6.0) * 0.3)
 	_streams.click = _make(0.06, func(t, n): return sin(TAU * 2349.32 * t) * exp(-t * 80.0) * 0.4)
 	_streams.step = _make(0.12, func(t, n): return _lp(n, 0.25) * exp(-t * 45.0) * 0.5 + sin(TAU * 90.0 * t) * exp(-t * 40.0) * 0.4)
+	# Boots on what is under them: grass brushing, grit crunching, a hollow
+	# plank, a deck plate that rings (on D and A, like everything else).
+	_streams.step_grass = _make(0.2, func(t, n): return _lp(n, 0.5) * sin(PI * minf(t / 0.2, 1.0)) * exp(-t * 14.0) * 0.34 + sin(TAU * 70.0 * t) * exp(-t * 50.0) * 0.22)
+	_streams.step_grit = _make(0.17, func(t, n): return n * (exp(-t * 60.0) * 0.3 + exp(-absf(t - 0.05) * 90.0) * 0.2) + _lp(n, 0.3) * exp(-t * 30.0) * 0.3 + sin(TAU * 85.0 * t) * exp(-t * 45.0) * 0.3)
+	_streams.step_wood = _make(0.16, func(t, n): return sin(TAU * 146.83 * t) * exp(-t * 38.0) * 0.5 + sin(TAU * 293.66 * t) * exp(-t * 70.0) * 0.18 + _lp(n, 0.4) * exp(-t * 90.0) * 0.3)
+	_streams.step_metal = _make(0.3, func(t, n): return sin(TAU * 293.66 * t) * exp(-t * 16.0) * 0.2 + sin(TAU * 880.0 * t) * exp(-t * 22.0) * 0.09 + sin(TAU * 73.42 * t) * exp(-t * 40.0) * 0.4 + _lp(n, 0.5) * exp(-t * 80.0) * 0.25)
 	_streams.door = _make(1.4, func(t, n): return _lp(n, 0.05) * 0.5 * (1.0 - t / 1.4) + sin(TAU * 70.0 * t) * 0.2 * (1.0 if t < 1.1 else 0.0))
 	_streams.beep = _make(0.12, func(t, n): return sin(TAU * 1174.66 * t) * (1.0 if t < 0.09 else 0.0) * 0.25)
 	_streams.missile = _make(1.0, func(t, n): return _lp(n, 0.35) * minf(1.0, t * 12.0) * exp(-t * 2.2) * 0.7 + sin(TAU * (180.0 + t * 120.0) * t) * exp(-t * 4.0) * 0.15)

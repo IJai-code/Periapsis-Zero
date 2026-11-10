@@ -43,6 +43,8 @@ static func material() -> ShaderMaterial:
 render_mode cull_disabled;
 uniform sampler2D sheet : source_color, filter_linear_mipmap, repeat_disable;
 uniform float fade_end = 120.0;
+// Where the walker's feet are (world space): tufts lean away and press down.
+uniform vec3 walker_at = vec3(0.0, -1e6, 0.0);
 varying float tip;
 varying float shade;
 // INSTANCE_CUSTOM: r = the tile (0..7), g = a tint.
@@ -56,6 +58,14 @@ void vertex() {
 	float gust = sin(t) * 0.6 + sin(t * 2.3 + w.x * 0.4) * 0.3;
 	VERTEX.x += gust * 0.08 * tip * tip;
 	VERTEX.z += cos(t * 0.7) * 0.05 * tip * tip;
+	// Pushed aside and trodden by whoever is walking through.
+	vec3 away = w - walker_at;
+	float push = 1.0 - smoothstep(0.25, 1.1, length(away));
+	if (push > 0.0) {
+		vec3 lean = (inverse(MODEL_MATRIX) * vec4(normalize(away + vec3(0.001)), 0.0)).xyz;
+		VERTEX += lean * push * tip * 0.4;
+		VERTEX.y *= 1.0 - push * 0.45;
+	}
 	// Far tufts sink into the ground, so the field's edge never pops.
 	float d = length(w - (INV_VIEW_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz);
 	VERTEX.y *= 1.0 - smoothstep(fade_end * 0.7, fade_end, d);
@@ -79,6 +89,11 @@ void fragment() {
 	_mat.shader = s
 	_mat.set_shader_parameter("sheet", load(SHEET))
 	return _mat
+
+## Where the walker's feet are, each frame: the grass parts round them.
+static func walker(at: Vector3) -> void:
+	if _mat:
+		_mat.set_shader_parameter("walker_at", at)
 
 static func _pick(r: float) -> int:
 	var acc := 0.0

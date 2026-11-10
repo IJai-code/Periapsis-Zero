@@ -917,6 +917,9 @@ func _start_player() -> void:
 		elif beat == "cockpit":
 			Lore.learn("hearth_codes")
 			ship.board()
+		elif beat == "ground":
+			# Looking at the ground at your feet, for judging it close up.
+			player._pitch = -1.0
 		elif beat == "entry":
 			# The air burning round her, held on, for looking at it.
 			Lore.learn("hearth_codes")
@@ -1684,6 +1687,8 @@ func _story_test() -> void:
 	# (The other four parts are each their own trip; learned here.)
 	for f in ["song_phantom", "song_hearth", "song_verdance", "song_nadir"]:
 		Lore.learn(f)
+	var kinds := ["step_grass", "step_grit", "step_wood", "step_metal"].filter(func(k): return Sfx._streams.has(k))
+	log.call("boots on %d kinds, here %s" % [kinds.size(), player.footing()])
 	log.call("song lights %d then %d, entry glow %.1f %.1f %.1f, tuned %.3f %.3f" % [lit, tells.refresh(), EntryGlow.strength(1.0, 300.0), EntryGlow.strength(0.0, 300.0), EntryGlow.strength(1.0, 40.0), Sfx.tuned(1.08), Sfx.tuned(0.7)])
 	# Out of order: the song breaks and the clock leaps on.
 	system.t = 1000.0

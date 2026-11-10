@@ -294,6 +294,17 @@ additive shell on the ship): nothing below 70 m/s, full at 260 m/s in
 thick air, bright at the bow and streaked behind, hidden in space and in
 still air. It is a look only and changes no flight numbers.
 
+Up close the world answers to you. Boots sound like what they are on
+(`Explorer.footing()`: grass on the green worlds, grit on the others,
+planks on anything built where people live, ringing plate elsewhere), left
+and right never quite alike. Where there is air there is wind past the
+helmet, gusting, louder with speed; where there is none the only sound is
+the pilot's own breath, quicker as the tank runs down. The view breathes a
+few millimetres when you stand still. Grass leans away from your feet and
+presses down where you tread (`Grass.walker`). Within nine metres the
+ground gets a second, finer layer of its scans (grain and grit at the scale
+of a boot) and its dark, damp patches catch the light.
+
 ## The Nadir
 
 A black hole past the Wanderer's farthest swing (ReachSystem `nadir`, orbit
@@ -382,3 +393,9 @@ The loop's reset is timed every time it runs (`LOOP reset` in the log):
 glow add at most six draws; with them on, the web build holds 60 fps with
 a worst frame of 16 ms and no hitches at the pad, over the song lights and
 across the loop's end.
+
+The close-up pass costs no draws: the grain is three more samples of
+textures already bound, only inside nine metres; the grass push is one
+uniform a frame; the wind and breath loops are made once at 11 kHz in
+14 ms. Looking straight down in Hearth's grass, standing and walking, the
+web build holds 60 fps, worst frame 16 ms, no hitches.
