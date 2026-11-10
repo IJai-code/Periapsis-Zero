@@ -152,11 +152,15 @@ def flute():
         start = int((bar * 4 + beat) * BEAT * RATE)
         note = []
         lp = 0.0
+        ph = 0.0
         for i in range(n):
             t = i / RATE
             env = min(1.0, t / 0.06) * (1.0 if t < dur else max(0.0, 1.0 - (t - dur) / 0.15))
-            vib = 1.0 + 0.006 * math.sin(2 * math.pi * 5.2 * t) * min(1.0, t / 0.4)
-            ph = 2 * math.pi * f * vib * t
+            # Vibrato on the frequency, summed into the phase: a factor on
+            # f * t instead swings wider the longer the note is held, and
+            # the long notes went badly out of tune.
+            vib = 1.0 + 0.004 * math.sin(2 * math.pi * 5.2 * t) * min(1.0, t / 0.4)
+            ph += 2 * math.pi * f * vib / RATE
             lp += (rng.uniform(-1, 1) - lp) * 0.2
             v = math.sin(ph) * 0.8 + math.sin(2 * ph) * 0.12 + math.sin(3 * ph) * 0.05 + lp * 0.05
             note.append(v * env)
@@ -177,12 +181,13 @@ def harmonica():
             for semi in tones[:2] + [tones[0] + 12]:
                 f = freq(semi, D3 * 2)
                 det = rng.uniform(-0.15, 0.15)
+                ph = 0.0
                 for i in range(n):
                     t = i / RATE
                     env = min(1.0, t / 0.12) * (1.0 if t < dur else max(0.0, 1.0 - (t - dur) / 0.1))
                     # Breath swell, a reed's odd harmonics.
                     swell = 0.75 + 0.25 * math.sin(math.pi * min(t / dur, 1.0))
-                    ph = 2 * math.pi * (f + det) * t * (1 + 0.004 * math.sin(2 * math.pi * 6 * t))
+                    ph += 2 * math.pi * (f + det) * (1 + 0.003 * math.sin(2 * math.pi * 6 * t)) / RATE
                     note[i] += (math.sin(ph) + 0.4 * math.sin(3 * ph) + 0.18 * math.sin(5 * ph)) * env * swell
             add(buf, start, note, 0.16)
     return buf
@@ -247,6 +252,29 @@ def choir():
     return buf
 
 
+def musicbox():
+    """Tock's music box at the Nadir: the tune's chords, a note a beat,
+    high and slow. The same bars as every other part, so it joins them."""
+    buf = [0.0] * N
+    rng = random.Random(17)
+    for bar in range(BARS):
+        tones = chord_tones(bar)
+        # Up the chord and back to its fifth: four notes a bar.
+        for beat, semi in enumerate((tones[0], tones[2], tones[1] + 12, tones[2])):
+            if bar == BARS - 1 and beat > 0:
+                break
+            f = freq(semi, D3 * 4)
+            start = int((bar * 4 + beat) * BEAT * RATE)
+            gain = 0.5 if beat == 0 else rng.uniform(0.28, 0.36)
+            for i in range(int(1.8 * RATE)):
+                j = (start + i) % N
+                t = i / RATE
+                # A tine: the note, and its bright partial dying sooner.
+                buf[j] += (math.sin(2 * math.pi * f * t) * math.exp(-t * 2.6)
+                           + 0.3 * math.sin(2 * math.pi * f * 3.0 * t) * math.exp(-t * 7.0)) * gain
+    return buf
+
+
 def end():
     seconds = 60.0
     n = int(seconds * RATE)
@@ -264,7 +292,7 @@ def end():
             if j >= n:
                 break
             tt = i / RATE
-            out[j] += (math.sin(2 * math.pi * f * tt) + 0.3 * math.sin(2 * math.pi * f * 3.01 * tt)) * math.exp(-tt * 3.0) * 0.5
+            out[j] += (math.sin(2 * math.pi * f * tt) + 0.3 * math.sin(2 * math.pi * f * 3.0 * tt)) * math.exp(-tt * 3.0) * 0.5
         t += 0.75 + (t / seconds) * 0.9 + rng.uniform(-0.05, 0.05)
         k += 1
     return out
@@ -447,7 +475,7 @@ if __name__ == '__main__':
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
     only = sys.argv[2:]
-    for name, fn in (('banjo', banjo), ('flute', flute), ('harmonica', harmonica), ('drums', drums), ('choir', choir), ('end', end), ('wake', wake), ('launch', launch), ('intro', intro)):
+    for name, fn in (('banjo', banjo), ('flute', flute), ('harmonica', harmonica), ('drums', drums), ('choir', choir), ('musicbox', musicbox), ('end', end), ('wake', wake), ('launch', launch), ('intro', intro)):
         if only and name not in only:
             continue
         write(os.path.join(out, f'{name}.wav'), fn())

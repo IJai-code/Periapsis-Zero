@@ -138,6 +138,9 @@ func _input(e: InputEvent) -> void:
 
 ## Tests: the choices to make, by their words, in order (else the first).
 static var auto_pick: Array = []
+## Called with a choice's words when it is picked (the Engine's song sings
+## each word as a note); cleared by whoever set it.
+static var on_pick := Callable()
 
 func _choose(choices: Array) -> String:
 	# null until chosen ("" is a choice that ends the talk).
@@ -155,7 +158,11 @@ func _choose(choices: Array) -> String:
 		b.text = "%d    %s" % [shown, c[0]]
 		ReachStyle.choice(b, 18)
 		var target: String = c[1]
-		b.pressed.connect(func(): picked.node = target)
+		var said: String = c[0]
+		b.pressed.connect(func():
+			picked.node = target
+			if on_pick.is_valid():
+				on_pick.call(said))
 		_choices.add_child(b)
 	if shown == 0:
 		return ""

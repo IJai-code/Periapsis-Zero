@@ -35,6 +35,7 @@ var _core_vis: Node3D
 var _map: ReachMap
 var homecoming: Homecoming
 var nadir: Nadir
+var tells: SongTells
 var echoes: Echoes
 var finished := false
 ## Made a piece at a time with a frame between, so a browser stays
@@ -111,6 +112,14 @@ func _ready() -> void:
 		_view(args[i + 1])
 		Flow.scene_ready()
 		return
+	if Flow.beat.begins_with("tells:"):
+		# tells:view:...: the same view with the Engine's song asked for, so
+		# the lights over its parts stand (SongTells).
+		Lore.learn("wan_song")
+		Flow.beat = Flow.beat.trim_prefix("tells:")
+		tells = SongTells.new()
+		tells.reach = self
+		add_child(tells)
 	if Flow.beat.begins_with("view:"):
 		# From a browser link: #reach/view:hearthstone or view:hearthstone:surface.
 		_view(Flow.beat.trim_prefix("view:").replace(":", "/"))
@@ -807,6 +816,9 @@ func _start_player() -> void:
 	if chunk:
 		await get_tree().process_frame
 	await _signals()
+	tells = SongTells.new()
+	tells.reach = self
+	add_child(tells)
 	Flow.step("signals")
 	if chunk:
 		await get_tree().process_frame
@@ -905,6 +917,11 @@ func _start_player() -> void:
 		elif beat == "cockpit":
 			Lore.learn("hearth_codes")
 			ship.board()
+		elif beat == "entry":
+			# The air burning round her, held on, for looking at it.
+			Lore.learn("hearth_codes")
+			ship.board()
+			ship.entry.hold = 0.8
 		elif beat == "launch":
 			# Straight to the ride, for looking at it.
 			Lore.learn("hearth_codes")
@@ -1038,6 +1055,10 @@ func _signals() -> void:
 	scope.add_source(ph.node, "choir_shrine", "Recording: the Phantom's shrine", 1, load("res://audio/reach/choir.wav"), Worlds.place(ph, "shrine").origin, 10.0)
 	if chunk:
 		await get_tree().process_frame
+	# Tock's music box, on the buoy over the Nadir: the song's chords, so it
+	# joins the rest at the end.
+	if nadir and nadir.tock:
+		scope.add_source(nadir.tock, "tock", "A music box", -1, load("res://audio/reach/musicbox.wav"), Vector3(0, 1.4, 0), 9.0)
 	var wa: ReachBody = B["wanderer"]
 	scope.add_source(wa.node, "engine", "The Engine", 1, load("res://audio/reach/choir.wav"), Worlds.place(wa, "engine").origin, 20.0)
 	if chunk:
@@ -1490,6 +1511,16 @@ func finish(site: WandererSite, choice := "engine") -> void:
 ## Everything back to the morning: the clock, the frame, the Kestrel on her
 ## pad, the player by the fire.
 func reset_loop() -> void:
+	var t0 := Time.get_ticks_usec()
+	_reset_loop()
+	# How long the morning took to put back (it happens behind a black
+	# screen; over a frame or two it would be heard in the music).
+	reset_ms = (Time.get_ticks_usec() - t0) / 1000.0
+	print("LOOP reset %.1f ms" % reset_ms)
+
+var reset_ms := 0.0
+
+func _reset_loop() -> void:
 	var was := system.ref
 	_arrived = {"hearthstone": true}
 	for r in get_tree().get_nodes_in_group("fire_rest"):
@@ -1649,9 +1680,11 @@ func _story_test() -> void:
 	await _use(wan._socket)
 	await get_tree().create_timer(0.5).timeout
 	log.call("song gate held %s, missing %s" % [not finished and Lore.known("wan_song"), WandererSite.song_missing()])
+	var lit := tells.refresh()
 	# (The other four parts are each their own trip; learned here.)
 	for f in ["song_phantom", "song_hearth", "song_verdance", "song_nadir"]:
 		Lore.learn(f)
+	log.call("song lights %d then %d, entry glow %.1f %.1f %.1f, tuned %.3f %.3f" % [lit, tells.refresh(), EntryGlow.strength(1.0, 300.0), EntryGlow.strength(0.0, 300.0), EntryGlow.strength(1.0, 40.0), Sfx.tuned(1.08), Sfx.tuned(0.7)])
 	# Out of order: the song breaks and the clock leaps on.
 	system.t = 1000.0
 	var t0 := system.t
@@ -1661,7 +1694,9 @@ func _story_test() -> void:
 	log.call("wrong song broke %s, clock leapt %.0f s" % [not finished and Lore.known("wan_broken"), system.t - t0])
 	system.t = WandererSite.OPEN_FROM + 8.0
 	Talk.auto_pick = ["Glass", "Ember", "Iron", "Rain", "Deep", "Give the Engine"]
+	WandererSite.sung.clear()
 	await _use(wan._socket)
+	log.call("sung %s" % [WandererSite.sung])
 	log.call("finished %s" % finished)
 	if finished:
 		await get_tree().create_timer(2.0).timeout

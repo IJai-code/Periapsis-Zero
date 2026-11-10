@@ -113,6 +113,14 @@ socket, on the pause page and as leads (`LEADS`, first rows). The core
 still survives the loop once taken; the vault cradle's carving can be read
 from an empty vault.
 
+Once the Wanderer has told you the Engine wants a song (`wan_song`), a
+thin pillar of light stands over the place where each part you still lack
+is carved (`song_tells.gd`, one billboard quad each, checked once a
+second). Learn a part and its light goes out; none show before you know
+what to look for, and none after the ending. At the socket each word you
+pick is sung as a note (Glass B, Ember A, Iron F#, Rain E, Deep D), so the
+right order is a falling scale you can hear.
+
 ## The places (game/scripts/reach)
 
 Each place is a `Site` under its body's `Planet`: solid only while that body
@@ -271,6 +279,21 @@ hand-drawn ink and pulse at periapsis. Music made in code: one tune played
 by banjo, flute, harmonica and drums in sync with the loop, so travellers'
 signals harmonise when heard together.
 
+Everything that sounds is in tune with that one tune. The music is in
+D major at standard pitch (the flight track is in the same key). Effects
+with a pitch (`Sfx.TONAL`) are written on the notes D, E, F#, A and B, and
+any pitch change asked of them is snapped to that scale by `Sfx.tuned()`;
+the beacons, the quantum hum and radio chatter in `reach_sounds.gd` follow
+the same rule. Vibrato in `reach_music.py` must add up phase sample by
+sample (multiplying a wobbling frequency by time drifts badly out of tune
+on long notes). Tock's music box at the Nadir is a sixth part of the tune
+(`musicbox`), heard on the signalscope and in the finale.
+
+Coming down fast through air, the Kestrel glows (`entry_glow.gd`, one
+additive shell on the ship): nothing below 70 m/s, full at 260 m/s in
+thick air, bright at the bow and streaked behind, hidden in space and in
+still air. It is a look only and changes no flight numbers.
+
 ## The Nadir
 
 A black hole past the Wanderer's farthest swing (ReachSystem `nadir`, orbit
@@ -353,3 +376,9 @@ Hearthstone, and a `#reach` link skips the title altogether: the address
 is read before the first scene is made, so the one world you cannot see is
 not built twice. Under a 6× CPU throttle the longest single block is
 11.3 s on the title and 8.0 s straight into the Reach (it was 38.5 s).
+
+The loop's reset is timed every time it runs (`LOOP reset` in the log):
+1.7 ms, so the wipe never costs a frame. The song lights and the entry
+glow add at most six draws; with them on, the web build holds 60 fps with
+a worst frame of 16 ms and no hitches at the pad, over the song lights and
+across the loop's end.

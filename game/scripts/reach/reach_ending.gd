@@ -66,7 +66,7 @@ func _ready() -> void:
 	_sub.position.y += 30
 	_sub.modulate.a = 0.0
 	root.add_child(_sub)
-	for part in ["banjo", "flute", "harmonica", "drums", "choir"]:
+	for part in ["banjo", "flute", "harmonica", "drums", "choir", "musicbox"]:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/reach/%s.wav" % part)
 		p.volume_db = -5.0 + Flow.music_db()

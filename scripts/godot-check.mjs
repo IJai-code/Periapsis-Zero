@@ -346,7 +346,7 @@ const checks = [
     const out = await run('reach', ['--storytest', '--talkauto'], /ENDING done|STORY finished false/, 180000)
     const want = ['STORY songlines placed 6 of 6 []', 'STORY songline mine read true, learned true', 'STORY recorder learned true', 'STORY vault open true',
       'STORY core carried true, learned true, cradle carving true', 'STORY engine door open true',
-      'STORY song gate held true', 'STORY wrong song broke true, clock leapt 12', 'STORY finished true', 'ENDING done']
+      'STORY song gate held true', 'STORY song lights 4 then 0, entry glow 1.0 0.0 0.0, tuned 1.122 0.749', 'STORY sung ["Glass", "Ember", "Iron", "Rain", "Deep"]', 'STORY wrong song broke true, clock leapt 12', 'STORY finished true', 'ENDING done']
     const missing = want.filter((w) => !out.includes(w))
     const died = out.match(/LOOP ended: [^\n]*/)
     return [missing.length === 0 && !died, died ? died[0] : missing.length ? `missing: ${missing.join('; ')}` : 'mine, recorder, vault, core, song gate, wrong song, Engine, ending']

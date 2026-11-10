@@ -34,6 +34,7 @@ const LIFT_ACCEL := 9.0
 const LIFT_PITCH := 11.0
 
 var system: ReachSystem
+var entry: EntryGlow
 var explorer: Explorer
 var model: Node3D
 var cockpit: Node3D
@@ -138,6 +139,10 @@ var _in_water := false
 var _look := Vector2.ZERO
 
 func _ready() -> void:
+	# The air burning round her on a fast descent (it only looks).
+	entry = EntryGlow.new()
+	entry.ship = self
+	add_child(entry)
 	add_to_group("reach_dynamic")
 	add_to_group("mouse_look")
 	mass = 4000.0

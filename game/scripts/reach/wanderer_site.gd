@@ -202,8 +202,10 @@ func _use_socket(_by: Node) -> void:
 			return
 		ex.enabled = false
 		reach.talking = true
+		Talk.on_pick = _sing
 		var sing := Talk.open(reach, "engine_song", null, reach.hud)
 		await sing.finished
+		Talk.on_pick = Callable()
 		if sing.outcome != "sung":
 			reach.talking = false
 			ex.enabled = true
@@ -222,6 +224,18 @@ func _use_socket(_by: Node) -> void:
 			reach.finish(self, t.outcome)
 	else:
 		reach.hud.caption("A socket in the Engine's heart, a hand's width across. Empty: it takes the core from the Aster's vault on Ashfall.", 4.0)
+
+## Each word of the song is a note, falling from the Phantom's to the
+## Nadir's (B, A, F sharp, E, D: the tune's own scale, on Sfx "sing"), so
+## the right order is a melody coming home and a wrong one sounds wrong.
+const NOTES := {"Glass": 9, "Ember": 7, "Iron": 4, "Rain": 2, "Deep": 0}
+static var sung: Array = []
+
+func _sing(said: String) -> void:
+	for word: String in NOTES:
+		if said.begins_with(word):
+			sung.append(word)
+			Sfx.play("sing", -3.0, pow(2.0, float(NOTES[word]) / 12.0))
 
 ## The worlds whose part of the Engine's song is not yet known.
 const SONG := [["song_phantom", "the Phantom"], ["song_hearth", "Hearth"], ["song_ashfall", "Ashfall"], ["song_verdance", "Verdance"], ["song_nadir", "the Nadir"]]
