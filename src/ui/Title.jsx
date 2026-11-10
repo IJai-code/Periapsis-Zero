@@ -231,6 +231,7 @@ function Landing({ save, isPhone, download, flown, confirm, setConfirm, newGame,
               {/* The game is the Godot build (game/, published to /play/); #reach goes straight in. */}
               <li><a href={`${BASE}play/index.html#reach`}>Play in your browser</a></li>
               <li><a href={`${DESKTOP}${download.file}`}>Download for {download.name}</a></li>
+              <li><a href={`${BASE}play/index.html#reach/intro`}>Watch the opening film</a></li>
             </>}
         </ul>
       </div>
