@@ -108,7 +108,7 @@ func _read() -> void:
 		reach.hud.guide("The Zero-G cave", "Inside the dome there is no gravity. Jump in and you float.\n\nSpace thrusts up, Shift down, W A S D any way; the mouse turns you right round (the suit's fuel refills on the ground).\n\nFly through the five rings in order: the next one burns brightest.", 20.0)
 
 func reset_loop() -> void:
-	_next = 0 if not Lore.known("hearth_zerog") else RINGS.size()
+	_next = 0 if not Lore.known("song_hearth") else RINGS.size()
 	_paint()
 
 func _paint() -> void:
@@ -150,7 +150,8 @@ func _process(dt: float) -> void:
 		else:
 			Sfx.play("objective", -6.0)
 			if reach.hud:
-				reach.hud.caption("Suit training complete. The jetpack is yours.", 4.0)
+				reach.hud.caption("Past the fifth ring, a carving in the rock, older than the village: Hearth's part of the Engine's song is EMBER.", 6.0)
 			Season.note("zerog")
-			if Lore.learn("hearth_zerog") and reach.hud:
+			var song := Lore.learn("song_hearth")
+			if (Lore.learn("hearth_zerog") or song) and reach.hud:
 				reach.hud.toast("SHIP LOG UPDATED")

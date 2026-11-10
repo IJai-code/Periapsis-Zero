@@ -49,6 +49,14 @@ const FACTS := {
 	"nad_tern": ["nadir", "The Tern holds still three hundred metres over the Nadir, on the last of her fuel. Pip Ferreira, eleven, keeps watch while her parents sleep. For her, the Founders left Hearth this morning.", ""],
 	"nad_gleam": ["nadir", "Abe Ferreira's log: the Lantern is not old, it is being drunk. The gleam, motes of living light, feed on it and carry its light down into the Nadir. The one thing they flee is the Engine's song.", ""],
 	"nad_message": ["nadir", "Pip heard Tock's count, all of it. She gave you three words to carry back up to him: come home, Tock.", ""],
+	"wan_song": ["wanderer", "The Engine will not wake for a core alone. It has to be sung to, and the Founders hid its song in five parts, one on each world they touched: the Phantom, Hearth, Ashfall, Verdance and the Nadir.", ""],
+	"wan_order": ["wanderer", "The Engine's own recording: sing the parts in order, from the world nearest the Lantern out to the dark. (The map, M, shows whose orbit is whose.)", ""],
+	"wan_broken": ["wanderer", "You sang the Engine a wrong song. It went dark, and the clock leapt two minutes on.", ""],
+	"song_phantom": ["phantom", "The Phantom's part of the Engine's song: glass.", ""],
+	"song_hearth": ["hearth", "Past the fifth ring of the Zero-G cave, a Founders' carving: Hearth's part of the Engine's song is ember.", ""],
+	"song_ashfall": ["ashfall", "Carved on the core's cradle in the Aster's vault, older than the ship: Ashfall's part of the Engine's song is iron.", ""],
+	"song_verdance": ["verdance", "On the high pillar: Verdance's part of the Engine's song is rain.", ""],
+	"song_nadir": ["nadir", "Abe's log: the Founders' song for the Nadir, the note the gleam flee, is deep.", ""],
 	"nad_together": ["nadir", "Tock left the buoy and let the Nadir take him down to the Tern. For him it was a long fall. For the Ferreiras, he was home in a minute.", ""],
 }
 
@@ -76,6 +84,7 @@ const SONGLINES := {
 		["Orrin", "I climbed up here to be alone, and found Venn already here, being alone.", -1, ""],
 		["Venn", "The Engine does not wake everyone. Those who carry its song in them remember each turning. The rest begin again, and never know.", 0, "verd_why"],
 		["Orrin", "Then whoever remembers must be the one to finish it.", 1, ""],
+		["Venn", "We sang Verdance's part of the Engine's song up here, where the falls begin. It is rain. Carry it down with you.", 1, "song_verdance"],
 	]},
 	"shrine": {"title": "Recording: the Phantom's shrine", "verses": [
 		["Sadie", "The little moon will not hold still for us. Pell says it is shy. I say it is only quantum.", -1, ""],
@@ -83,15 +92,18 @@ const SONGLINES := {
 		["Sadie", "For whoever comes after us: board the Wanderer as it passes Periapsis Zero, the core in hand, and give it to the Engine.", 0, "ph_shrine"],
 		["Pell", "And if no one comes?", 2, ""],
 		["Sadie", "Then the Lantern falls, the morning comes back, and the song goes on without us.", 3, ""],
+		["Pell", "And this little moon keeps its part of the Engine's song. Ours is glass. Say it back to the Engine, when the time comes: glass.", 1, "song_phantom"],
 	]},
 	"engine_door": {"title": "Recording: the Engine's door", "verses": [
 		["Ilse", "The door stays sealed while the Wanderer is far from the Lantern, so the Engine keeps its warmth.", -1, ""],
-		["Ilse", "It opens at Periapsis Zero, the Wanderer's closest pass, about twenty and a half minutes into the song, and closes soon after. Do not be late. We were, once.", 0, "wan_door"],
+		["Ilse", "It opens at Periapsis Zero, the Wanderer's closest pass, twenty minutes into the song, and closes at a quarter past. Do not be late. We were, once.", 0, "wan_door"],
+		["Ilse", "And a core alone will not wake it. The Engine must be sung to. We hid its song in five parts, one on every world we touched: the Phantom, Hearth, Ashfall, Verdance and the Nadir. Gather them all.", 0, "wan_song"],
 	]},
 	"engine": {"title": "Recording: the Engine", "verses": [
 		["Tamsin", "We never found a core of our own. We made one, long ago, and lost it on a journey far beyond the Fold.", -1, ""],
 		["Sadie", "Perhaps someone will bring it back.", 0, ""],
 		["Tamsin", "Then this is for them. Set the core in the Engine's heart. It will stop repeating the morning and sing the whole song once, all the way through.", 1, ""],
+		["Tamsin", "But sing it first. Part by part, from the world nearest the Lantern out to the dark. Sung out of order, it will not listen.", 2, "wan_order"],
 	]},
 }
 
@@ -300,6 +312,16 @@ const TALK := {
 			["Hale's recorder", "Mara, if this reaches you: I'm sorry about the wing. Keep the fire lit. ...End recording."],
 		], "learn": ["ash_hale"], "end": true},
 	},
+	"engine_song": {
+		"start": {"lines": [["The Engine", "The core settles into the socket and the Engine waits, humming. Sing it its song, one part at a time."]], "choices": [["Rain", "broken", "song_verdance", ""], ["Deep", "broken", "song_nadir", ""], ["Ember", "broken", "song_hearth", ""], ["Glass", "s2", "song_phantom", ""], ["Iron", "broken", "song_ashfall", ""], ["Not yet.", "wait", "", ""]]},
+		"s2": {"lines": [["The Engine", "The first part rings round the chamber. The rings stir."]], "choices": [["Rain", "broken", "song_verdance", ""], ["Deep", "broken", "song_nadir", ""], ["Ember", "s3", "song_hearth", ""], ["Glass", "broken", "song_phantom", ""], ["Iron", "broken", "song_ashfall", ""], ["Not yet.", "wait", "", ""]]},
+		"s3": {"lines": [["The Engine", "Two parts. The ribs of light climb the walls."]], "choices": [["Rain", "broken", "song_verdance", ""], ["Deep", "broken", "song_nadir", ""], ["Ember", "broken", "song_hearth", ""], ["Glass", "broken", "song_phantom", ""], ["Iron", "s4", "song_ashfall", ""], ["Not yet.", "wait", "", ""]]},
+		"s4": {"lines": [["The Engine", "Three. The Engine is singing along now."]], "choices": [["Rain", "s5", "song_verdance", ""], ["Deep", "broken", "song_nadir", ""], ["Ember", "broken", "song_hearth", ""], ["Glass", "broken", "song_phantom", ""], ["Iron", "broken", "song_ashfall", ""], ["Not yet.", "wait", "", ""]]},
+		"s5": {"lines": [["The Engine", "Four. One part left."]], "choices": [["Rain", "broken", "song_verdance", ""], ["Deep", "sung", "song_nadir", ""], ["Ember", "broken", "song_hearth", ""], ["Glass", "broken", "song_phantom", ""], ["Iron", "broken", "song_ashfall", ""], ["Not yet.", "wait", "", ""]]},
+		"sung": {"outcome": "sung", "end": true, "lines": [["The Engine", "The fifth part, and the whole song at once. The chamber is full of light, and the Engine is listening."]]},
+		"broken": {"outcome": "broken", "learn": ["wan_broken"], "end": true, "lines": [["The Engine", "Wrong. The note grinds against the others and the song breaks. The rings stop. The light goes out of the walls."]]},
+		"wait": {"end": true, "lines": [["The Engine", "It hums on, waiting."]]},
+	},
 	"engine_choice": {
 		"start": {"lines": [
 			["Rook", "Pilot. Before you put it in. Hear me, once. I've listened to you every morning; you can listen to me this one."],
@@ -384,7 +406,8 @@ const TALK := {
 			["Abe's log", "Ferreira, Abe. Survey skiff Tern. Eleventh hour. We've followed the gleam from the Lantern all the way down. Nell's flying; Pip's on the scope and won't sleep."],
 			["Abe's log", "My mother has measured the Lantern's breathing all her life and thinks it is ageing. It isn't. It's being drunk. The gleam are alive: a bloom, feeding on its light, carrying it here, and spending it in the Nadir."],
 			["Abe's log", "We can't kill them. There are more of them than stars. But they scatter from one sound, every time: the note the Founders' Engine sings. If the Engine ever sang for good, they'd go, and the Lantern would breathe again."],
+			["Abe's log", "Mum taught Pip the Founders' word for this place when she was tiny, the Nadir's part of their song. Deep. Pip sang it at the window and the gleam broke apart like startled fish."],
 			["Abe's log", "We went too deep to get a clean count. Something's wrong with the clock. Climbing back now, on what fuel we have. Tock will have kept the relay lit. He always does. ...End log."],
-		], "learn": ["nad_gleam"], "end": true},
+		], "learn": ["nad_gleam", "song_nadir"], "end": true},
 	},
 }

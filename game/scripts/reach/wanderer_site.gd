@@ -86,7 +86,7 @@ static func _mmss(t: float) -> String:
 ## What the door says now, by the clock.
 func _door_words() -> String:
 	var t: float = reach.system.t
-	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, so bring that."
+	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, and the Engine's song, gathered from every world."
 	if t < OPEN_FROM:
 		return "The Engine's door is sealed until 20:00, when the Wanderer swings nearest the star; it is %s now. You don't have to wait 17 minutes: press E at the door and the clock races, and it opens in about %d seconds (any key stops). Or explore and come back before 21:15.%s" % [_mmss(t), _wait_secs(t), core]
 	if t <= OPEN_TO:
@@ -188,12 +188,32 @@ func _process(dt: float) -> void:
 
 func _use_socket(_by: Node) -> void:
 	if reach.carrying_core:
-		# Rook has one more word first: the choice (Lore.TALK.engine_choice).
 		var ex := _by as Explorer
 		if ex == null or reach.talking:
 			return
+		# The core alone does not wake it: the Engine has to be sung its
+		# song, five parts from five worlds, nearest the Lantern first.
+		var news := Lore.learn("wan_song")
+		var missing := song_missing()
+		if not missing.is_empty():
+			reach.hud.caption("The socket takes the core, and the Engine only hums: it wants its song. You know %d of its five parts. Still to find: %s. (The ship's log, L, says more.)" % [5 - missing.size(), ", ".join(missing)], 9.0)
+			if news:
+				reach.hud.toast("SHIP LOG UPDATED")
+			return
 		ex.enabled = false
 		reach.talking = true
+		var sing := Talk.open(reach, "engine_song", null, reach.hud)
+		await sing.finished
+		if sing.outcome != "sung":
+			reach.talking = false
+			ex.enabled = true
+			if sing.outcome == "broken":
+				# A wrong song costs time: the door will not wait for long.
+				reach.system.t = minf(reach.system.t + 120.0, ReachSystem.LOOP - 1.0)
+				Sfx.play("alarm", -8.0, 0.7)
+				reach.hud.caption("The song breaks and the Engine goes dark. The clock leaps two minutes on. Remember the order: nearest the Lantern first.", 6.0)
+			return
+		# Rook has one more word first: the choice (Lore.TALK.engine_choice).
 		var t := Talk.open(reach, "engine_choice", null, reach.hud)
 		await t.finished
 		reach.talking = false
@@ -201,7 +221,16 @@ func _use_socket(_by: Node) -> void:
 		if t.outcome != "":
 			reach.finish(self, t.outcome)
 	else:
-		reach.hud.caption("A socket in the Engine's heart, a hand's width across. Empty.", 3.0)
+		reach.hud.caption("A socket in the Engine's heart, a hand's width across. Empty: it takes the core from the Aster's vault on Ashfall.", 4.0)
+
+## The worlds whose part of the Engine's song is not yet known.
+const SONG := [["song_phantom", "the Phantom"], ["song_hearth", "Hearth"], ["song_ashfall", "Ashfall"], ["song_verdance", "Verdance"], ["song_nadir", "the Nadir"]]
+static func song_missing() -> Array:
+	var out := []
+	for s in SONG:
+		if not Lore.known(s[0]):
+			out.append(s[1])
+	return out
 
 func reset_loop() -> void:
 	if _waiting:

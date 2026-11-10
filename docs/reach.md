@@ -84,8 +84,34 @@ follow a different thread.
   code is in Hale's log; the core is in the vault.
 - **The Phantom.** Moves when not observed; a photograph holds it. Its
   shrine: the Engine's door opens only at the Wanderer's periapsis.
-- **The Wanderer.** Carry the core there within one loop and be aboard at
-  20:30, when it passes Periapsis Zero. Give the Engine the core. The end.
+- **The Wanderer.** Be aboard between 20:00 and 21:15, when it passes
+  Periapsis Zero (E at the door races the clock there). The core alone does
+  not wake the Engine: the door's recording says it must be sung its song,
+  five parts hidden on five worlds (fact `wan_song`), and the Engine's own
+  recording gives the order, nearest the Lantern out to the dark
+  (`wan_order`).
+
+### The Engine's song (the ending's gate)
+
+Five parts, each behind its world's hardest thing, all knowledge (saved):
+
+| Part | Where | Fact |
+|---|---|---|
+| glass | the Phantom's shrine recording (lock the moon, fly there) | `song_phantom` |
+| ember | carved past the fifth ring of the Zero-G cave | `song_hearth` |
+| iron | carved on the core's cradle in the Aster's vault (drones) | `song_ashfall` |
+| rain | the high pillar's recording, top of the pillar city | `song_verdance` |
+| deep | Abe's log aboard the Tern, 300 m over the Nadir | `song_nadir` |
+
+Orbits give the order: Phantom 2900, Hearth 4600, Ashfall 7300, Verdance
+10800, Nadir 16500, so glass, ember, iron, rain, deep (`Lore.TALK.engine_song`;
+the five words are offered in a fixed muddled order, only the known ones).
+A wrong part breaks the song and puts the clock two minutes on, so a
+guess near 21:00 costs the morning. With the core and all five parts known
+the socket sings, then Rook's choice. Missing parts are named at the
+socket, on the pause page and as leads (`LEADS`, first rows). The core
+still survives the loop once taken; the vault cradle's carving can be read
+from an empty vault.
 
 ## The places (game/scripts/reach)
 

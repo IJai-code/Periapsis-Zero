@@ -1110,6 +1110,11 @@ func _on_boarded() -> void:
 ## [known, not yet known, what to do (plain words, and enough to go on with
 ## the sound off), world, landmark (or "recorder"), what the marker says].
 const LEADS := [
+	["wan_song", "song_phantom", "The Engine needs its song, and the Phantom keeps a part of it in its shrine. Lock the Phantom (T) so it holds still, fly there and play the shrine's recording.", "phantom", "shrine", "The Phantom's shrine"],
+	["wan_song", "song_hearth", "Hearth's part of the Engine's song is carved past the fifth ring of the Zero-G cave, the dome of rock on the crater floor. Fly all five rings with the jetpack.", "hearthstone", "zerog", "The Zero-G cave"],
+	["wan_song", "song_ashfall", "Ashfall's part of the Engine's song is carved on the core's cradle in the Aster's cargo vault (code 0412). Keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
+	["wan_song", "song_verdance", "Verdance's part of the Engine's song is in the recording on top of the highest pillar in the pillar city. Climb it.", "verdance", "pillars", "The high pillar"],
+	["wan_song", "song_nadir", "The Nadir's part of the Engine's song is in Abe Ferreira's log, aboard the Tern, 300 m over the black hole. Every minute there costs six outside.", "nadir", "abe", "Abe's log"],
 	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its stone door only opens between 20:00 and 21:15 on the clock (H or the map, M, shows the time). Early? Press E at the door to wait for it.", "wanderer", "engine", "The Engine"],
 	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
@@ -1138,7 +1143,7 @@ func _lead_row() -> Array:
 			if Lore.known(l[0]) and not Lore.known(l[1]):
 				return l
 	# The core in hand: the Engine, whatever else is known.
-	if carrying_core and not Lore.known("wan_end"):
+	if carrying_core and not Lore.known("wan_end") and (not Lore.known("wan_song") or WandererSite.song_missing().is_empty()):
 		return ["", "", "The core came back through the morning with you: it is the Engine's, and outside time. Carry it to the Engine inside the Wanderer, the comet with two tails, while its door is open, 20:00 to 21:15 on the clock (H or M shows the time). Early? Press E at the door to wait for it.", "wanderer", "engine", "The Engine"]
 	for l in LEADS:
 		if Lore.known(l[0]) and not Lore.known(l[1]):
@@ -1632,14 +1637,30 @@ func _story_test() -> void:
 	log.call("vault open %s" % (ash._door.position.x > 1.5))
 	_stand_before(ash._core_use)
 	await _use(ash._core_use)
-	log.call("core carried %s, learned %s" % [carrying_core, Lore.known("ash_core")])
+	log.call("core carried %s, learned %s, cradle carving %s" % [carrying_core, Lore.known("ash_core"), Lore.known("song_ashfall")])
 	# The Engine at 20:00, the door down, the socket.
 	system.t = WandererSite.OPEN_FROM + 2.0
 	await _go("wanderer")
 	var wan: WandererSite = (planets["wanderer"] as Planet).sites[0]
 	await get_tree().create_timer(3.5).timeout
 	log.call("engine door open %s (t %.0f, open %.2f, door y %.2f, mode %d, ref %s)" % [wan._door.position.y < -3.5, system.t, wan._open, wan._door.position.y, wan.process_mode, system.ref])
+	# The core alone: the Engine only hums, and asks for its song.
 	_stand_before(wan._socket)
+	await _use(wan._socket)
+	await get_tree().create_timer(0.5).timeout
+	log.call("song gate held %s, missing %s" % [not finished and Lore.known("wan_song"), WandererSite.song_missing()])
+	# (The other four parts are each their own trip; learned here.)
+	for f in ["song_phantom", "song_hearth", "song_verdance", "song_nadir"]:
+		Lore.learn(f)
+	# Out of order: the song breaks and the clock leaps on.
+	system.t = 1000.0
+	var t0 := system.t
+	Talk.auto_pick = ["Glass", "Iron"]
+	await _use(wan._socket)
+	await get_tree().create_timer(0.5).timeout
+	log.call("wrong song broke %s, clock leapt %.0f s" % [not finished and Lore.known("wan_broken"), system.t - t0])
+	system.t = WandererSite.OPEN_FROM + 8.0
+	Talk.auto_pick = ["Glass", "Ember", "Iron", "Rain", "Deep", "Give the Engine"]
 	await _use(wan._socket)
 	log.call("finished %s" % finished)
 	if finished:

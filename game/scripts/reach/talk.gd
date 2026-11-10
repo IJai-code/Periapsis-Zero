@@ -136,6 +136,9 @@ func _input(e: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			(_choices.get_child(k) as Button).pressed.emit()
 
+## Tests: the choices to make, by their words, in order (else the first).
+static var auto_pick: Array = []
+
 func _choose(choices: Array) -> String:
 	# null until chosen ("" is a choice that ends the talk).
 	var picked := {"node": null}
@@ -158,7 +161,14 @@ func _choose(choices: Array) -> String:
 		return ""
 	(_choices.get_child(0) as Button).grab_focus()
 	if "--talkauto" in OS.get_cmdline_user_args():
-		(_choices.get_child(0) as Button).pressed.emit()
+		var pick := _choices.get_child(0) as Button
+		if not auto_pick.is_empty():
+			var want: String = auto_pick.pop_front()
+			for b: Button in _choices.get_children():
+				if b.text.contains(want):
+					pick = b
+		Report.line("TALK pick %s" % pick.text)
+		pick.pressed.emit()
 	while picked.node == null:
 		await get_tree().process_frame
 	for b in _choices.get_children():

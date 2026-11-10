@@ -202,6 +202,13 @@ func _code() -> void:
 	t.tween_property(_door, "position", _door_shut + Vector3(2.0, 0, 0), 1.6).set_trans(Tween.TRANS_SINE)
 
 func _take_core() -> void:
+	# The cradle's carving: Ashfall's part of the Engine's song.
+	if Lore.learn("song_ashfall"):
+		reach.hud.caption("Carved round the cradle, older than the ship: Ashfall's part of the Engine's song is IRON.", 5.0)
+		reach.hud.toast("SHIP LOG UPDATED")
+		if not _core.visible:
+			_core_use.prompt = ""
+			return
 	if not _core.visible:
 		return
 	_core.visible = false
@@ -227,7 +234,7 @@ func reset_loop() -> void:
 ## came back through the loop with the pilot), the vault open.
 func core_gone() -> void:
 	_core.visible = false
-	_core_use.prompt = ""
+	_core_use.prompt = "" if Lore.known("song_ashfall") else "Read the carving on the cradle"
 	_keypad.prompt = ""
 	_door.position = _door_shut + Vector3(2.0, 0, 0)
 

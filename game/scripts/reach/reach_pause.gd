@@ -232,6 +232,9 @@ func _fill_steps(r: Node) -> void:
 			line += " The Engine's door on the Wanderer is open now, until 21:15."
 		else:
 			line += " The Engine's door has shut for this morning; it opens again at 20:00 next morning."
+	if Lore.known("wan_song"):
+		var miss := WandererSite.song_missing()
+		line += " The Engine's song: %d of 5 parts known%s." % [5 - miss.size(), "" if miss.is_empty() else " (still to find: " + ", ".join(miss) + ")"]
 	_help_clock.text = line
 
 static func _mmss(t: float) -> String:
