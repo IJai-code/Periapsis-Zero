@@ -15,6 +15,7 @@ var env: Environment
 var _view_cam: Camera3D
 var player: Explorer
 var ship: ReachShip
+var weather: Weather
 var hud: ReachHud
 var loop: ReachLoop
 var campfire: Campfire
@@ -632,6 +633,9 @@ func _environment() -> void:
 		sun.directional_shadow_blend_splits = true
 	sun.shadow_normal_bias = 1.4
 	add_child(sun)
+	weather = Weather.new()
+	weather.reach = self
+	add_child(weather)
 
 var _arrived := {}
 ## Off Hearthstone at least once this loop (the first steps are done).
@@ -692,6 +696,8 @@ func _process(_dt: float) -> void:
 			if key != system.ref:
 				(planets[key] as Planet).light(star, power)
 	_air(cam)
+	if weather:
+		weather.step(cam, _dt)
 	# Only the lamps near the camera burn; the rest are a lit dot. A village
 	# of lamps should not cost a village of lights.
 	_lamp_t -= _dt
@@ -917,6 +923,9 @@ func _start_player() -> void:
 		elif beat == "cockpit":
 			Lore.learn("hearth_codes")
 			ship.board()
+		elif beat == "rain" or beat == "storm":
+			# A front overhead, held, for looking at it.
+			Weather.held = 0.65 if beat == "rain" else 1.0
 		elif beat == "ground":
 			# Looking at the ground at your feet, for judging it close up.
 			player._pitch = -1.0
@@ -1689,6 +1698,9 @@ func _story_test() -> void:
 		Lore.learn(f)
 	var kinds := ["step_grass", "step_grit", "step_wood", "step_metal"].filter(func(k): return Sfx._streams.has(k))
 	log.call("boots on %d kinds, here %s" % [kinds.size(), player.footing()])
+	weather.strike()
+	log.call("weather hearth %.2f %.2f %.2f, verdance %.2f, cloud first %s, strikes %d" % [Weather.rain_at("hearthstone", 60.0), Weather.rain_at("hearthstone", 480.0), Weather.rain_at("hearthstone", 1100.0), Weather.rain_at("verdance", 700.0), Weather.cloud_at("hearthstone", 370.0) > Weather.rain_at("hearthstone", 370.0), weather.strikes])
+	log.call("air on the hull %.2f %.2f" % [EntryGlow.rushing(1.0, 100.0), EntryGlow.rushing(0.0, 100.0)])
 	log.call("song lights %d then %d, entry glow %.1f %.1f %.1f, tuned %.3f %.3f" % [lit, tells.refresh(), EntryGlow.strength(1.0, 300.0), EntryGlow.strength(0.0, 300.0), EntryGlow.strength(1.0, 40.0), Sfx.tuned(1.08), Sfx.tuned(0.7)])
 	# Out of order: the song breaks and the clock leaps on.
 	system.t = 1000.0

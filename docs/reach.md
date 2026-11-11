@@ -305,6 +305,29 @@ presses down where you tread (`Grass.walker`). Within nine metres the
 ground gets a second, finer layer of its scans (grain and grit at the scale
 of a boot) and its dark, damp patches catch the light.
 
+### Weather (weather.gd)
+
+Hearthstone and Verdance have weather. Fronts come over at the same minutes
+of every loop (`Weather.FRONTS`: Hearthstone a shower from 6:40 and a storm
+from 16:50 into the end; Verdance three), so a shower you were caught in is
+one you can plan round. Cloud gathers 70 s ahead of the rain and lingers
+after: the cloud deck thickens and greys (`WorldLook.overcast`), the
+Lantern's light drops by up to 80%, the ambient goes grey and flat, the
+haze closes the distance in and takes the sky. Rain is one draw: 2400
+streaks in a 26 m box round the camera, placed in the shader from a seed
+and the shower's drift (shaders/reach/rain.gdshader), so the rain stays in
+the world as you walk or fly through it. A ray overhead a few times a second
+finds a roof or the canopy: nothing falls within 3 m then and the sound
+changes from open rain to rain drumming on a roof. The ground wets in 25 s
+and dries over minutes (`Planet.soak`: darker, shining). In rain of 0.8 and
+over there is lightning every 11 to 26 s, a doubled flash and the thunder
+0.6 to 3.5 s behind it. Above the cloud (45% to 90% of the air's height) it
+all fades out, and the ending has its own sky. All three sounds are made at
+start-up. Weather only scales what the scene has already set that frame
+(`Weather.step` runs after `_air`). Beats `reach/rain` and `reach/storm`
+hold a front overhead for looking at it. In flight, air rushing over the
+hull is heard with speed in thick air (`EntryGlow.rushing`).
+
 ## The Nadir
 
 A black hole past the Wanderer's farthest swing (ReachSystem `nadir`, orbit

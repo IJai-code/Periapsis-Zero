@@ -59,7 +59,20 @@ func _ready() -> void:
 			_tail(Color(1.0, 0.85, 0.6), 1700.0, 150.0, 0.35)
 			_jet_spray()
 
+## Weather thickening the deck (0..1): more of the sky covered, and greyer.
+var _cover := 0.48
+var _cloud_color := Color.WHITE
+var _over := -1.0
+func overcast(c: float) -> void:
+	if _clouds == null or absf(c - _over) < 0.004:
+		return
+	_over = c
+	_clouds.set_shader_parameter("coverage", _cover - 0.3 * c)
+	_clouds.set_shader_parameter("color", _cloud_color.lerp(Color(0.46, 0.48, 0.53, 1.0), c * 0.8))
+
 func _cloud_deck(r: float, coverage: float, scale: float, bands: float, color: Color) -> void:
+	_cover = coverage
+	_cloud_color = color
 	var mi := MeshInstance3D.new()
 	var s := SphereMesh.new()
 	s.radius = r

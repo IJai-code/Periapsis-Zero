@@ -3,6 +3,9 @@ render_mode cull_back;
 // The body you are on: lit by the engine (shadows, the flashlight).
 #include "res://shaders/reach/planet_inc.gdshaderinc"
 
+// Rain on it (Weather): darker, and shining where it lies flat.
+uniform float wet = 0.0;
+
 void vertex() {
 	lpos = VERTEX;
 	lnrm = NORMAL;
@@ -37,5 +40,10 @@ void fragment() {
 		// The dark of the scan is the damp and the packed: a little
 		// smoother there, so low light picks the ground out in patches.
 		ROUGHNESS -= (1.0 - smoothstep(0.2, 0.55, h)) * 0.22 * near;
+	}
+	if (wet > 0.0) {
+		ALBEDO *= mix(1.0, 0.58, wet);
+		ROUGHNESS = mix(ROUGHNESS, 0.22, wet * 0.85);
+		SPECULAR = mix(SPECULAR, 0.6, wet);
 	}
 }

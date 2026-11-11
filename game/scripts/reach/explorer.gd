@@ -62,6 +62,7 @@ var wind := 0.0
 var breath := 0.0
 var _gust := 0.0
 var _foot := false
+## The prints left behind on the world underfoot.
 ## The jump being charged (seconds held, -1 not crouching); whether Space
 ## has been let go since leaving the ground (a second press is the jetpack).
 var _charge := -1.0

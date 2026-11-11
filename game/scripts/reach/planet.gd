@@ -219,6 +219,13 @@ func _wake_sites() -> void:
 ## Each frame: where the Lantern is, for the hand-lit far surface and the air.
 var look: WorldLook
 
+## How wet the rain has left the ground near you (Weather), 0..1.
+var _wet := -1.0
+func soak(w: float) -> void:
+	if absf(w - _wet) > 0.002:
+		_wet = w
+		_near_mat.set_shader_parameter("wet", w)
+
 func light(star_world: Vector3, star_power: float) -> void:
 	if look:
 		look.light(star_world)
