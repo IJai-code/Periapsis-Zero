@@ -305,6 +305,33 @@ presses down where you tread (`Grass.walker`). Within nine metres the
 ground gets a second, finer layer of its scans (grain and grit at the scale
 of a boot) and its dark, damp patches catch the light.
 
+### Gather and build (outpost.gd)
+
+Every world carries ore, the same 34 deposits each loop (`Outpost.lodes`:
+half within a walk of a landmark, the rest anywhere above the sea): ferrite
+everywhere, lumen mostly on airless worlds, resin where there is air. Hold
+the left mouse on a deposit to cut it (5 units, 0.42 s each; it shrinks as
+it empties and is back next loop). B opens the build kit: 1 to 9 choose a
+piece, R or the wheel turns it, the left mouse stands it where the green
+ghost is, X takes down the piece you look at for a full refund. Decks join
+in 4 m squares, walls stand on a deck's nearest edge, stairs lead up to it.
+The kit: lamp, beacon (a mark on the visor from anywhere on that world), hab
+(air, power and patching at its lock), landing pad, extractor (a unit of
+ferrite every 24 s of the loop, 14 at most, emptied with E), deck, wall,
+stairs, crate. The pack and everything built are in the save
+(`reach_pack`, `reach_built`) and outlast the loop: the loop takes the day
+back, not the work. 90 pieces at most; only the ruling world's pieces and
+deposits exist as nodes, and their lights burn within 60 m. Models come
+from `art/game-outpost/build.py` (Blender, headless) into
+`game/art/outpost/`. Beat `reach/build` stands a small outpost by the fire
+without touching the save; `reach/mine` and `reach/minein` look at the old
+mine.
+
+The old mine: its model's mound used to strew boulders through the tunnel
+(art/godot/reach_sites.py), burying the recorder; they are kept clear of it
+now, the tunnel sits wholly on the levelled ground, and its mouth and far
+end are lit.
+
 ### Weather (weather.gd)
 
 Hearthstone and Verdance have weather. Fronts come over at the same minutes

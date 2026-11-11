@@ -114,7 +114,7 @@ static func _make(name: String) -> Material:
 		"glow_engine": return _glow(Color(0.55, 0.85, 1.0), 6.0)
 		"glow_reactor": return _glow(Color(1.0, 0.45, 0.15), 5.0)
 		"glow_hollow": return _glow(Color(1.0, 0.3, 0.1), 6.0)
-		"window_glow": return _glow(Color(1.0, 0.85, 0.6), 3.0)
+		"window_glow": return _glow(Color(1.0, 0.7, 0.4), 1.7)
 		"nav_red": return _glow(Color(1.0, 0.1, 0.05), 8.0)
 		"nav_green": return _glow(Color(0.1, 1.0, 0.3), 8.0)
 		"nav_white": return _strobe(Color(1.0, 1.0, 1.0), 8.0)

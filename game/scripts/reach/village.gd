@@ -240,13 +240,17 @@ func _strings(houses: Array) -> void:
 	wire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(wire)
 	var bm := SphereMesh.new()
-	bm.radius = 0.09
-	bm.height = 0.2
+	bm.radius = 0.05
+	bm.height = 0.12
 	bm.radial_segments = 8
 	bm.rings = 4
 	var glow := StandardMaterial3D.new()
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.albedo_color = Color(1.0, 0.72, 0.36)
+	# Small and bright enough to bloom: a filament behind glass, not a
+	# flat orange disc.
+	glow.albedo_color = Color(1.0, 0.8, 0.55)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.66, 0.3)
+	glow.emission_energy_multiplier = 4.5
 	bm.material = glow
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -533,9 +537,23 @@ var falls: Falls
 
 ## The old mine past the lake: its mouth toward the village, the tunnel
 ## running back under its mound, a songline at the far end.
+var mine_piece: Node3D
 func _mine() -> void:
 	var cave := Worlds.place(body, "cave")
-	var m := put_near("site-mine_tunnel", cave, Vector3.ZERO, center.origin)
+	# Its mouth 9 m toward the village from the landmark, so the whole
+	# tunnel lies on the levelled ground there: further back the crater
+	# wall climbs 44 m and came up through the tunnel's floor, burying the
+	# recorder.
+	var d0 := cave.origin.normalized()
+	var home := (center.origin - cave.origin)
+	home = (home - d0 * home.dot(d0)).normalized()
+	var m := put_dir("site-mine_tunnel", d0.rotated(d0.cross(home).normalized(), 9.0 / body.radius), center.origin)
+	mine_piece = m
+	# Lit well enough to read as a way in from across the crater floor,
+	# and all the way down to the recorder.
 	for z in [-2.0, -8.0, -13.0]:
-		lamp(m, Vector3(1.1, 2.3, z), Color(1.0, 0.66, 0.34), 0.9, 6.0)
+		lamp(m, Vector3(1.1, 2.3, z), Color(1.0, 0.66, 0.34), 1.5, 8.0)
+	lamp(m, Vector3(-1.5, 2.7, 0.9), Color(1.0, 0.7, 0.38), 1.8, 10.0)
+	lamp(m, Vector3(1.5, 2.7, 0.9), Color(1.0, 0.7, 0.38), 1.8, 10.0)
+	lamp(m, Vector3(0.0, 2.2, -13.4), Color(1.0, 0.78, 0.5), 1.4, 6.0)
 	songline_at("mine", m.transform * Transform3D(Basis(), Vector3(0, 0, -14.1)))

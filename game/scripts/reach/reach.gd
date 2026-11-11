@@ -16,6 +16,7 @@ var _view_cam: Camera3D
 var player: Explorer
 var ship: ReachShip
 var weather: Weather
+var outpost: Outpost
 var hud: ReachHud
 var loop: ReachLoop
 var campfire: Campfire
@@ -636,6 +637,9 @@ func _environment() -> void:
 	weather = Weather.new()
 	weather.reach = self
 	add_child(weather)
+	outpost = Outpost.new()
+	outpost.reach = self
+	add_child(outpost)
 
 var _arrived := {}
 ## Off Hearthstone at least once this loop (the first steps are done).
@@ -770,7 +774,10 @@ func _air(cam: Camera3D) -> void:
 	# Night is dark but never blind: starlight off the dust, enough to find
 	# the fire and the path lanterns by.
 	env.ambient_light_color = Color(tint.r, tint.g, tint.b).lerp(Color(0.30, 0.36, 0.55), 1.0 - day)
-	env.ambient_light_energy = lerpf(0.17, 0.45, day) * lerpf(0.4, 1.0, thick)
+	# Skylight fills what the Lantern does not reach: the shaded side of a
+	# cabin shows its timber, not a black cut-out. Day air scatters far
+	# more of it than night.
+	env.ambient_light_energy = lerpf(0.34, 0.85, day) * lerpf(0.4, 1.0, thick)
 
 ## Sound under water: everything through a low-pass, as through the helmet
 ## and the water both.
@@ -926,6 +933,19 @@ func _start_player() -> void:
 		elif beat == "rain" or beat == "storm":
 			# A front overhead, held, for looking at it.
 			Weather.held = 0.65 if beat == "rain" else 1.0
+		elif beat == "build":
+			# A small outpost by the fire, for looking at the kit.
+			outpost.saving = false
+			outpost.built.clear()
+			outpost.pack = {"ferrite": 60, "lumen": 20, "resin": 20}
+			get_tree().create_timer(6.0).timeout.connect(func(): outpost.demo(player))
+		elif beat == "mine" or beat == "minein":
+			# At the old mine's mouth, or inside facing its recorder.
+			for site in (planets["hearthstone"] as Planet).sites:
+				if site is Village and (site as Village).mine_piece:
+					var mp: Node3D = (site as Village).mine_piece
+					var z := 9.0 if beat == "mine" else -8.0
+					player.place(Transform3D(mp.global_basis.orthonormalized(), mp.global_transform * Vector3(0, 0.4, z)), -mp.global_basis.z)
 		elif beat == "ground":
 			# Looking at the ground at your feet, for judging it close up.
 			player._pitch = -1.0
@@ -1104,6 +1124,8 @@ func _on_left_ship() -> void:
 		hud.guide(GUIDES[key][0], GUIDES[key][1] + "\n\nTo fly again, walk back under your ship and press E.", 22.0)
 
 func _on_woke(n: int, _first: bool) -> void:
+	if outpost:
+		outpost.new_loop()
 	if n > 1 and Lore.learn("hearth_loop"):
 		hud.toast("SHIP LOG UPDATED")
 		# The first time round again, said plainly: what happened and what
@@ -1698,6 +1720,22 @@ func _story_test() -> void:
 		Lore.learn(f)
 	var kinds := ["step_grass", "step_grit", "step_wood", "step_metal"].filter(func(k): return Sfx._streams.has(k))
 	log.call("boots on %d kinds, here %s" % [kinds.size(), player.footing()])
+	var had := outpost.built.size()
+	var pack_was: Dictionary = outpost.pack.duplicate()
+	var ore_before: int = outpost.pack.ferrite + outpost.pack.lumen + outpost.pack.resin
+	var cuts := 0
+	for i in 12:
+		for n in Outpost.YIELD + 1:
+			if outpost.cut_once(i):
+				cuts += 1
+	outpost.pack.ferrite += 20
+	var stood := outpost.place(1, player.global_transform)
+	var poor := outpost.place(2, player.global_transform) if outpost.pack.resin < 4 else false
+	var last: Dictionary = outpost.built[-1]
+	outpost.dismantle(last)
+	log.call("outpost lodes %d, cut %d, pack up %d, beacon %s, unpaid %s, taken down %s" % [Outpost.lodes(system.ruling()).size(), cuts, outpost.pack.ferrite + outpost.pack.lumen + outpost.pack.resin - ore_before, stood, poor, outpost.built.size() == had])
+	outpost.pack = pack_was
+	outpost._save()
 	weather.strike()
 	log.call("weather hearth %.2f %.2f %.2f, verdance %.2f, cloud first %s, strikes %d" % [Weather.rain_at("hearthstone", 60.0), Weather.rain_at("hearthstone", 480.0), Weather.rain_at("hearthstone", 1100.0), Weather.rain_at("verdance", 700.0), Weather.cloud_at("hearthstone", 370.0) > Weather.rain_at("hearthstone", 370.0), weather.strikes])
 	log.call("air on the hull %.2f %.2f" % [EntryGlow.rushing(1.0, 100.0), EntryGlow.rushing(0.0, 100.0)])

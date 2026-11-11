@@ -544,17 +544,21 @@ def mine_tunnel():
     for y in (2.0, 7.4, 12.8):
         kit.sphere(m('lantern'), (W / 2 - 0.35, y, H - 0.5), 0.12, 8)
     kit.box(m('planks'), (0, -0.2, H + 0.45), (2.0, 0.08, 0.55), Matrix.Rotation(-0.15, 3, 'X'))
-    # The mound over it.
+    # The mound over it. Every boulder is kept clear of the tunnel itself
+    # (its noise can swell it by 28%): they used to be strewn through it,
+    # and nobody could reach the recorder.
     rng = random.Random(31)
     for i in range(34):
         y = rng.uniform(0.6, L + 1.5)
         side = rng.choice((-1, 1))
-        x = side * rng.uniform(2.2, 4.5)
+        sx, sy, sz = rng.uniform(1.6, 2.6), rng.uniform(1.8, 2.8), rng.uniform(1.4, 2.4)
+        x = side * (W / 2 + 0.3 + sx * 1.3 + rng.uniform(0.0, 1.6))
         z = rng.uniform(0.0, 2.6)
-        boulder(m('stone'), (x, y, z), (rng.uniform(1.6, 2.6), rng.uniform(1.8, 2.8), rng.uniform(1.4, 2.4)), 400 + i)
+        boulder(m('stone'), (x, y, z), (sx, sy, sz), 400 + i)
     for i in range(14):
         y = rng.uniform(1.0, L + 1.0)
-        boulder(m('stone'), (rng.uniform(-2.0, 2.0), y, rng.uniform(3.6, 4.6)), (rng.uniform(2.0, 3.0), rng.uniform(2.0, 3.0), rng.uniform(1.2, 1.8)), 500 + i)
+        sx, sy, sz = rng.uniform(2.0, 3.0), rng.uniform(2.0, 3.0), rng.uniform(1.2, 1.8)
+        boulder(m('stone'), (rng.uniform(-2.0, 2.0), y, H + 0.3 + sz * 1.3 + rng.uniform(0.0, 0.6)), (sx, sy, sz), 500 + i)
     # The mouth's frame, as at the village.
     for x in (-1.6, 1.6):
         kit.box(m('beam'), (x, -0.1, 1.5), (0.34, 0.34, 3.0))

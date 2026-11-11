@@ -546,6 +546,11 @@ func _marker(vp: Vector2, c: Vector2) -> void:
 		var far := p.global_position.distance_to(s.global_position)
 		if far > 22.0:
 			_pin(vp, c, cam, ship_at, "Kestrel", Color(0.6, 0.85, 1.0), true)
+	# What you have built on this world: beacons and habs, once out of sight.
+	if reach.get("outpost") and p and p.enabled:
+		for pin: Dictionary in reach.outpost.pins():
+			if p.global_position.distance_to(pin.at) > 40.0:
+				_pin(vp, c, cam, pin.at, pin.label, Color(0.55, 0.9, 1.0), false)
 	# A run on: the next ring is the only place that matters.
 	var race_at = reach.get("race_at")
 	if race_at is Dictionary and not (race_at as Dictionary).is_empty():
