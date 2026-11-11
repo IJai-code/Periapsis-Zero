@@ -1170,11 +1170,11 @@ const LEADS := [
 	["wan_song", "song_ashfall", "Ashfall's part of the Engine's song is carved on the core's cradle in the Aster's cargo vault (code 0412). Keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["wan_song", "song_verdance", "Verdance's part of the Engine's song is in the recording on top of the highest pillar in the pillar city. Climb it.", "verdance", "pillars", "The high pillar"],
 	["wan_song", "song_nadir", "The Nadir's part of the Engine's song is in Abe Ferreira's log, aboard the Tern, 300 m over the black hole. Every minute there costs six outside.", "nadir", "abe", "Abe's log"],
-	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its stone door only opens between 20:00 and 21:15 on the clock (H or the map, M, shows the time). Early? Press E at the door to wait for it.", "wanderer", "engine", "The Engine"],
+	["ash_core", "wan_end", "Take the core to the Engine inside the Wanderer, the comet with two tails. Its stone door only opens between 20:00 and 21:15 on the clock (H or the map, M, shows the time). Early? Press E twice at the door to skip ahead to it.", "wanderer", "engine", "The Engine"],
 	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["verd_engine", "ash_core", "The Engine needs a core, and the Aster's cargo hummed like the Founders' recordings. Search the wreck on Ashfall, the dark moon with glowing cracks.", "ashfall", "wreck", "The Aster's wreck"],
-	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its stone door opens only when it is nearest the star, between 20:00 and 21:15 on the clock (H or M shows the time). Early? Press E at the door to wait for it.", "wanderer", "engine", "The Engine's door"],
+	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its stone door opens only when it is nearest the star, between 20:00 and 21:15 on the clock (H or M shows the time). Early? Press E twice at the door to skip ahead to it.", "wanderer", "engine", "The Engine's door"],
 	["verd_cargo", "ash_hale", "Find the Aster's bridge recorder on Ashfall, in the crater by the wreck: follow the marker. It is still talking; press E beside it.", "ashfall", "recorder", "The bridge recorder"],
 	["hearth_vex", "ash_vex", "Fly to Ashfall, the dark moon with glowing cracks. Vex, a salvager, camps beside the Aster's wreck: follow the marker to her and press E. (With the sound on, the signalscope, X, picks up her drums.)", "ashfall", "vex", "Vex's camp"],
 	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
@@ -1199,7 +1199,7 @@ func _lead_row() -> Array:
 				return l
 	# The core in hand: the Engine, whatever else is known.
 	if carrying_core and not Lore.known("wan_end") and (not Lore.known("wan_song") or WandererSite.song_missing().is_empty()):
-		return ["", "", "The core came back through the morning with you: it is the Engine's, and outside time. Carry it to the Engine inside the Wanderer, the comet with two tails, while its door is open, 20:00 to 21:15 on the clock (H or M shows the time). Early? Press E at the door to wait for it.", "wanderer", "engine", "The Engine"]
+		return ["", "", "The core came back through the morning with you: it is the Engine's, and outside time. Carry it to the Engine inside the Wanderer, the comet with two tails, while its door is open, 20:00 to 21:15 on the clock (H or M shows the time). Early? Press E twice at the door to skip ahead to it.", "wanderer", "engine", "The Engine"]
 	for l in LEADS:
 		if Lore.known(l[0]) and not Lore.known(l[1]):
 			return l
@@ -1372,8 +1372,11 @@ func _help_test() -> void:
 	_stand_before(w._door_use)
 	await get_tree().physics_frame
 	var t0 := Time.get_ticks_msec()
+	# The first E only explains; the second skips ahead.
 	w._use_door(player)
-	var waited := w._waiting
+	var asked_first := not w._waiting
+	w._use_door(player)
+	var waited := w._waiting and asked_first
 	while w._waiting and Time.get_ticks_msec() - t0 < 60000:
 		await get_tree().physics_frame
 	await get_tree().create_timer(4.0).timeout

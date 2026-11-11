@@ -54,8 +54,16 @@ func _ready() -> void:
 
 ## E at the sealed door, before 20:00: wait for it. The clock runs fast
 ## (as sleeping by a fire does) until the slab sinks; any key stops it.
+## The first E only explains (a press meant to open the door must not throw
+## seventeen minutes away); a second within a few seconds skips ahead.
+var _asked := -100000
 func _use_door(_by: Node) -> void:
-	if reach.system.t < OPEN_FROM - 2.0 and not _waiting:
+	var t: float = reach.system.t
+	if t < OPEN_FROM - 2.0 and not _waiting and Time.get_ticks_msec() - _asked > 8000:
+		_asked = Time.get_ticks_msec()
+		reach.hud.caption("Sealed until 20:00, when the Wanderer swings nearest the star (it is %s now). Explore and come back, or press E again to skip ahead: the clock races and it opens in about %d seconds (any key stops)." % [_mmss(t), _wait_secs(t)], 8.0)
+		return
+	if t < OPEN_FROM - 2.0 and not _waiting:
 		_waiting = true
 		_wait_from = Time.get_ticks_msec()
 		reach.system.warp = WAIT_WARP
@@ -88,7 +96,7 @@ func _door_words() -> String:
 	var t: float = reach.system.t
 	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, and the Engine's song, gathered from every world."
 	if t < OPEN_FROM:
-		return "The Engine's door is sealed until 20:00, when the Wanderer swings nearest the star; it is %s now. You don't have to wait 17 minutes: press E at the door and the clock races, and it opens in about %d seconds (any key stops). Or explore and come back before 21:15.%s" % [_mmss(t), _wait_secs(t), core]
+		return "The Engine's door is sealed until 20:00, when the Wanderer swings nearest the star; it is %s now. You don't have to wait: press E twice at the door and the clock races, and it opens in about %d seconds (any key stops). Or explore and come back before 21:15.%s" % [_mmss(t), _wait_secs(t), core]
 	if t <= OPEN_TO:
 		return "The door is open until 21:15. Walk inside.%s" % core
 	return "The door has shut for this morning (it is open 20:00 to 21:15). Come back next morning, before 21:15.%s" % core
@@ -110,7 +118,12 @@ func _physics_process(dt: float) -> void:
 		_door.position = Vector3(0, -4.2 * smoothstep(0.0, 1.0, _open), 7.5)
 	_socket.prompt = "Give the Engine the core" if reach.carrying_core else "An empty socket"
 	if _open < 0.5:
-		_door_use.prompt = ("Skip ahead to 20:00, when it opens (it is %s; about %d s)" % [_mmss(t), _wait_secs(t)]) if t < OPEN_FROM else "Sealed door: shut for this morning"
+		if t >= OPEN_FROM:
+			_door_use.prompt = "Sealed door: shut for this morning"
+		elif Time.get_ticks_msec() - _asked < 8000:
+			_door_use.prompt = "Press E again: skip ahead to 20:00 (about %d s)" % _wait_secs(t)
+		else:
+			_door_use.prompt = "Sealed until 20:00 (it is %s)" % _mmss(t)
 	else:
 		_door_use.prompt = ""
 	if _waiting:
