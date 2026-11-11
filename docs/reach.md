@@ -327,6 +327,13 @@ from `art/game-outpost/build.py` (Blender, headless) into
 without touching the save; `reach/mine` and `reach/minein` look at the old
 mine.
 
+Cost, measured in the browser build by the village fire: a seven-piece
+outpost in view is 391 draws against 300 without (60 fps, worst frame
+16 ms, no hitches). Deposits and the small pieces (lamp, stairs, crate) cast
+no shadows, deposits stop drawing at 150 m and pieces at 420 m; before that
+pass the same outpost was 447 draws. Skylight (`_air`): the ambient runs
+0.34 at night to 0.85 by day so shaded walls show their material.
+
 The old mine: its model's mound used to strew boulders through the tunnel
 (art/godot/reach_sites.py), burying the recorder; they are kept clear of it
 now, the tunnel sits wholly on the levelled ground, and its mouth and far

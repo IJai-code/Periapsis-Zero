@@ -179,6 +179,9 @@ func _deposit(b: ReachBody, l: Dictionary, index: int) -> void:
 	var toward := up.cross(Vector3.UP if absf(up.y) < 0.9 else Vector3.RIGHT).rotated(up, l.turn)
 	n.transform = Transform3D(Site.upright(up, toward), up * (b.radius + l.h - 0.12))
 	_root.add_child(n)
+	# A rock's shadow is not missed; its draw into the shadow map is. And
+	# past 150 m a deposit is a speck: not drawn at all.
+	_cheap(n, false, 150.0)
 	var u := Usable.sphere("", 1.0)
 	u.position = Vector3(0, 0.45, 0)
 	u.reach = 4.2
@@ -219,6 +222,8 @@ func _stand(r: Dictionary) -> Node3D:
 		sb.set_meta("built", r)
 	n.set_meta("built", r)
 	_nodes.append(n)
+	# The big pieces throw shadows; the small ones would only add draws.
+	_cheap(n, String(kit[1]) in ["hab", "pad", "beacon", "extractor", "deck", "wall"], 420.0)
 	match String(kit[1]):
 		"lamp":
 			_light(n, Vector3(0, 2.36, 0), Color(1.0, 0.72, 0.4), 1.6, 11.0)
@@ -241,6 +246,15 @@ func _stand(r: Dictionary) -> Node3D:
 			n.add_child(u2)
 			u2.used.connect(func(_by): _empty(r))
 	return n
+
+## Anti-lag: whether a piece draws into the shadow map, and how far off it
+## stops being drawn.
+func _cheap(n: Node3D, shadows: bool, far: float) -> void:
+	for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
+		if not shadows:
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = far
+		mi.visibility_range_end_margin = 10.0
 
 func _light(on: Node3D, at: Vector3, c: Color, energy: float, far: float) -> void:
 	var l := OmniLight3D.new()
