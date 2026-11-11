@@ -3,4 +3,4 @@ class_name Build
 ## scripts/godot-build.mjs. The site publishes the same number in
 ## /play/version.json, so a downloaded copy can tell when it is out of date.
 
-const STAMP := 1794367255
+const STAMP := 1794414846
