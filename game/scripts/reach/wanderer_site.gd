@@ -59,6 +59,11 @@ func _ready() -> void:
 var _asked := -100000
 func _use_door(_by: Node) -> void:
 	var t: float = reach.system.t
+	# Without the core there is nothing to open it for: no skipping ahead,
+	# which would only throw the loop away. Just what the door needs.
+	if t < OPEN_FROM and not reach.carrying_core and not _waiting:
+		reach.hud.caption(_door_words(), 9.0)
+		return
 	if t < OPEN_FROM - 2.0 and not _waiting and Time.get_ticks_msec() - _asked > 8000:
 		_asked = Time.get_ticks_msec()
 		reach.hud.caption("Sealed until 20:00, when the Wanderer swings nearest the star (it is %s now). Explore and come back, or press E again to skip ahead: the clock races and it opens in about %d seconds (any key stops)." % [_mmss(t), _wait_secs(t)], 8.0)
@@ -95,6 +100,8 @@ static func _mmss(t: float) -> String:
 func _door_words() -> String:
 	var t: float = reach.system.t
 	var core := "" if reach.carrying_core else " Inside is the Engine's socket; it takes the core from the Aster's vault on Ashfall, and the Engine's song, gathered from every world."
+	if t < OPEN_FROM and not reach.carrying_core:
+		return "The Engine's door is sealed until 20:00, when the Wanderer swings nearest the star (it is %s now). Nothing to wait for yet: play the Founders' recording beside the door, which says what the Engine inside needs, then go and find it.%s" % [_mmss(t), core]
 	if t < OPEN_FROM:
 		return "The Engine's door is sealed until 20:00, when the Wanderer swings nearest the star; it is %s now. You don't have to wait: press E twice at the door and the clock races, and it opens in about %d seconds (any key stops). Or explore and come back before 21:15.%s" % [_mmss(t), _wait_secs(t), core]
 	if t <= OPEN_TO:
@@ -120,6 +127,8 @@ func _physics_process(dt: float) -> void:
 	if _open < 0.5:
 		if t >= OPEN_FROM:
 			_door_use.prompt = "Sealed door: shut for this morning"
+		elif not reach.carrying_core:
+			_door_use.prompt = "Sealed until 20:00 (it is %s)" % _mmss(t)
 		elif Time.get_ticks_msec() - _asked < 8000:
 			_door_use.prompt = "Press E again: skip ahead to 20:00 (about %d s)" % _wait_secs(t)
 		else:

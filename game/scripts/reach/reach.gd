@@ -946,6 +946,9 @@ func _start_player() -> void:
 					var mp: Node3D = (site as Village).mine_piece
 					var z := 9.0 if beat == "mine" else -8.0
 					player.place(Transform3D(mp.global_basis.orthonormalized(), mp.global_transform * Vector3(0, 0.4, z)), -mp.global_basis.z)
+		elif beat == "giant":
+			# Looking up from the fire at the giant beyond the Reach.
+			player._pitch = 0.3
 		elif beat == "ground":
 			# Looking at the ground at your feet, for judging it close up.
 			player._pitch = -1.0
@@ -1174,7 +1177,7 @@ const LEADS := [
 	["ph_shrine", "ash_core", "Open the Aster's cargo vault on Ashfall (the code is 0412) and take the core inside. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["ash_hale", "ash_core", "Open the Aster's cargo vault on Ashfall: the code is 0412. Follow the marker; keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["verd_engine", "ash_core", "The Engine needs a core, and the Aster's cargo hummed like the Founders' recordings. Search the wreck on Ashfall, the dark moon with glowing cracks.", "ashfall", "wreck", "The Aster's wreck"],
-	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails. Its stone door opens only when it is nearest the star, between 20:00 and 21:15 on the clock (H or M shows the time). Early? Press E twice at the door to skip ahead to it.", "wanderer", "engine", "The Engine's door"],
+	["hearth_songline", "wan_door", "Fly to the Wanderer, the comet with two tails, and play the Founders' recording beside its sealed door: walk up to it, look at it and press E. It says what the Engine inside needs. (The door itself only opens much later in the loop; nothing to wait for yet.)", "wanderer", "engine", "The Engine's door"],
 	["verd_cargo", "ash_hale", "Find the Aster's bridge recorder on Ashfall, in the crater by the wreck: follow the marker. It is still talking; press E beside it.", "ashfall", "recorder", "The bridge recorder"],
 	["hearth_vex", "ash_vex", "Fly to Ashfall, the dark moon with glowing cracks. Vex, a salvager, camps beside the Aster's wreck: follow the marker to her and press E. (With the sound on, the signalscope, X, picks up her drums.)", "ashfall", "vex", "Vex's camp"],
 	["hearth_phantom", "ph_moves", "The Phantom, the purple moon nearest the star, jumps away whenever nobody watches it. Photograph it (P), then fly there keeping it in view.", "phantom", "shrine", "The Phantom"],
@@ -1365,12 +1368,20 @@ func _help_test() -> void:
 		system.t = t
 		words.append(w._door_words().substr(0, 40))
 	Hud.pause(false)
-	# Arrive at 3:00, as a player does: E at the sealed door waits for it.
+	# Arrive at 3:00, as a player does. Without the core, E only explains
+	# (no skipping the loop away); carrying it, E twice waits for the door.
 	system.t = 180.0
 	await _go("wanderer")
 	await get_tree().create_timer(2.0).timeout
 	_stand_before(w._door_use)
 	await get_tree().physics_frame
+	carrying_core = false
+	w._use_door(player)
+	w._use_door(player)
+	var bare_skip := w._waiting
+	if bare_skip:
+		w._stop_wait(false)
+	carrying_core = true
 	var t0 := Time.get_ticks_msec()
 	# The first E only explains; the second skips ahead.
 	w._use_door(player)
@@ -1381,7 +1392,7 @@ func _help_test() -> void:
 		await get_tree().physics_frame
 	await get_tree().create_timer(4.0).timeout
 	var stayed := player.global_position.distance_to(w.engine.global_position)
-	Report.line("DOORWAIT waited %s took %.0f s, t %.0f, open %.2f, warp %.0f, %.1f m from the Engine, alive %s" % [waited, (Time.get_ticks_msec() - t0) / 1000.0, system.t, w._open, system.warp, stayed, not loop.ending])
+	Report.line("DOORWAIT without core %s, waited %s took %.0f s, t %.0f, open %.2f, warp %.0f, %.1f m from the Engine, alive %s" % ["skipped" if bare_skip else "explained", waited, (Time.get_ticks_msec() - t0) / 1000.0, system.t, w._open, system.warp, stayed, not loop.ending])
 	Hud.pause(true)
 	await get_tree().process_frame
 	Report.line("HELPTEST head %s | steps %d | now %s | clock %s | door %s" % [pz._help_steps_head.text, pz._help_steps.get_child_count(), pz._help_goal.text.substr(0, 50), pz._help_clock.text, " / ".join(words)])
@@ -1608,6 +1619,10 @@ func _reset_loop() -> void:
 	var fire := Worlds.place(home, "village")
 	var at := fire.origin + fire.basis.x * 2.4 + fire.basis.y * 0.3
 	player.place(Transform3D(fire.basis, at), -fire.basis.x)
+	# The giant beyond the Reach (sky.gdshader): over the house, the way
+	# you face on waking, high enough to clear the crater's wall.
+	var sky_mat := env.sky.sky_material as ShaderMaterial
+	sky_mat.set_shader_parameter("giant_dir", (home.node.global_basis * (-fire.basis.x * 0.88 + fire.basis.y * 0.44 + fire.basis.z * 0.16)).normalized())
 	system.focus = player
 	player.camera.make_current()
 	if was != "hearthstone":

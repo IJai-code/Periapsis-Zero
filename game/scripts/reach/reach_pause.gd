@@ -227,7 +227,7 @@ func _fill_steps(r: Node) -> void:
 	var line := "The clock: %s of 22:00. At 22:00 the star goes out and the morning starts again." % _mmss(t)
 	if r.get("carrying_core") or Lore.known("ash_core") or Lore.known("hearth_songline"):
 		if t < WandererSite.OPEN_FROM:
-			line += " The Engine's door on the Wanderer opens at 20:00, in %s, and shuts at 21:15. Early? Press E twice at the door to skip ahead to it." % _span(WandererSite.OPEN_FROM - t)
+			line += " The Engine's door on the Wanderer opens at 20:00, in %s, and shuts at 21:15.%s" % [_span(WandererSite.OPEN_FROM - t), " Carrying the core and early? Press E twice at the door to skip ahead to it." if r.get("carrying_core") else " Without the core there is nothing to open it for yet."]
 		elif t <= WandererSite.OPEN_TO:
 			line += " The Engine's door on the Wanderer is open now, until 21:15."
 		else:

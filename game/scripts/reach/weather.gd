@@ -143,7 +143,88 @@ func step(cam: Camera3D, dt: float) -> void:
 		env.ambient_light_energy += 2.6 * flash * low
 		env.fog_light_color = env.fog_light_color.lerp(Color(0.75, 0.8, 0.95), flash * 0.7)
 	_fall(cam, dt, b, under)
+	_mist(cam, dt, b, under)
 	_sound(dt, under)
+
+## Low mist in the hollows round the camera: some every dawn and dusk on
+## the worlds with air, thick in the fronts. Laid on the ground where the
+## camera is (rebuilt after it has moved 35 m), the lowest of a few tries
+## each, so it pools where mist pools.
+const PUFFS := 56
+var _puffs: MultiMeshInstance3D
+var _puff_mat: ShaderMaterial
+var _laid_at := Vector3.INF
+var _laid_on := ""
+var mist := 0.0
+
+func _mist(cam: Camera3D, dt: float, b: ReachBody, under: bool) -> void:
+	var want := 0.0
+	if cam and b.air and not under and not (reach.loop and reach.loop.ending):
+		var alt := cam.global_position.distance_to(b.node.global_position) - b.radius
+		var low := 1.0 - smoothstep(60.0, 160.0, alt)
+		var sun_up := (cam.global_position - b.node.global_position).normalized().dot((reach.system.world("lantern") - cam.global_position).normalized())
+		var dawn := 1.0 - smoothstep(0.05, 0.45, absf(sun_up - 0.05))
+		want = clampf(0.35 + 0.65 * dawn + cloud * 0.8, 0.0, 1.0) * low
+	mist = move_toward(mist, want, dt * 0.2)
+	if _puffs == null:
+		var q := QuadMesh.new()
+		_puff_mat = ShaderMaterial.new()
+		_puff_mat.shader = load("res://shaders/reach/mist.gdshader")
+		_puff_mat.render_priority = 5
+		q.material = _puff_mat
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = q
+		mm.instance_count = PUFFS
+		_puffs = MultiMeshInstance3D.new()
+		_puffs.multimesh = mm
+		_puffs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_puffs)
+	_puffs.visible = mist > 0.01
+	if not _puffs.visible:
+		return
+	# Laid in the world's own space, so the sheets stay put as you move.
+	if _puffs.get_parent() != b.node:
+		_puffs.reparent(b.node, false)
+		_laid_at = Vector3.INF
+	var local := b.node.global_transform.affine_inverse() * cam.global_position
+	if b.key != _laid_on or local.distance_to(_laid_at) > 35.0:
+		_laid_on = b.key
+		_laid_at = local
+		_lay(b, local)
+	var e: Environment = reach.env
+	var c: Color = e.ambient_light_color * (0.45 + e.ambient_light_energy * 1.1) + reach.sun.light_color * reach.sun.light_energy * 0.22
+	_puff_mat.set_shader_parameter("tint", Color(c.r, c.g, c.b).lerp(e.fog_light_color, 0.3))
+	_puff_mat.set_shader_parameter("amount", mist)
+
+func _lay(b: ReachBody, at: Vector3) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(at.x * 0.03) * 73856093 ^ int(at.y * 0.03) * 19349663 ^ int(at.z * 0.03) * 83492791
+	var up := at.normalized()
+	var mm := _puffs.multimesh
+	for i in PUFFS:
+		var best := Vector3.ZERO
+		var best_h := INF
+		for k in 3:
+			var ang := rng.randf() * TAU
+			var dist := rng.randf_range(16.0, 95.0)
+			var side := up.cross(Vector3.UP if absf(up.y) < 0.9 else Vector3.RIGHT).normalized().rotated(up, ang)
+			var d := up.rotated(up.cross(side).normalized(), -dist / b.radius)
+			var h := Worlds.height(b.key, d, b.radius)
+			if b.sea != 0.0:
+				h = maxf(h, b.sea)
+			if h < best_h:
+				best_h = h
+				best = d
+		var w := rng.randf_range(30.0, 52.0)
+		var tall := rng.randf_range(7.0, 11.0)
+		# Scaled along its own axes (Basis.scaled would scale the world's).
+		var u := Site.upright(best, Vector3.FORWARD)
+		var basis := Basis(u.x * w, u.y * tall, u.z * w)
+		mm.set_instance_transform(i, Transform3D(basis, best * (b.radius + best_h - tall * 0.2)))
+		mm.set_instance_custom_data(i, Color(rng.randf(), 0, 0, 0))
+	_puffs.custom_aabb = AABB(at - Vector3.ONE * 160.0, Vector3.ONE * 320.0)
 
 func _soak(w: float) -> void:
 	var p := reach.planets.get(_wet_on) as Planet

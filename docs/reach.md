@@ -305,6 +305,31 @@ presses down where you tread (`Grass.walker`). Within nine metres the
 ground gets a second, finer layer of its scans (grain and grit at the scale
 of a boot) and its dark, damp patches catch the light.
 
+### The giant and the mist
+
+A banded giant hangs in the sky over every world, far beyond the Reach's
+edge and too far to fly to (sky.gdshader, `giant`): lit from the Lantern,
+its night side nearly black against the nebulae, a thin bright limb, one
+pale storm. It is placed once over the village's fire, the way you face on
+waking (`giant_dir`). It costs no draws (it is in the sky pass); beat
+`reach/giant` looks up at it.
+
+Low mist (Weather, `_mist`): 56 soft sheets in the hollows round the camera
+on the worlds with air, one draw, laid again after the camera has moved
+35 m (the lowest of three tries each, so it pools), always a little, more at
+dawn and dusk, thick in a front. The web renderer cannot read depth behind a
+transparent sheet, so each sheet is sunk a fifth of its height and faded at
+its foot instead of softened against the ground.
+
+### The Engine's door, the first time
+
+The comet is the first place the log sends you (after the old mine) and the
+last (the ending). The first trip is to play the recording beside the sealed
+door; the door opens only 20:00 to 21:15 on its nearest pass. Without the
+core, E at the door only says what it needs (no skipping ahead, which would
+throw the loop away); carrying it, the first E explains and a second skips
+ahead to 20:00. `--helptest` checks both.
+
 ### Gather and build (outpost.gd)
 
 Every world carries ore, the same 34 deposits each loop (`Outpost.lodes`:
