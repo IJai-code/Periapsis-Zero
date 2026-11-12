@@ -219,6 +219,17 @@ func _wake_sites() -> void:
 ## Each frame: where the Lantern is, for the hand-lit far surface and the air.
 var look: WorldLook
 
+## Pits of sinking ash drawn into the ground (AshSink): centres in this
+## world's space, and radii.
+func set_pits(list: Array) -> void:
+	var v := PackedVector4Array()
+	for x: Vector4 in list:
+		v.append(x)
+	while v.size() < 8:
+		v.append(Vector4.ZERO)
+	_near_mat.set_shader_parameter("pits", v)
+	_near_mat.set_shader_parameter("pit_count", mini(list.size(), 8))
+
 ## How wet the rain has left the ground near you (Weather), 0..1.
 var _wet := -1.0
 func soak(w: float) -> void:

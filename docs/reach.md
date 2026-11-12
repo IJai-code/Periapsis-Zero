@@ -305,6 +305,32 @@ presses down where you tread (`Grass.walker`). Within nine metres the
 ground gets a second, finer layer of its scans (grain and grit at the scale
 of a boot) and its dark, damp patches catch the light.
 
+### Ashfall's dangers
+
+Eight pits of sinking ash lie on the ways across Ashfall's crater, the same
+places every morning, never on the vault's door, the bridge or Vex's camp
+(AshfallSite._sinks). Each is drawn into the ground's own shader as a slow
+dark spiral with embers on its arms and at its heart (`pits` in
+planet.gdshader, `Planet.set_pits`), so it follows the slope and reads on
+the night side; dust lifts off it and it hisses close to. In one, the ash
+pulls you down (`Explorer.sunk`): slowly while you keep moving, nearly twice
+as fast standing still (about 4.5 s at the heart), legs held to 30% speed
+when deep; each jump wrenches you up 0.35 m; under to the chin, you die
+("The ash swallowed you"). Out of it you climb back up.
+
+Four of Rook's drones fly over the crater now: two over the vault and the
+wreck as before, two wider ones sweeping the ways in. One that holds you in
+its light for 0.8 s calls the others; they leave their loops and come after
+you at 9 m/s, above and behind, firing whenever they see you. They give up
+after 6 s without sight of you, 160 m from home, or once you are in the
+Kestrel, and fly back to their loops. Every hit flashes red and jolts the
+view. `--ashtest` checks the pits and the hunt.
+
+### The Zero-G cave, guided
+
+Near the cave with rings still to fly, the visor marks the next ring
+("Ring n of 5", as Isa's rings are marked) and the mouth says what to do.
+
 ### The giant and the mist
 
 A banded giant hangs in the sky over every world, far beyond the Reach's

@@ -62,6 +62,10 @@ var wind := 0.0
 var breath := 0.0
 var _gust := 0.0
 var _foot := false
+## How far the ash has pulled you under (AshSink), metres; 1.45 is the chin.
+var sunk := 0.0
+const SINK_DEAD := 1.45
+var _sink_told := false
 ## The prints left behind on the world underfoot.
 ## The jump being charged (seconds held, -1 not crouching); whether Space
 ## has been let go since leaving the ground (a second press is the jetpack).
@@ -227,6 +231,9 @@ func _physics_process(dt: float) -> void:
 				target *= lerpf(1.0, 0.5, clampf(wet / 0.9, 0.0, 1.0))
 			if _charge >= 0.0:
 				target *= 0.45
+			# In the ash: it holds the legs.
+			if sunk > 0.0:
+				target *= lerpf(1.0, 0.3, clampf(sunk / SINK_DEAD, 0.0, 1.0))
 			horiz = horiz.move_toward(target, (30.0 if wish.length() > 0.1 else 24.0) * dt)
 			# Space down: crouch and charge; let go: jump.
 			if space and _jet_t <= 0.0:
@@ -236,6 +243,8 @@ func _physics_process(dt: float) -> void:
 				vert = up * lerpf(JUMP, JUMP_MAX, k * k * (3.0 - 2.0 * k))
 				_charge = -1.0
 				_jet_t = 0.25
+				# A jump wrenches you up out of the ash a little.
+				sunk = maxf(0.0, sunk - 0.35)
 				_space_free = false
 				Sfx.play("step", -12.0, 0.7)
 			_space_free = not space
@@ -523,6 +532,27 @@ func _sounds(dt: float, jet_on: bool) -> void:
 			# Left and right never quite alike.
 			Sfx.play(footing(), (-18.0 if speed < 4.5 else -14.0) + randf_range(-1.5, 1.0), randf_range(0.86, 1.08) * (0.94 if _foot else 1.0))
 	_air_sounds(dt)
+	_sink(dt)
+
+## The ash pulling you down: slow while you keep moving, fast standing
+## still; out of it, you climb back up.
+func _sink(dt: float) -> void:
+	var k := AshSink.pull(global_position) if is_on_floor() else 0.0
+	if k > 0.0 and not _dead:
+		var moving := (velocity - up_direction * velocity.dot(up_direction)).length() > 1.0
+		sunk += dt * (0.06 + 0.16 * k) * (1.0 if moving else 1.8)
+		if not _sink_told:
+			_sink_told = true
+			var r := get_tree().get_first_node_in_group("reach_root")
+			if r and r.hud:
+				r.hud.caption("The ash is pulling you down! Keep moving, jump (Space), get out of it.", 4.0)
+			Sfx.play("alarm", -14.0, 0.6)
+		if sunk >= SINK_DEAD:
+			die("ash")
+	else:
+		sunk = move_toward(sunk, 0.0, dt * 0.9)
+		if sunk <= 0.0:
+			_sink_told = false
 
 ## What the boots are on: "step_grass", "step_grit", "step_wood" or
 ## "step_metal". The land itself is grass on the green worlds and grit on
@@ -675,7 +705,7 @@ func _process(dt: float) -> void:
 	# Standing, the view breathes: a few millimetres, slow.
 	_idle += dt
 	bob += sin(_idle * 1.57) * 0.004 * (1.0 - clampf(speed / WALK, 0.0, 1.0))
-	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch + _dip + (0.0 if third else bob)))
+	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch - sunk + _dip + (0.0 if third else bob)))
 	Grass.walker(at)
 	if third:
 		_third_cam(dt, speed)
@@ -762,6 +792,10 @@ func hurt(amount: float, cause: String) -> void:
 		return
 	health -= amount
 	Sfx.play("hit", -6.0, 0.9)
+	_jolt = maxf(_jolt, 0.8)
+	var r := get_tree().get_first_node_in_group("reach_root")
+	if r and r.hud:
+		r.hud.flash(Color(0.8, 0.05, 0.02), 0.45, 0.03, 0.6)
 	if health <= 0.0:
 		die(cause)
 
@@ -785,6 +819,7 @@ func place(xf: Transform3D, look_dir := Vector3.ZERO) -> void:
 	velocity = Vector3.ZERO
 	_pitch = 0.0
 	_dead = false
+	sunk = 0.0
 	enabled = true
 	oxygen = OXY_MAX
 	fuel = FUEL_MAX

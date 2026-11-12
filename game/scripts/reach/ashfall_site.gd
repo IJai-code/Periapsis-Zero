@@ -40,6 +40,7 @@ func _ready() -> void:
 	_vex()
 	_debris(away, along)
 	_drones(vault_mark)
+	_sinks(away, along, vault_mark)
 
 ## A ground frame `east`, `north` metres off the wreck's centre along two
 ## directions in the tangent plane.
@@ -260,7 +261,9 @@ func _debris(away: Vector3, along: Vector3) -> void:
 		piece(kind, Transform3D(g.basis.rotated(g.basis.y, rng.randf() * TAU), g.origin), true, rng.randf_range(0.6, 1.1))
 
 func _drones(vault_mark: Transform3D) -> void:
-	for spec in [[vault_mark, 11.0, 8.5, 0.34, 0.0], [center, 22.0, 11.0, -0.22, 2.0]]:
+	# Two over the vault and the wreck, and two wider hunters sweeping the
+	# ways in. One that sees you calls the others.
+	for spec in [[vault_mark, 11.0, 8.5, 0.34, 0.0], [center, 22.0, 11.0, -0.22, 2.0], [center, 38.0, 13.0, 0.16, 4.0], [vault_mark, 28.0, 10.0, -0.27, 1.0]]:
 		var d := HollowDrone.new()
 		d.reach = reach
 		d.path_center = spec[0]
@@ -270,6 +273,41 @@ func _drones(vault_mark: Transform3D) -> void:
 		d.phase = spec[4]
 		add_child(d)
 		drones.append(d)
+
+## Pits of loose ash on the ways across the crater (AshSink): the same
+## places every morning, never on the vault's door, the bridge or Vex's camp.
+var sinks: Array[AshSink] = []
+func _paint_pits() -> void:
+	var list := []
+	for pit in sinks:
+		list.append(Vector4(pit.position.x, pit.position.y, pit.position.z, pit.radius))
+	var host := get_parent() as Planet
+	if host:
+		host.set_pits(list)
+
+func _sinks(away: Vector3, along: Vector3, vault_mark: Transform3D) -> void:
+	var keep := [vault_mark.origin, Worlds.place(body, "vex").origin, recorder_at, center.origin]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+	var tries := 0
+	while sinks.size() < 8 and tries < 80:
+		tries += 1
+		var g := _off(away, rng.randf_range(-55.0, 45.0), along, rng.randf_range(-50.0, 50.0))
+		var clear := true
+		for k: Vector3 in keep:
+			if k != Vector3.ZERO and g.origin.distance_to(k) < 14.0:
+				clear = false
+		for o in sinks:
+			if g.origin.distance_to(o.position) < 16.0:
+				clear = false
+		if not clear:
+			continue
+		var pit := AshSink.new()
+		pit.radius = rng.randf_range(4.5, 7.5)
+		pit.transform = g
+		add_child(pit)
+		sinks.append(pit)
+	_paint_pits()
 
 ## Smoke rising from a burning wreck (rising along the site's up there).
 func _smoke(on: Node3D, at: Vector3) -> void:

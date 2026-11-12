@@ -5,6 +5,9 @@ render_mode cull_back;
 
 // Rain on it (Weather): darker, and shining where it lies flat.
 uniform float wet = 0.0;
+// Pits of sinking ash (AshSink): centre in the world's own space, radius.
+uniform vec4 pits[8];
+uniform int pit_count = 0;
 
 void vertex() {
 	lpos = VERTEX;
@@ -45,5 +48,24 @@ void fragment() {
 		ALBEDO *= mix(1.0, 0.58, wet);
 		ROUGHNESS = mix(ROUGHNESS, 0.22, wet * 0.85);
 		SPECULAR = mix(SPECULAR, 0.6, wet);
+	}
+	for (int i = 0; i < pit_count; i++) {
+		float r = length(lpos - pits[i].xyz) / pits[i].w;
+		if (r < 1.0) {
+			vec3 to = lpos - pits[i].xyz;
+			vec3 n0 = normalize(pits[i].xyz);
+			vec3 t1 = normalize(cross(n0, abs(n0.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+			vec3 t2 = cross(n0, t1);
+			float a = atan(dot(to, t2), dot(to, t1));
+			// A slow spiral of dark ash drawn in to a hollow, embers on its arms.
+			float sp = sin(a * 3.0 + log(max(r, 0.02)) * 9.0 + TIME * 1.5);
+			float edge = 1.0 - smoothstep(0.8, 1.0, r);
+			vec3 ash = mix(vec3(0.05, 0.045, 0.045), vec3(0.17, 0.15, 0.14), 0.5 + 0.5 * sp);
+			ash = mix(ash, vec3(0.015), 1.0 - smoothstep(0.0, 0.35, r));
+			ALBEDO = mix(ALBEDO, ash, edge);
+			ROUGHNESS = mix(ROUGHNESS, 1.0, edge);
+			float arms = smoothstep(0.75, 1.0, sp) * (1.0 - smoothstep(0.4, 0.95, r));
+			EMISSION += vec3(1.0, 0.33, 0.07) * edge * ((1.0 - smoothstep(0.0, 0.35, r)) * (0.9 + 0.5 * sin(TIME * 1.7)) + arms * 0.5);
+		}
 	}
 }

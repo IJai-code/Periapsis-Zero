@@ -198,6 +198,8 @@ func _ready() -> void:
 		_walk_test()
 	if "--seasontest" in args:
 		_season_test()
+	if "--ashtest" in args:
+		_ash_test.call_deferred()
 	if "--helptest" in args:
 		_help_test()
 	if "--nadirtest" in args:
@@ -209,6 +211,8 @@ func _ready() -> void:
 	if "--reachfly" in args:
 		_fly_test()
 	if "--storytest" in args:
+		# The story by teleport, standing at the vault: not a stealth check.
+		HollowDrone.calm = true
 		_story_test()
 	var tt := args.find("--talktest")
 	if tt >= 0 and tt + 1 < args.size():
@@ -218,7 +222,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--nadirtest", "--nadirland", "--filmreplay"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--ashtest", "--nadirtest", "--nadirland", "--filmreplay"]:
 			return true
 	return false
 
@@ -949,6 +953,9 @@ func _start_player() -> void:
 		elif beat == "giant":
 			# Looking up from the fire at the giant beyond the Reach.
 			player._pitch = 0.3
+		elif beat == "ashpit":
+			# On Ashfall, a few steps from a pit of sinking ash, looking at it.
+			_beat_ashpit.call_deferred()
 		elif beat == "ground":
 			# Looking at the ground at your feet, for judging it close up.
 			player._pitch = -1.0
@@ -2306,6 +2313,40 @@ func _go(key: String) -> void:
 	var mark := Worlds.place(b, Worlds.landmarks(key).keys()[0])
 	player.place(Transform3D(mark.basis, mark.origin + mark.basis.y * 30.0 + mark.basis.z * 18.0))
 	await get_tree().physics_frame
+
+func _beat_ashpit() -> void:
+	await _go("ashfall")
+	var ash: AshfallSite = (planets["ashfall"] as Planet).sites[0]
+	var pit: AshSink = ash.sinks[0]
+	var up := system.up_at(pit.global_position)
+	var out := pit.global_basis.z
+	player.place(Transform3D(Site.upright(up, out), pit.global_position + out * (pit.radius + 4.0) + up * 0.6), -out)
+	player._pitch = -0.35
+	player.flashlight.visible = true
+
+## Ashfall's dangers: the ash pulls a still walker under and lets go of
+## one who gets out; a drone that is called comes after you.
+func _ash_test() -> void:
+	await get_tree().create_timer(3.0).timeout
+	await _go("ashfall")
+	var ash: AshfallSite = (planets["ashfall"] as Planet).sites[0]
+	var pit: AshSink = ash.sinks[0]
+	var up := system.up_at(pit.global_position)
+	player.place(Transform3D(Site.upright(up, pit.global_basis.z), pit.global_position + up * 0.5))
+	await get_tree().create_timer(3.0).timeout
+	var sunk_still := player.sunk
+	var pull := AshSink.pull(pit.global_position)
+	player.place(Transform3D(Site.upright(up, pit.global_basis.z), pit.global_position + pit.global_basis.z * (pit.radius + 6.0) + up * 0.5))
+	await get_tree().create_timer(3.0).timeout
+	var after := player.sunk
+	var d: HollowDrone = ash.drones[2]
+	var far0 := d.global_position.distance_to(player.global_position)
+	d.join_hunt()
+	await get_tree().create_timer(3.0).timeout
+	var far1 := d.global_position.distance_to(player.global_position)
+	Report.line("ASHTEST pits %d, pull %.2f, sank %.2f m in 3 s standing, out %.2f, drones %d, hunter closed %.0f to %.0f m, alive %s" % [ash.sinks.size(), pull, sunk_still, after, ash.drones.size(), far0, far1, not player._dead])
+	await _hush()
+	get_tree().quit()
 
 ## Stand the explorer a metre and a half in front of a usable thing, looking
 ## at it, on the ground there.

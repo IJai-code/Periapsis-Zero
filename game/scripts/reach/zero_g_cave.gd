@@ -20,6 +20,7 @@ var _next := 0
 var _rocks: Array = []
 var _t := 0.0
 var _was_inside := false
+var _told := false
 
 ## Whether a point (world space) is inside a cave with no gravity.
 static func inside(p: Vector3) -> bool:
@@ -137,6 +138,19 @@ func _process(dt: float) -> void:
 		return
 	var p: Vector3 = reach.player.global_position + reach.player.global_basis.y * 0.9
 	var here := inside(p)
+	# Near the cave with rings still to fly: say so at the mouth, and mark
+	# the next ring on the visor (as Isa's rings are marked).
+	var near := p.distance_to(global_transform * CENTER) < 28.0
+	var mine: bool = reach.race_at.is_empty() or reach.race_at.get("cave", false)
+	if near and _next < RINGS.size() and mine:
+		reach.race_at = {"at": global_transform * (RINGS[_next] as Vector3), "label": "Ring %d of %d" % [_next + 1, RINGS.size()], "cave": true}
+		if not _told and not here:
+			_told = true
+			reach.hud.caption("The Zero-G cave: float in through the mouth and fly through the five glowing rings in order (follow the marker). Space up, Shift down, W A S D any way.", 7.0)
+	elif reach.race_at.get("cave", false):
+		reach.race_at = {}
+	if not near:
+		_told = false
 	if here and not _was_inside and reach.hud:
 		reach.hud.caption("No gravity in here. Space up, Shift down, W A S D any way.", 4.0)
 	_was_inside = here

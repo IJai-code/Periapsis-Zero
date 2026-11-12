@@ -120,6 +120,12 @@ const checks = [
     const m = out.match(/SEASONTEST tier (\d+) owned (\S+) week (\d+)\/(\d+) painted (\w+) paused (\w+) parked (\w+) running (\w+)/)
     return [Boolean(m) && m[1] === '5' && m[2] === 'hearth,ember,pine/campfire,copper/traveller,rememberer' && m[3] === m[4] && m[5] === 'true' && m[6] === 'true' && m[7] === 'true' && m[8] === 'true', m ? m[0] : 'no result']
   }],
+  ['the Reach: Ashfall ash pits pull a still walker under and let go outside; a called drone hunts', async () => {
+    const out = await run('reach', ['--ashtest'], /ASHTEST/)
+    const m = out.match(/ASHTEST pits (\d+), pull ([\d.]+), sank ([\d.]+) m in 3 s standing, out ([\d.]+), drones (\d+), hunter closed (\d+) to (\d+) m/)
+    const ok = m && +m[1] >= 6 && +m[2] > 0.9 && +m[3] > 0.6 && +m[3] < 1.45 && +m[4] < 0.05 && +m[5] === 4 && +m[7] < +m[6] - 15
+    return [!!ok, m ? m[0] : 'no ASHTEST line']
+  }],
   ['the Reach: H on a later morning shows the seat steps, the clock and when the Engine door opens', async () => {
     const out = await run('reach', ['--helptest'], /HELPTEST/)
     const m = out.match(/HELPTEST head ([^|]+)\| steps (\d+) \| now [^|]+\| clock ([^|]+)\| door (.+)/)

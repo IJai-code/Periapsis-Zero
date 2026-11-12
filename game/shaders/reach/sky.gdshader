@@ -27,7 +27,7 @@ vec3 stars(vec3 d, float scale, float density, float size, float gain) {
 	float r = length(p - c);
 	float s = size * mix(0.6, 1.3, h.y);
 	float core = smoothstep(s, 0.0, r);
-	float glow = exp(-r * r / (s * s * 2.5)) * 0.3 * h.y * h.y * smoothstep(0.24, 0.1, r);
+	float glow = exp(-r * r / (s * s * 2.5)) * 0.3 * h.y * h.y * (1.0 - smoothstep(0.1, 0.24, r));
 	vec3 tint = mix(vec3(1.0, 0.7, 0.48), vec3(0.72, 0.84, 1.0), h.z);
 	return tint * (core + glow) * gain * mix(0.6, 3.0, pow(h.y, 4.0));
 }
@@ -65,7 +65,7 @@ vec4 giant(vec3 d, vec3 sun) {
 	float disc = b * b - (1.0 - R * R);
 	// The air's halo just beyond the limb.
 	float off = sqrt(max(0.0, 1.0 - b * b));
-	float halo_k = smoothstep(R * 1.12, R, off) * step(0.0, b);
+	float halo_k = (1.0 - smoothstep(R, R * 1.12, off)) * step(0.0, b);
 	if (disc <= 0.0) {
 		vec3 nh = normalize(d - g * b);
 		float lit = clamp(dot(nh, sun) * 0.8 + 0.25, 0.0, 1.0);
