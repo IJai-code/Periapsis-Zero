@@ -57,6 +57,10 @@ const FACTS := {
 	"song_ashfall": ["ashfall", "Carved on the core's cradle in the Aster's vault, older than the ship: Ashfall's part of the Engine's song is iron.", ""],
 	"song_verdance": ["verdance", "On the high pillar: Verdance's part of the Engine's song is rain.", ""],
 	"song_nadir": ["nadir", "Abe's log: the Founders' song for the Nadir, the note the gleam flee, is deep.", ""],
+	"keep_found": ["hearth", "Beside the old mine lies a machine of no make you know, thrown down the night you fell. Its light still turns. It could be mended with ferrite and lumen.", ""],
+	"keep_mended": ["hearth", "You mended the fallen machine. The Keeper goes where you go now, and it remembers every morning, as you do.", ""],
+	"keep_makers": ["wanderer", "The Keeper, at the Engine: its makers built the Engine to hold a dying star's last morning until help could come, and set it to keep it. The Founders did not build the Engine. They found it.", ""],
+	"keep_core": ["ashfall", "The Keeper followed the core for a hundred years, through the Fold and back, and rode the Aster's vault beside it. It was thrown clear over Hearthstone the night she fell.", ""],
 	"nad_together": ["nadir", "Tock left the buoy and let the Nadir take him down to the Tern. For him it was a long fall. For the Ferreiras, he was home in a minute.", ""],
 }
 

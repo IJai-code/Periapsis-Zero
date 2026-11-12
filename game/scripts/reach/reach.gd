@@ -17,6 +17,7 @@ var player: Explorer
 var ship: ReachShip
 var weather: Weather
 var outpost: Outpost
+var keeper: Keeper
 var hud: ReachHud
 var loop: ReachLoop
 var campfire: Campfire
@@ -198,6 +199,8 @@ func _ready() -> void:
 		_walk_test()
 	if "--seasontest" in args:
 		_season_test()
+	if "--keepertest" in args:
+		_keeper_test.call_deferred()
 	if "--ashtest" in args:
 		_ash_test.call_deferred()
 	if "--helptest" in args:
@@ -222,7 +225,7 @@ func _ready() -> void:
 ## camera and the player themselves, so the morning cinematic is skipped.
 static func _testing(args: PackedStringArray) -> bool:
 	for a in args:
-		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--ashtest", "--nadirtest", "--nadirland", "--filmreplay"]:
+		if a in ["--reachwalk", "--reachfly", "--maptest", "--storytest", "--talktest", "--logtest", "--firetest", "--burntest", "--npctest", "--leavetest", "--mapui", "--walltest", "--lifttest", "--jumptest", "--launchtest", "--landtest", "--skytest", "--aptest", "--reftest", "--swimtest", "--walltestfly", "--proftest", "--arrivetest", "--phantomtest", "--stairtest", "--zerogtest", "--wandertest", "--groundtest", "--racetest", "--meteortest", "--drawcount", "--cockpitwaketest", "--corelooptest", "--waketest", "--seasontest", "--helptest", "--ashtest", "--keepertest", "--nadirtest", "--nadirland", "--filmreplay"]:
 			return true
 	return false
 
@@ -644,6 +647,9 @@ func _environment() -> void:
 	outpost = Outpost.new()
 	outpost.reach = self
 	add_child(outpost)
+	keeper = Keeper.new()
+	keeper.reach = self
+	add_child(keeper)
 
 var _arrived := {}
 ## Off Hearthstone at least once this loop (the first steps are done).
@@ -953,6 +959,9 @@ func _start_player() -> void:
 		elif beat == "giant":
 			# Looking up from the fire at the giant beyond the Reach.
 			player._pitch = 0.3
+		elif beat == "keeper" or beat == "keeperwreck":
+			# The Keeper mended and at your shoulder, or lying where it fell.
+			_beat_keeper.call_deferred(beat == "keeper")
 		elif beat == "ashpit":
 			# On Ashfall, a few steps from a pit of sinking ash, looking at it.
 			_beat_ashpit.call_deferred()
@@ -1136,6 +1145,8 @@ func _on_left_ship() -> void:
 func _on_woke(n: int, _first: bool) -> void:
 	if outpost:
 		outpost.new_loop()
+	if keeper:
+		keeper.new_loop()
 	if n > 1 and Lore.learn("hearth_loop"):
 		hud.toast("SHIP LOG UPDATED")
 		# The first time round again, said plainly: what happened and what
@@ -2314,6 +2325,28 @@ func _go(key: String) -> void:
 	player.place(Transform3D(mark.basis, mark.origin + mark.basis.y * 30.0 + mark.basis.z * 18.0))
 	await get_tree().physics_frame
 
+func _beat_keeper(mended: bool) -> void:
+	await get_tree().create_timer(2.0).timeout
+	if mended:
+		keeper.awake = true
+		keeper._pose()
+		await get_tree().create_timer(3.0).timeout
+		# Stand back and look at it.
+		var k := keeper.global_position
+		var up := system.up_at(k)
+		var from := k + player.global_basis.z * 5.5 - player.global_basis.x * 1.0
+		player.place(Transform3D(Site.upright(up, k - from), from), k - from)
+		keeper.waiting = true
+		player._pitch = 0.12
+	else:
+		var k := keeper.global_position
+		var up := system.up_at(k)
+		var v: Village = (planets["hearthstone"] as Planet).sites[0]
+		var back := (v.mine_piece.global_basis.z).normalized()
+		var from := k + back * 6.0 + up * 0.6
+		player.place(Transform3D(Site.upright(up, k - from), from), k - from)
+		player._pitch = -0.15
+
 func _beat_ashpit() -> void:
 	await _go("ashfall")
 	var ash: AshfallSite = (planets["ashfall"] as Planet).sites[0]
@@ -2323,6 +2356,47 @@ func _beat_ashpit() -> void:
 	player.place(Transform3D(Site.upright(up, out), pit.global_position + out * (pit.radius + 4.0) + up * 0.6), -out)
 	player._pitch = -0.35
 	player.flashlight.visible = true
+
+## The Keeper: found by the mine, mended with ore, follows, warns of the
+## ash, hauls you out of it, and strikes a hunting drone dark.
+func _keeper_test() -> void:
+	await get_tree().create_timer(3.0).timeout
+	Lore.forget_all()
+	keeper.new_loop()
+	await get_tree().create_timer(0.5).timeout
+	var v: Village = (planets["hearthstone"] as Planet).sites[0]
+	var by_mine := keeper.global_position.distance_to(v.mine_piece.global_position)
+	var asleep := not keeper.awake and keeper.visible
+	keeper._used(player)
+	var poor := not keeper.awake and Lore.known("keep_found")
+	outpost.saving = false
+	outpost.pack = {"ferrite": 6, "lumen": 3, "resin": 0}
+	keeper._used(player)
+	var paid: bool = keeper.awake and outpost.pack.ferrite == 0 and outpost.pack.lumen == 0
+	var up := system.up_at(player.global_position)
+	player.place(Transform3D(player.global_basis, player.global_position + player.global_basis.z * 30.0 + up * 0.5))
+	await get_tree().create_timer(5.0).timeout
+	var followed := keeper.global_position.distance_to(player.global_position)
+	await _go("ashfall")
+	var ash: AshfallSite = (planets["ashfall"] as Planet).sites[0]
+	var pit: AshSink = ash.sinks[0]
+	up = system.up_at(pit.global_position)
+	var out := pit.global_basis.z
+	player.place(Transform3D(Site.upright(up, out), pit.global_position + out * (pit.radius + 3.0) + up * 0.5), -out)
+	await get_tree().create_timer(2.5).timeout
+	var came := keeper.visible and keeper.global_position.distance_to(player.global_position) < 8.0
+	var warned := keeper.warned
+	player.place(Transform3D(Site.upright(up, out), pit.global_position + up * 0.5))
+	await get_tree().create_timer(6.0).timeout
+	var hauled := keeper.hauled
+	var alive := not player._dead
+	player.place(Transform3D(Site.upright(up, out), pit.global_position + out * (pit.radius + 8.0) + up * 0.5))
+	var d: HollowDrone = ash.drones[0]
+	d.join_hunt()
+	await get_tree().create_timer(4.0).timeout
+	Report.line("KEEPERTEST by the mine %.0f m, asleep %s, unpaid %s, mended %s, followed to %.1f m, came to Ashfall %s, warned %d, hauled %d alive %s, struck %d dark %s, facts %s" % [by_mine, asleep, poor, paid, followed, came, warned, hauled, alive, keeper.struck, d.stunned > 0.0, Lore.known("keep_mended")])
+	await _hush()
+	get_tree().quit()
 
 ## Ashfall's dangers: the ash pulls a still walker under and lets go of
 ## one who gets out; a drone that is called comes after you.

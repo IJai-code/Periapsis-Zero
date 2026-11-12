@@ -305,6 +305,40 @@ presses down where you tread (`Grass.walker`). Within nine metres the
 ground gets a second, finer layer of its scans (grain and grit at the scale
 of a boot) and its dark, damp patches catch the light.
 
+### The Keeper (keeper.gd)
+
+A companion, in the spirit of a family lost far from home and the machine
+that chooses to guard them (themes only: its name, look and story are the
+game's own). One of the machines that kept the Engine: it followed the
+stolen core for a century, rode the Aster's vault beside it, and was thrown
+clear over Hearthstone the night she fell. It lies smoking beside the old
+mine (the first place the log sends you). Mend it with 6 ferrite and 3 lumen
+(the cutter: Outpost) and it rights itself and goes where you go.
+
+- It hangs at your right shoulder, a tall dark spindle with a band of light,
+  two broken rings turning round it and four blades held close; left more
+  than 30 m behind it is simply there again; it rides aboard while you fly
+  and steps down with you on any world. E on it: wait here, or follow.
+- It says what it sees coming, each thing once and again only after a
+  while: sinking ash ahead, the drones' light, thin air, a wound, rain a
+  minute out, the star failing.
+- A drone that has you in its light: it puts itself between you, its light
+  goes red, its blades spread, and every 2.6 s it strikes the nearest hunter
+  dark for 14 s (`HollowDrone.stun`), after which that drone goes back to
+  its loop.
+- In the ash past your waist, it hauls you out (once in 30 s).
+- When nothing hunts you and you stand by it, it closes your suit's wounds.
+- It is of the Engine's make and outside time: mended once, it is at the
+  fire every morning (`keep_mended` in the log). Its story is told where it
+  matters: at the Engine's door (`keep_makers`: its makers built the Engine
+  to hold a dying star's last morning until help came; the Founders found
+  it, they did not build it) and when you first carry the core
+  (`keep_core`).
+
+Model: art/game-keeper/build.py (Blender) into art/keeper/keeper.glb, parts
+as separate nodes the game turns. `--keepertest` checks the whole of it;
+beats `reach/keeper` and `reach/keeperwreck` look at it.
+
 ### Ashfall's dangers
 
 Eight pits of sinking ash lie on the ways across Ashfall's crater, the same

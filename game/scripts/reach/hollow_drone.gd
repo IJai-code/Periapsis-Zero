@@ -34,6 +34,8 @@ var _hum: AudioStreamPlayer3D
 ## Hunting: it has left its loop and comes after you, the others with it;
 ## lost for long enough, it flies back to its loop.
 var _returning := false
+## Struck dark by the Keeper: seconds left before it wakes.
+var stunned := 0.0
 const CHASE_SPEED := 9.0
 const LEASH := 160.0
 
@@ -81,9 +83,17 @@ func _ready() -> void:
 	add_child(_hum)
 	_place(0.0)
 
+## Struck by the Keeper: dark and harmless for a while.
+func stun(seconds: float) -> void:
+	stunned = seconds
+	_alert = false
+	_seen = 0.0
+	_lost = 0.0
+	Sfx.play("hit", -8.0, 0.5)
+
 ## Another drone saw you: come and look.
 func join_hunt() -> void:
-	if _alert:
+	if _alert or stunned > 0.0:
 		return
 	_alert = true
 	_seen = SPOT_TIME
@@ -93,6 +103,9 @@ func join_hunt() -> void:
 ## Back to its loop (a new morning).
 func reset() -> void:
 	_returning = false
+	stunned = 0.0
+	_light.visible = true
+	_cone.visible = true
 	_seen = 0.0
 	_lost = 0.0
 	_alert = false
@@ -122,6 +135,18 @@ func _place(dt: float) -> void:
 
 func _physics_process(dt: float) -> void:
 	if not reach or not reach.player:
+		return
+	if stunned > 0.0:
+		# Dark, turning slowly, sinking a little; then it shakes awake and
+		# goes back to its loop.
+		stunned -= dt
+		_light.visible = false
+		_cone.visible = false
+		_model.rotate_object_local(Vector3.UP, dt * 1.3)
+		if stunned <= 0.0:
+			_light.visible = true
+			_cone.visible = true
+			_returning = true
 		return
 	var p: Explorer = reach.player
 	var on_foot: bool = p.enabled and not (reach.ship as ReachShip).piloted

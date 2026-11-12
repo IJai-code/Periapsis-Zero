@@ -126,6 +126,12 @@ const checks = [
     const ok = m && +m[1] >= 6 && +m[2] > 0.9 && +m[3] > 0.6 && +m[3] < 1.45 && +m[4] < 0.05 && +m[5] === 4 && +m[7] < +m[6] - 15
     return [!!ok, m ? m[0] : 'no ASHTEST line']
   }],
+  ['the Reach: the Keeper is found by the mine, mended with ore, follows, warns, hauls you from the ash and strikes a drone dark', async () => {
+    const out = await run('reach', ['--keepertest'], /KEEPERTEST/)
+    const m = out.match(/KEEPERTEST by the mine (\d+) m, asleep (\w+), unpaid (\w+), mended (\w+), followed to ([\d.]+) m, came to Ashfall (\w+), warned (\d+), hauled (\d+) alive (\w+), struck (\d+) dark (\w+), facts (\w+)/)
+    const ok = m && +m[1] < 40 && m[2] === 'true' && m[3] === 'true' && m[4] === 'true' && +m[5] < 6 && m[6] === 'true' && +m[7] >= 1 && +m[8] >= 1 && m[9] === 'true' && +m[10] >= 1 && m[11] === 'true' && m[12] === 'true'
+    return [!!ok, m ? m[0] : 'no KEEPERTEST line']
+  }],
   ['the Reach: H on a later morning shows the seat steps, the clock and when the Engine door opens', async () => {
     const out = await run('reach', ['--helptest'], /HELPTEST/)
     const m = out.match(/HELPTEST head ([^|]+)\| steps (\d+) \| now [^|]+\| clock ([^|]+)\| door (.+)/)
