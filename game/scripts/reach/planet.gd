@@ -379,6 +379,7 @@ func _deco_mm(mesh: Mesh, xfs: Array, centre: Vector3, mat: Material, begin: flo
 	mi.set_meta("kind", String(mesh.resource_name) if mesh.resource_name != "" else str(mesh.get_instance_id()))
 	add_child(mi)
 	_deco.append(mi)
+	Flow.detail(mi)
 	return mi
 
 ## Which chunk of a face a direction falls in. Two by two, not three by

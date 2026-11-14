@@ -163,7 +163,7 @@ func _strike() -> void:
 		aster.integrity = maxf(aster.floor_integrity, aster.integrity - 15.0)
 		_shake(cine, 0.4)
 		await wait(randf_range(0.45, 0.8))
-	Hud.say("Captain Hale", "They knew our route. Kestrel, they knew exactly wh—", 3.0)
+	Hud.say("Captain Hale", "They knew our route. Kestrel, they knew exactly wh...", 3.0)
 	await wait(2.4)
 	Hud.silence()
 	# The reactor goes: the Aster comes apart along her modules.

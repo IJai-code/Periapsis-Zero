@@ -84,6 +84,7 @@ func _ready() -> void:
 	_drops.custom_aabb = AABB(Vector3.ONE * -20.0, Vector3.ONE * 40.0)
 	_drops.visible = false
 	add_child(_drops)
+	Flow.detail(_drops)
 	var t0 := Time.get_ticks_usec()
 	_rain_sound = _loop(_rain_stream(false))
 	_roof_sound = _loop(_rain_stream(true))
@@ -181,6 +182,7 @@ func _mist(cam: Camera3D, dt: float, b: ReachBody, under: bool) -> void:
 		_puffs.multimesh = mm
 		_puffs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(_puffs)
+		Flow.detail(_puffs)
 	_puffs.visible = mist > 0.01
 	if not _puffs.visible:
 		return

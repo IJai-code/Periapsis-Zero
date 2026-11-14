@@ -31,14 +31,14 @@ const LINES := {
 		"late": ["Do you feel that? The light is going thin.", "The Lantern has never looked like that. Get moving."],
 	},
 	"okafor": {
-		"first": ["You are the pilot. Good. Come up to the observatory when you can — the Lantern is not well."],
+		"first": ["You are the pilot. Good. Come up to the observatory when you can. The Lantern is not well."],
 		"pass": ["The instrument is older than the village. It still works.", "I have been watching that star for thirty years. It has never done this.", "Bring me what the Founders left and I will make sense of it."],
 		"late": ["The readings are past the end of the scale. Go, pilot.", "I am staying. Someone has to write it down."],
 	},
 	"renn": {
 		"first": ["The pilot. I heard the lift. Sit, if you are staying."],
 		"pass": ["Quiet out here. The falls drown most of it.", "I have been listening to the Reach. It is not just us.", "You get used to the cold. Mostly."],
-		"late": ["The old recorders are playing by themselves. Can you hear them?", "Whatever you are planning — do it before the light goes."],
+		"late": ["The old recorders are playing by themselves. Can you hear them?", "Whatever you are planning, do it before the light goes."],
 	},
 	"vex": {
 		"first": ["Do not touch the drums. The drones do not like new sounds."],
@@ -46,7 +46,7 @@ const LINES := {
 		"late": ["The drones are pulling back. That is worse, not better.", "The Lantern is spitting. Keep your head down."],
 	},
 	"fen": {
-		"first": ["You are the pilot. Good. The little moon moved again last night — I saw it."],
+		"first": ["You are the pilot. Good. The little moon moved again last night. I saw it."],
 		"pass": ["Still here, then.", "The Lantern is dimming. Look at it long enough and you can see it.", "Sky is clear. For now."],
 		"late": ["It is pulling, is it not? Even the grass leans.", "I am not going inside. Not tonight."],
 	},

@@ -136,11 +136,21 @@ func new_loop() -> void:
 	awake = Lore.known("keep_mended")
 	_pose()
 
-## Where it fell: beside the old mine's mouth, half into the ground.
+## Where it fell: beside the old mine's mouth, half into the ground. Found
+## once in the world's own space (the terrain's noise is not cheap: asked
+## every frame it was 3 ms), then carried with the world.
+var _wreck_local := Transform3D()
+var _wreck_found := false
 func _wreck_xf() -> Transform3D:
 	var planet := reach.planets.get("hearthstone") as Planet
 	if planet == null:
 		return Transform3D.IDENTITY
+	if not _wreck_found:
+		_wreck_found = true
+		_wreck_local = planet.global_transform.affine_inverse() * _find_wreck(planet)
+	return planet.global_transform * _wreck_local
+
+func _find_wreck(planet: Planet) -> Transform3D:
 	var cave := Worlds.place(reach.system.bodies["hearthstone"], "cave")
 	var home := Worlds.place(reach.system.bodies["hearthstone"], "village").origin
 	var d0 := cave.origin.normalized()

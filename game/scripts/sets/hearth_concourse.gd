@@ -87,7 +87,7 @@ func _signs() -> void:
 		add_child(l)
 		i += 1
 	var board := Label3D.new()
-	board.text = "HEARTH  ·  EARTH-MOON L1\nDEPARTURES   HARBOR 14:20   GATEWAY 15:05   DRIFT  —"
+	board.text = "HEARTH  ·  EARTH-MOON L1\nDEPARTURES   HARBOR 14:20   GATEWAY 15:05   DRIFT  --:--"
 	board.font = Style.mono_bold
 	board.pixel_size = 0.0025
 	board.font_size = 64

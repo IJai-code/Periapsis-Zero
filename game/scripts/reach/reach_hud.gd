@@ -81,7 +81,7 @@ func _ready() -> void:
 	_key.add_theme_font_override("font", Style.mono_bold)
 	_key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.add_child(_key)
-	_act = ReachStyle.label("", 20, ReachStyle.BONE)
+	_act = ReachStyle.label("", 22, ReachStyle.BONE)
 	_shadow(_act)
 	_prompt_box.add_child(_act)
 	_prompt_box.visible = false
@@ -209,7 +209,7 @@ func _ready() -> void:
 	_place_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shadow(_place_title)
 	_place.add_child(_place_title)
-	_caption = ReachStyle.label("", 21, ReachStyle.BONE)
+	_caption = ReachStyle.label("", 23, ReachStyle.BONE)
 	_caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_caption.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -259,7 +259,7 @@ func _ready() -> void:
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hint.offset_left = 120
 	_hint.offset_bottom = -34
-	_hint.add_theme_constant_override("separation", 6)
+	_hint.add_theme_constant_override("separation", 8)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint.modulate.a = 0.0
 	root.add_child(_hint)
@@ -405,11 +405,11 @@ func hint(text: String, seconds := 16.0) -> void:
 		while i + 1 < parts.size():
 			var cap := PanelContainer.new()
 			cap.add_theme_stylebox_override("panel", ReachStyle.keycap())
-			var k := ReachStyle.label(parts[i], 13, ReachStyle.CHARCOAL, true)
+			var k := ReachStyle.label(parts[i], 16, ReachStyle.CHARCOAL, true)
 			k.add_theme_font_override("font", Style.mono_bold)
 			cap.add_child(k)
 			row.add_child(cap)
-			var w := ReachStyle.label(parts[i + 1], 16, ReachStyle.BONE)
+			var w := ReachStyle.label(parts[i + 1], 19, ReachStyle.BONE)
 			_shadow(w)
 			row.add_child(w)
 			var gap := Control.new()

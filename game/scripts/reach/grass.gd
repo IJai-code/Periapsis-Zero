@@ -179,6 +179,7 @@ static func field(site: Site, frame: Transform3D, radius: float, count: int, kee
 	mi.position = mid
 	mi.visibility_range_end = radius + 120.0
 	site.add_child(mi)
+	Flow.detail(mi)
 
 static func clear_cache() -> void:
 	_mesh = null

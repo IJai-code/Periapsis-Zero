@@ -1582,7 +1582,8 @@ func reset_loop() -> void:
 	# How long the morning took to put back (it happens behind a black
 	# screen; over a frame or two it would be heard in the music).
 	reset_ms = (Time.get_ticks_usec() - t0) / 1000.0
-	print("LOOP reset %.1f ms" % reset_ms)
+	if "--steps" in OS.get_cmdline_user_args():
+		print("LOOP reset %.1f ms" % reset_ms)
 
 var reset_ms := 0.0
 
@@ -1940,6 +1941,7 @@ func _draw_count() -> void:
 	await get_tree().create_timer(3.0).timeout
 	var pl: Planet = planets["hearthstone"]
 	var groups := {}
+	var tris := {}
 	var total := 0
 	for gi: GeometryInstance3D in pl.find_children("*", "GeometryInstance3D", true, false):
 		if not gi.is_visible_in_tree():
@@ -1956,17 +1958,33 @@ func _draw_count() -> void:
 			owner_node = owner_node.get_parent()
 		var key := String(owner_node.scene_file_path).get_file() if owner_node.scene_file_path != "" else owner_node.get_class() + ":" + String(gi.get_class())
 		if gi is MultiMeshInstance3D:
-			key = "mm:%s" % [gi.get_meta("kind", "?")]
+			key = "mm:%s" % [gi.get_meta("kind", String(gi.get_parent().name) + "/" + String(gi.material_override.resource_name if gi.material_override else (gi.material_override.get_class() if gi.material_override else "")))]
+			if not gi.material_override and (gi as MultiMeshInstance3D).multimesh.mesh:
+				var mm0 := (gi as MultiMeshInstance3D).multimesh
+				key += "%s x%d (%d tris)" % [mm0.mesh.resource_name, mm0.instance_count, mm0.mesh.get_faces().size() / 3]
+			if gi.material_override is ShaderMaterial and (gi.material_override as ShaderMaterial).shader:
+				key += ":" + (gi.material_override as ShaderMaterial).shader.resource_path.get_file()
 		elif key == "Node3D:MeshInstance3D":
 			key = "code:%s/%s" % [owner_node.get_class(), String(owner_node.get_parent().name) if owner_node.get_parent() else ""]
 			if owner_node.get_child_count() > 0 and owner_node.get_script():
 				key += ":" + String(owner_node.get_script().resource_path.get_file())
 		groups[key] = int(groups.get(key, 0)) + n
 		total += n
+		var m: Mesh = (gi as MeshInstance3D).mesh if gi is MeshInstance3D else ((gi as MultiMeshInstance3D).multimesh.mesh if gi is MultiMeshInstance3D and (gi as MultiMeshInstance3D).multimesh else null)
+		if m:
+			var f := m.get_faces().size() / 3
+			if gi is MultiMeshInstance3D:
+				var mm := (gi as MultiMeshInstance3D).multimesh
+				f *= mm.visible_instance_count if mm.visible_instance_count >= 0 else mm.instance_count
+			tris[key] = int(tris.get(key, 0)) + f
 	var keys := groups.keys()
 	keys.sort_custom(func(a, b): return groups[a] > groups[b])
 	for k in keys.slice(0, 25):
 		print("DRAWS %4d %s" % [groups[k], k])
+	var tk := tris.keys()
+	tk.sort_custom(func(a, b): return tris[a] > tris[b])
+	for k in tk.slice(0, 15):
+		print("TRIS %7d %s" % [tris[k], k])
 	Report.line("DRAWCOUNT total surfaces %d in %d groups" % [total, keys.size()])
 	Report.finish(get_tree())
 
@@ -2838,7 +2856,7 @@ func _prof_test() -> void:
 		var tot := 0.0
 		var n := 0
 		var t0 := Time.get_ticks_msec()
-		while Time.get_ticks_msec() - t0 < 1500:
+		while Time.get_ticks_msec() - t0 < 1200:
 			await get_tree().process_frame
 			tot += Performance.get_monitor(Performance.TIME_PROCESS) + Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
 			n += 1
@@ -2859,11 +2877,24 @@ func _prof_test() -> void:
 	for k in groups:
 		if k in ["flow.gd", "updater.gd", "shot.gd", "reach_loop.gd"]:
 			continue
-		for node: Node in groups[k]:
-			node.set_process(false)
-			node.set_physics_process(false)
-		var t: float = await measure.call()
-		Report.line("PROF without %-20s %.2f ms (saves %.2f)" % [k, t, base - t])
+		# Paired and repeated: on, off, on, off..., and the median of the
+		# differences, so drift and one slow second do not read as cost.
+		var diffs := []
+		var t := 0.0
+		for rep in 4:
+			var here: float = await measure.call()
+			for node: Node in groups[k]:
+				if is_instance_valid(node):
+					node.set_process(false)
+					node.set_physics_process(false)
+			t = await measure.call()
+			for node: Node in groups[k]:
+				if is_instance_valid(node):
+					node.set_process(true)
+					node.set_physics_process(true)
+			diffs.append(here - t)
+		diffs.sort()
+		Report.line("PROF without %-20s %.2f ms (saves %.2f, spread %.2f to %.2f)" % [k, t, (diffs[1] + diffs[2]) * 0.5, diffs[0], diffs[3]])
 		for node: Node in groups[k]:
 			node.set_process(true)
 			node.set_physics_process(true)

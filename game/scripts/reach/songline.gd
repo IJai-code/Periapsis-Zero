@@ -100,9 +100,17 @@ static func _gone() -> StandardMaterial3D:
 		_gone_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	return _gone_mat
 
+## Whether every verse is played: asked of the log twice a second, not
+## every frame (each asking walks every verse).
+var _done := false
+var _done_t := 0.0
 func _process(dt: float) -> void:
 	_t += dt
-	var done := Lore.all_read(id)
+	_done_t -= dt
+	if _done_t <= 0.0:
+		_done_t = 0.5
+		_done = Lore.all_read(id)
+	var done := _done
 	_glyph.emission_energy_multiplier = 2.6 if done else 0.9 + 0.5 * (0.5 + 0.5 * sin(_t * 1.7))
 	_glyph.emission = Color(1.0, 0.85, 0.55) if done else Color(1.0, 0.55, 0.25)
 	if _lamp:

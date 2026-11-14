@@ -365,7 +365,7 @@ func _got_core() -> void:
 	Sfx.play("objective", -2.0)
 	hud.log_line("Bridge core recorder aboard", Style.ION)
 	Hud.objective("Recorder aboard")
-	await Hud.say("Mara Voss", "You've got it? Good. Now get out of th—")
+	await Hud.say("Mara Voss", "You've got it? Good. Now get out of th...")
 	_ambush()
 
 # --- The ambush ---------------------------------------------------------------

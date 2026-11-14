@@ -249,8 +249,14 @@ func _tune(n: Node) -> void:
 ## the heavier effects (see `fx_low`).
 # Steps down cost resolution first; shadows go only at the last two and the
 # glow never does (a whole-screen change mid-play reads as a flash).
-const TIERS_WEB := [[1.0, true, true], [0.85, true, true], [0.72, true, true], [0.6, false, true], [0.5, false, true]]
-const TIERS_DESKTOP := [[1.0, true, true], [0.85, true, true], [0.72, true, true], [0.6, true, true], [0.5, false, true]]
+# Each tier: [3D resolution, sun shadows, glow, mesh detail threshold (how
+# soon models drop to their coarser forms: 1 is the importer's own), share
+# of the scattered detail drawn (grass, plants, rocks, rain, mist)]. The
+# lowest tiers cut the scene itself, not only the pixels: on a built-in
+# chip the triangles and draw calls are what is left once the resolution
+# is down.
+const TIERS_WEB := [[1.0, true, true, 1.0, 1.0], [0.85, true, true, 1.5, 0.85], [0.72, true, true, 2.5, 0.65], [0.6, false, true, 4.0, 0.45], [0.5, false, true, 6.0, 0.3]]
+const TIERS_DESKTOP := [[1.0, true, true, 1.0, 1.0], [0.85, true, true, 1.3, 0.9], [0.72, true, true, 2.0, 0.75], [0.6, true, true, 3.0, 0.55], [0.5, false, true, 5.0, 0.4]]
 var tier := 0
 var _floor_tier := 0
 var _fails := {}
@@ -302,23 +308,73 @@ func _start_tier() -> void:
 	# thirty smooth seconds costs a hitch, starting too high costs minutes
 	# of slideshow first.
 	if on_web():
-		var gpu := RenderingServer.get_video_adapter_name().to_lower()
+		var gpu := web_gpu().to_lower()
 		if "swiftshader" in gpu or "llvmpipe" in gpu or "basic render" in gpu or "software" in gpu:
 			guess = _tiers().size() - 1
 		elif "intel" in gpu or "uhd" in gpu or "iris" in gpu or "radeon(tm) graphics" in gpu or "vega" in gpu or "mali" in gpu or "adreno" in gpu:
 			guess = maxi(guess, 2)
+	elif _integrated(RenderingServer.get_video_adapter_name().to_lower()):
+		# The desktop build on a built-in chip: start two notches down too.
+		guess = maxi(guess, 2)
 	var saved := int(settings.get(key, -1))
+	# For measuring a tier: `-- --tier N` holds it there.
+	var forced := OS.get_cmdline_user_args().find("--tier")
+	if forced >= 0:
+		_pinned = true
+		set_tier(int(OS.get_cmdline_user_args()[forced + 1]))
+		return
 	set_tier(saved if saved >= 0 else guess)
+	if on_web():
+		JavaScriptBridge.eval("window.pzGpu=%s;window.pzStartTier=%d;window.pzGuess=%d" % [JSON.stringify(web_gpu()), tier, guess], true)
+
+## A graphics chip built into the processor (shares its memory and power).
+static func _integrated(gpu: String) -> bool:
+	return "intel" in gpu or "uhd" in gpu or "iris" in gpu or "radeon(tm) graphics" in gpu or "vega" in gpu or "mali" in gpu or "adreno" in gpu
+
+## The browser's graphics chip. WebGL reports "WebKit WebGL" to the
+## engine; the chip's real name has to be asked for through the debug
+## extension (Chrome, Edge and Firefox still answer).
+var _web_gpu := ""
+func web_gpu() -> String:
+	if _web_gpu == "" and on_web():
+		var r = JavaScriptBridge.eval("(()=>{try{const c=document.createElement('canvas');const g=c.getContext('webgl2')||c.getContext('webgl');if(!g)return '';const e=g.getExtension('WEBGL_debug_renderer_info');return String(e?g.getParameter(e.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER))}catch(x){return ''}})()", true)
+		_web_gpu = str(r) if r != null else ""
+		if _web_gpu == "":
+			_web_gpu = RenderingServer.get_video_adapter_name()
+	return _web_gpu
 
 func set_tier(t: int) -> void:
 	tier = clampi(t, 0, _tiers().size() - 1)
 	var spec: Array = _tiers()[tier]
 	_res = spec[0]
 	get_viewport().scaling_3d_scale = _res * _hidpi_k()
+	get_viewport().mesh_lod_threshold = spec[3]
+	for mi in get_tree().get_nodes_in_group("pz_detail"):
+		_thin(mi as MultiMeshInstance3D)
 	for n in get_tree().root.find_children("*", "DirectionalLight3D", true, false):
 		_tune(n)
 	for n in get_tree().root.find_children("*", "WorldEnvironment", true, false):
 		_tune(n)
+
+## Scattered detail (a field of grass, a chunk of plants, the rain): drawn
+## in full on the top tier, thinned on the lower ones. Its instances are
+## laid at random, so drawing the first part of them thins it evenly.
+func detail(mi: MultiMeshInstance3D) -> void:
+	if mi == null or mi.multimesh == null:
+		return
+	mi.set_meta("pz_full", mi.multimesh.instance_count)
+	mi.add_to_group("pz_detail")
+	_thin(mi)
+
+## The share of scattered detail the current tier draws.
+func detail_share() -> float:
+	return float(_tiers()[tier][4])
+
+func _thin(mi: MultiMeshInstance3D) -> void:
+	if not is_instance_valid(mi) or mi.multimesh == null:
+		return
+	var full := int(mi.get_meta("pz_full", mi.multimesh.instance_count))
+	mi.multimesh.visible_instance_count = -1 if detail_share() >= 0.999 else maxi(1, int(full * detail_share()))
 
 func _adapt(dt: float) -> void:
 	if _busy or get_tree().paused or _pinned:

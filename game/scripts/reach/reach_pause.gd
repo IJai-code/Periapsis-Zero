@@ -219,9 +219,9 @@ func _fill_steps(r: Node) -> void:
 	var steps: Array = STEPS if first else STEPS_LATER
 	_help_steps_head.text = "YOUR FIRST MORNING" if first else "EVERY MORNING FROM NOW ON"
 	for i in steps.size():
-		var step := ReachStyle.label("%d.  %s" % [i + 1, steps[i]], 16, ReachStyle.BONE)
+		var step := ReachStyle.label("%d.  %s" % [i + 1, steps[i]], 19, ReachStyle.BONE)
 		step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		step.custom_minimum_size = Vector2(560, 0)
+		step.custom_minimum_size = Vector2(640, 0)
 		_help_steps.add_child(step)
 	var t: float = r.system.t if r.get("system") else 0.0
 	var line := "The clock: %s of 22:00. At 22:00 the star goes out and the morning starts again." % _mmss(t)
@@ -254,42 +254,42 @@ func _help_panel() -> Control:
 	p.add_child(scroll)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	v.custom_minimum_size = Vector2(560, 0)
+	v.custom_minimum_size = Vector2(640, 0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(v)
 	# What to do now first, in the biggest words: it is what H is for.
-	var nh := ReachStyle.label("WHAT TO DO NOW", 15, ReachStyle.EMBER)
+	var nh := ReachStyle.label("WHAT TO DO NOW", 17, ReachStyle.EMBER)
 	nh.add_theme_font_override("font", ReachStyle.round_bold)
 	v.add_child(nh)
-	_help_goal = ReachStyle.label("", 20, Color("#ffd9a0"))
+	_help_goal = ReachStyle.label("", 24, Color("#ffd9a0"))
 	_help_goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_help_goal.custom_minimum_size = Vector2(560, 0)
+	_help_goal.custom_minimum_size = Vector2(640, 0)
 	v.add_child(_help_goal)
-	_help_clock = ReachStyle.label("", 16, Color(0.75, 0.9, 1.0))
+	_help_clock = ReachStyle.label("", 19, Color(0.75, 0.9, 1.0))
 	_help_clock.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_help_clock.custom_minimum_size = Vector2(560, 0)
+	_help_clock.custom_minimum_size = Vector2(640, 0)
 	v.add_child(_help_clock)
-	_help_steps_head = ReachStyle.label("", 15, ReachStyle.EMBER)
+	_help_steps_head = ReachStyle.label("", 17, ReachStyle.EMBER)
 	_help_steps_head.add_theme_font_override("font", ReachStyle.round_bold)
 	v.add_child(_help_steps_head)
 	_help_steps = VBoxContainer.new()
 	_help_steps.add_theme_constant_override("separation", 8)
 	v.add_child(_help_steps)
-	var head := ReachStyle.label("THE GOAL", 15, ReachStyle.EMBER)
+	var head := ReachStyle.label("THE GOAL", 17, ReachStyle.EMBER)
 	head.add_theme_font_override("font", ReachStyle.round_bold)
 	v.add_child(head)
-	var goal := ReachStyle.label("Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Then put an end to it. What you learn is the only thing you keep from one day to the next.", 18, ReachStyle.BONE)
+	var goal := ReachStyle.label("Find out what happened to the Aster, the freighter you were escorting, and why the same day keeps repeating. Then put an end to it. What you learn is the only thing you keep from one day to the next.", 20, ReachStyle.BONE)
 	goal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	goal.custom_minimum_size = Vector2(560, 0)
+	goal.custom_minimum_size = Vector2(640, 0)
 	v.add_child(goal)
-	var wh := ReachStyle.label("WORDS", 15, ReachStyle.EMBER)
+	var wh := ReachStyle.label("WORDS", 17, ReachStyle.EMBER)
 	wh.add_theme_font_override("font", ReachStyle.round_bold)
 	v.add_child(wh)
 	for w: Array in WORDS:
-		var row := ReachStyle.label("", 16, ReachStyle.BONE)
+		var row := ReachStyle.label("", 19, ReachStyle.BONE)
 		row.text = "%s:  %s" % [w[0], w[1]]
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		row.custom_minimum_size = Vector2(560, 0)
+		row.custom_minimum_size = Vector2(640, 0)
 		v.add_child(row)
 	return p
 
@@ -307,7 +307,7 @@ func _keys_panel() -> Control:
 	for g in KEYS.size():
 		var group: Array = KEYS[g]
 		var col := col_b if group[0] == "Your ship" else col_a
-		var head := ReachStyle.label(String(group[0]).to_upper(), 15, ReachStyle.EMBER)
+		var head := ReachStyle.label(String(group[0]).to_upper(), 17, ReachStyle.EMBER)
 		head.add_theme_font_override("font", ReachStyle.round_bold)
 		if col.get_child_count() > 0:
 			var sp := Control.new()
@@ -319,11 +319,11 @@ func _keys_panel() -> Control:
 			h.add_theme_constant_override("separation", 10)
 			var cap := PanelContainer.new()
 			cap.add_theme_stylebox_override("panel", ReachStyle.keycap())
-			var k := ReachStyle.label(row[0], 14, ReachStyle.CHARCOAL, true)
+			var k := ReachStyle.label(row[0], 16, ReachStyle.CHARCOAL, true)
 			k.add_theme_font_override("font", Style.mono_bold)
 			cap.add_child(k)
 			h.add_child(cap)
-			h.add_child(ReachStyle.label(row[1], 18, ReachStyle.BONE))
+			h.add_child(ReachStyle.label(row[1], 19, ReachStyle.BONE))
 			col.add_child(h)
 	return p
 

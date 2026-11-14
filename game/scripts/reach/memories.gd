@@ -28,7 +28,8 @@ func _process(dt: float) -> void:
 		_pending -= dt
 		if _pending < 0.0:
 			capture()
-	if _t >= EVERY and (reach.player as Explorer).enabled:
+	# (Half as often on the lighter tiers: each is a read of the whole frame.)
+	if _t >= EVERY * (2.0 if Flow.fx_low() else 1.0) and (reach.player as Explorer).enabled:
 		_t = 0.0
 		capture()
 
@@ -46,6 +47,17 @@ func capture() -> void:
 	_busy = false
 	if not img or img.get_width() < 16:
 		return
+	# Halved by plain box filtering first (cheap), then the last step
+	# smooth: a full-size bilinear resize of the frame was the hitch.
+	# (At most four halvings, and only while it really halves: an image
+	# that cannot be shrunk must not hold the frame forever.)
+	for i in 4:
+		var w := img.get_width()
+		if w < 1280 or img.is_compressed():
+			break
+		img.shrink_x2()
+		if img.get_width() >= w:
+			break
 	img.resize(320, maxi(1, int(320.0 * img.get_height() / img.get_width())), Image.INTERPOLATE_BILINEAR)
 	add(ImageTexture.create_from_image(img))
 
