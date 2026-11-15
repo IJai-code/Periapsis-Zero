@@ -91,6 +91,7 @@ func _ready() -> void:
 	_thunder = AudioStreamPlayer.new()
 	_thunder.stream = _thunder_stream()
 	add_child(_thunder)
+	_make_puffs()
 	if "--steps" in OS.get_cmdline_user_args():
 		print("WEATHER sounds made in %d ms" % ((Time.get_ticks_usec() - t0) / 1000))
 
@@ -167,22 +168,7 @@ func _mist(cam: Camera3D, dt: float, b: ReachBody, under: bool) -> void:
 		var dawn := 1.0 - smoothstep(0.05, 0.45, absf(sun_up - 0.05))
 		want = clampf(0.35 + 0.65 * dawn + cloud * 0.8, 0.0, 1.0) * low
 	mist = move_toward(mist, want, dt * 0.2)
-	if _puffs == null:
-		var q := QuadMesh.new()
-		_puff_mat = ShaderMaterial.new()
-		_puff_mat.shader = load("res://shaders/reach/mist.gdshader")
-		_puff_mat.render_priority = 5
-		q.material = _puff_mat
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = q
-		mm.instance_count = PUFFS
-		_puffs = MultiMeshInstance3D.new()
-		_puffs.multimesh = mm
-		_puffs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(_puffs)
-		Flow.detail(_puffs)
+	_make_puffs()
 	_puffs.visible = mist > 0.01
 	if not _puffs.visible:
 		return
@@ -199,6 +185,29 @@ func _mist(cam: Camera3D, dt: float, b: ReachBody, under: bool) -> void:
 	var c: Color = e.ambient_light_color * (0.45 + e.ambient_light_energy * 1.1) + reach.sun.light_color * reach.sun.light_energy * 0.22
 	_puff_mat.set_shader_parameter("tint", Color(c.r, c.g, c.b).lerp(e.fog_light_color, 0.3))
 	_puff_mat.set_shader_parameter("amount", mist)
+
+## Made with the rest at the start, hidden (so the loading screen's shader
+## warm-up compiles them: made on first need, a weak machine stalled a
+## second when the mist first rose).
+func _make_puffs() -> void:
+	if _puffs != null:
+		return
+	var q := QuadMesh.new()
+	_puff_mat = ShaderMaterial.new()
+	_puff_mat.shader = load("res://shaders/reach/mist.gdshader")
+	_puff_mat.render_priority = 5
+	q.material = _puff_mat
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = q
+	mm.instance_count = PUFFS
+	_puffs = MultiMeshInstance3D.new()
+	_puffs.multimesh = mm
+	_puffs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_puffs)
+	Flow.detail(_puffs)
+	_puffs.visible = false
 
 func _lay(b: ReachBody, at: Vector3) -> void:
 	var rng := RandomNumberGenerator.new()

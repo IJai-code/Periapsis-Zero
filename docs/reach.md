@@ -498,6 +498,25 @@ music's clock (the wall clock if the browser holds the sound back).
 
 ## Performance
 
+**Weak machines (2026-11-14).** Chromebooks crashed and Windows browsers
+fell over: memory, mostly. The pack was 237 MB (194 MB of textures stored
+lossless at full size); scanned props and people are lossy at 512 px now,
+tiling surfaces 512 px, the sky 2048 px: 81 MB, and the GPU's share in
+Chrome 625 MB to about 235 MB. Every world built its ground's collision
+at the start; it is built when the world is first underfoot
+(`Planet._shell`), about 80 MB less and worlds built three times faster.
+WebGL calls every chip "WebKit WebGL", so the start tier never saw a
+weak one: `Flow.web_gpu` asks for the real name (the page's `pzGpu`).
+Chromebooks, phones, tablets and ARM chips start on the last web tier
+(40% resolution, no bloom, coarse models, a fifth of the scattered
+detail: `Flow.detail` thins every field of grass, plants, rocks, rain
+and mist by tier). With the CPU slowed six times (Chrome's throttle,
+a real GPU) the village holds about 40 fps there. Mist and the build
+ghost are made at the start so the warm-up compiles them; the timed
+memory pictures are off on the lighter tiers (a read of the whole frame
+from the GPU). `-- --longframes` prints every frame over 50 ms;
+`scripts/scratch/memprobe.mjs` and `tierprobe.mjs` measure the browser.
+
 Built for the browser's Compatibility renderer first: one sun light, the
 flashlight and the ship's lamp; planets as cube-spheres (high detail only
 for the body you are on); plants as multimeshes; no screen-space effects

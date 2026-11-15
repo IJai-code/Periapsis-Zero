@@ -98,7 +98,7 @@ if (target === 'web') {
     for (let i = 0; i < parts.length; i++) {
       const m = parts[i].match(/^<script>([\s\S]*)<\/script>$/)
       if (!m) continue
-      const code = (await JsConfuser.obfuscate(m[1], { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, stringConcealing: true, hexadecimalNumbers: true })).code
+      const code = (await JsConfuser.obfuscate(m[1], { target: 'browser', compact: true, minify: true, renameVariables: true, renameGlobals: false, hexadecimalNumbers: true })).code
       parts[i] = `<script>${code}</script>`
     }
     writeFileSync(page, parts.join(''))

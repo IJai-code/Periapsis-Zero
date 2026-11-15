@@ -68,12 +68,6 @@ func _ready() -> void:
 	add_child(lo)
 	_solid = StaticBody3D.new()
 	_shape = CollisionShape3D.new()
-	var shell := mesh_hi.create_trimesh_shape()
-	# Solid from underneath too. A single-sided shell is a trap: step out of
-	# a ship with one foot under a rise and there is nothing to stop you
-	# falling through the world, into the dark inside it.
-	shell.backface_collision = true
-	_shape.shape = shell
 	_solid.add_child(_shape)
 	add_child(_solid)
 	if body.sea != 0.0:
@@ -123,7 +117,22 @@ func add_site(s: Site) -> Site:
 	return s
 
 ## Whether this is the frame's body: detail, collision and plants on.
+## The ground's collision: built the first time this world is the one
+## underfoot, not for every world at the start (six shells of the whole
+## surface were a large part of the memory a browser tab ran out of).
+func _shell() -> void:
+	if _shape.shape != null:
+		return
+	var shell := (hi.mesh as ArrayMesh).create_trimesh_shape()
+	# Solid from underneath too. A single-sided shell is a trap: step out of
+	# a ship with one foot under a rise and there is nothing to stop you
+	# falling through the world, into the dark inside it.
+	shell.backface_collision = true
+	_shape.shape = shell
+
 func set_ref(on: bool) -> void:
+	if on:
+		_shell()
 	is_ref = on
 	hi.visible = on
 	lo.visible = not on

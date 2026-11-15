@@ -255,7 +255,11 @@ func _tune(n: Node) -> void:
 # lowest tiers cut the scene itself, not only the pixels: on a built-in
 # chip the triangles and draw calls are what is left once the resolution
 # is down.
-const TIERS_WEB := [[1.0, true, true, 1.0, 1.0], [0.85, true, true, 1.5, 0.85], [0.72, true, true, 2.5, 0.65], [0.6, false, true, 4.0, 0.45], [0.5, false, true, 6.0, 0.3]]
+# The last web tier is the floor for a Chromebook or software drawing: a
+# small picture scaled up, no bloom (a whole-screen pass a weak chip pays
+# for twice), coarse models and a fifth of the scattered detail. Weak
+# machines start there, so there is no flash of bloom going.
+const TIERS_WEB := [[1.0, true, true, 1.0, 1.0], [0.85, true, true, 1.5, 0.85], [0.72, true, true, 2.5, 0.65], [0.6, false, true, 4.0, 0.45], [0.5, false, true, 6.0, 0.3], [0.4, false, false, 8.0, 0.2]]
 const TIERS_DESKTOP := [[1.0, true, true, 1.0, 1.0], [0.85, true, true, 1.3, 0.9], [0.72, true, true, 2.0, 0.75], [0.6, true, true, 3.0, 0.55], [0.5, false, true, 5.0, 0.4]]
 var tier := 0
 var _floor_tier := 0
@@ -309,6 +313,11 @@ func _start_tier() -> void:
 	# of slideshow first.
 	if on_web():
 		var gpu := web_gpu().to_lower()
+		# A Chromebook, a phone or a tablet: memory and graphics shared and
+		# small. Start at the lightest; it climbs if the machine copes.
+		var ua := str(JavaScriptBridge.eval("navigator.userAgent", true)).to_lower()
+		if "cros" in ua or "android" in ua or "iphone" in ua or "ipad" in ua or "mali" in gpu or "adreno" in gpu or "powervr" in gpu:
+			guess = _tiers().size() - 1
 		if "swiftshader" in gpu or "llvmpipe" in gpu or "basic render" in gpu or "software" in gpu:
 			guess = _tiers().size() - 1
 		elif "intel" in gpu or "uhd" in gpu or "iris" in gpu or "radeon(tm) graphics" in gpu or "vega" in gpu or "mali" in gpu or "adreno" in gpu:
@@ -337,7 +346,7 @@ static func _integrated(gpu: String) -> bool:
 var _web_gpu := ""
 func web_gpu() -> String:
 	if _web_gpu == "" and on_web():
-		var r = JavaScriptBridge.eval("(()=>{try{const c=document.createElement('canvas');const g=c.getContext('webgl2')||c.getContext('webgl');if(!g)return '';const e=g.getExtension('WEBGL_debug_renderer_info');return String(e?g.getParameter(e.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER))}catch(x){return ''}})()", true)
+		var r = JavaScriptBridge.eval("(()=>{try{if(window.pzGpu)return String(window.pzGpu);const c=document.createElement('canvas');const g=c.getContext('webgl2')||c.getContext('webgl');if(!g)return '';const e=g.getExtension('WEBGL_debug_renderer_info');return String(e?g.getParameter(e.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER))}catch(x){return ''}})()", true)
 		_web_gpu = str(r) if r != null else ""
 		if _web_gpu == "":
 			_web_gpu = RenderingServer.get_video_adapter_name()
@@ -377,6 +386,9 @@ func _thin(mi: MultiMeshInstance3D) -> void:
 	mi.multimesh.visible_instance_count = -1 if detail_share() >= 0.999 else maxi(1, int(full * detail_share()))
 
 func _adapt(dt: float) -> void:
+	if dt > 0.05 and "--longframes" in OS.get_cmdline_user_args():
+		var r := get_tree().get_first_node_in_group("reach_root")
+		print("LONGFRAME %d ms at %d ms, loop t %.1f" % [int(dt * 1000.0), Time.get_ticks_msec(), r.system.t if r and r.get("system") else -1.0])
 	if _busy or get_tree().paused or _pinned:
 		_fps_t = 0.0
 		_fps_n = 0
@@ -510,7 +522,7 @@ func step(name: String) -> void:
 		_steps = 1 if "--steps" in OS.get_cmdline_user_args() or (OS.has_feature("web") and str(JavaScriptBridge.eval("location.search", true)).contains("steps")) else 0
 	if _steps == 1:
 		var now := Time.get_ticks_msec()
-		print("STEP %s +%d ms (at %d)" % [name, now - _step_last, now])
+		print("STEP %s +%d ms (at %d) mem %d MB" % [name, now - _step_last, now, OS.get_static_memory_usage() / 1048576])
 		_step_last = now
 
 func scene_ready() -> void:

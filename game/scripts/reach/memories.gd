@@ -28,8 +28,11 @@ func _process(dt: float) -> void:
 		_pending -= dt
 		if _pending < 0.0:
 			capture()
-	# (Half as often on the lighter tiers: each is a read of the whole frame.)
-	if _t >= EVERY * (2.0 if Flow.fx_low() else 1.0) and (reach.player as Explorer).enabled:
+	# Not on a timer on the lighter tiers: each is a read of the whole frame
+	# back from the graphics chip, a stall a weak machine feels mid-walk.
+	# There the pictures come only at the natural pauses (arriving, after a
+	# conversation or a recording), which are captured as before.
+	if not Flow.fx_low() and _t >= EVERY and (reach.player as Explorer).enabled:
 		_t = 0.0
 		capture()
 

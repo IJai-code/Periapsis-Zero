@@ -87,6 +87,16 @@ func _ready() -> void:
 	_hinted = bool(Flow.progress("reach_build_hint", false))
 	_make_ui()
 	_make_tool()
+	# The build ghost's look, made now so it is warmed with the rest.
+	_ghost_mat = StandardMaterial3D.new()
+	_ghost_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_ghost_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_ghost_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var warm := MeshInstance3D.new()
+	warm.mesh = BoxMesh.new()
+	warm.material_override = _ghost_mat
+	warm.visible = false
+	add_child(warm)
 
 ## Off for the capture beats, which must not write into anyone's save.
 var saving := true
