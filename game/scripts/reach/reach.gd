@@ -965,6 +965,9 @@ func _start_player() -> void:
 		elif beat == "ashpit":
 			# On Ashfall, a few steps from a pit of sinking ash, looking at it.
 			_beat_ashpit.call_deferred()
+		elif beat == "third":
+			# Third person, on the village green, for judging the view.
+			player.set_third(true)
 		elif beat == "ground":
 			# Looking at the ground at your feet, for judging it close up.
 			player._pitch = -1.0
@@ -992,12 +995,14 @@ func _start_player() -> void:
 			ship.target = beat.trim_prefix("cruise:")
 			ship.start_autopilot()
 		elif beat == "zerog":
-			# Inside the Zero-G cave, floating, looking at the first ring.
+			# Inside the Zero-G cave, floating, looking up at the carving.
 			var zv: Village = (planets["hearthstone"] as Planet).sites[0]
 			var zc := zv.zerog
-			var at := zc.global_transform * Vector3(0, 3.5, 7.5)
+			var at := zc.global_transform * Vector3(0, 4.0, 4.0)
 			var upz := (at - system.world("hearthstone")).normalized()
-			player.place(Transform3D(Site.upright(upz, -zc.global_basis.z), at), -zc.global_basis.z)
+			var to_c := (zc.global_transform * ZeroGCave.CARVING) - at
+			player.place(Transform3D(Site.upright(upz, -zc.global_basis.z), at), to_c)
+			player._pitch = 0.9
 		elif beat.begins_with("nadir"):
 			# At the Nadir: nadir (the buoy's deck), nadir:tern (the Tern's),
 			# nadir:far[:<metres>] (out from it, looking at it).
@@ -1187,7 +1192,7 @@ func _on_boarded() -> void:
 ## the sound off), world, landmark (or "recorder"), what the marker says].
 const LEADS := [
 	["wan_song", "song_phantom", "The Engine needs its song, and the Phantom keeps a part of it in its shrine. Lock the Phantom (T) so it holds still, fly there and play the shrine's recording.", "phantom", "shrine", "The Phantom's shrine"],
-	["wan_song", "song_hearth", "Hearth's part of the Engine's song is carved past the fifth ring of the Zero-G cave, the dome of rock on the crater floor. Fly all five rings with the jetpack.", "hearthstone", "zerog", "The Zero-G cave"],
+	["wan_song", "song_hearth", "Hearth's part of the Engine's song is carved on the roof of the Zero-G cave, the dome of rock on the crater floor. Walk in, float up to it (Space rises) and read it.", "hearthstone", "zerog", "The Zero-G cave"],
 	["wan_song", "song_ashfall", "Ashfall's part of the Engine's song is carved on the core's cradle in the Aster's cargo vault (code 0412). Keep out of the drones' searchlights.", "ashfall", "vault", "The cargo vault"],
 	["wan_song", "song_verdance", "Verdance's part of the Engine's song is in the recording on top of the highest pillar in the pillar city. Climb it.", "verdance", "pillars", "The high pillar"],
 	["wan_song", "song_nadir", "The Nadir's part of the Engine's song is in Abe Ferreira's log, aboard the Tern, 300 m over the black hole. Every minute there costs six outside.", "nadir", "abe", "Abe's log"],
@@ -2698,13 +2703,17 @@ func _zerog_test() -> void:
 	await get_tree().create_timer(3.0).timeout
 	var drop := (mid - player.global_position).dot(up)
 	var floating := player.free_fall
-	for i in ZeroGCave.RINGS.size():
-		player.global_position = z.global_transform * (ZeroGCave.RINGS[i] as Vector3) - player.global_basis.y * 0.9
-		player.velocity = Vector3.ZERO
-		for f in 3:
-			await get_tree().process_frame
+	# Let go, drifting: the suit slows you to a stop.
+	player.velocity = player.global_basis.z * 3.0
+	await get_tree().create_timer(2.0).timeout
+	var drift := player.velocity.length()
+	# Up under the carving, and read it.
+	player.global_position = z.global_transform * (ZeroGCave.CARVING - Vector3(0, 2.6, 0))
+	player.velocity = Vector3.ZERO
+	await get_tree().process_frame
+	z._use.use(player)
 	await get_tree().create_timer(0.3).timeout
-	Report.line("ZEROGTEST floating %s, sank %.2f m in 3 s, rings %d of %d, learned %s" % [floating, drop, z._next, ZeroGCave.RINGS.size(), Lore.known("hearth_zerog")])
+	Report.line("ZEROGTEST floating %s, sank %.2f m in 3 s, drift %.2f m/s after 2 s, carving read %s, learned %s" % [floating, drop, drift, z._read_done, Lore.known("song_hearth") and Lore.known("hearth_zerog")])
 	Report.finish(get_tree())
 
 ## Walk (no jumping) from the path up the observatory's steps and in

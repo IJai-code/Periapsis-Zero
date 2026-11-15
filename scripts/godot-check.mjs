@@ -291,11 +291,11 @@ const checks = [
     if (!m) return [false, (out.match(/STAIRTEST[^\n]*/) ?? ['no result'])[0]]
     return [m[1] === 'true' && Number(m[2]) < 6, m[0]]
   }],
-  ['the Reach: no gravity in the Zero-G cave, and its five rings teach the jetpack', async () => {
+  ['the Reach: no gravity in the Zero-G cave, a drift slows to a stop, and the carving on its roof is read', async () => {
     const out = await run('reach', ['--zerogtest'], /ZEROGTEST/)
-    const m = out.match(/ZEROGTEST floating (\w+), sank ([-\d.]+) m in 3 s, rings (\d+) of (\d+), learned (\w+)/)
+    const m = out.match(/ZEROGTEST floating (\w+), sank ([-\d.]+) m in 3 s, drift ([\d.]+) m\/s after 2 s, carving read (\w+), learned (\w+)/)
     if (!m) return [false, (out.match(/ZEROGTEST[^\n]*/) ?? ['no result'])[0]]
-    return [m[1] === 'true' && Math.abs(Number(m[2])) < 0.5 && m[3] === m[4] && m[5] === 'true', m[0]]
+    return [m[1] === 'true' && Math.abs(Number(m[2])) < 0.5 && Number(m[3]) < 0.5 && m[4] === 'true' && m[5] === 'true', m[0]]
   }],
   ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
     const out = await run('reach', ['--swimtest'], /SWIMTEST/)

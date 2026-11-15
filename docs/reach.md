@@ -360,10 +360,19 @@ after 6 s without sight of you, 160 m from home, or once you are in the
 Kestrel, and fly back to their loops. Every hit flashes red and jolts the
 view. `--ashtest` checks the pits and the hunt.
 
-### The Zero-G cave, guided
+### The Zero-G cave
 
-Near the cave with rings still to fly, the visor marks the next ring
-("Ring n of 5", as Isa's rings are marked) and the mouth says what to do.
+No rings. A great boulder hangs at the top of the dome (nothing holds it
+up in there), and on its underside the Founders carved Hearth's part of
+the Engine's song, where only someone floating can read it. You walk in
+and float, rise with Space, sink with Shift, move with W A S D the way you
+look; let go and the suit brings you to a gentle stop (3.5 m/s^2), and no
+faster than 4 m/s inside; its jets use no fuel there. The visor marks the
+carving; E reads it (`song_hearth`, `hearth_zerog`). `--zerogtest` checks
+the float, the stop and the reading; beat `reach/zerog` looks up at it.
+
+Third person sits over the right shoulder (`Explorer.THIRD_OFFSET`), so
+the way ahead is not behind your own back; beat `reach/third`.
 
 ### The giant and the mist
 

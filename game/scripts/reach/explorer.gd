@@ -210,10 +210,19 @@ func _physics_process(dt: float) -> void:
 		pass
 	elif free_fall:
 		var t := right * mv.x + fwd * (-mv.y) + up * (float(space) - float(shift))
+		var cave := ZeroGCave.inside(global_position + global_basis.y * 0.9)
 		if t.length() > 0.01 and fuel > 0.0:
 			velocity += t.normalized() * JET_FREE * dt
-			fuel = maxf(0.0, fuel - 3.0 * dt)
+			# (In the cave the suit's air is free: it refills on the way out.)
+			if not cave:
+				fuel = maxf(0.0, fuel - 3.0 * dt)
 			jet_on = true
+		elif cave:
+			# Let go in the cave and the suit's jets bring you to a gentle
+			# stop: no drifting off into a wall, nothing to fight.
+			velocity = velocity.move_toward(Vector3.ZERO, 3.5 * dt)
+		if cave:
+			velocity = velocity.limit_length(4.0)
 		var roll := float(Input.is_key_pressed(KEY_Q)) - float(Input.is_key_pressed(KEY_E))
 		if enabled and roll != 0.0:
 			global_basis = Basis(fwd, roll * 1.4 * dt) * global_basis
@@ -718,7 +727,8 @@ var _avatar: Person
 var _avatar_root: Node3D
 var _cam_dist := 3.6
 var _cast_q: PhysicsRayQueryParameters3D
-const THIRD_OFFSET := Vector3(0.55, 0.35, 3.6)
+# Over the right shoulder, so the way ahead is not behind your own back.
+const THIRD_OFFSET := Vector3(0.9, 0.3, 3.3)
 
 func set_third(on: bool) -> void:
 	third = on
