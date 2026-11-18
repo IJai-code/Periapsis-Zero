@@ -173,19 +173,11 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_F:
 				flashlight.visible = not flashlight.visible
 				Sfx.play("click", -12.0, 1.4)
-			KEY_V:
-				set_third(not third)
-				Flow.settings["third_person"] = third
-				Flow.apply_settings()
-				Sfx.play("click", -12.0, 1.0)
 
 func _physics_process(dt: float) -> void:
 	if _dead or not system:
 		return
 	var g := system.gravity(global_position)
-	# The Zero-G cave: none at all.
-	if ZeroGCave.inside(global_position + global_basis.y * 0.9):
-		g = Vector3.ZERO
 	var gl := g.length()
 	free_fall = gl < 0.35 and not is_on_floor()
 	if not free_fall and gl > 0.001:
@@ -210,19 +202,10 @@ func _physics_process(dt: float) -> void:
 		pass
 	elif free_fall:
 		var t := right * mv.x + fwd * (-mv.y) + up * (float(space) - float(shift))
-		var cave := ZeroGCave.inside(global_position + global_basis.y * 0.9)
 		if t.length() > 0.01 and fuel > 0.0:
 			velocity += t.normalized() * JET_FREE * dt
-			# (In the cave the suit's air is free: it refills on the way out.)
-			if not cave:
-				fuel = maxf(0.0, fuel - 3.0 * dt)
+			fuel = maxf(0.0, fuel - 3.0 * dt)
 			jet_on = true
-		elif cave:
-			# Let go in the cave and the suit's jets bring you to a gentle
-			# stop: no drifting off into a wall, nothing to fight.
-			velocity = velocity.move_toward(Vector3.ZERO, 3.5 * dt)
-		if cave:
-			velocity = velocity.limit_length(4.0)
 		var roll := float(Input.is_key_pressed(KEY_Q)) - float(Input.is_key_pressed(KEY_E))
 		if enabled and roll != 0.0:
 			global_basis = Basis(fwd, roll * 1.4 * dt) * global_basis
@@ -681,7 +664,7 @@ func _boot_dust(k: float) -> void:
 ## What is looked at, within reach.
 func _look() -> void:
 	var space := get_world_3d().direct_space_state
-	# From the eyes, along the view (the same in first and third person).
+	# From the eyes, along the view.
 	var from := head.global_position
 	if _q == null:
 		_q = PhysicsRayQueryParameters3D.new()
@@ -714,60 +697,12 @@ func _process(dt: float) -> void:
 	# Standing, the view breathes: a few millimetres, slow.
 	_idle += dt
 	bob += sin(_idle * 1.57) * 0.004 * (1.0 - clampf(speed / WALK, 0.0, 1.0))
-	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch - sunk + _dip + (0.0 if third else bob)))
+	head.global_transform = Transform3D(b * Basis(Vector3.RIGHT, _pitch), at + b.y * (1.62 - _crouch - sunk + _dip + bob))
 	Grass.walker(at)
-	if third:
-		_third_cam(dt, speed)
 
 ## Third person (V): the camera over the right shoulder, pulled in front of
 ## anything between it and the head; the pilot seen walking, running,
 ## crouching to jump, in the air.
-var third := false
-var _avatar: Person
-var _avatar_root: Node3D
-var _cam_dist := 3.6
-var _cast_q: PhysicsRayQueryParameters3D
-# Over the right shoulder, so the way ahead is not behind your own back.
-const THIRD_OFFSET := Vector3(0.9, 0.3, 3.3)
-
-func set_third(on: bool) -> void:
-	third = on
-	if on and _avatar == null:
-		_avatar_root = Node3D.new()
-		add_child(_avatar_root)
-		_avatar = Person.make("pilot")
-		# Not a body of its own: it would push against the explorer's.
-		_avatar.solid = false
-		_avatar_root.add_child(_avatar)
-		_avatar_root.rotation.y = PI
-	if _avatar_root:
-		_avatar_root.visible = on
-	if not on:
-		camera.transform = Transform3D()
-	_cam_dist = THIRD_OFFSET.z
-
-func _third_cam(dt: float, speed: float) -> void:
-	var want := THIRD_OFFSET
-	var from := head.global_position
-	var to := head.global_transform * want
-	if _cast_q == null:
-		_cast_q = PhysicsRayQueryParameters3D.new()
-		_cast_q.collision_mask = 1
-		_cast_q.exclude = [get_rid()]
-	_cast_q.from = from
-	_cast_q.to = to + (to - from).normalized() * 0.3
-	var hit := get_world_3d().direct_space_state.intersect_ray(_cast_q)
-	var dist := want.length()
-	if not hit.is_empty():
-		dist = maxf(from.distance_to(hit.position) - 0.3, 0.4)
-	# In at once (nothing seen through a wall), out again gently.
-	_cam_dist = dist if dist < _cam_dist else lerpf(_cam_dist, dist, minf(1.0, dt * 3.0))
-	camera.position = want.normalized() * _cam_dist
-	camera.rotation = Vector3.ZERO
-	if _avatar:
-		var crouched := _charge >= 0.0
-		_avatar.locomote(speed, crouched, not is_on_floor() and not free_fall and wet < 1.0)
-
 ## The world's frame moved (Reach): move with it.
 func frame_shift(dp: Vector3, dv: Vector3) -> void:
 	global_position += dp

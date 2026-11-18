@@ -37,7 +37,7 @@ var _lens_mat: ShaderMaterial
 var _gleam: MeshInstance3D
 var _gleam_mat: ShaderMaterial
 var _tier_t := 0.0
-## The Tern's cabin holds air (world space test, as ZeroGCave.inside).
+## The Tern's cabin holds air (a world space test).
 static var _cabin: Node3D
 
 static func air_at(p: Vector3) -> bool:

@@ -118,13 +118,15 @@ func _build() -> void:
 			lamp(put("valley-lamp2", p, p + to.normalized().orthogonal() * (-1.0 if k % 2 == 0 else 1.0)), Vector3(0, 2.25, 0.72), Color(1.0, 0.7, 0.4), 1.4, 8.0)
 		if chunk:
 			await get_tree().process_frame
-	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond, "Zero-G cave": _flat("zerog")})
-	# The Zero-G cave (ZeroGCave), its dome on the crater floor.
+	_signpost(Vector2(6.5, -2.0), {"Launch tower": pad, "Observatory": obs, "Old mine": cave, "Pond": pond, "Founders' dome": _flat("zerog")})
+	# The Founders' dome (ZeroGCave) on the crater floor, its recording
+	# standing at the back, facing the mouth.
 	if chunk:
 		await get_tree().process_frame
 	var zm := put_near("valley-zerog_cave", Worlds.place(body, "zerog"), Vector3.ZERO, center.origin, true, 1.0, 0.0)
 	zerog = ZeroGCave.new()
 	zm.add_child(zerog)
+	songline_at("dome", zm.transform * Transform3D(Basis(), Vector3(0, 0, -5.2)))
 	if chunk:
 		await get_tree().process_frame
 	_dress_dome(zm)
@@ -371,7 +373,7 @@ func _chimney(cabin: Node3D) -> void:
 ## The crater's walls: carved cliff all round (art/godot/hearth_valley.py),
 ## but for the mine's notch; at the falls, the gorge piece, the water
 ## coming down it (Falls) into the pool, its mist and its roar.
-## The Zero-G cave's dome was a smooth ball under a rock texture: scanned
+## The Founders' dome was a smooth ball under a rock texture: scanned
 ## boulders and a rock face or two bedded into its outside (not over its
 ## mouth, which is +Z), solid like the dome.
 func _dress_dome(dome: Node3D) -> void:

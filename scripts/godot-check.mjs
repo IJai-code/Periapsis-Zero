@@ -110,11 +110,6 @@ const checks = [
     const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
     return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
   }],
-  ['the Reach: walk round Hearthstone in third person and never fall through', async () => {
-    const out = await run('reach', ['--reachwalk', '--third'], /REACHWALK/)
-    const m = out.match(/REACHWALK walked (\d+) m, lowest (-?[\d.]+) m above ground, on floor (\w+), health (\d+), dead (\w+)/)
-    return [Boolean(m) && Number(m[1]) > 80 && Number(m[2]) > -1.5 && m[3] === 'true' && m[5] === 'false', m ? m[0] : 'no result']
-  }],
   ['the Reach: the season pays its tiers, counts the week and runs the Homecoming', async () => {
     const out = await run('reach', ['--seasontest'], /SEASONTEST/)
     const m = out.match(/SEASONTEST tier (\d+) owned (\S+) week (\d+)\/(\d+) painted (\w+) paused (\w+) parked (\w+) running (\w+)/)
@@ -291,11 +286,10 @@ const checks = [
     if (!m) return [false, (out.match(/STAIRTEST[^\n]*/) ?? ['no result'])[0]]
     return [m[1] === 'true' && Number(m[2]) < 6, m[0]]
   }],
-  ['the Reach: no gravity in the Zero-G cave, a drift slows to a stop, and the carving on its roof is read', async () => {
-    const out = await run('reach', ['--zerogtest'], /ZEROGTEST/)
-    const m = out.match(/ZEROGTEST floating (\w+), sank ([-\d.]+) m in 3 s, drift ([\d.]+) m\/s after 2 s, carving read (\w+), learned (\w+)/)
-    if (!m) return [false, (out.match(/ZEROGTEST[^\n]*/) ?? ['no result'])[0]]
-    return [m[1] === 'true' && Math.abs(Number(m[2])) < 0.5 && Number(m[3]) < 0.5 && m[4] === 'true' && m[5] === 'true', m[0]]
+  ['the Reach: the Founders dome: you stand in it, and its recording gives Hearth part of the song', async () => {
+    const out = await run('reach', ['--zerogtest', '--talkauto'], /ZEROGTEST/)
+    const m = out.match(/ZEROGTEST standing (\w+), recording read (\w+), learned (\w+)/)
+    return [Boolean(m) && m[1] === 'true' && m[2] === 'true' && m[3] === 'true', m ? m[0] : 'no ZEROGTEST line']
   }],
   ['the Reach: into the pond with a splash, float, dive under (the view goes under too), come back up', async () => {
     const out = await run('reach', ['--swimtest'], /SWIMTEST/)
@@ -356,7 +350,7 @@ const checks = [
   }],
   ['the Reach: the story by teleport, mine to Engine to the end, the Engine waiting for its five-part song', async () => {
     const out = await run('reach', ['--storytest', '--talkauto'], /ENDING done|STORY finished false/, 180000)
-    const want = ['STORY songlines placed 6 of 6 []', 'STORY songline mine read true, learned true', 'STORY recorder learned true', 'STORY vault open true',
+    const want = ['STORY songlines placed 7 of 7 []', 'STORY songline mine read true, learned true', 'STORY recorder learned true', 'STORY vault open true',
       'STORY core carried true, learned true, cradle carving true', 'STORY engine door open true',
       'STORY song gate held true', 'STORY song lights 4 then 0, entry glow 1.0 0.0 0.0, tuned 1.122 0.749', 'STORY sung ["Glass", "Ember", "Iron", "Rain", "Deep"]', 'STORY boots on 4 kinds', 'STORY weather hearth 0.00 0.65 1.00, verdance 1.00, cloud first true, strikes 1', 'STORY air on the hull 0.51 0.00', 'STORY outpost lodes 34, cut 60, pack up 80, beacon true, unpaid false, taken down true', 'STORY wrong song broke true, clock leapt 12', 'STORY finished true', 'ENDING done']
     const missing = want.filter((w) => !out.includes(w))

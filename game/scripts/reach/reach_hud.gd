@@ -495,7 +495,7 @@ func _process(dt: float) -> void:
 	# The helmet's glass while walking about (not in the seat, not by a
 	# fire, not waking).
 	var on_foot: bool = p != null and p.enabled and not (s and s.piloted)
-	_visor.visible = on_foot and not p.third
+	_visor.visible = on_foot
 	if on_foot:
 		var vp := _visor.get_viewport_rect().size
 		_visor_mat.set_shader_parameter("aspect", Vector2(vp.x / maxf(vp.y, 1.0), 1.0))

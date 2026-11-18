@@ -79,7 +79,7 @@ const MUTTER := {
 ## What they say once you have found something out (a fact in the ship
 ## log), each once a morning, ahead of their usual lines.
 const KNOWS := {
-	"mara": [["hearth_zerog", "Saw you in the Zero-G cave. You kept your breakfast down? Good pilot."], ["verd_renn", "Renn is alive? Bring her home, if she will come."], ["ash_core", "What is that humming in your pack? It sets my teeth on edge."]],
+	"mara": [["hearth_zerog", "You found the old dome? Gran said the Founders used to sit in there and argue about words."], ["verd_renn", "Renn is alive? Bring her home, if she will come."], ["ash_core", "What is that humming in your pack? It sets my teeth on edge."]],
 	"fen": [["hearth_meteor", "You went out in the falling stones? I watch them from the porch. Brave, or foolish."], ["ph_moves", "You saw it move, did you not? I knew it. Nobody believes me."], ["ph_photo", "A photograph holds it still? Ha. I should have thought of that."]],
 	"miner": [["hearth_songline", "You played the recording down there? I have been walking past it for years."]],
 	"hauler": [["hearth_rimrun", "You flew my Rim Run! Most pilots clip ring six. The lookout wall is closer than it looks."], ["ash_vex", "Vex? She still owes me a crate of bolts. Tell her I said so."], ["verd_renn", "Renn. Huh. Thought we had lost her with the Aster."]],

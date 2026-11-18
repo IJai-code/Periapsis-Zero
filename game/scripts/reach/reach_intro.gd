@@ -184,6 +184,7 @@ func play() -> void:
 	ex.process_mode = Node.PROCESS_MODE_DISABLED
 	sys.running = false
 	sys.t = T0
+	Flow.hold_tier = true
 	_cam.make_current()
 	# The frame stays Hearthstone's the whole way (the explorer, asleep by
 	# the fire, holds it): the camera may fly anywhere, and no world is
@@ -256,6 +257,7 @@ func play() -> void:
 	reach.hud.visible = hud_was
 	reach.hud.blackout()
 	sys.running = true
+	Flow.hold_tier = false
 	_cam.queue_free()
 	finished.emit()
 	queue_free.call_deferred()

@@ -27,7 +27,7 @@ const SCENES := {
 	"reach": "res://scenes/reach.tscn",
 }
 
-var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1, "third_person": false, "echoes": true}
+var settings := {"music": 0.6, "sfx": 0.8, "mouse": 1.0, "invert": false, "cinematic": false, "tier_web": -1, "tier_desktop": -1, "tier_lite": -1, "echoes": true}
 var _music: AudioStreamPlayer
 var _busy := false
 ## A chapter's starting beat, from a test link or `-- --beat`.
@@ -385,6 +385,10 @@ func _thin(mi: MultiMeshInstance3D) -> void:
 	var full := int(mi.get_meta("pz_full", mi.multimesh.instance_count))
 	mi.multimesh.visible_instance_count = -1 if detail_share() >= 0.999 else maxi(1, int(full * detail_share()))
 
+## Held while a film plays: a tier step is itself a hitch, and the film's
+## heaviest seconds should not decide the game's quality.
+var hold_tier := false
+
 func _adapt(dt: float) -> void:
 	if dt > 0.05 and "--longframes" in OS.get_cmdline_user_args():
 		var r := get_tree().get_first_node_in_group("reach_root")
@@ -418,6 +422,11 @@ func _adapt(dt: float) -> void:
 			int(_worst_ms), _hitches], true)
 		_worst_ms = 0.0
 		_hitches = 0
+	if hold_tier:
+		_low_t = 0.0
+		_high_t = 0.0
+		_crawl_t = 0.0
+		return
 	_cool -= span
 	# Smooth is the point (a flight game at 35 fps reads as lag), so the
 	# floor is high: under 48 for two seconds steps the quality down.

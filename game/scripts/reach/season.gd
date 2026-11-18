@@ -75,7 +75,7 @@ const CHALLENGES := {
 	"rest": ["rest", 2, 500, "Rest at a campfire twice"],
 	"photos": ["photo", 5, 500, "Take 5 photographs"],
 	"faraway": ["supernova_away", 1, 900, "Watch the Lantern fall from any world but Hearth"],
-	"cave": ["zerog", 1, 700, "Fly all five rings in the Zero-G cave"],
+	"cave": ["zerog", 1, 700, "Play the recording in the Founders' dome"],
 	"wave": ["wave", 3, 600, "Wave (K) to another traveller's echo 3 times"],
 }
 

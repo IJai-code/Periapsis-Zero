@@ -98,7 +98,7 @@ Five parts, each behind its world's hardest thing, all knowledge (saved):
 | Part | Where | Fact |
 |---|---|---|
 | glass | the Phantom's shrine recording (lock the moon, fly there) | `song_phantom` |
-| ember | carved past the fifth ring of the Zero-G cave | `song_hearth` |
+| ember | the recording in the Founders' dome | `song_hearth` |
 | iron | carved on the core's cradle in the Aster's vault (drones) | `song_ashfall` |
 | rain | the high pillar's recording, top of the pillar city | `song_verdance` |
 | deep | Abe's log aboard the Tern, 300 m over the Nadir | `song_nadir` |
@@ -360,19 +360,26 @@ after 6 s without sight of you, 160 m from home, or once you are in the
 Kestrel, and fly back to their loops. Every hit flashes red and jolts the
 view. `--ashtest` checks the pits and the hunt.
 
-### The Zero-G cave
+### The Founders' dome
 
-No rings. A great boulder hangs at the top of the dome (nothing holds it
-up in there), and on its underside the Founders carved Hearth's part of
-the Engine's song, where only someone floating can read it. You walk in
-and float, rise with Space, sink with Shift, move with W A S D the way you
-look; let go and the suit brings you to a gentle stop (3.5 m/s^2), and no
-faster than 4 m/s inside; its jets use no fuel there. The visor marks the
-carving; E reads it (`song_hearth`, `hearth_zerog`). `--zerogtest` checks
-the float, the stop and the reading; beat `reach/zerog` looks up at it.
+A hollow of rock on Hearth's crater floor, warm-lit inside, where the
+Founders left the recording that gives Hearth's part of the Engine's song
+(`Lore.SONGLINES.dome`: `song_hearth`, `hearth_zerog`). Walk in and play it
+with E, as every other recording. It was a zero-gravity cave with rings to
+fly through (2026-10 to 2026-11): players found it hard to steer and it
+had no reason to be there, so it went. The class and the landmark keep
+the old name (`ZeroGCave`, "zerog") for the save. `--zerogtest` checks
+standing in it and playing it; beat `reach/zerog` looks at the recording.
 
-Third person sits over the right shoulder (`Explorer.THIRD_OFFSET`), so
-the way ahead is not behind your own back; beat `reach/third`.
+There is no third person on foot (removed 2026-11-17: it hid the way
+ahead and added nothing). The Kestrel's outside view (V in the seat)
+stays.
+
+The opening film holds the quality tier while it plays (`Flow.hold_tier`:
+a step is a hitch, and its heaviest seconds should not set the game's
+quality), and the mist is laid at most every 1.5 s (a fast camera laid it
+every frame). Under Chrome's CPU throttle at six times, on the floor tier,
+the film runs at 33 to 48 fps.
 
 ### The giant and the mist
 

@@ -158,6 +158,7 @@ var _puff_mat: ShaderMaterial
 var _laid_at := Vector3.INF
 var _laid_on := ""
 var mist := 0.0
+var _lay_wait := 0.0
 
 func _mist(cam: Camera3D, dt: float, b: ReachBody, under: bool) -> void:
 	var want := 0.0
@@ -177,7 +178,12 @@ func _mist(cam: Camera3D, dt: float, b: ReachBody, under: bool) -> void:
 		_puffs.reparent(b.node, false)
 		_laid_at = Vector3.INF
 	var local := b.node.global_transform.affine_inverse() * cam.global_position
-	if b.key != _laid_on or local.distance_to(_laid_at) > 35.0:
+	# Laid again after 35 m, but not more than every second and a half:
+	# a fast camera (the opening film's dive into the crater) laid it
+	# every frame, 168 asks of the terrain each.
+	_lay_wait -= dt
+	if b.key != _laid_on or (local.distance_to(_laid_at) > 35.0 and _lay_wait <= 0.0):
+		_lay_wait = 1.5
 		_laid_on = b.key
 		_laid_at = local
 		_lay(b, local)
